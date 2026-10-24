@@ -330,3 +330,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 2026-10-24 · session F-011 · active
 - Decision: Runtime: solid-js 1.9, @tauri-apps/api 2.12 (whole app bundle 5.4 KB gz). Dev: typescript 7.0, vite 8.3, vite-plugin-solid, @biomejs/biome 2.6, vitest 5.0, jsdom, @solidjs/testing-library, @playwright/test 1.64, jscpd, knip, @types/node. All MIT, Apache-2.0 or ISC; added through add_dep.py (Dep-Added trailers on the branch).
 - Why: the stack in 01-architecture.md#stack-decided and the checks verify.sh calls.
+
+## D-067 · Tauri 2 crate tree approved, with the LLVM-exception licence
+2026-10-24 · Jay · active
+- Decision: Jay approves adding `tauri` 2 (about 381 crates, including the native build crates embed-resource, iana-time-zone-haiku, system-deps and vswhom-sys) to `lecter-app`, plus `tauri-build` 2 as its build dependency. This is an exception to the 30-crate limit (D-041). Jay also allows the licence `Apache-2.0 WITH LLVM-exception` (target-lexicon), so F-012 may add it to `deny.toml`'s allow list. Since `add_dep.py` has no build-dependency flag, F-012 may add `tauri-build` to `[build-dependencies]` by hand, with a `Dep-Added` trailer. F-012 may also add `"app"` to the root `Cargo.toml` members.
+- Why: D-001 picks Tauri 2, and the app shell, and everything in M0 that needs it, depends on this. The LLVM exception only makes Apache-2.0 more permissive.
+- Instead of: blocking F-012.
+- Revisit if: Tauri's tree grows a copyleft licence or the crate count roughly doubles.
