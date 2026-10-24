@@ -26,3 +26,8 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 
 ## Learned
 
+- pnpm and verify need Node 24 (D-061): put a `node` link to `/usr/bin/node-24` first on `PATH`; pnpm runs scripts with whichever `node` is first.
+- In the sandbox, add_dep.py fails with a read-only "store operation lock" unless `XDG_RUNTIME_DIR` points at a writable dir (e.g. `$TMPDIR/xdg-run`).
+- `installMockCore` is serialised by `page.addInitScript`: keep it self-contained (no imported values at runtime).
+- Vitest runs without globals, so component tests call `afterEach(cleanup)` themselves.
+- Biome's `noInvalidGridAreas` misfires on valid multi-row `grid-template-areas`; place grid items by line numbers instead.
