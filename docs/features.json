@@ -216,9 +216,10 @@
    "protected": [
     "clippy.toml"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 1004
+   "priority": 1004,
+   "base": "5e897b23a97e06edcbbfeeec78f3b8438c3a29d5"
   },
   {
    "id": "F-001",
