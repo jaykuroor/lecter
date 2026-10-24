@@ -5,7 +5,7 @@
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (`.github/workflows/ci.yml`: lint, test on 3 OSes, e2e) is written but has never run: it runs on the first push.
 - Milestone: M0 · last done: F-013 CI workflows and verify stages · gate: none
-- Resume point (2026-10-24 10:14): merging CI-c1493e7 from fix/ci-c1493e7
+- Resume point (2026-10-24 10:18): CI-c1493e7 merged; F-014 reviewed (PASS), waiting for green main
 - In progress: none
 - Watch out: CI is UNVERIFIED until the first push (macOS and Windows especially; check that setup-node reads engines.node and that pnpm/action-setup accepts package_json_file). init.sh and verify.sh now pick Node 24 (falling back to /usr/bin/node-24, D-061), keep pnpm's store out of the checkout and run every lint in worktrees; the same env block is inline in both (D-074), so jscpd may flag it. Something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI starts inside the Claude sandbox, so window checks and F-016's e2e-app need Jay. Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally (`--stage e2e` fails here). The sandbox can't push (no ~/.ssh); Jay pushes.
 - Next up: F-014 code-health gates, then the M0 spikes.
@@ -13,6 +13,10 @@
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · CI-c1493e7 · done
+- Fixed: Vitest crashed on windows-2025 (`file:///@solid-refresh` is an invalid file URL) because vite-plugin-solid injected HMR in test mode. ui/vite.config.ts sets `solid({ hot: mode !== "test" })`; dev and e2e keep HMR. UNVERIFIED-ON: windows until the next CI run.
+- Code: ui/vite.config.ts · Tests: ui/test/solid-refresh.test.ts
 
 ### 2026-10-24 · CI-5e897b2 · done
 - Fixed: windows-2025 CI failed installing gitleaks because Git Bash's sha256sum prefixed the hash with `\`. install-gitleaks.sh now hashes via stdin; a test rejects passing a path. UNVERIFIED-ON: windows until the next CI run.
