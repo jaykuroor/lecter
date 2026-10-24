@@ -3,16 +3,23 @@
 <!-- Everything above the LOG marker is printed into every session by scripts/next.py. Keep it ≤ 40 lines and true. Rewrite it each session (handoff skill). -->
 
 ## Current state
-- Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload (Jay confirmed). `pnpm -C ui run dev` shows the same shell in a browser against the mocked core. `cargo run -p lecter-cli` prints `lecter 0.0.1`.
-- Milestone: M0 · last done: F-012 Tauri shell and dev script · gate: none
-- Resume point (2026-10-24 02:21): merging F-013 from feat/F-013-ci-workflows
+- Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (`.github/workflows/ci.yml`: lint, test on 3 OSes, e2e) is written but has never run: it runs on the first push.
+- Milestone: M0 · last done: F-013 CI workflows and verify stages · gate: none
+- Resume point (2026-10-24 02:30): F-013 merged; next dispatch F-014
 - In progress: none
-- Watch out: No GUI starts inside the Claude sandbox (AF_UNIX socket denied, Xvfb can't lock /tmp), so window checks and F-016's e2e-app need Jay outside it. Release builds need `--features custom-protocol` (they refuse to compile without it). UI commands need Node 24 first on PATH (D-061): link `node` to /usr/bin/node-24 in a temp dir and prepend it; verify.sh/worktree_setup.sh don't do it yet. Install with `--store-dir ~/.local/share/pnpm/store` and `XDG_RUNTIME_DIR=$TMPDIR`; worktree_setup.sh still leaves a ~300 MB `.pnpm-store/` in worktrees that gitleaks flags. verify.sh's `[ -d .git ]` is false in worktrees, so private/tests-guard/deps/secrets lints skip there. Playwright browsers download from storage.googleapis.com (not allowlisted); WebKit isn't installed. Pushing from the sandbox fails (no ~/.ssh); Jay pushes.
-- Next up: F-014 code-health gates, then F-013 and the M0 spikes.
+- Watch out: CI is UNVERIFIED until the first push (macOS and Windows especially; check that setup-node reads engines.node and that pnpm/action-setup accepts package_json_file). init.sh and verify.sh now pick Node 24 (falling back to /usr/bin/node-24, D-061), keep pnpm's store out of the checkout and run every lint in worktrees; the same env block is inline in both (D-074), so jscpd may flag it. Something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI starts inside the Claude sandbox, so window checks and F-016's e2e-app need Jay. Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally (`--stage e2e` fails here). The sandbox can't push (no ~/.ssh); Jay pushes.
+- Next up: F-014 code-health gates, then the M0 spikes.
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-013 · done
+- Built: CI pipeline (`lint`, `test` on ubuntu-24.04/macos-15/windows-2025, `e2e`) calling `verify.sh --stage`, a shared setup action, a checksum-verified gitleaks, and weekly grouped Dependabot. `init.sh --check` lists missing tools with Fedora commands. init and verify work on system Node 22 and in worktrees.
+- Code: .github/workflows/ci.yml, .github/actions/setup/action.yml, .github/scripts/install-gitleaks.sh, .github/dependabot.yml, scripts/init.sh, scripts/verify.sh
+- Tests: crates/harness/tests/ci.rs (14 tests)
+- Decisions: D-072 to D-074
+- Follow-ups: first push confirms CI (UNVERIFIED-ON macos, windows)
 
 ### 2026-10-24 · F-012 · done
 - Built: `app/` Tauri 2 shell (crate lecter-app) with identifier, version and the SEC-30 CSP; one capability granting only `allow-app-info`; devtools off in release; release builds can't compile without the embedded UI. `lecter_core::identity::APP_ID` is read from tauri.conf.json at build time. `scripts/dev.sh` runs Vite and the app with hot reload.
