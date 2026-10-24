@@ -91,10 +91,11 @@
     "ui/biome.json",
     "ui/playwright.config.ts"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
    "priority": 1001,
-   "try": "Run pnpm -C ui run dev and open the printed URL: the shell renders against the mocked core"
+   "try": "Run pnpm -C ui run dev and open the printed URL: the shell renders against the mocked core",
+   "base": "006501c21a80d99a43905a6102bef59fbfa0aa79"
   },
   {
    "id": "F-012",

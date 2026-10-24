@@ -294,3 +294,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: The v0 `lecter` binary prints exactly `lecter 0.0.1\n` on stdout, nothing on stderr, and exits 0 whatever its arguments. Every crate has a smoke test asserting its package name (`lecter-<folder>`) and that its version is SemVer `x.y.z`. Repo-shape tests (members, version, toolchain, deny.toml, .gitattributes) live in `crates/harness/tests/workspace.rs`. `deny.toml` spells "Unicode" in the policy as SPDX `Unicode-3.0` and `Unicode-DFS-2016`, and turns off warnings for allowed licences nothing uses yet.
 - Why: This is the conventional `--version` shape. Ignoring arguments keeps the stub free of v1 command parsing. The harness is the workspace's test crate.
 - Instead of: printing only `0.0.1`; adding a `toml` dev-dependency for the shape tests (std string parsing is enough).
+
+## D-061 · Use `node-24` explicitly; system `node` stays on 22
+2026-10-23 · Jay · active
+- Decision: Jay's system `node` keeps pointing at 22.23.1. Sessions run the UI toolchain on Node 24.18.0 through `/usr/bin/node-24` (for example a `node` link to it at the front of `PATH` for pnpm commands), without changing the system `node`.
+- Why: Jay asked to use `node-24` and leave `node` alone.
+- Instead of: repointing the system `node` at 24.
+- Revisit if: Fedora makes 24 the default `node`.
