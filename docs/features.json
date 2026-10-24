@@ -133,7 +133,7 @@
     "security"
    ],
    "try": "Run scripts/dev.sh: one Lecter window opens",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 1002,
    "base": "ffd65fa9b1b339deafc71bbe757357585e4028e9"

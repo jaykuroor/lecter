@@ -3,16 +3,23 @@
 <!-- Everything above the LOG marker is printed into every session by scripts/next.py. Keep it ≤ 40 lines and true. Rewrite it each session (handoff skill). -->
 
 ## Current state
-- Runs: `cargo run -p lecter-cli` prints `lecter 0.0.1`. `pnpm -C ui run dev` shows the app frame (headerbar, rail, document, side panel, status line) against a mocked core. No Tauri app yet.
-- Milestone: M0 · last done: F-011 UI scaffold with mocked core · gate: none
-- Resume point (2026-10-24 01:56): merging F-012 from feat/F-012-tauri-shell
+- Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload (Jay confirmed). `pnpm -C ui run dev` shows the same shell in a browser against the mocked core. `cargo run -p lecter-cli` prints `lecter 0.0.1`.
+- Milestone: M0 · last done: F-012 Tauri shell and dev script · gate: none
+- Resume point (2026-10-24 02:10): F-012 merged; next dispatch F-014
 - In progress: none
-- Watch out: UI commands need Node 24 first on PATH (D-061): `ln -s /usr/bin/node-24 $TMPDIR/n24/node` and prepend that dir; verify.sh/worktree_setup.sh don't do it yet. Install with `--store-dir ~/.local/share/pnpm/store` and `XDG_RUNTIME_DIR=$TMPDIR`, or pnpm writes a 300 MB `.pnpm-store/` into the checkout (not git-ignored; the secret scan flags it). verify.sh's `[ -d .git ]` is false in worktrees, so private/tests-guard/deps/secrets lints skip there. Playwright browsers download from storage.googleapis.com (not in the sandbox allowlist); WebKit isn't installed, so `test:e2e` / `verify --full` fail locally.
-- Next up: F-012 Tauri app shell, then F-013, F-014 and the M0 spikes.
+- Watch out: No GUI starts inside the Claude sandbox (AF_UNIX socket denied, Xvfb can't lock /tmp), so window checks and F-016's e2e-app need Jay outside it. Release builds need `--features custom-protocol` (they refuse to compile without it). UI commands need Node 24 first on PATH (D-061): link `node` to /usr/bin/node-24 in a temp dir and prepend it; verify.sh/worktree_setup.sh don't do it yet. Install with `--store-dir ~/.local/share/pnpm/store` and `XDG_RUNTIME_DIR=$TMPDIR`; worktree_setup.sh still leaves a ~300 MB `.pnpm-store/` in worktrees that gitleaks flags. verify.sh's `[ -d .git ]` is false in worktrees, so private/tests-guard/deps/secrets lints skip there. Playwright browsers download from storage.googleapis.com (not allowlisted); WebKit isn't installed. Pushing from the sandbox fails (no ~/.ssh); Jay pushes.
+- Next up: F-014 code-health gates, then F-013 and the M0 spikes.
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-012 · done
+- Built: `app/` Tauri 2 shell (crate lecter-app) with identifier, version and the SEC-30 CSP; one capability granting only `allow-app-info`; devtools off in release; release builds can't compile without the embedded UI. `lecter_core::identity::APP_ID` is read from tauri.conf.json at build time. `scripts/dev.sh` runs Vite and the app with hot reload.
+- Code: app/, crates/core/build.rs, crates/core/src/identity.rs, scripts/dev.sh, deny.toml (licence line by Jay), root Cargo.toml members
+- Tests: app/tests/config.rs, app/tests/capabilities.rs, app/src/ipc unit tests, crates/core identity tests, crates/harness/tests/workspace.rs (licence list)
+- Decisions: D-067 to D-071
+- Follow-ups: kit fixes in "Watch out"; SEC-36 isolation pattern is measured by its own feature
 
 ### 2026-10-24 · F-011 · done
 - Built: `ui/` with Vite + SolidJS + strict TypeScript, Biome, Vitest (jsdom) and Playwright. A mocked core replaces Tauri IPC (`ui/e2e/mock-core/`); one `@smoke` test loads the app shell in Chromium. Node 24.18.0 and pnpm 12.15.0 pinned in package.json.
