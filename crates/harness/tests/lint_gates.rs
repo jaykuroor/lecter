@@ -75,6 +75,15 @@ fn python() -> Result<&'static str, String> {
         .ok_or_else(|| "no python3 or python on PATH".to_string())
 }
 
+/// A Python command whose stdout and stderr are UTF-8 on every OS. On Windows Python writes to a
+/// pipe in the ANSI code page (cp1252), which can't encode the `→` the check scripts print, so the
+/// script crashes with UnicodeEncodeError (CI-4ec6f29). `text` reads the output back as UTF-8.
+fn py() -> Result<Command, String> {
+    let mut cmd = Command::new(python()?);
+    cmd.env("PYTHONUTF8", "1").env("PYTHONIOENCODING", "utf-8");
+    Ok(cmd)
+}
+
 /// The `path = "..."` entries of a clippy.toml's disallowed-methods, in order.
 fn disallowed(conf: &str) -> Vec<String> {
     conf.lines()
@@ -266,7 +275,7 @@ fn no_other_crate_overrides_the_root_clippy_toml() -> Result<(), String> {
 fn check_arch_passes_on_the_workspace_and_fails_on_a_core_to_ai_edge() -> Result<(), String> {
     let root = repo_root();
     let script = root.join("scripts/check_arch.py");
-    let real = run(Command::new(python()?).arg(&script).arg("--root").arg(&root))?;
+    let real = run(py()?.arg(&script).arg("--root").arg(&root))?;
     assert!(
         real.status.success() && text(&real).contains("ARCH OK"),
         "check_arch fails on the workspace:\n{}",
@@ -296,7 +305,7 @@ fn check_arch_passes_on_the_workspace_and_fails_on_a_core_to_ai_edge() -> Result
         None => format!("{manifest}\n[dependencies]\n{edge}"),
     };
     write(&core, &manifest)?;
-    let bad = run(Command::new(python()?).arg(&script).arg("--root").arg(&ws.0))?;
+    let bad = run(py()?.arg(&script).arg("--root").arg(&ws.0))?;
     assert!(!bad.status.success(), "check_arch passed a core → ai edge:\n{}", text(&bad));
     assert!(text(&bad).contains("lecter-core → lecter-ai"), "wrong failure:\n{}", text(&bad));
     Ok(())
@@ -306,7 +315,7 @@ fn check_arch_passes_on_the_workspace_and_fails_on_a_core_to_ai_edge() -> Result
 fn check_size_passes_on_the_scaffold_and_fails_past_500_lines() -> Result<(), String> {
     let root = repo_root();
     let script = root.join("scripts/check_size.py");
-    let real = run(Command::new(python()?).arg(&script).arg("--root").arg(&root))?;
+    let real = run(py()?.arg(&script).arg("--root").arg(&root))?;
     assert!(real.status.success(), "check_size fails on the scaffold:\n{}", text(&real));
 
     let ws = Scratch::new("size")?;
@@ -321,7 +330,7 @@ fn check_size_passes_on_the_scaffold_and_fails_past_500_lines() -> Result<(), St
     ] {
         write(&ws.0.join(rel), &body(n))?;
     }
-    let out = run(Command::new(python()?).arg(&script).arg("--root").arg(&ws.0))?;
+    let out = run(py()?.arg(&script).arg("--root").arg(&ws.0))?;
     let report = text(&out);
     assert!(!out.status.success(), "check_size passed 501-line files:\n{report}");
     for long in ["crates/x/src/long.rs", "ui/src/long.ts", "ui/src/Long.tsx"] {
