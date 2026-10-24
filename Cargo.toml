@@ -21,8 +21,3 @@ expect_used = "deny"
 todo = "deny"
 unimplemented = "deny"
 dbg_macro = "deny"
-
-[profile.release]
-lto = "thin"
-codegen-units = 1
-strip = "debuginfo"
