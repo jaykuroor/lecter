@@ -1,0 +1,4637 @@
+{
+ "version": 2,
+ "rules": "Change only through scripts/feature.py. Build sessions change status and notes; planning sessions add features and edit todo or blocked ones. Never delete or reword acceptance criteria of a started feature; raise a question instead. Every feature has 2-8 criteria, owned paths (globs) and the evidence it must attach.",
+ "milestones": [
+  "M0",
+  "M0.5",
+  "M1",
+  "M2",
+  "M3",
+  "M4",
+  "M5",
+  "M6"
+ ],
+ "gates": {},
+ "features": [
+  {
+   "id": "F-010",
+   "milestone": "M0",
+   "kind": "feature",
+   "title": "Rust workspace scaffold",
+   "spec": [
+    "01-architecture.md#repository-layout",
+    "01-architecture.md#dependency-policy",
+    "16-ci-cd.md#versions-and-changelog"
+   ],
+   "depends_on": [],
+   "paths": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "crates/**",
+    "tests/fake-provider/**",
+    "deny.toml",
+    "clippy.toml",
+    "rustfmt.toml",
+    ".gitattributes"
+   ],
+   "acceptance": [
+    "The Cargo workspace SHALL contain every crate in 01-architecture.md#repository-layout plus tests/fake-provider (crate lecter-fake-provider), each named lecter-<folder> and each with one real smoke test.",
+    "Root Cargo.toml SHALL set [workspace.package] version = \"0.0.1\" and edition 2024, and rust-toolchain.toml SHALL pin the current stable toolchain (recorded in one D-entry with the Node and pnpm pins).",
+    "deny.toml SHALL allow exactly the licences in 01-architecture.md#dependency-policy and deny unknown registries and git sources; `cargo deny check licenses bans sources` SHALL pass.",
+    "crates/cli SHALL build a `lecter` binary that prints its version and nothing else (v1 builds the rest).",
+    ".gitattributes SHALL force LF for text files and mark binary fixtures as binary."
+   ],
+   "verify": [
+    "cargo nextest run --workspace",
+    "cargo deny check licenses bans sources"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "protected": [
+    "deny.toml",
+    "clippy.toml",
+    "rustfmt.toml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1000
+  },
+  {
+   "id": "F-011",
+   "milestone": "M0",
+   "kind": "feature",
+   "title": "UI scaffold with mocked core",
+   "spec": [
+    "01-architecture.md#stack-decided",
+    "14-quality.md#test-layers",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [],
+   "paths": [
+    "ui/**"
+   ],
+   "acceptance": [
+    "ui/ SHALL be Vite + SolidJS + TypeScript (strict, no implicit any) with Biome, Vitest and Playwright, and package.json `packageManager` and `engines` SHALL pin the Node LTS and pnpm versions.",
+    "ui/package.json SHALL provide the scripts `build`, `test:e2e`, `test:e2e:smoke`, `lint:dup` (jscpd) and `lint:unused` (knip) that scripts/verify.sh calls.",
+    "ui/e2e/mock-core/ SHALL provide a mocked core that Playwright tests use instead of Tauri IPC.",
+    "One Playwright test tagged @smoke SHALL load the app shell against the mocked core in Chromium.",
+    "ui/playwright.config.ts SHALL set retries: 0 and the smoke project to Chromium only."
+   ],
+   "verify": [
+    "pnpm -C ui run build",
+    "pnpm -C ui run test:e2e:smoke"
+   ],
+   "evidence": [
+    "log:e2e-smoke"
+   ],
+   "protected": [
+    "ui/biome.json",
+    "ui/playwright.config.ts"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1001,
+   "try": "Run pnpm -C ui run dev and open the printed URL: the shell renders against the mocked core"
+  },
+  {
+   "id": "F-012",
+   "milestone": "M0",
+   "kind": "feature",
+   "title": "Tauri shell and dev script",
+   "spec": [
+    "01-architecture.md#processes",
+    "13-security.md#tauri-and-ipc",
+    "01-architecture.md#app-identity-and-migration"
+   ],
+   "depends_on": [
+    "F-010",
+    "F-011"
+   ],
+   "paths": [
+    "app/**",
+    "scripts/dev.sh"
+   ],
+   "acceptance": [
+    "app/ SHALL be a Tauri 2 shell (crate lecter-app) whose tauri.conf.json sets identifier io.github.jaykuroor.lecter, version 0.0.1 and the CSP of SEC-30 exactly.",
+    "The main window's capability file SHALL list only the commands the shell uses (SEC-31), and no capability SHALL name a remote URL.",
+    "Release builds SHALL have devtools disabled (SEC-34); a test SHALL assert the release config.",
+    "WHEN `scripts/dev.sh` runs THEN the app SHALL open one window showing the UI shell with hot reload.",
+    "The identifier SHALL appear only in app/tauri.conf.json; Rust SHALL read it at build time into lecter_core::identity::APP_ID."
+   ],
+   "verify": [
+    "cargo build -p lecter-app",
+    "scripts/dev.sh (manual: window opens)"
+   ],
+   "evidence": [
+    "log:app-build"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Run scripts/dev.sh: one Lecter window opens",
+   "status": "todo",
+   "notes": "",
+   "priority": 1002
+  },
+  {
+   "id": "F-013",
+   "milestone": "M0",
+   "kind": "feature",
+   "title": "CI workflows and verify stages",
+   "spec": [
+    "16-ci-cd.md#rules",
+    "16-ci-cd.md#ciyml-every-push-to-main-every-pull-request-manual-dispatch",
+    "16-ci-cd.md#dependabotyml"
+   ],
+   "depends_on": [
+    "F-010",
+    "F-011",
+    "F-012"
+   ],
+   "paths": [
+    ".github/**",
+    "scripts/init.sh"
+   ],
+   "acceptance": [
+    ".github/workflows/ci.yml SHALL implement the `lint`, `test` (ubuntu-24.04, macos-15, windows-2025) and `e2e` jobs of 16-ci-cd.md with those exact names, each calling `scripts/verify.sh --stage <name>`.",
+    "Every workflow SHALL start with `permissions: contents: read` and pin third-party actions by commit SHA with the version in a comment.",
+    "ci.yml SHALL use the concurrency group from 16-ci-cd.md, cache Rust and pnpm, and install cargo-nextest, cargo-deny and a checksum-verified gitleaks binary.",
+    ".github/dependabot.yml SHALL group weekly updates for github-actions, cargo and npm (ui/) with at most 3 open PRs each.",
+    "WHEN `scripts/init.sh` runs on a clean checkout THEN it SHALL install dependencies, build, and print `INIT OK`; `scripts/init.sh --check` SHALL list missing tools with Fedora install commands."
+   ],
+   "verify": [
+    "scripts/verify.sh",
+    "act or a pushed run (UNVERIFIED-ON macos, windows until CI runs)"
+   ],
+   "evidence": [
+    "log:verify"
+   ],
+   "protected": [
+    ".github/workflows/**",
+    "scripts/verify.sh"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1003
+  },
+  {
+   "id": "F-014",
+   "milestone": "M0",
+   "kind": "feature",
+   "title": "Code-health gates",
+   "spec": [
+    "01-architecture.md#repository-layout",
+    "14-quality.md#protected-checks",
+    "01-architecture.md#app-identity-and-migration"
+   ],
+   "depends_on": [
+    "F-010",
+    "F-011"
+   ],
+   "paths": [
+    "clippy.toml",
+    "Cargo.toml",
+    "ui/knip.json",
+    "ui/.jscpd.json"
+   ],
+   "acceptance": [
+    "Workspace lints SHALL deny clippy::unwrap_used and clippy::expect_used outside tests (clippy.toml allow-unwrap-in-tests and allow-expect-in-tests).",
+    "clippy.toml disallowed-methods SHALL ban std::thread::sleep, std::fs::* and std::net::* blocking calls in async crates, and Tauri's identifier-based path helpers (app_config_dir, app_data_dir, app_cache_dir, app_local_data_dir); a fixture SHALL show each is reported.",
+    "scripts/check_arch.py SHALL pass on the real workspace, and a test fixture with a core → ai dependency SHALL make it fail.",
+    "jscpd (lint:dup) SHALL fail on a copied block of 30+ lines in ui/src or crates, and knip (lint:unused) SHALL fail on an unused export.",
+    "scripts/check_size.py SHALL pass on the scaffold (file-length limit 500 lines for .rs, .ts and .tsx outside generated files)."
+   ],
+   "verify": [
+    "scripts/verify.sh --stage lint"
+   ],
+   "evidence": [
+    "log:lint"
+   ],
+   "protected": [
+    "clippy.toml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1004
+  },
+  {
+   "id": "F-001",
+   "milestone": "M0",
+   "kind": "spike",
+   "title": "Spike: CodeMirror lecture surface performance",
+   "spec": [
+    "01-architecture.md#stack-decided",
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-011"
+   ],
+   "paths": [
+    "spikes/editor/**"
+   ],
+   "acceptance": [
+    "A throwaway prototype in spikes/editor SHALL render a 200-slide fixture with KaTeX blocks, gloss widgets and Vim mode in one CodeMirror buffer.",
+    "A script SHALL measure p99 keystroke-to-paint and heap size in Chromium and WebKit (Playwright) and record the numbers and a go/no-go in a D-entry."
+   ],
+   "verify": [
+    "see spikes/editor/README.md"
+   ],
+   "evidence": [
+    "log:measurement"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1005
+  },
+  {
+   "id": "F-005",
+   "milestone": "M0",
+   "kind": "spike",
+   "title": "Spike: parse-worker OS sandboxes",
+   "spec": [
+    "13-security.md#untrusted-files",
+    "01-architecture.md#processes"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    "spikes/os-sandbox/**"
+   ],
+   "acceptance": [
+    "spikes/os-sandbox SHALL be a workspace test crate whose child process, once sandboxed, cannot open a network socket, read a file other than its input, or exceed 1 GB, each asserted by a test.",
+    "The tests SHALL implement Linux seccomp + Landlock, a macOS sandbox profile, and a Windows AppContainer or restricted token plus job object, selected by cfg(target_os).",
+    "Linux results SHALL be measured locally; macOS and Windows results SHALL come from the `test` CI job (report UNVERIFIED-ON until CI runs), and the go/no-go per OS SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-spike-os-sandbox"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1006
+  },
+  {
+   "id": "F-006",
+   "milestone": "M0",
+   "kind": "spike",
+   "title": "Spike: PDFium bundling per OS",
+   "spec": [
+    "01-architecture.md#stack-decided",
+    "13-security.md#supply-chain",
+    "01-architecture.md#packaging"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    "spikes/pdfium/**"
+   ],
+   "acceptance": [
+    "A script SHALL download the pinned PDFium build for linux-x64, linux-arm64, macos-universal, windows-x64 and windows-arm64 and verify each SHA-256 before use (SEC-51).",
+    "A workspace test SHALL load PDFium dynamically through pdfium-render and extract page-1 text from a synthetic fixture PDF on all three CI OSes.",
+    "The D-entry SHALL record the source, version, licence, per-OS size and how the bundle step will place the library."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-spike-pdfium"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "ask_jay_first": "PDFium is a native binary. Approve the source (for example bblanchon/pdfium-binaries, BSD/Apache) and pinning by SHA-256 per OS?",
+   "status": "todo",
+   "notes": "",
+   "priority": 1007
+  },
+  {
+   "id": "F-002",
+   "milestone": "M0",
+   "kind": "spike",
+   "title": "Spike: vision parsing quality and cost",
+   "spec": [
+    "04-parsing.md#reading-ladder",
+    "13-security.md#unbounded-consumption-outbound-requests"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    "spikes/vision/**"
+   ],
+   "acceptance": [
+    "Through scripts/live.sh, the spike SHALL compare provider fast vision with PaddleOCR-VL (CPU) on private manifest items of every kind_guess plus public synthetic files, reporting CER, LaTeX exact match, seconds per page, tokens and cost per page, by manifest id only.",
+    "The script SHALL respect LECTER_LIVE_RPM and LECTER_LIVE_RPD, back off on 429 with retry-after and jitter, and save partial results at the daily cap.",
+    "The results and the recommended parsing.vision default SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "see spikes/vision/README.md"
+   ],
+   "evidence": [
+    "log:measurement"
+   ],
+   "needs": [
+    "live-keys"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1008
+  },
+  {
+   "id": "F-003",
+   "milestone": "M0",
+   "kind": "spike",
+   "title": "Spike: retrieval eval",
+   "spec": [
+    "05-retrieval.md#search"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    "spikes/retrieval/**"
+   ],
+   "acceptance": [
+    "On a synthetic fixture course (1 textbook, 10 lectures, 40 questions with reference passages) the spike SHALL measure recall@5 and p95 latency for BM25, BM25+local-small, BM25+local-quality and BM25+provider embeddings (provider calls through scripts/live.sh, rate-limited).",
+    "The chosen index.embeddings default SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "see spikes/retrieval/README.md"
+   ],
+   "evidence": [
+    "log:measurement"
+   ],
+   "needs": [
+    "live-keys"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1009
+  },
+  {
+   "id": "F-004",
+   "milestone": "M0",
+   "kind": "spike",
+   "title": "Spike: TTFT per provider with caching",
+   "spec": [
+    "06-ai-harness.md#latency-tactics-all-required",
+    "05-retrieval.md#tiers"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    "spikes/ttft/**"
+   ],
+   "acceptance": [
+    "Through scripts/live.sh, the spike SHALL measure TTFT and cached-token ratio for a 20k-token prefix on each provider with a key (Gemini at least), cold vs warm connection, cached vs uncached, within the free-tier rate limits.",
+    "The results SHALL be recorded in a D-entry, naming providers that were skipped for lack of a key."
+   ],
+   "verify": [
+    "see spikes/ttft/README.md"
+   ],
+   "evidence": [
+    "log:measurement"
+   ],
+   "needs": [
+    "live-keys"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 1010
+  },
+  {
+   "id": "F-015",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Harness binary and test home",
+   "spec": [
+    "14-quality.md#test-layers",
+    "01-architecture.md#debug-only-test-hooks"
+   ],
+   "depends_on": [
+    "F-010"
+   ],
+   "paths": [
+    "crates/harness/**",
+    "crates/core/src/paths*",
+    "crates/core/src/testenv*"
+   ],
+   "acceptance": [
+    "crates/harness SHALL build a `lecter-harness` binary that is never part of an app bundle.",
+    "`lecter-harness <command> --json` SHALL print one JSON result per call, and errors as `{\"error\":{\"code\":…}}` with the codes of 18-contracts.md#error-codes and a non-zero exit.",
+    "WHEN LECTER_TEST_HOME is set THEN every config, data and cache path SHALL resolve under it (unit-tested), so tests never touch real folders.",
+    "`lecter-harness version` SHALL print the workspace version; each later skeleton feature adds its own subcommand."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-harness"
+   ],
+   "evidence": [
+    "harness:version"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2011
+  },
+  {
+   "id": "F-016",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Drive the real app: embedded WebDriver",
+   "spec": [
+    "01-architecture.md#debug-only-test-hooks",
+    "14-quality.md#evidence",
+    "16-ci-cd.md#ciyml-every-push-to-main-every-pull-request-manual-dispatch",
+    "13-security.md#tauri-and-ipc"
+   ],
+   "depends_on": [
+    "F-012",
+    "F-013"
+   ],
+   "paths": [
+    "app/**",
+    "tests/e2e/**",
+    "scripts/e2e-app.sh"
+   ],
+   "acceptance": [
+    "tauri-plugin-wdio-webdriver SHALL be a dependency only under cfg(debug_assertions) (or the test-hooks feature) and registered only there.",
+    "tests/e2e/ SHALL hold a WebdriverIO setup (@wdio/tauri-service, driverProvider embedded) and one flow that opens the app and asserts the shell is visible.",
+    "`scripts/e2e-app.sh [flow] [--evidence F-0NN]` SHALL build the debug app, run the flows (under xvfb-run on Linux, with WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 set only for these debug runs so WebKitGTK works inside the Claude Code sandbox) and, with --evidence, save screenshots and app.log to .evidence/F-0NN/.",
+    "LECTER_TEST_PICK and LECTER_TEST_TRUST SHALL answer native dialogs in debug builds, proven by a flow that opens a folder without a dialog appearing.",
+    "ci.yml SHALL gain the `e2e-app` job (ubuntu-24.04 under xvfb-run, macos-15, windows-2025) and the `release-check` job running scripts/check_release_binary.sh.",
+    "A release-profile build SHALL pass scripts/check_release_binary.sh, and a debug build SHALL fail it (both asserted)."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh shell --evidence F-016",
+    "scripts/check_release_binary.sh"
+   ],
+   "evidence": [
+    "screenshot:shell",
+    "log:e2e-app"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "protected": [
+    ".github/workflows/ci.yml",
+    "tests/e2e/wdio.conf.ts"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2012
+  },
+  {
+   "id": "F-017",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "IPC contract and generated bindings",
+   "spec": [
+    "18-contracts.md#ipc",
+    "18-contracts.md#validation",
+    "18-contracts.md#error-codes",
+    "13-security.md#tauri-and-ipc"
+   ],
+   "depends_on": [
+    "F-012",
+    "F-015"
+   ],
+   "paths": [
+    "app/src/ipc/**",
+    "app/src/bin/export-bindings.rs",
+    "ui/src/core/**",
+    "ui/e2e/mock-core/**"
+   ],
+   "acceptance": [
+    "Commands and events SHALL be declared once in app/src/ipc/ and exported with tauri-specta (or the maintained alternative chosen in a D-entry) to ui/src/core/bindings.ts.",
+    "`cargo run -p lecter-app --bin export-bindings -- --check` SHALL exit non-zero when the committed bindings are stale, and scripts/verify.sh SHALL run it (bindings-stale).",
+    "ui/e2e/mock-core SHALL implement the generated Commands type, so a mock that drifts from the contract fails `tsc`.",
+    "IpcError SHALL carry the codes of 18-contracts.md#error-codes, and a shared validator SHALL reject strings, lists and payloads over the limits in 18-contracts.md#validation with E_INVALID_ARGUMENT (tested per limit).",
+    "The overhead of Tauri's isolation pattern per call SHALL be measured and the decision recorded in a D-entry (SEC-36)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-app ipc",
+    "cargo run -p lecter-app --bin export-bindings -- --check"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2013
+  },
+  {
+   "id": "F-018",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: open a course folder",
+   "spec": [
+    "02-course-folder.md",
+    "13-security.md#tauri-and-ipc",
+    "18-contracts.md#commands-and-events-per-area-v0"
+   ],
+   "depends_on": [
+    "F-016",
+    "F-017"
+   ],
+   "paths": [
+    "crates/core/src/course/**",
+    "app/src/ipc/course.rs",
+    "ui/src/features/course/**",
+    "tests/e2e/flows/open-course*"
+   ],
+   "acceptance": [
+    "`course_open` SHALL accept only a folder chosen in a dialog this session (or LECTER_TEST_PICK) and return its lectures/ and slides/ listing.",
+    "Paths SHALL be canonicalised and symlinks escaping the course root rejected with E_NOT_TRUSTED (tested with a symlink fixture).",
+    "The opened course SHALL appear in the UI, proven by a WebDriver flow with a screenshot.",
+    "`lecter-harness course open <dir>` SHALL print the same listing as JSON."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh open-course --evidence F-018"
+   ],
+   "evidence": [
+    "screenshot:course-open",
+    "harness:course-open"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Open a course folder (any folder with a slides/ subfolder)",
+   "status": "todo",
+   "notes": "",
+   "priority": 2014
+  },
+  {
+   "id": "F-019",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: parse one text PDF in the worker",
+   "spec": [
+    "01-architecture.md#processes",
+    "18-contracts.md#worker-protocol",
+    "04-parsing.md#reading-ladder",
+    "13-security.md#untrusted-files"
+   ],
+   "depends_on": [
+    "F-006",
+    "F-018"
+   ],
+   "paths": [
+    "crates/parse/**",
+    "crates/core/src/worker/**",
+    "tests/fixtures/pdf/**"
+   ],
+   "acceptance": [
+    "lecter-parse SHALL run as a child process speaking the worker protocol of 18-contracts.md#worker-protocol, with a Hello version check.",
+    "A synthetic text-layer fixture PDF SHALL become blocks with page numbers and reading order via PDFium (tested).",
+    "WHEN the worker crashes or exceeds 60 s THEN the core SHALL mark the file E_PARSE_FAILED and stay responsive (tested with a crashing fixture).",
+    "`lecter-harness parse <pdf>` SHALL print the blocks as JSON."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse",
+    "cargo nextest run -p lecter-core worker"
+   ],
+   "evidence": [
+    "harness:parse"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2015
+  },
+  {
+   "id": "F-020",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: lecture buffer with Vim keys",
+   "spec": [
+    "09-ui.md#layout",
+    "10-keymap.md#move-everywhere",
+    "03-lecture-files.md#body",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-001",
+    "F-019"
+   ],
+   "paths": [
+    "ui/src/features/buffer/**",
+    "app/src/ipc/lecture.rs",
+    "crates/core/src/lecture/**"
+   ],
+   "acceptance": [
+    "Opening a lecture SHALL render its parsed slide blocks in one CodeMirror buffer styled from docs/design/components.md (slide heading, block).",
+    "j, k, gg and G SHALL move between blocks in normal mode, and i and Esc SHALL switch insert and normal mode (WebDriver flow).",
+    "The 200-slide fixture lecture SHALL keep keystroke-to-paint p99 under 8 ms in the mocked-core Playwright check.",
+    "A screenshot of the buffer SHALL be attached and compared with docs/design/reference/buffer-*.png by the reviewer."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh buffer --evidence F-020",
+    "pnpm -C ui run test:e2e -- buffer"
+   ],
+   "evidence": [
+    "screenshot:buffer",
+    "perf"
+   ],
+   "try": "Open a lecture; move with j/k, type with i, leave with Esc",
+   "status": "todo",
+   "notes": "",
+   "priority": 2016
+  },
+  {
+   "id": "F-021",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: save, journal, survive restart",
+   "spec": [
+    "01-architecture.md#document-model",
+    "18-contracts.md#journal-records"
+   ],
+   "depends_on": [
+    "F-020"
+   ],
+   "paths": [
+    "crates/core/src/journal/**",
+    "crates/core/src/save/**"
+   ],
+   "acceptance": [
+    "Every edit SHALL be appended to the journal in the record format of 18-contracts.md#journal-records within 250 ms.",
+    "The .md SHALL be written via temp file, fsync and atomic rename, debounced to 1 s.",
+    "WHEN the app is killed with SIGKILL during typing THEN after restart the lecture SHALL contain all but at most 250 ms of the typed text (tests/crash test).",
+    "A WebDriver flow SHALL type, quit, relaunch and see the text."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core journal",
+    "scripts/e2e-app.sh restart --evidence F-021"
+   ],
+   "evidence": [
+    "log:crash-test",
+    "screenshot:after-restart"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Type a note, quit Lecter, reopen: the note is still there",
+   "status": "todo",
+   "notes": "",
+   "priority": 2017
+  },
+  {
+   "id": "F-022",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: BM25 search",
+   "spec": [
+    "05-retrieval.md#indexing",
+    "05-retrieval.md#search"
+   ],
+   "depends_on": [
+    "F-019"
+   ],
+   "paths": [
+    "crates/index/**",
+    "app/src/ipc/search.rs",
+    "ui/src/features/find/**"
+   ],
+   "acceptance": [
+    "Blocks of opened lectures SHALL be indexed into Tantivy with lecture, slide and block id fields.",
+    "`search_find` SHALL return ranked hits with block ids, and `:find <words>` SHALL list them in the UI (WebDriver flow).",
+    "`lecter-harness search <course> <query>` SHALL print the hits as JSON."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index",
+    "scripts/e2e-app.sh find --evidence F-022"
+   ],
+   "evidence": [
+    "screenshot:find",
+    "harness:search"
+   ],
+   "try": "Type :find and a word from the lecture",
+   "status": "todo",
+   "notes": "",
+   "priority": 2018
+  },
+  {
+   "id": "F-023",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: one gloss from the fake provider",
+   "spec": [
+    "06-ai-harness.md#loop",
+    "07-providers.md#adapters-one-rust-trait",
+    "03-lecture-files.md#body"
+   ],
+   "depends_on": [
+    "F-020"
+   ],
+   "paths": [
+    "crates/ai/**",
+    "tests/fake-provider/**",
+    "app/src/ipc/ai.rs",
+    "ui/src/features/gloss/**"
+   ],
+   "acceptance": [
+    "A minimal Provider trait and the fake provider SHALL stream an answer over a typed channel (GlossStream).",
+    "Pressing a on a block, typing a question and Enter SHALL stream a gloss under that block, rendered at most once per animation frame.",
+    "The gloss SHALL be saved in the lecture as a fenced div per 03-lecture-files.md#body.",
+    "Esc SHALL cancel the stream within 50 ms (fake provider with a slow stream).",
+    "`lecter-harness prompt <lecture> <block> <question>` SHALL print the assembled request as JSON."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai",
+    "scripts/e2e-app.sh gloss --evidence F-023"
+   ],
+   "evidence": [
+    "screenshot:gloss-streaming",
+    "screenshot:gloss-done",
+    "harness:prompt"
+   ],
+   "try": "Press a on a line, ask something: a sample answer streams in under it",
+   "status": "todo",
+   "notes": "",
+   "priority": 2019
+  },
+  {
+   "id": "F-024",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton: one described figure",
+   "spec": [
+    "08-figures.md#tiers"
+   ],
+   "depends_on": [
+    "F-023"
+   ],
+   "paths": [
+    "ui/src/features/figures/**",
+    "crates/ai/src/figures/**"
+   ],
+   "acceptance": [
+    "A fake-provider answer containing an fnplot spec SHALL render as a plot inside the gloss, computed locally.",
+    "The figure SHALL make no network request (asserted in the WebDriver flow).",
+    "The plot SHALL re-render only when scrolled into view."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh figure --evidence F-024"
+   ],
+   "evidence": [
+    "screenshot:figure"
+   ],
+   "try": "Ask for a plot in the tutorial-style sample: a plot appears in the answer",
+   "status": "todo",
+   "notes": "",
+   "priority": 2020
+  },
+  {
+   "id": "F-025",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Perf harness and budget gate",
+   "spec": [
+    "14-quality.md#performance-budgets",
+    "14-quality.md#perf-harness",
+    "16-ci-cd.md#ciyml-every-push-to-main-every-pull-request-manual-dispatch"
+   ],
+   "depends_on": [
+    "F-020",
+    "F-023"
+   ],
+   "paths": [
+    "tests/perf/**",
+    "tests/fixtures/lectures/**"
+   ],
+   "acceptance": [
+    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone.",
+    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (×1.5 for timing with --ci).",
+    "Budgets whose feature doesn't exist yet SHALL print PENDING and fail once their starting milestone is done.",
+    "ci.yml SHALL gain the required `perf` job, and a deliberately slowed fixture SHALL make it fail (asserted in a test of budgets.sh).",
+    "The first measurements SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "tests/perf/budgets.sh"
+   ],
+   "evidence": [
+    "perf"
+   ],
+   "protected": [
+    "tests/perf/budgets.json",
+    ".github/workflows/ci.yml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2021
+  },
+  {
+   "id": "F-026",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Skeleton end to end on three OSes",
+   "spec": [
+    "14-quality.md#test-layers",
+    "16-ci-cd.md#ciyml-every-push-to-main-every-pull-request-manual-dispatch"
+   ],
+   "depends_on": [
+    "F-018",
+    "F-019",
+    "F-020",
+    "F-021",
+    "F-022",
+    "F-023",
+    "F-024",
+    "F-025"
+   ],
+   "paths": [
+    "tests/e2e/flows/skeleton*"
+   ],
+   "acceptance": [
+    "One WebdriverIO flow SHALL open a course, parse a text PDF into a lecture, edit it, restart, search it, ask for a gloss and show a figure, with a screenshot per step.",
+    "The flow SHALL pass in the `e2e-app` job on Linux, macOS and Windows (CI run linked in the report).",
+    "The same path SHALL pass through lecter-harness commands with no GUI."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh skeleton --evidence F-026"
+   ],
+   "evidence": [
+    "screenshot:skeleton-gloss",
+    "log:e2e-app"
+   ],
+   "try": "Walk the whole path: open course, open lecture, edit, restart, search, ask, see a plot",
+   "status": "todo",
+   "notes": "",
+   "priority": 2022
+  },
+  {
+   "id": "F-027",
+   "milestone": "M0.5",
+   "kind": "spike",
+   "title": "Spike: Vim and IME in three webviews",
+   "spec": [
+    "10-keymap.md#move-everywhere",
+    "09-ui.md#editing"
+   ],
+   "depends_on": [
+    "F-020"
+   ],
+   "paths": [
+    "tests/e2e/flows/ime*",
+    "spikes/ime/**"
+   ],
+   "acceptance": [
+    "A WebDriver flow SHALL drive Vim normal and insert mode and a synthetic IME composition (compositionstart, update, end) in WebKitGTK, WKWebView and WebView2 via the e2e-app job, asserting the composed text lands once and normal-mode keys don't fire during composition.",
+    "Failures per webview and the workaround chosen SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh ime"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2023
+  },
+  {
+   "id": "F-028",
+   "milestone": "M0.5",
+   "kind": "spike",
+   "title": "Spike: figure iframe sandbox per webview",
+   "spec": [
+    "08-figures.md#sandbox-pages",
+    "13-security.md#tauri-and-ipc"
+   ],
+   "depends_on": [
+    "F-016"
+   ],
+   "paths": [
+    "spikes/figure-frame/**",
+    "tests/e2e/flows/figure-frame*"
+   ],
+   "acceptance": [
+    "A sandboxed iframe (allow-scripts only) with the CSP of 08-figures.md#sandbox-pages SHALL be proven, in all three webviews via the e2e-app job, unable to fetch the network, read parent DOM, use storage or call IPC.",
+    "A busy loop in the frame SHALL be detected within 2 s by the watchdog approach chosen, and the result per webview SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh figure-frame"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 2024
+  },
+  {
+   "id": "F-030",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Settings core: schema, JSONC, precedence",
+   "spec": [
+    "12-settings-theme-onboarding.md#settings"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    "crates/core/src/settings/**"
+   ],
+   "acceptance": [
+    "Settings types SHALL be defined in Rust and SHALL generate settings.schema.json (a test fails if the committed schema is stale).",
+    "The resolved value of a key SHALL follow prompt > role > course > global > default and report its source (property test).",
+    "WHEN a config file contains unknown keys THEN they SHALL be preserved on write and reported once.",
+    "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core settings"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 3025
+  },
+  {
+   "id": "F-031",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Global folders per OS",
+   "spec": [
+    "01-architecture.md#app-identity-and-migration",
+    "12-settings-theme-onboarding.md#settings"
+   ],
+   "depends_on": [
+    "F-030"
+   ],
+   "paths": [
+    "crates/core/src/paths*",
+    "crates/core/src/identity*"
+   ],
+   "acceptance": [
+    "The global config folder SHALL be ~/.config/lecter on Linux and macOS ($XDG_CONFIG_HOME/lecter if set) and %APPDATA%\\lecter on Windows; data and cache SHALL use the folders in the identity table.",
+    "All locations SHALL derive from identity::APP_DIR_NAME and identity::KEYCHAIN_SERVICE (\"lecter\"); a test SHALL show they are unchanged when APP_ID changes.",
+    "WHEN no global config exists THEN first-run state SHALL be detected and onboarding flagged."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core paths"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 3026
+  },
+  {
+   "id": "F-032",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Identity migration hook",
+   "spec": [
+    "01-architecture.md#app-identity-and-migration"
+   ],
+   "depends_on": [
+    "F-031"
+   ],
+   "paths": [
+    "crates/core/src/identity*"
+   ],
+   "acceptance": [
+    "WHEN identity::LEGACY_APP_IDS lists an old identifier with data in its locations THEN identity::migrate() SHALL move it to the stable locations (tested with a temp home).",
+    "migrate() SHALL run at most once, recorded in state.db meta.",
+    "Keychain items under a legacy service SHALL be re-saved under \"lecter\" (tested against a mock keychain)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core identity"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 3027
+  },
+  {
+   "id": "F-033",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Trust screen and read-only courses",
+   "spec": [
+    "02-course-folder.md#trust",
+    "13-security.md#folder-access"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    "crates/core/src/course/trust*",
+    "ui/src/features/trust/**"
+   ],
+   "acceptance": [
+    "WHEN a folder is opened for the first time THEN a trust screen SHALL show counts of slides, sources and lectures, the provider that receives excerpts, and web search state.",
+    "WHEN the user picks Open read-only THEN AI, indexing and scripted figures SHALL be disabled for that course.",
+    "Trust SHALL be stored per absolute path in trusted.jsonc; WHEN the path changes THEN trust SHALL be asked again.",
+    "Every file API used by the AI SHALL reject paths outside the course root after canonicalisation (property test with .., symlinks, UNC and Windows separators)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core trust",
+    "scripts/e2e-app.sh trust --evidence F-033"
+   ],
+   "evidence": [
+    "screenshot:trust-screen"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Open a new folder: the trust screen shows what Lecter will read",
+   "status": "todo",
+   "notes": "",
+   "priority": 3028
+  },
+  {
+   "id": "F-034",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Course details form",
+   "spec": [
+    "02-course-folder.md#course-details-coursejsonc"
+   ],
+   "depends_on": [
+    "F-033"
+   ],
+   "paths": [
+    "crates/core/src/course/details*",
+    "ui/src/features/course/details*"
+   ],
+   "acceptance": [
+    "After trusting, a form SHALL collect name, code, term, professor, icon, colour and folder mapping, pre-filled from folder names.",
+    "Saving SHALL write .lecter/course.jsonc with \"version\": 1."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh course-details --evidence F-034"
+   ],
+   "evidence": [
+    "screenshot:course-details"
+   ],
+   "try": "Fill in the course details after trusting a folder",
+   "status": "todo",
+   "notes": "",
+   "priority": 3029
+  },
+  {
+   "id": "F-035",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Course rail",
+   "spec": [
+    "09-ui.md#layout",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-034"
+   ],
+   "paths": [
+    "ui/src/features/rail/**"
+   ],
+   "acceptance": [
+    "The rail SHALL show one icon per course, styled per docs/design/components.md#rail.",
+    "Dragging an icon SHALL reorder courses and persist the order.",
+    "Ctrl/Cmd-1..9 SHALL switch to the nth course."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- rail",
+    "scripts/e2e-app.sh rail --evidence F-035"
+   ],
+   "evidence": [
+    "screenshot:rail"
+   ],
+   "try": "Add two courses; reorder them by dragging; switch with Ctrl-1/Ctrl-2",
+   "status": "todo",
+   "notes": "",
+   "priority": 3030
+  },
+  {
+   "id": "F-036",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Sidebar",
+   "spec": [
+    "09-ui.md#layout"
+   ],
+   "depends_on": [
+    "F-035"
+   ],
+   "paths": [
+    "ui/src/features/sidebar/**"
+   ],
+   "acceptance": [
+    "The sidebar SHALL list Dashboard, Lectures (with date and open-item badges), Lists and Sources.",
+    "␣e SHALL toggle the sidebar, and the sidebar SHALL be fully navigable with j/k, Enter and the arrow keys."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- sidebar"
+   ],
+   "evidence": [
+    "screenshot:sidebar"
+   ],
+   "try": "Toggle the sidebar with Space e and open a lecture from it",
+   "status": "todo",
+   "notes": "",
+   "priority": 3031
+  },
+  {
+   "id": "F-037",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Key engine",
+   "spec": [
+    "10-keymap.md",
+    "09-ui.md#hint-bar-and-keystroke-overlay"
+   ],
+   "depends_on": [
+    "F-026",
+    "F-030"
+   ],
+   "paths": [
+    "ui/src/keys/**"
+   ],
+   "acceptance": [
+    "The engine SHALL support modes, multi-key sequences and counts, with bindings that depend on the focused element type.",
+    "␣ SHALL open which-key with all groups after 300 ms.",
+    "Bindings SHALL load from defaults then keymaps.jsonc; WHEN two bindings clash in one context THEN a warning SHALL list both.",
+    "Key handling SHALL never await the core; the keystroke_p99_ms budget SHALL hold on the 200-slide fixture."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/keys",
+    "pnpm -C ui run test:e2e -- keys"
+   ],
+   "evidence": [
+    "perf",
+    "screenshot:which-key"
+   ],
+   "try": "Press Space and wait: which-key lists every group",
+   "status": "todo",
+   "notes": "",
+   "priority": 3032
+  },
+  {
+   "id": "F-038",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Hint bar",
+   "spec": [
+    "09-ui.md#hint-bar-and-keystroke-overlay",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-037"
+   ],
+   "paths": [
+    "ui/src/features/hints/**"
+   ],
+   "acceptance": [
+    "The hint bar SHALL list the keys valid for the focused element and mode, updating on every cursor move.",
+    "Hint detail SHALL follow ui.hintBar: full also shows mouse actions, compact shows keys only, off hides it."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- hints"
+   ],
+   "evidence": [
+    "screenshot:hint-bar-slide-line",
+    "screenshot:hint-bar-gloss"
+   ],
+   "try": "Move between a slide line and a gloss: the hint bar changes",
+   "status": "todo",
+   "notes": "",
+   "priority": 3033
+  },
+  {
+   "id": "F-039",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Keystroke overlay and read mode",
+   "spec": [
+    "09-ui.md#hint-bar-and-keystroke-overlay"
+   ],
+   "depends_on": [
+    "F-037"
+   ],
+   "paths": [
+    "ui/src/features/overlay/**"
+   ],
+   "acceptance": [
+    "The overlay SHALL show typed keys, including pending sequences, and fade after 1.5 s; ui.keystrokes SHALL toggle it.",
+    "Read mode (␣ur, :read) SHALL hide rail, sidebar, hint bar and overlay, and restore them on exit."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- overlay"
+   ],
+   "evidence": [
+    "screenshot:keystroke-overlay",
+    "screenshot:read-mode"
+   ],
+   "try": "Type keys and watch the overlay; try Space u r for read mode",
+   "status": "todo",
+   "notes": "",
+   "priority": 3034
+  },
+  {
+   "id": "F-040",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Command line",
+   "spec": [
+    "10-keymap.md#commands"
+   ],
+   "depends_on": [
+    "F-037",
+    "F-030"
+   ],
+   "paths": [
+    "ui/src/features/cmdline/**"
+   ],
+   "acceptance": [
+    ": SHALL open a command line with completion for commands and setting keys.",
+    "`:set key=value` SHALL validate against the schema and reject invalid values with the reason.",
+    "`:set key?` SHALL show the value and its source."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- cmdline"
+   ],
+   "evidence": [
+    "screenshot:cmdline"
+   ],
+   "try": "Type :set ui.keystrokes? and :set ui.keystrokes=false",
+   "status": "todo",
+   "notes": "",
+   "priority": 3035
+  },
+  {
+   "id": "F-041",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Command palette and quick switcher",
+   "spec": [
+    "09-ui.md#slack-and-discord-behaviours",
+    "10-keymap.md#global-os-conventions"
+   ],
+   "depends_on": [
+    "F-040",
+    "F-036"
+   ],
+   "paths": [
+    "ui/src/features/palette/**"
+   ],
+   "acceptance": [
+    "Ctrl/Cmd-Shift-P SHALL list every command with its key.",
+    "Ctrl/Cmd-K SHALL fuzzy-jump to courses, lectures, lists and sources."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- palette"
+   ],
+   "evidence": [
+    "screenshot:palette"
+   ],
+   "try": "Press Ctrl-K and jump to a lecture by typing part of its name",
+   "status": "todo",
+   "notes": "",
+   "priority": 3036
+  },
+  {
+   "id": "F-042",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Theme tokens and the bundled Lecter theme",
+   "spec": [
+    "12-settings-theme-onboarding.md#theme",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    "ui/src/theme/**",
+    "crates/core/src/theme/**"
+   ],
+   "acceptance": [
+    "Every token in docs/design/tokens.json SHALL exist as a CSS custom property, light and dark, and the bundled \"Lecter\" theme SHALL use exactly those values.",
+    "A lint check SHALL fail on hard-coded colours in ui/src components.",
+    "The app SHALL follow the OS dark/light preference when no GTK theme applies."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/theme",
+    "scripts/e2e-app.sh theme --evidence F-042"
+   ],
+   "evidence": [
+    "screenshot:theme-light",
+    "screenshot:theme-dark"
+   ],
+   "try": "Switch the system between light and dark: Lecter follows",
+   "status": "todo",
+   "notes": "",
+   "priority": 3037
+  },
+  {
+   "id": "F-043",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Follow the GTK theme on Linux",
+   "spec": [
+    "12-settings-theme-onboarding.md#theme"
+   ],
+   "depends_on": [
+    "F-042"
+   ],
+   "paths": [
+    "crates/core/src/theme/gtk*"
+   ],
+   "acceptance": [
+    "On Linux the app SHALL read theme name, colour scheme and accent through the settings portal, with gsettings as fallback, and update live.",
+    "@define-color values from the theme's gtk-4.0/gtk.css (else gtk-3.0) SHALL map to Lecter tokens; missing names SHALL fall back to the Lecter theme (tested with fixture themes).",
+    "Settings SHALL list installed GTK themes from the standard folders and apply a chosen one."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core theme"
+   ],
+   "evidence": [
+    "screenshot:gtk-theme",
+    "log:tests"
+   ],
+   "try": "Change your GTK theme or accent: Lecter follows within a second",
+   "status": "todo",
+   "notes": "",
+   "priority": 3038
+  },
+  {
+   "id": "F-044",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Bundled themes on macOS and Windows",
+   "spec": [
+    "12-settings-theme-onboarding.md#theme"
+   ],
+   "depends_on": [
+    "F-042"
+   ],
+   "paths": [
+    "ui/src/theme/bundled/**",
+    "crates/core/src/theme/bundled*"
+   ],
+   "acceptance": [
+    "On macOS and Windows the app SHALL follow the OS accent colour.",
+    "The bundled themes (Adwaita, Yaru, Breeze, Catppuccin, Gruvbox, Nord; light and dark) SHALL be selectable, and a GTK theme folder in ~/.themes SHALL also be offered."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core theme"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 3039
+  },
+  {
+   "id": "F-045",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Settings window (schema-driven)",
+   "spec": [
+    "12-settings-theme-onboarding.md#settings"
+   ],
+   "depends_on": [
+    "F-030",
+    "F-037"
+   ],
+   "paths": [
+    "ui/src/features/settings/**"
+   ],
+   "acceptance": [
+    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Privacy, Advanced, with search.",
+    "A change SHALL write the correct file (global or course) and apply immediately.",
+    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter)."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- settings"
+   ],
+   "evidence": [
+    "screenshot:settings"
+   ],
+   "try": "Open Settings with Ctrl-, and change the hint bar detail",
+   "status": "todo",
+   "notes": "",
+   "priority": 3040
+  },
+  {
+   "id": "F-046",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Status line",
+   "spec": [
+    "09-ui.md#layout",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-037"
+   ],
+   "paths": [
+    "ui/src/features/status/**"
+   ],
+   "acceptance": [
+    "The status line SHALL show mode, course/lecture, slide, active model, lecture cost and a job spinner, styled per docs/design/components.md#status-line.",
+    "The mode segment SHALL change colour per mode (NORMAL, INSERT, VISUAL, COMMAND)."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- statusline"
+   ],
+   "evidence": [
+    "screenshot:status-line"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 3041
+  },
+  {
+   "id": "F-050",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Block model and lossless round trip",
+   "spec": [
+    "01-architecture.md#document-model",
+    "03-lecture-files.md"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    "crates/core/src/doc/**",
+    "tests/fixtures/lectures/**"
+   ],
+   "acceptance": [
+    "Reading then writing any lecture file in tests/fixtures/lectures SHALL produce byte-identical output.",
+    "Every slide block, gloss and note SHALL have a stable id, and edits elsewhere SHALL never change an id.",
+    "Property tests SHALL show anchors survive random insert and delete sequences.",
+    "Unknown content in files Lecter didn't write SHALL be preserved."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core doc"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4042
+  },
+  {
+   "id": "F-051",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Journal replay rules",
+   "spec": [
+    "18-contracts.md#journal-records"
+   ],
+   "depends_on": [
+    "F-050"
+   ],
+   "paths": [
+    "crates/core/src/journal/**"
+   ],
+   "acceptance": [
+    "Replay SHALL apply only records after the last checkpoint whose base matches the file on disk.",
+    "WHEN the base doesn't match THEN the records SHALL be kept aside and the external-edit flow started.",
+    "A truncated last line SHALL be ignored (fuzzed).",
+    "The crash_loss_ms budget SHALL hold in tests/crash on Linux."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core journal"
+   ],
+   "evidence": [
+    "log:crash-test",
+    "perf"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4043
+  },
+  {
+   "id": "F-052",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Parse worker sandbox: Linux",
+   "spec": [
+    "13-security.md#untrusted-files"
+   ],
+   "depends_on": [
+    "F-005",
+    "F-019"
+   ],
+   "paths": [
+    "crates/parse/src/sandbox/linux*",
+    "crates/core/src/worker/**"
+   ],
+   "acceptance": [
+    "On Linux the worker SHALL apply seccomp and Landlock before reading input: no network, read access to its one input file only.",
+    "The worker SHALL run with a 1 GB memory limit and a 60 s time limit per file.",
+    "Tests SHALL prove a socket(), an open() of another file and a 2 GB allocation each fail inside the worker."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse sandbox"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4044
+  },
+  {
+   "id": "F-053",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Parse worker sandbox: macOS",
+   "spec": [
+    "13-security.md#untrusted-files"
+   ],
+   "depends_on": [
+    "F-052"
+   ],
+   "paths": [
+    "crates/parse/src/sandbox/macos*"
+   ],
+   "acceptance": [
+    "On macOS the worker SHALL run under a sandbox profile denying network and file reads other than its input.",
+    "The same three escape tests as Linux SHALL pass in the macos-15 CI job (UNVERIFIED-ON macos until CI runs)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse sandbox (CI macos-15)"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4045
+  },
+  {
+   "id": "F-054",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Parse worker sandbox: Windows",
+   "spec": [
+    "13-security.md#untrusted-files"
+   ],
+   "depends_on": [
+    "F-052"
+   ],
+   "paths": [
+    "crates/parse/src/sandbox/windows*"
+   ],
+   "acceptance": [
+    "On Windows the worker SHALL run in an AppContainer (or a restricted token) inside a job object with the memory and time limits.",
+    "The same three escape tests SHALL pass in the windows-2025 CI job (UNVERIFIED-ON windows until CI runs)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse sandbox (CI windows-2025)"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4046
+  },
+  {
+   "id": "F-055",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Parse input limits and fuzz targets",
+   "spec": [
+    "13-security.md#untrusted-files"
+   ],
+   "depends_on": [
+    "F-019"
+   ],
+   "paths": [
+    "crates/parse/src/limits*",
+    "crates/parse/fuzz/**"
+   ],
+   "acceptance": [
+    "Zip inputs over 200 MB uncompressed, ratio over 100, over 10,000 entries or with traversal names SHALL be rejected (SEC-02).",
+    "XML SHALL not process DTDs or external entities and SHALL stop past depth 256 (SEC-03).",
+    "Files over the limits.* size, page, pixel or object-depth limits SHALL fail with E_PARSE_FAILED and a reason (SEC-04), one test per limit.",
+    "crates/parse/fuzz SHALL have a target per reader with 5–20 small seed files."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse limits"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4047
+  },
+  {
+   "id": "F-056",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Worker lifecycle and shutdown",
+   "spec": [
+    "17-robustness.md#processes-and-shutdown"
+   ],
+   "depends_on": [
+    "F-019"
+   ],
+   "paths": [
+    "crates/core/src/worker/**",
+    "app/src/shutdown*"
+   ],
+   "acceptance": [
+    "Child workers SHALL die with the app: PR_SET_PDEATHSIG on Linux, a parent-watch pipe on macOS, a kill-on-close job object on Windows (ROB-40), tested by killing the parent.",
+    "Shutdown SHALL flush the journal, write pending saves, cancel jobs and kill workers within 2 s (ROB-41)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core lifecycle"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4048
+  },
+  {
+   "id": "F-057",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "PDF text layer parsing",
+   "spec": [
+    "04-parsing.md#reading-ladder",
+    "04-parsing.md#cases"
+   ],
+   "depends_on": [
+    "F-019"
+   ],
+   "paths": [
+    "crates/parse/src/pdf/**",
+    "tests/corpus/public/text-pdf/**",
+    "tests/corpus/expected/**"
+   ],
+   "acceptance": [
+    "PDF pages SHALL become blocks with reading order, headings, lists and columns from the text layer.",
+    "Math glyph regions SHALL be marked for vision instead of emitted as text.",
+    "The parse_100_pages_ms budget SHALL hold.",
+    "The public text-pdf corpus SHALL meet tests/corpus/thresholds.json, and private manifest items SHALL be reported by id only."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse pdf",
+    "tests/perf/budgets.sh --only parse_100_pages_ms"
+   ],
+   "evidence": [
+    "perf",
+    "log:corpus"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4049
+  },
+  {
+   "id": "F-058",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "PPTX parsing",
+   "spec": [
+    "04-parsing.md#reading-ladder"
+   ],
+   "depends_on": [
+    "F-055"
+   ],
+   "paths": [
+    "crates/parse/src/pptx/**"
+   ],
+   "acceptance": [
+    "PPTX slides SHALL yield text, tables and speaker notes as blocks.",
+    "OMML math SHALL be converted to LaTeX (golden tests).",
+    "Build order SHALL be read from p:timing and p:bldLst and exposed as build steps."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse pptx"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4050
+  },
+  {
+   "id": "F-059",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Image files as pages",
+   "spec": [
+    "04-parsing.md#file-types"
+   ],
+   "depends_on": [
+    "F-055"
+   ],
+   "paths": [
+    "crates/parse/src/image/**"
+   ],
+   "acceptance": [
+    "PNG, JPEG, HEIC, WebP and multi-page TIFF SHALL become pages whose regions go to ladder step 3.",
+    "Images over the pixel limit SHALL fail before decoding (SEC-04)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse image"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4051
+  },
+  {
+   "id": "F-060",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "PDF build-step merging",
+   "spec": [
+    "04-parsing.md#build-steps-pdf"
+   ],
+   "depends_on": [
+    "F-057"
+   ],
+   "paths": [
+    "crates/parse/src/builds/**",
+    "ui/src/features/buffer/builds*"
+   ],
+   "acceptance": [
+    "Consecutive pages with identical title, superset text and additive-only pixel diff SHALL merge into one slide with a stepper, keeping all page numbers.",
+    "]b and [b SHALL step through builds."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse builds",
+    "pnpm -C ui run test:e2e -- builds"
+   ],
+   "evidence": [
+    "screenshot:build-stepper"
+   ],
+   "try": "Open a lecture whose PDF has animation steps: they show as one slide with a stepper",
+   "status": "todo",
+   "notes": "",
+   "priority": 4052
+  },
+  {
+   "id": "F-061",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "New lecture and naming",
+   "spec": [
+    "03-lecture-files.md#new-lecture-fn-new-dashboard-button",
+    "03-lecture-files.md#naming"
+   ],
+   "depends_on": [
+    "F-050",
+    "F-036"
+   ],
+   "paths": [
+    "crates/core/src/lecture/new*",
+    "ui/src/features/lecture-new/**"
+   ],
+   "acceptance": [
+    "␣fn SHALL propose number = max+1, today's date, unlinked slides newest first, and a title from the first slide.",
+    "The file name SHALL follow lectures.namePattern.",
+    "Renaming via sidebar, :rename or F2 SHALL keep all gloss anchors.",
+    "A lecture with no slides SHALL be allowed."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core lecture",
+    "pnpm -C ui run test:e2e -- new-lecture"
+   ],
+   "evidence": [
+    "screenshot:new-lecture"
+   ],
+   "try": "Create a new lecture with Space f n",
+   "status": "todo",
+   "notes": "",
+   "priority": 4053
+  },
+  {
+   "id": "F-062",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Lecture buffer rendering",
+   "spec": [
+    "09-ui.md",
+    "04-parsing.md#reading-ladder",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-050",
+    "F-037",
+    "F-063"
+   ],
+   "paths": [
+    "ui/src/features/buffer/**"
+   ],
+   "acceptance": [
+    "Slide blocks SHALL render KaTeX math (MathML output, trust false) and figures via lecter://.",
+    "Blocks SHALL show confidence borders by tier, with a text badge on low confidence, per docs/design/components.md#block.",
+    "Only visible blocks SHALL be rendered; the keystroke_p99_ms and rss_300_slides_mb budgets SHALL hold."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- buffer",
+    "tests/perf/budgets.sh --only keystroke_p99_ms,rss_300_slides_mb"
+   ],
+   "evidence": [
+    "screenshot:buffer-math",
+    "screenshot:block-low-confidence",
+    "perf"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4054
+  },
+  {
+   "id": "F-063",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "lecter:// image protocol",
+   "spec": [
+    "01-architecture.md#processes",
+    "13-security.md#tauri-and-ipc"
+   ],
+   "depends_on": [
+    "F-019"
+   ],
+   "paths": [
+    "app/src/protocol*",
+    "crates/core/src/cache/**"
+   ],
+   "acceptance": [
+    "Page renders and crops SHALL be served via lecter://cache/<blake3>.<ext> from the content-hash cache, never through JSON IPC.",
+    "Any other lecter:// path (traversal, other folders) SHALL return 404 (SEC-33), tested.",
+    "Only images in view SHALL be requested."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-app protocol"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4055
+  },
+  {
+   "id": "F-064",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Own notes and editing",
+   "spec": [
+    "09-ui.md#editing"
+   ],
+   "depends_on": [
+    "F-062"
+   ],
+   "paths": [
+    "ui/src/features/notes/**"
+   ],
+   "acceptance": [
+    "o and O SHALL open a note below and above the current block.",
+    "Double-click on editable text SHALL enter insert mode at that point; Esc SHALL return to normal mode.",
+    "Mouse selection SHALL show the toolbar Ask, Explain, Flag, Copy."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- notes"
+   ],
+   "evidence": [
+    "screenshot:note",
+    "screenshot:selection-toolbar"
+   ],
+   "try": "Press o under a slide line and write a note; double-click it to edit",
+   "status": "todo",
+   "notes": "",
+   "priority": 4056
+  },
+  {
+   "id": "F-065",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Plain-math input suggestion",
+   "spec": [
+    "09-ui.md#editing",
+    "06-ai-harness.md#latency-tactics-all-required"
+   ],
+   "depends_on": [
+    "F-064"
+   ],
+   "paths": [
+    "ui/src/features/mathinput/**"
+   ],
+   "acceptance": [
+    "Typing plain math (var(x+y), sum(i=1..n), xbar) SHALL show a live LaTeX suggestion accepted with Tab.",
+    "The suggestion SHALL be computed locally with no model call (asserted: no provider request)."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/features/mathinput"
+   ],
+   "evidence": [
+    "screenshot:math-suggestion"
+   ],
+   "try": "Type sum(i=1..n) in a note and press Tab",
+   "status": "todo",
+   "notes": "",
+   "priority": 4057
+  },
+  {
+   "id": "F-066",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Flags",
+   "spec": [
+    "10-keymap.md#on-a-slide-line"
+   ],
+   "depends_on": [
+    "F-062"
+   ],
+   "paths": [
+    "ui/src/features/flags/**",
+    "crates/core/src/doc/flags*"
+   ],
+   "acceptance": [
+    "mm SHALL toggle a flag on the block and ms on the slide.",
+    "Flags SHALL be stored as .flag in the lecture file and survive a restart."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- flags"
+   ],
+   "evidence": [
+    "screenshot:flagged-block"
+   ],
+   "try": "Flag a line with mm",
+   "status": "todo",
+   "notes": "",
+   "priority": 4058
+  },
+  {
+   "id": "F-067",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Jump between flags, doubts and glosses",
+   "spec": [
+    "10-keymap.md#move-everywhere"
+   ],
+   "depends_on": [
+    "F-066"
+   ],
+   "paths": [
+    "ui/src/keys/jumps*"
+   ],
+   "acceptance": [
+    "]f and [f SHALL jump between flags.",
+    "]d [d and ]g [g SHALL jump between doubts and glosses."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- jumps"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4059
+  },
+  {
+   "id": "F-068",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Compare and fix parse",
+   "spec": [
+    "04-parsing.md#reading-ladder"
+   ],
+   "depends_on": [
+    "F-062"
+   ],
+   "paths": [
+    "ui/src/features/compare/**",
+    "crates/core/src/doc/corrections*"
+   ],
+   "acceptance": [
+    "gx SHALL show the original crop beside the rendered parse, per docs/design/components.md#compare-parse.",
+    "i on a slide line SHALL edit it, and the fix SHALL be stored as the parse correction.",
+    "WHEN the fix matches the rendered output THEN the confidence border SHALL be removed."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- gx"
+   ],
+   "evidence": [
+    "screenshot:compare-parse"
+   ],
+   "try": "Press gx on a slide line to compare it with the original",
+   "status": "todo",
+   "notes": "",
+   "priority": 4060
+  },
+  {
+   "id": "F-069",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "File watching and parse cache",
+   "spec": [
+    "04-parsing.md#where-and-when",
+    "17-robustness.md#file-watcher"
+   ],
+   "depends_on": [
+    "F-019",
+    "F-050"
+   ],
+   "paths": [
+    "crates/core/src/watch/**",
+    "crates/core/src/cache/**"
+   ],
+   "acceptance": [
+    "New or changed files in slides/ and sources/ SHALL be parsed in the background, visible slide first.",
+    "Results SHALL be cached by BLAKE3 hash, and an unchanged file SHALL never be parsed twice.",
+    "Events SHALL be debounced and coalesced (ROB-01), and the app's own writes ignored (ROB-02).",
+    "Watching SHALL be capped and SHALL skip node_modules, .git, target, .venv and .lecter/cache (ROB-03)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core watch"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4061
+  },
+  {
+   "id": "F-070",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "External edits and the course lock",
+   "spec": [
+    "17-robustness.md#external-edits",
+    "18-contracts.md#error-codes"
+   ],
+   "depends_on": [
+    "F-069",
+    "F-051"
+   ],
+   "paths": [
+    "crates/core/src/lecture/external*",
+    "crates/core/src/course/lock*",
+    "ui/src/features/conflict/**"
+   ],
+   "acceptance": [
+    "A change on disk to an open lecture SHALL be detected by hash (ROB-10).",
+    "Edits touching different block ids SHALL merge automatically and notify the user (ROB-11).",
+    "Overlapping edits SHALL show both versions and ask, never overwrite silently (ROB-11).",
+    "A second instance opening the same course SHALL get E_LOCKED and a take-over prompt; a stale lock SHALL be taken over after asking (ROB-12)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core external",
+    "scripts/e2e-app.sh conflict --evidence F-070"
+   ],
+   "evidence": [
+    "screenshot:conflict"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Edit an open lecture in another editor: Lecter merges or asks",
+   "status": "todo",
+   "notes": "",
+   "priority": 4062
+  },
+  {
+   "id": "F-071",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Data versioning and migrations",
+   "spec": [
+    "17-robustness.md#data-versioning",
+    "18-contracts.md#statedb-schema"
+   ],
+   "depends_on": [
+    "F-050"
+   ],
+   "paths": [
+    "crates/core/src/db/**",
+    "crates/core/src/migrate/**"
+   ],
+   "acceptance": [
+    "state.db SHALL be created with the schema of 18-contracts.md#statedb-schema and PRAGMA user_version = 1.",
+    "Migrations SHALL be forward-only with a test per step, and a newer file SHALL open read-only with a message (ROB-21).",
+    "A backup SHALL be written before any migration (ROB-22).",
+    "PRAGMA integrity_check SHALL run on open; a corrupted fixture db SHALL be rebuilt from files with the keep tables exported first (ROB-23)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core db"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4063
+  },
+  {
+   "id": "F-072",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "File-system edge cases",
+   "spec": [
+    "17-robustness.md#file-system-edge-cases"
+   ],
+   "depends_on": [
+    "F-051"
+   ],
+   "paths": [
+    "crates/core/src/fs/**"
+   ],
+   "acceptance": [
+    "Disk full, read-only folder and permission denied SHALL give E_IO naming the file, keep the edit in the journal and retry (ROB-30), tested with fault injection.",
+    "Windows long paths and reserved names SHALL work or be avoided (ROB-31), tested with path fixtures on all OSes.",
+    "File names SHALL compare after NFC normalisation, and case-only collisions SHALL be avoided (ROB-32, ROB-33).",
+    "Cloud placeholder files SHALL never be read during scans (ROB-34), tested with a mock placeholder attribute."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core fs"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4064
+  },
+  {
+   "id": "F-073",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Logs: rotation and redaction",
+   "spec": [
+    "17-robustness.md#logs-and-crash-reports",
+    "13-security.md#privacy"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    "crates/core/src/log/**"
+   ],
+   "acceptance": [
+    "Logs SHALL rotate daily and at 10 MB, keeping 5 files (ROB-50).",
+    "With log.content = false, no prompt, answer, note or key text SHALL appear in logs (a test greps the logs after a scripted session).",
+    "Crash reports SHALL be written locally only (ROB-51)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core log"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 4065
+  },
+  {
+   "id": "F-080",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Provider trait, OpenAI-compatible adapter, fake provider scenarios",
+   "spec": [
+    "07-providers.md#adapters-one-rust-trait",
+    "14-quality.md#test-layers"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    "crates/ai/src/provider/**",
+    "crates/ai/src/adapters/openai_compat*",
+    "tests/fake-provider/**"
+   ],
+   "acceptance": [
+    "The Provider trait SHALL stream text, tool calls, usage and errors, and honour a cancel token.",
+    "The OpenAI-compatible adapter SHALL work against Ollama, LM Studio and OpenRouter request formats (recorded fixtures).",
+    "tests/fake-provider SHALL simulate latency, 429 with retry-after, 5xx, dropped streams, malformed SSE and unknown event types, each as a named scenario."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai provider"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5066
+  },
+  {
+   "id": "F-081",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Anthropic adapter",
+   "spec": [
+    "07-providers.md",
+    "05-retrieval.md#tiers",
+    "17-robustness.md#provider-drift"
+   ],
+   "depends_on": [
+    "F-080"
+   ],
+   "paths": [
+    "crates/ai/src/adapters/anthropic*"
+   ],
+   "acceptance": [
+    "Streaming, tool use, cache_control breakpoints and native web search SHALL work against recorded fixtures.",
+    "Usage SHALL report input, cache read, cache write and output tokens.",
+    "The adapter SHALL send a pinned anthropic-version header (ROB-60)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai anthropic"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5067
+  },
+  {
+   "id": "F-082",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "OpenAI Responses adapter",
+   "spec": [
+    "07-providers.md",
+    "06-ai-harness.md#web-search-configuration"
+   ],
+   "depends_on": [
+    "F-080"
+   ],
+   "paths": [
+    "crates/ai/src/adapters/openai*"
+   ],
+   "acceptance": [
+    "Streaming, tool use and structured output SHALL work against recorded fixtures.",
+    "Native web search SHALL return citations."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai openai"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5068
+  },
+  {
+   "id": "F-083",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Gemini adapter and free-tier preset",
+   "spec": [
+    "07-providers.md",
+    "06-ai-harness.md#web-search-configuration",
+    "13-security.md#unbounded-consumption-outbound-requests"
+   ],
+   "depends_on": [
+    "F-080"
+   ],
+   "paths": [
+    "crates/ai/src/adapters/gemini*"
+   ],
+   "acceptance": [
+    "Streaming, tool use, Google Search grounding and implicit caching SHALL work against recorded fixtures.",
+    "A 429 naming the free tier SHALL switch the provider to the Gemini free-tier rate-limit preset and tell the user once (SEC-10)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai gemini"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5069
+  },
+  {
+   "id": "F-084",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Keychain and :connect",
+   "spec": [
+    "07-providers.md#sign-in",
+    "13-security.md#secrets"
+   ],
+   "depends_on": [
+    "F-080",
+    "F-040"
+   ],
+   "paths": [
+    "crates/core/src/secrets/**",
+    "ui/src/features/connect/**"
+   ],
+   "acceptance": [
+    ":connect and Settings → Providers SHALL add a provider by key or base URL and test it immediately.",
+    "Secrets SHALL be stored only in the OS keychain under service \"lecter\" and never appear in files or logs (a test greps logs, config and state.db).",
+    "The Secret type SHALL redact itself in Debug and Display and zeroise on drop, and only a mask SHALL cross IPC (SEC-41).",
+    "WHEN no Secret Service is available on Linux THEN :connect SHALL show fix steps and SHALL NOT store the key anywhere (SEC-42)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core secrets",
+    "pnpm -C ui run test:e2e -- connect"
+   ],
+   "evidence": [
+    "screenshot:connect",
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Connect Gemini with :connect (your own key) and see it tested",
+   "status": "todo",
+   "notes": "",
+   "priority": 5070
+  },
+  {
+   "id": "F-085",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "ChatGPT sign-in",
+   "spec": [
+    "07-providers.md#sign-in"
+   ],
+   "depends_on": [
+    "F-084"
+   ],
+   "paths": [
+    "crates/ai/src/oauth/openai*"
+   ],
+   "acceptance": [
+    "Before implementing, the provider's current terms SHALL be re-checked and noted in a D-entry.",
+    "ChatGPT Plus/Pro browser sign-in SHALL be offered behind a build-time flag, storing tokens in the keychain.",
+    "Anthropic SHALL offer API key only, with an explanation."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai oauth"
+   ],
+   "evidence": [
+    "log:tests",
+    "screenshot:sign-in"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Sign in with ChatGPT under Settings → Providers",
+   "status": "todo",
+   "notes": "",
+   "priority": 5071
+  },
+  {
+   "id": "F-086",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Device-code sign-in: GitHub Copilot and xAI",
+   "spec": [
+    "07-providers.md#sign-in"
+   ],
+   "depends_on": [
+    "F-085"
+   ],
+   "paths": [
+    "crates/ai/src/oauth/device*"
+   ],
+   "acceptance": [
+    "GitHub Copilot and xAI SuperGrok device-code sign-in SHALL each be offered behind a build-time flag.",
+    "The device-code flow SHALL time out and cancel cleanly (tested against a fake authorisation server)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai device"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5072
+  },
+  {
+   "id": "F-087",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Model catalog and model selection",
+   "spec": [
+    "07-providers.md#models",
+    "07-providers.md#speed-tracking"
+   ],
+   "depends_on": [
+    "F-080"
+   ],
+   "paths": [
+    "crates/ai/src/models/**"
+   ],
+   "acceptance": [
+    "The models.dev catalog SHALL be cached and refreshed weekly, and manual models SHALL be allowed.",
+    "default-fast and default-strong SHALL be chosen at connect time and be changeable; per-role and per-prompt overrides SHALL apply.",
+    "Rolling TTFT and tokens/s per model SHALL be stored in state.db."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai models"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5073
+  },
+  {
+   "id": "F-088",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Agent loop",
+   "spec": [
+    "06-ai-harness.md#loop",
+    "06-ai-harness.md#permissions"
+   ],
+   "depends_on": [
+    "F-080"
+   ],
+   "paths": [
+    "crates/ai/src/agent/**"
+   ],
+   "acceptance": [
+    "The loop SHALL run independent tools in parallel and enforce max_steps and the time budget.",
+    "Esc SHALL stop the loop and its stream within 50 ms.",
+    "Each request SHALL log tokens, latency, cost and role to state.db usage.",
+    "The ttft_overhead_ms budget SHALL hold against the fake provider."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai agent",
+    "tests/perf/budgets.sh --only ttft_overhead_ms"
+   ],
+   "evidence": [
+    "perf"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5074
+  },
+  {
+   "id": "F-089",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Outbound rate limiting and retries",
+   "spec": [
+    "13-security.md#unbounded-consumption-outbound-requests"
+   ],
+   "depends_on": [
+    "F-088"
+   ],
+   "paths": [
+    "crates/ai/src/limits/rate*"
+   ],
+   "acceptance": [
+    "Each provider SHALL have a token bucket for requests and tokens per minute, configurable per provider, with catalog defaults (SEC-10).",
+    "Queued requests SHALL wait rather than fail and SHALL report E_RATE_LIMITED with the wait time to the UI.",
+    "retry-after SHALL be honoured, with exponential backoff and full jitter, at most 3 retries, and only before the first shown token (SEC-11), tested against fake-provider scenarios."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai rate"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5075
+  },
+  {
+   "id": "F-090",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Spend caps and usage",
+   "spec": [
+    "13-security.md#unbounded-consumption-outbound-requests",
+    "06-ai-harness.md#usage-cost-and-feedback"
+   ],
+   "depends_on": [
+    "F-088",
+    "F-046"
+   ],
+   "paths": [
+    "crates/ai/src/limits/budget*",
+    "ui/src/features/budget/**"
+   ],
+   "acceptance": [
+    "Caps per gloss (output tokens, tool calls, steps), per lecture, per day and per month SHALL be enforced (SEC-12).",
+    "Background jobs SHALL have their own daily cap and SHALL pause at it.",
+    "A hedged request SHALL count against the budget, and hedging SHALL be skipped when it would exceed it.",
+    "WHEN a foreground request would exceed a cap THEN the UI SHALL ask first (E_BUDGET card), and the status line SHALL show the lecture's running cost."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai budget",
+    "pnpm -C ui run test:e2e -- budget"
+   ],
+   "evidence": [
+    "screenshot:budget-card"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Set a tiny lecture budget with :set and ask twice: Lecter asks before spending more",
+   "status": "todo",
+   "notes": "",
+   "priority": 5076
+  },
+  {
+   "id": "F-091",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Coalescing, debounce, concurrency cap, timeouts",
+   "spec": [
+    "13-security.md#unbounded-consumption-outbound-requests"
+   ],
+   "depends_on": [
+    "F-088"
+   ],
+   "paths": [
+    "crates/ai/src/limits/flow*",
+    "crates/ai/src/http*"
+   ],
+   "acceptance": [
+    "Identical in-flight requests SHALL be coalesced into one (SEC-13), tested with a held key.",
+    "User-triggered AI actions SHALL be debounced by 150 ms.",
+    "A global concurrency cap (default 4) SHALL apply across providers.",
+    "Every network call SHALL have connect, first-byte, idle-stream and total timeouts (SEC-14), each tested with a stalled fake server."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai flow"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5077
+  },
+  {
+   "id": "F-092",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Roles and the AI harness settings page",
+   "spec": [
+    "02-course-folder.md#agentsmd-roles-and-skills",
+    "06-ai-harness.md#ai-harness-settings-page"
+   ],
+   "depends_on": [
+    "F-088",
+    "F-045"
+   ],
+   "paths": [
+    "crates/ai/src/roles/**",
+    "ui/src/features/settings/ai*"
+   ],
+   "acceptance": [
+    "Built-in role files SHALL load, overridable by global then course files.",
+    "Settings → AI SHALL edit per-role model, tools, web search, max steps, output cap, top-k, detail and prompt, writing an override file."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai roles",
+    "pnpm -C ui run test:e2e -- harness-settings"
+   ],
+   "evidence": [
+    "screenshot:ai-settings"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5078
+  },
+  {
+   "id": "F-093",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Prompt assembly and caching",
+   "spec": [
+    "05-retrieval.md#tiers",
+    "06-ai-harness.md#permissions",
+    "13-security.md#ai-input-and-output"
+   ],
+   "depends_on": [
+    "F-088"
+   ],
+   "paths": [
+    "crates/ai/src/prompt/**"
+   ],
+   "acceptance": [
+    "Tier 0 SHALL be assembled in the fixed order with cache breakpoints, and untrusted text SHALL be wrapped in <untrusted_source> (SEC-20).",
+    "Two identical requests SHALL produce byte-identical prefixes (test).",
+    "A 1-token warm-up request SHALL be sent when a lecture opens, if caching is enabled.",
+    "insta snapshots SHALL pin the exact prompt layout per provider."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai prompt"
+   ],
+   "evidence": [
+    "harness:prompt"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5079
+  },
+  {
+   "id": "F-094",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Gloss lifecycle in the UI",
+   "spec": [
+    "03-lecture-files.md#body",
+    "06-ai-harness.md#roles-built-in-defaults",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-088",
+    "F-062"
+   ],
+   "paths": [
+    "ui/src/features/gloss/**"
+   ],
+   "acceptance": [
+    "Answers SHALL stream into a gloss rendered at most once per animation frame, styled per docs/design/components.md#gloss in its streaming, done and focused states.",
+    "Glosses SHALL be saved as fenced divs with the prompt as the first line.",
+    "Each gloss kind SHALL use its colour token (k-*) from docs/design/tokens.json."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- gloss",
+    "scripts/e2e-app.sh gloss --evidence F-094"
+   ],
+   "evidence": [
+    "screenshot:gloss-streaming",
+    "screenshot:gloss-done",
+    "screenshot:gloss-focused"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5080
+  },
+  {
+   "id": "F-095",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Gloss actions: regenerate, rate, variants",
+   "spec": [
+    "10-keymap.md#on-a-gloss"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "ui/src/features/gloss/actions*",
+    "crates/ai/src/variants*"
+   ],
+   "acceptance": [
+    "r SHALL regenerate and R SHALL regenerate with feedback.",
+    "zg and zw SHALL rate the gloss, stored in state.db ratings.",
+    "g- and g+ SHALL switch between variants stored in state.db variants.",
+    "Ctrl-a and Ctrl-x SHALL ask for more or less detail."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- gloss-actions"
+   ],
+   "evidence": [
+    "screenshot:gloss-variants"
+   ],
+   "try": "On a gloss: r to regenerate, g- / g+ to switch versions, zg to rate",
+   "status": "todo",
+   "notes": "",
+   "priority": 5081
+  },
+  {
+   "id": "F-096",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Gloss editing keys",
+   "spec": [
+    "10-keymap.md#on-a-gloss"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "ui/src/features/gloss/edit*"
+   ],
+   "acceptance": [
+    "za SHALL fold and unfold a gloss.",
+    "dd SHALL delete a gloss with undo, and yy SHALL copy it.",
+    "i SHALL edit a gloss and mark it by=you+ai."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- gloss-edit"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5082
+  },
+  {
+   "id": "F-097",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Keycap buttons",
+   "spec": [
+    "09-ui.md#keycap-buttons",
+    "09-ui.md#design-reference"
+   ],
+   "depends_on": [
+    "F-095"
+   ],
+   "paths": [
+    "ui/src/components/keycap/**"
+   ],
+   "acceptance": [
+    "Selecting a gloss SHALL show 3D keycap buttons for every available key, styled per docs/design/components.md#keycap.",
+    "Clicking a keycap SHALL run its command, and typing the key SHALL animate the matching button.",
+    "Reduced motion SHALL make the press instant."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- keycaps"
+   ],
+   "evidence": [
+    "screenshot:keycaps",
+    "screenshot:keycap-pressed"
+   ],
+   "try": "Select a gloss: keycap buttons appear; click one and type one",
+   "status": "todo",
+   "notes": "",
+   "priority": 5083
+  },
+  {
+   "id": "F-098",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Prompt row",
+   "spec": [
+    "09-ui.md#prompt-row",
+    "10-keymap.md#prompt-row"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "ui/src/features/prompt/**"
+   ],
+   "acceptance": [
+    "Tab SHALL toggle into this gloss / new gloss, with the documented defaults.",
+    "Enter SHALL send, Shift-Enter SHALL add a line, and Esc SHALL cancel and stop the stream.",
+    "↑ and ↓ SHALL recall previous prompts."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- prompt-row"
+   ],
+   "evidence": [
+    "screenshot:prompt-row"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5084
+  },
+  {
+   "id": "F-099",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Prompt row mentions and toggles",
+   "spec": [
+    "09-ui.md#prompt-row"
+   ],
+   "depends_on": [
+    "F-098",
+    "F-087"
+   ],
+   "paths": [
+    "ui/src/features/prompt/mentions*"
+   ],
+   "acceptance": [
+    "@ SHALL offer slides, lectures, sources, models, @web and @noweb.",
+    "The globe toggle SHALL set web search for that prompt only, and the model picker SHALL override the model for that prompt only."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- mentions"
+   ],
+   "evidence": [
+    "screenshot:mentions"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5085
+  },
+  {
+   "id": "F-100",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Steps with numeric checks",
+   "spec": [
+    "06-ai-harness.md#steps-checking-s"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "crates/cas/**",
+    "ui/src/features/gloss/steps*"
+   ],
+   "acceptance": [
+    "s SHALL return structured steps rendered as they arrive.",
+    "The cas crate SHALL check consecutive steps numerically and mark ✓ or –, within 5 ms per pair.",
+    "A failing step SHALL be regenerated once."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-cas",
+    "pnpm -C ui run test:e2e -- steps"
+   ],
+   "evidence": [
+    "screenshot:steps"
+   ],
+   "try": "Press s on a line: steps appear with check marks",
+   "status": "todo",
+   "notes": "",
+   "priority": 5086
+  },
+  {
+   "id": "F-101",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Parked doubts",
+   "spec": [
+    "06-ai-harness.md#roles-built-in-defaults"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "crates/ai/src/jobs/doubt*",
+    "ui/src/features/doubts/**"
+   ],
+   "acceptance": [
+    "D SHALL park a doubt that runs in the background and shows its status.",
+    "A parked doubt SHALL survive an app restart and finish."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- doubts",
+    "scripts/e2e-app.sh doubt-restart"
+   ],
+   "evidence": [
+    "screenshot:doubt"
+   ],
+   "try": "Press D on a line, keep working: the answer arrives later",
+   "status": "todo",
+   "notes": "",
+   "priority": 5087
+  },
+  {
+   "id": "F-102",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Define, example and write roles",
+   "spec": [
+    "06-ai-harness.md#roles-built-in-defaults"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "crates/ai/src/roles/builtin*"
+   ],
+   "acceptance": [
+    "K SHALL define the terms in the line.",
+    "x SHALL give a worked example.",
+    "> SHALL write the requested text into a gloss."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- roles"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5088
+  },
+  {
+   "id": "F-103",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Tidy and selection ask",
+   "spec": [
+    "06-ai-harness.md#roles-built-in-defaults"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "crates/ai/src/roles/tidy*",
+    "ui/src/features/selection/**"
+   ],
+   "acceptance": [
+    "gq SHALL tidy a note, keeping the original folded.",
+    "v…a SHALL ask about the selected text only.",
+    "␣ag SHALL ask about the whole slide."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- tidy"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5089
+  },
+  {
+   "id": "F-104",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Web search configuration",
+   "spec": [
+    "06-ai-harness.md#web-search-configuration"
+   ],
+   "depends_on": [
+    "F-081",
+    "F-082",
+    "F-083"
+   ],
+   "paths": [
+    "crates/ai/src/search/config*"
+   ],
+   "acceptance": [
+    "Web search SHALL resolve per prompt > role > course > global with the values native, service and off.",
+    "Domain allow and block lists and max searches per answer SHALL be enforced."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai search"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5090
+  },
+  {
+   "id": "F-105",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Search fallbacks, citations and visible queries",
+   "spec": [
+    "06-ai-harness.md#web-search-configuration",
+    "13-security.md#ai-input-and-output"
+   ],
+   "depends_on": [
+    "F-104"
+   ],
+   "paths": [
+    "crates/ai/src/search/services*",
+    "ui/src/features/gloss/footer*"
+   ],
+   "acceptance": [
+    "Brave, Tavily, Exa and SearXNG fallbacks SHALL work for models without native search (recorded fixtures).",
+    "Citations SHALL always render as links showing their host.",
+    "Every web query the model makes SHALL be listed in the gloss footer (SEC-24)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai search_services",
+    "pnpm -C ui run test:e2e -- citations"
+   ],
+   "evidence": [
+    "screenshot:web-queries"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5091
+  },
+  {
+   "id": "F-106",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Hedging, circuit breaker, pre-warm",
+   "spec": [
+    "06-ai-harness.md#latency-tactics-all-required"
+   ],
+   "depends_on": [
+    "F-088",
+    "F-090"
+   ],
+   "paths": [
+    "crates/ai/src/resilience/**"
+   ],
+   "acceptance": [
+    "WHEN no first token arrives within ai.hedgeAfterMs and a backup is set THEN the request SHALL be duplicated and the loser cancelled.",
+    "3 failures in 60 s SHALL open the circuit for 2 minutes.",
+    "Connections SHALL be pre-warmed at start and when a lecture opens."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai resilience"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5092
+  },
+  {
+   "id": "F-107",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "memory.md from ratings",
+   "spec": [
+    "06-ai-harness.md#permissions"
+   ],
+   "depends_on": [
+    "F-095"
+   ],
+   "paths": [
+    "crates/ai/src/memory*"
+   ],
+   "acceptance": [
+    "zw with a reason and zg SHALL append learned preferences to memory.md.",
+    "The model SHALL never write memory.md on its own (test with an injected instruction)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai memory"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5093
+  },
+  {
+   "id": "F-108",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Note actions with undo",
+   "spec": [
+    "06-ai-harness.md#tools"
+   ],
+   "depends_on": [
+    "F-088",
+    "F-066"
+   ],
+   "paths": [
+    "crates/ai/src/tools/note_actions*",
+    "ui/src/features/note-actions/**"
+   ],
+   "acceptance": [
+    "add_flag, add_doubt, add_later, add_office_hours and add_revise SHALL create visible items shown in the gloss.",
+    "Each SHALL be undoable with one key."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai actions",
+    "pnpm -C ui run test:e2e -- note-actions"
+   ],
+   "evidence": [
+    "screenshot:note-actions"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5094
+  },
+  {
+   "id": "F-109",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Safe rendering of AI output",
+   "spec": [
+    "13-security.md#ai-input-and-output"
+   ],
+   "depends_on": [
+    "F-094"
+   ],
+   "paths": [
+    "ui/src/render/**"
+   ],
+   "acceptance": [
+    "Glosses and notes SHALL render no raw HTML, KaTeX SHALL use trust false and Mermaid strict mode (SEC-22).",
+    "A remote image URL in an answer SHALL render as a link chip and no request SHALL leave the webview, asserted in a WebDriver flow (SEC-23).",
+    "Links SHALL show their host and open only http(s) after confirmation (SEC-24)."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- safe-render",
+    "scripts/e2e-app.sh exfil --evidence F-109"
+   ],
+   "evidence": [
+    "screenshot:link-confirm",
+    "log:e2e-app"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5095
+  },
+  {
+   "id": "F-110",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Provider drift handling",
+   "spec": [
+    "17-robustness.md#provider-drift"
+   ],
+   "depends_on": [
+    "F-081",
+    "F-082",
+    "F-083"
+   ],
+   "paths": [
+    "crates/ai/src/adapters/**"
+   ],
+   "acceptance": [
+    "Unknown SSE event types and unknown JSON fields SHALL be ignored and counted (ROB-61), tested with the fake provider.",
+    "A retired-model error SHALL fall back to the role's next choice or default-fast and tell the user once (ROB-62)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai drift"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 5096
+  },
+  {
+   "id": "F-111",
+   "milestone": "M3",
+   "kind": "spike",
+   "title": "Spike: vision and TTFT with ChatGPT sign-in",
+   "spec": [
+    "07-providers.md#sign-in",
+    "04-parsing.md#reading-ladder"
+   ],
+   "depends_on": [
+    "F-085",
+    "F-002",
+    "F-004"
+   ],
+   "paths": [
+    "spikes/vision/**",
+    "spikes/ttft/**"
+   ],
+   "acceptance": [
+    "With the ChatGPT sign-in stored in the keychain, the F-002 and F-004 measurements SHALL be re-run for OpenAI fast models through scripts/live.sh and appended to their D-entries with a recommendation.",
+    "IF the sandbox blocks keychain access THEN the builder SHALL report BLOCKED with the exact command for Jay to run in his own terminal."
+   ],
+   "verify": [
+    "see spikes/vision/README.md and spikes/ttft/README.md"
+   ],
+   "evidence": [
+    "log:measurement"
+   ],
+   "needs": [
+    "live-keys"
+   ],
+   "ask_jay_first": "Sign in with ChatGPT in scripts/dev.sh (Settings → Providers) so the spike can use the keychain token?",
+   "status": "todo",
+   "notes": "",
+   "priority": 5097
+  },
+  {
+   "id": "F-120",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Index and passages",
+   "spec": [
+    "05-retrieval.md#indexing"
+   ],
+   "depends_on": [
+    "F-057",
+    "F-058",
+    "F-069"
+   ],
+   "paths": [
+    "crates/index/src/passages*",
+    "crates/index/src/indexer*"
+   ],
+   "acceptance": [
+    "Sources, slides and notes SHALL be indexed into Tantivy as passages with breadcrumbs, kind, source and lecture fields.",
+    "Indexing SHALL be incremental and run at background priority, pausing when the user starts an AI request."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6098,
+   "try": "Add a textbook PDF to sources/: indexing progress shows and finishes"
+  },
+  {
+   "id": "F-121",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Section trees and tagging",
+   "spec": [
+    "05-retrieval.md#indexing"
+   ],
+   "depends_on": [
+    "F-120"
+   ],
+   "paths": [
+    "crates/index/src/tree*",
+    "crates/index/src/tags*"
+   ],
+   "acceptance": [
+    "Textbooks and papers SHALL get a section tree from the outline or headings, and passages SHALL not cross sections.",
+    "Theorems, definitions, examples and exercises SHALL be tagged by number for exact lookup."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index tree"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6099
+  },
+  {
+   "id": "F-122",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "toc and read tools",
+   "spec": [
+    "06-ai-harness.md#tools"
+   ],
+   "depends_on": [
+    "F-121",
+    "F-088"
+   ],
+   "paths": [
+    "crates/ai/src/tools/toc*",
+    "crates/ai/src/tools/read*"
+   ],
+   "acceptance": [
+    "toc and read tools SHALL navigate the section tree.",
+    "read SHALL cap output at 1,500 tokens with a continuation.",
+    "read SHALL refuse paths outside the course root."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai tools"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6100
+  },
+  {
+   "id": "F-123",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Embeddings and tier-1 pre-retrieval",
+   "spec": [
+    "05-retrieval.md#search"
+   ],
+   "depends_on": [
+    "F-120",
+    "F-003"
+   ],
+   "paths": [
+    "crates/index/src/vectors*",
+    "crates/index/src/fusion*",
+    "crates/models/**"
+   ],
+   "acceptance": [
+    "index.embeddings SHALL support local-small, local-quality, provider and off, with vectors stored as int8 in vectors.bin and scanned flat.",
+    "BM25 and vector results SHALL fuse with RRF (k = 60).",
+    "The tier1_p95_ms budget SHALL hold on the fixture course."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index search",
+    "tests/perf/budgets.sh --only tier1_p95_ms"
+   ],
+   "evidence": [
+    "perf"
+   ],
+   "ask_jay_first": "Local embeddings need a model download and possibly ONNX Runtime (native). Approve the runtime and model chosen in the F-003 D-entry?",
+   "status": "todo",
+   "notes": "",
+   "priority": 6101,
+   "try": "Ask about a slide line: the answer cites a textbook passage"
+  },
+  {
+   "id": "F-124",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Course card from the syllabus",
+   "spec": [
+    "02-course-folder.md#course-details-coursejsonc",
+    "05-retrieval.md#tiers"
+   ],
+   "depends_on": [
+    "F-120",
+    "F-088"
+   ],
+   "paths": [
+    "crates/index/src/course_card*",
+    "ui/src/features/course-card/**"
+   ],
+   "acceptance": [
+    "A syllabus in sources/ SHALL trigger one model call producing the course card.",
+    "The user SHALL confirm the card before it is saved."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- course-card"
+   ],
+   "evidence": [
+    "screenshot:course-card"
+   ],
+   "try": "Drop a syllabus into sources/: Lecter proposes a course card",
+   "status": "todo",
+   "notes": "",
+   "priority": 6102
+  },
+  {
+   "id": "F-125",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Course digest",
+   "spec": [
+    "05-retrieval.md#indexing"
+   ],
+   "depends_on": [
+    "F-088",
+    "F-051"
+   ],
+   "paths": [
+    "crates/index/src/digest*"
+   ],
+   "acceptance": [
+    "On save, a changed lecture SHALL get a digest of at most 150 tokens from the fast model.",
+    "Digests SHALL be produced at most once per 10 minutes per lecture and count against the background cap."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index digest"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6103,
+   "try": "Open the course digest after two lectures: it lists the main topics"
+  },
+  {
+   "id": "F-126",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Past papers",
+   "spec": [
+    "05-retrieval.md#indexing"
+   ],
+   "depends_on": [
+    "F-123"
+   ],
+   "paths": [
+    "crates/index/src/past*"
+   ],
+   "acceptance": [
+    "Files in pastPapers SHALL split into questions with year, number and marks.",
+    "Questions SHALL be tagged with course-card topics, and past_questions SHALL return them."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index past"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6104,
+   "try": "Add a past paper: its questions appear under matching topics"
+  },
+  {
+   "id": "F-127",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Vision via provider",
+   "spec": [
+    "04-parsing.md#reading-ladder"
+   ],
+   "depends_on": [
+    "F-057",
+    "F-088"
+   ],
+   "paths": [
+    "crates/parse/src/vision/**",
+    "crates/ai/src/vision*"
+   ],
+   "acceptance": [
+    "Regions marked for vision SHALL be read by the fast vision model (parsing.vision = provider), returning Markdown, LaTeX and a confidence.",
+    "Vision SHALL never run on a page whose text layer passes the confidence check."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse vision"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6105,
+   "try": "Open a scanned slide: the text appears with a confidence mark"
+  },
+  {
+   "id": "F-128",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Render-back confidence",
+   "spec": [
+    "04-parsing.md#reading-ladder"
+   ],
+   "depends_on": [
+    "F-127"
+   ],
+   "paths": [
+    "crates/parse/src/renderback*"
+   ],
+   "acceptance": [
+    "Math and tables SHALL be rendered back and compared with the crop.",
+    "Confidence SHALL be min(model, match), driving the border tier."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse renderback"
+   ],
+   "evidence": [
+    "log:corpus"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6106
+  },
+  {
+   "id": "F-129",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Local document model option",
+   "spec": [
+    "04-parsing.md#reading-ladder",
+    "13-security.md#supply-chain"
+   ],
+   "depends_on": [
+    "F-127",
+    "F-002"
+   ],
+   "paths": [
+    "crates/models/**"
+   ],
+   "acceptance": [
+    "parsing.vision = local SHALL run the local document model in the model worker, loaded on demand and exiting after 60 s idle.",
+    "The model download SHALL need consent, show its size, be resumable and be verified by a pinned SHA-256 (SEC-51).",
+    "parsing.vision = auto SHALL fall back to the provider below 0.85 confidence."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-models"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "ask_jay_first": "The local document model is a native runtime plus a large download. Approve the runtime and model from the F-002 D-entry?",
+   "status": "todo",
+   "notes": "",
+   "priority": 6107
+  },
+  {
+   "id": "F-130",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Figure cards",
+   "spec": [
+    "04-parsing.md#figure-cards"
+   ],
+   "depends_on": [
+    "F-127"
+   ],
+   "paths": [
+    "crates/parse/src/figure_card*",
+    "ui/src/features/buffer/figure-card*"
+   ],
+   "acceptance": [
+    "Each figure SHALL get one cached card (what, labels, data, takeaway, confidence).",
+    "The card SHALL show as a dotted block and be indexed."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-parse figure_card"
+   ],
+   "evidence": [
+    "screenshot:figure-card"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6108,
+   "try": "Open a slide with a chart: a figure card describes it"
+  },
+  {
+   "id": "F-131",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "search_course and lectures tools",
+   "spec": [
+    "06-ai-harness.md#tools"
+   ],
+   "depends_on": [
+    "F-123"
+   ],
+   "paths": [
+    "crates/ai/src/tools/search*"
+   ],
+   "acceptance": [
+    "search_course SHALL return passages with filters by kind, source and lecture.",
+    "lectures SHALL list lectures with digests."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai tools_search"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6109
+  },
+  {
+   "id": "F-132",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": ":find with citations and gd",
+   "spec": [
+    "10-keymap.md#commands",
+    "10-keymap.md#on-a-slide-line"
+   ],
+   "depends_on": [
+    "F-131"
+   ],
+   "paths": [
+    "ui/src/features/find/**"
+   ],
+   "acceptance": [
+    ":find SHALL list hits with page citations across the course.",
+    "gd SHALL jump to the best source passage for the current block."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- find"
+   ],
+   "evidence": [
+    "screenshot:find-citations"
+   ],
+   "try": "Press gd on a slide line to jump to the textbook passage",
+   "status": "todo",
+   "notes": "",
+   "priority": 6110
+  },
+  {
+   "id": "F-133",
+   "milestone": "M4",
+   "kind": "feature",
+   "title": "Concept map",
+   "spec": [
+    "05-retrieval.md#indexing"
+   ],
+   "depends_on": [
+    "F-121",
+    "F-123"
+   ],
+   "paths": [
+    "crates/index/src/concepts*"
+   ],
+   "acceptance": [
+    "Definitions and theorems SHALL be linked to lecture blocks and book sections by similarity.",
+    "Links SHALL be stored in state.db concepts with no extra model calls."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-index concepts"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 6111,
+   "try": "Open the concept map: topics from your lectures are linked"
+  },
+  {
+   "id": "F-140",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Described figures",
+   "spec": [
+    "08-figures.md#tiers"
+   ],
+   "depends_on": [
+    "F-094",
+    "F-024"
+   ],
+   "paths": [
+    "ui/src/features/figures/**"
+   ],
+   "acceptance": [
+    "Vega-Lite, fnplot with sliders, Mermaid (strict), SVG and KaTeX figures SHALL render inside glosses.",
+    "Figures SHALL re-render when they scroll into view and SHALL make no network request."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- figures-described"
+   ],
+   "evidence": [
+    "screenshot:figure-fnplot",
+    "screenshot:figure-mermaid"
+   ],
+   "try": "Ask for a diagram and a plot with a slider",
+   "status": "todo",
+   "notes": "",
+   "priority": 7112
+  },
+  {
+   "id": "F-141",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Page figures in a sandboxed frame",
+   "spec": [
+    "08-figures.md#sandbox-pages",
+    "13-security.md#tauri-and-ipc"
+   ],
+   "depends_on": [
+    "F-140",
+    "F-028"
+   ],
+   "paths": [
+    "ui/src/features/figures/page*",
+    "app/src/protocol_lib*"
+   ],
+   "acceptance": [
+    "Pages SHALL render in an iframe with sandbox allow-scripts only and the CSP of 08-figures.md#sandbox-pages.",
+    "Libraries SHALL load only from lecter-lib://, version-pinned.",
+    "A WebDriver flow SHALL prove a page cannot fetch, read the parent or call IPC on the CI OSes."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh figure-page --evidence F-141"
+   ],
+   "evidence": [
+    "log:e2e-app",
+    "screenshot:figure-page"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7113,
+   "try": "Ask for an explorable diagram: it runs in its own frame and stops when hidden"
+  },
+  {
+   "id": "F-142",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Figure watchdog and live-frame limit",
+   "spec": [
+    "08-figures.md#sandbox-pages",
+    "08-figures.md#memory"
+   ],
+   "depends_on": [
+    "F-141"
+   ],
+   "paths": [
+    "ui/src/features/figures/watchdog*"
+   ],
+   "acceptance": [
+    "A frame busy over 2 s or over 150 MB SHALL be replaced by its static image.",
+    "At most figures.maxLiveFrames frames SHALL be live; off-screen frames SHALL be replaced by their static image and restored."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- figure-watchdog"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7114
+  },
+  {
+   "id": "F-143",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Figure proposals: Ask",
+   "spec": [
+    "08-figures.md#auto-and-ask",
+    "10-keymap.md#figure-proposal-card-when-focused"
+   ],
+   "depends_on": [
+    "F-140",
+    "F-087"
+   ],
+   "paths": [
+    "crates/ai/src/figures/propose*",
+    "ui/src/features/figures/proposal*"
+   ],
+   "acceptance": [
+    "propose_figure SHALL produce a card with kind, tier, token and time estimates.",
+    "y, 2, n and A, and their keycap buttons, SHALL act on the card."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- figure-ask"
+   ],
+   "evidence": [
+    "screenshot:figure-proposal"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7115,
+   "try": "Open a slide with a graph: Lecter offers a figure with a time and cost estimate"
+  },
+  {
+   "id": "F-144",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Figure proposals: Auto and precedence",
+   "spec": [
+    "08-figures.md#auto-and-ask"
+   ],
+   "depends_on": [
+    "F-143"
+   ],
+   "paths": [
+    "crates/ai/src/figures/mode*"
+   ],
+   "acceptance": [
+    "Mode SHALL resolve per prompt > role > course > global, with defaults auto for described and ask for pages.",
+    "Auto SHALL build the cheaper option and then show the upgrade card.",
+    "Figure generation SHALL never delay the text answer's first token (timed test)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-ai figures"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7116
+  },
+  {
+   "id": "F-145",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Figure storage and static export",
+   "spec": [
+    "08-figures.md#storage-and-export"
+   ],
+   "depends_on": [
+    "F-140"
+   ],
+   "paths": [
+    "crates/core/src/figures/**"
+   ],
+   "acceptance": [
+    "Each figure SHALL save its source and a static render under lectures/assets/<lecture>/.",
+    "The gloss SHALL reference both, and Markdown viewers SHALL see the static image."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core figures"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7117
+  },
+  {
+   "id": "F-146",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Dashboard panels",
+   "spec": [
+    "11-dashboard.md#panels"
+   ],
+   "depends_on": [
+    "F-066",
+    "F-101"
+   ],
+   "paths": [
+    "ui/src/features/dashboard/**"
+   ],
+   "acceptance": [
+    "The dashboard SHALL show every panel in 11-dashboard.md#panels with live data from lectures and course.md.",
+    "The dashboard SHALL be lazy-loaded (not in the main chunk)."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- dashboard"
+   ],
+   "evidence": [
+    "screenshot:dashboard"
+   ],
+   "try": "Open the dashboard: flags, doubts and lectures are listed",
+   "status": "todo",
+   "notes": "",
+   "priority": 7118
+  },
+  {
+   "id": "F-147",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "course.md sync",
+   "spec": [
+    "02-course-folder.md#coursemd"
+   ],
+   "depends_on": [
+    "F-146"
+   ],
+   "paths": [
+    "crates/core/src/course/coursemd*"
+   ],
+   "acceptance": [
+    "Edits in course.md SHALL appear on the dashboard within 1 s.",
+    "Edits on the dashboard SHALL be written to course.md within 1 s."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core coursemd"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7119
+  },
+  {
+   "id": "F-148",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Dashboard row actions",
+   "spec": [
+    "11-dashboard.md#panels",
+    "09-ui.md#slack-and-discord-behaviours"
+   ],
+   "depends_on": [
+    "F-146"
+   ],
+   "paths": [
+    "ui/src/features/dashboard/rows*"
+   ],
+   "acceptance": [
+    "Each row action SHALL work by key.",
+    "Each row action SHALL work by its hover button and context menu."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- dashboard-rows"
+   ],
+   "evidence": [
+    "screenshot:dashboard-hover"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7120,
+   "try": "Resolve a doubt from the dashboard: it disappears from the list"
+  },
+  {
+   "id": "F-149",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Revise sessions",
+   "spec": [
+    "11-dashboard.md#revise-sessions-v0"
+   ],
+   "depends_on": [
+    "F-146",
+    "F-126"
+   ],
+   "paths": [
+    "ui/src/features/revise/**",
+    "crates/ai/src/roles/revise*"
+   ],
+   "acceptance": [
+    "A revise session SHALL ask one question at a time.",
+    "A miss SHALL be explained in at most 120 words.",
+    "Related items SHALL be resolved only after the user confirms.",
+    "The session SHALL save a summary to course.md."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- revise"
+   ],
+   "evidence": [
+    "screenshot:revise"
+   ],
+   "try": "Start a revise session from the dashboard",
+   "status": "todo",
+   "notes": "",
+   "priority": 7121
+  },
+  {
+   "id": "F-150",
+   "milestone": "M5",
+   "kind": "feature",
+   "title": "Ask the course",
+   "spec": [
+    "11-dashboard.md#panels"
+   ],
+   "depends_on": [
+    "F-146",
+    "F-131"
+   ],
+   "paths": [
+    "ui/src/features/course-chat/**"
+   ],
+   "acceptance": [
+    "The dashboard chat SHALL answer course-wide questions using tiers 0–2.",
+    "An answer SHALL be saveable to course.md → Notes on S."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- course-chat"
+   ],
+   "evidence": [
+    "screenshot:course-chat"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 7122,
+   "try": "Ask the whole course a question from the dashboard"
+  },
+  {
+   "id": "F-160",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Onboarding steps",
+   "spec": [
+    "12-settings-theme-onboarding.md#onboarding-first-run-every-step-skippable-tutor-reopens-it"
+   ],
+   "depends_on": [
+    "F-045",
+    "F-084"
+   ],
+   "paths": [
+    "ui/src/features/onboarding/**"
+   ],
+   "acceptance": [
+    "First run SHALL show the 8 onboarding steps, each skippable.",
+    "Choices SHALL write settings.",
+    ":tutor SHALL reopen onboarding."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- onboarding"
+   ],
+   "evidence": [
+    "screenshot:onboarding-welcome"
+   ],
+   "try": "Start with LECTER_TEST_HOME set to an empty folder: onboarding runs",
+   "status": "todo",
+   "notes": "",
+   "priority": 8123
+  },
+  {
+   "id": "F-161",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Tutorial course content",
+   "spec": [
+    "12-settings-theme-onboarding.md#onboarding-first-run-every-step-skippable-tutor-reopens-it"
+   ],
+   "depends_on": [
+    "F-160",
+    "F-094",
+    "F-146"
+   ],
+   "paths": [
+    "app/resources/tutorial/**",
+    "scripts/build_tutorial*"
+   ],
+   "acceptance": [
+    "A bundled \"Lecter 101\" course SHALL contain one plain-English lecture about using Lecter, generated from Markdown at build time.",
+    "Its answers SHALL be canned placeholders labelled \"Sample answer\", needing no provider, key or network.",
+    "The tutorial and its assets SHALL contain no content from tests/corpus/private (scripts/check_private.py passes on them)."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh tutorial --evidence F-161"
+   ],
+   "evidence": [
+    "screenshot:tutorial"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8124,
+   "try": "Open Lecter 101 offline: sample glosses show without a provider"
+  },
+  {
+   "id": "F-162",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Tutorial checklist",
+   "spec": [
+    "12-settings-theme-onboarding.md#onboarding-first-run-every-step-skippable-tutor-reopens-it"
+   ],
+   "depends_on": [
+    "F-161"
+   ],
+   "paths": [
+    "ui/src/features/tutorial/**"
+   ],
+   "acceptance": [
+    "The checklist SHALL tick itself as each task is done: open slides, a, s, D, mm, ask about a figure, zg, open the dashboard.",
+    "Each task SHALL show the click way and the key way."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- tutorial"
+   ],
+   "evidence": [
+    "screenshot:tutorial-checklist"
+   ],
+   "try": "Do the Lecter 101 tutorial end to end",
+   "status": "todo",
+   "notes": "",
+   "priority": 8125
+  },
+  {
+   "id": "F-163",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Feedback sharing opt-in",
+   "spec": [
+    "06-ai-harness.md#usage-cost-and-feedback",
+    "13-security.md#privacy"
+   ],
+   "depends_on": [
+    "F-160",
+    "F-094"
+   ],
+   "paths": [
+    "crates/core/src/feedback/**"
+   ],
+   "acceptance": [
+    "Sharing SHALL be off unless opted in, and text SHALL need a second opt-in.",
+    "A sample payload SHALL be shown.",
+    "Data SHALL stay local until feedback.endpoint is set."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core feedback"
+   ],
+   "evidence": [
+    "screenshot:feedback-sample"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8126
+  },
+  {
+   "id": "F-164",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Export to Markdown",
+   "spec": [
+    "10-keymap.md#commands",
+    "08-figures.md#storage-and-export"
+   ],
+   "depends_on": [
+    "F-050",
+    "F-145"
+   ],
+   "paths": [
+    "crates/core/src/export/md*"
+   ],
+   "acceptance": [
+    ":export md SHALL write a clean Markdown file with static figure images.",
+    "The export SHALL never overwrite an existing file without asking."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core export"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8127,
+   "try": "Export a lecture to Markdown and open it in another editor"
+  },
+  {
+   "id": "F-165",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Export to PDF and LaTeX via Pandoc",
+   "spec": [
+    "10-keymap.md#commands"
+   ],
+   "depends_on": [
+    "F-164"
+   ],
+   "paths": [
+    "crates/core/src/export/pandoc*"
+   ],
+   "acceptance": [
+    ":export pdf and :export tex SHALL run the installed Pandoc with a fixed argument list (no shell, no user-controlled flags).",
+    "WHEN Pandoc is missing THEN the command SHALL explain how to install it."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core export_pandoc"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8128,
+   "try": "Export a lecture to PDF (needs Pandoc installed)"
+  },
+  {
+   "id": "F-166",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Model worker sandbox",
+   "spec": [
+    "13-security.md#untrusted-files"
+   ],
+   "depends_on": [
+    "F-129",
+    "F-053",
+    "F-054"
+   ],
+   "paths": [
+    "crates/models/src/sandbox*"
+   ],
+   "acceptance": [
+    "The model worker SHALL run under the same OS sandboxes as the parse worker, with no network.",
+    "The escape tests SHALL pass on all three CI OSes."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-models sandbox"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8129
+  },
+  {
+   "id": "F-167",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Tauri lockdown audit",
+   "spec": [
+    "13-security.md#tauri-and-ipc"
+   ],
+   "depends_on": [
+    "F-109",
+    "F-141"
+   ],
+   "paths": [
+    "app/capabilities/**",
+    "app/tauri.conf.json",
+    "app/src/drop*"
+   ],
+   "acceptance": [
+    "Each window SHALL have its own capability file listing only commands it calls (a test diffs capabilities against the bindings usage).",
+    "A test SHALL load the release config and assert the CSP of SEC-30 and devtools off.",
+    "Dropped paths SHALL be canonicalised and checked (SEC-35), tested with symlink and traversal fixtures."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-app security"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8130
+  },
+  {
+   "id": "F-168",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Nightly fuzzing and regression flow",
+   "spec": [
+    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch"
+   ],
+   "depends_on": [
+    "F-055"
+   ],
+   "paths": [
+    ".github/workflows/nightly.yml",
+    "crates/*/fuzz/**"
+   ],
+   "acceptance": [
+    "nightly.yml SHALL run every fuzz target for 10 minutes and upload crash inputs.",
+    "A seeded crash input SHALL become a regression test in tests/fixtures/fuzz-regressions/ (documented flow, proven once)."
+   ],
+   "verify": [
+    "nightly.yml via workflow_dispatch"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "protected": [
+    ".github/workflows/nightly.yml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8131
+  },
+  {
+   "id": "F-169",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Licence notices and pinned downloads",
+   "spec": [
+    "13-security.md#supply-chain"
+   ],
+   "depends_on": [
+    "F-045"
+   ],
+   "paths": [
+    "app/resources/licences*",
+    "scripts/gen_licences*",
+    "ui/src/features/about/**"
+   ],
+   "acceptance": [
+    "About → Licences SHALL list every Rust crate and npm package with its licence text, generated at build time (SEC-52).",
+    "Every downloaded binary or model SHALL be verified against a pinned SHA-256 before use (SEC-51), with a test feeding a tampered file."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-app licences"
+   ],
+   "evidence": [
+    "screenshot:licences"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8132
+  },
+  {
+   "id": "F-170",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Release workflow and draft release",
+   "spec": [
+    "01-architecture.md#packaging",
+    "16-ci-cd.md#releaseyml-push-of-a-tag-v"
+   ],
+   "depends_on": [
+    "F-026"
+   ],
+   "paths": [
+    ".github/workflows/release.yml",
+    "packaging/**"
+   ],
+   "acceptance": [
+    "WHEN a tag v*.*.* is pushed THEN release.yml SHALL build every package in 01-architecture.md#packaging.",
+    "The packages, SBOMs, SHA256SUMS and latest.json SHALL be attached to a draft GitHub release whose body comes from CHANGELOG.md.",
+    "Release artifacts SHALL contain no files from tests/ and no debug-only hooks (release-check)."
+   ],
+   "verify": [
+    "release.yml with workflow_dispatch dry-run input"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "protected": [
+    ".github/workflows/release.yml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8133
+  },
+  {
+   "id": "F-171",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Signing where credentials exist",
+   "spec": [
+    "16-ci-cd.md#releaseyml-push-of-a-tag-v"
+   ],
+   "depends_on": [
+    "F-170"
+   ],
+   "paths": [
+    ".github/workflows/release.yml"
+   ],
+   "acceptance": [
+    "WHERE signing secrets are present the packages SHALL be signed and macOS builds notarised.",
+    "WHERE they are absent the workflow SHALL succeed and the release notes SHALL say the build is unsigned."
+   ],
+   "verify": [
+    "release.yml dry run with and without secrets"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "protected": [
+    ".github/workflows/release.yml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8134
+  },
+  {
+   "id": "F-172",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Signed in-app updates",
+   "spec": [
+    "01-architecture.md#packaging",
+    "13-security.md#supply-chain"
+   ],
+   "depends_on": [
+    "F-170"
+   ],
+   "paths": [
+    "app/src/updater*"
+   ],
+   "acceptance": [
+    "WHEN an installed build sees a newer signed latest.json THEN the app SHALL offer the update.",
+    "The updater SHALL verify the signature before installing and reject a tampered manifest (test)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-app updater"
+   ],
+   "evidence": [
+    "log:tests"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8135,
+   "try": "Check for updates in About: it says you are up to date"
+  },
+  {
+   "id": "F-173",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Installer identity",
+   "spec": [
+    "01-architecture.md#app-identity-and-migration"
+   ],
+   "depends_on": [
+    "F-170"
+   ],
+   "paths": [
+    "app/tauri.conf.json",
+    "packaging/**"
+   ],
+   "acceptance": [
+    "The Windows installer SHALL use a fixed WiX upgradeCode recorded in a D-entry.",
+    "The NSIS install folder SHALL use the product name, not the identifier."
+   ],
+   "verify": [
+    "release.yml dry run"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8136
+  },
+  {
+   "id": "F-174",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Nightly perf matrix, chaos and soak",
+   "spec": [
+    "14-quality.md#performance-budgets",
+    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch"
+   ],
+   "depends_on": [
+    "F-025",
+    "F-106",
+    "F-168"
+   ],
+   "paths": [
+    ".github/workflows/nightly.yml",
+    "tests/perf/**",
+    "tests/chaos/**",
+    "tests/soak/**"
+   ],
+   "acceptance": [
+    "nightly.yml SHALL run budgets.sh on ubuntu-24.04, macos-15 and windows-2025, including installer_mb from a release-profile bundle.",
+    "The chaos job SHALL prove hedging, circuit breaking, retry-after handling and Esc-cancel against every fake-provider scenario.",
+    "The soak job SHALL run 30 minutes nightly and 3 hours on Sundays, failing if memory grows over 10% or keystroke p99 leaves its budget."
+   ],
+   "verify": [
+    "nightly.yml via workflow_dispatch"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "protected": [
+    ".github/workflows/nightly.yml"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8137
+  },
+  {
+   "id": "F-175",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Accessibility: names and keyboard",
+   "spec": [
+    "09-ui.md#accessibility"
+   ],
+   "depends_on": [
+    "F-097",
+    "F-146"
+   ],
+   "paths": [
+    "ui/src/**"
+   ],
+   "acceptance": [
+    "All controls SHALL have accessible names.",
+    "Every control SHALL be reachable by keyboard with a visible focus ring."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- a11y"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8138,
+   "try": "Use the app for two minutes without the mouse"
+  },
+  {
+   "id": "F-176",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Accessibility: axe, motion and contrast",
+   "spec": [
+    "09-ui.md#accessibility"
+   ],
+   "depends_on": [
+    "F-175"
+   ],
+   "paths": [
+    "ui/e2e/a11y*"
+   ],
+   "acceptance": [
+    "axe checks in e2e SHALL report no serious or critical violations on every main screen.",
+    "Reduced motion SHALL make keycap presses and overlay fades instant.",
+    "Amber confidence borders SHALL also carry a text badge."
+   ],
+   "verify": [
+    "pnpm -C ui run test:e2e -- a11y"
+   ],
+   "evidence": [
+    "log:e2e"
+   ],
+   "status": "todo",
+   "notes": "",
+   "priority": 8139
+  },
+  {
+   "id": "F-177",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Visual baselines per OS",
+   "spec": [
+    "09-ui.md#design-reference",
+    "14-quality.md#test-layers"
+   ],
+   "depends_on": [
+    "F-026",
+    "F-094"
+   ],
+   "paths": [
+    "tests/visual/**"
+   ],
+   "acceptance": [
+    "tests/visual SHALL compare WebDriver screenshots of the main screens with per-OS baselines, failing above a 0.5% pixel difference.",
+    "Baseline files SHALL be protected, so only a Jay-approved feature can change them."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh visual"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "protected": [
+    "tests/visual/baselines/**"
+   ],
+   "ask_jay_first": "Approve the first set of per-OS screenshot baselines (the orchestrator shows them before merging)?",
+   "status": "todo",
+   "notes": "",
+   "priority": 8140
+  }
+ ]
+}

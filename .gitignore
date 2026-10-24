@@ -1,0 +1,48 @@
+target/
+node_modules/
+dist/
+ui/dist/
+.verify/
+.loop/
+STOP
+*.log
+.env
+.env.*
+.DS_Store
+spikes/**/data/
+tests/corpus/private
+.evidence/
+__pycache__/
+tests/ai-eval/results/
+
+# Lecture documents never get committed by accident: only synthetic fixtures and public corpus files may be tracked.
+*.pdf
+*.pptx
+*.ppt
+*.key
+*.odp
+!tests/fixtures/**/*.pdf
+!tests/fixtures/**/*.pptx
+!tests/corpus/public/**
+
+# The Claude Code sandbox mounts empty placeholders over protected paths while a session runs
+# (root dotfiles and Claude Code's own folders under .claude/). Inside the sandbox they look like
+# devices and break `git add -A`, so ignore them. Under .claude/ only the kit's own files are tracked
+# (this also ignores .claude/worktrees/ and settings.local.json).
+/.claude/*
+!/.claude/settings.json
+!/.claude/agents/
+!/.claude/skills/
+/.bashrc
+/.bash_profile
+/.profile
+/.zshrc
+/.zprofile
+/.gitconfig
+/.gitmodules
+/.ripgreprc
+/.mcp.json
+/.idea
+/.vscode
+test-results/
+playwright-report/

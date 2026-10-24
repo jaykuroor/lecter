@@ -1,0 +1,18 @@
+# app/ (Tauri 2 shell)
+
+Commands, channels, the `lecter://` protocol, windows, capabilities, packaging.
+Spec: `01-architecture.md#processes`, `#packaging`; `13-security.md`; `08-figures.md#sandbox-pages`.
+
+## Invariants
+
+- The shell stays thin: commands validate input and call `core`, `ai` or `index`. No business logic here.
+- Requests go through Tauri commands, streams through Tauri channels. Every command and event is a Rust type exported to `ui/src/core/bindings.ts` by tauri-specta (`18-contracts.md#ipc`); `verify.sh` fails on stale bindings. Each command validates its arguments in Rust (SEC-32).
+- Images are served only through `lecter://` from the content-hash cache. Never send image bytes through JSON or IPC.
+- Capabilities: an allow-list per window. The figure frame window or iframe gets nothing.
+- CSP on the main webview: no remote content, no `eval`, no inline scripts. Figure pages get their own CSP with no network.
+- Startup: cold open of a lecture in < 400 ms. Defer everything that isn't needed for first paint (catalog refresh, indexing, pre-warm happen after paint).
+- Updates are signed. Builds are signed per OS (credentials come from Jay; see QUESTIONS).
+- Debug-only test hooks (embedded WebDriver, `LECTER_TEST_*`, devtools) live behind `cfg(debug_assertions)`; `scripts/check_release_binary.sh` proves release builds don't have them.
+
+## Learned
+

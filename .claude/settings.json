@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CARGO_TERM_COLOR": "never",
+    "NO_COLOR": "1",
+    "FORCE_COLOR": "0",
+    "RUST_BACKTRACE": "1",
+    "PLAYWRIGHT_FORCE_TTY": "0"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(scripts/init.sh*)",
+      "Bash(scripts/verify.sh*)",
+      "Bash(scripts/dev.sh*)",
+      "Bash(scripts/loop.sh *)",
+      "Bash(scripts/worktree_setup.sh *)",
+      "Bash(scripts/merge_lockfiles.sh)",
+      "Bash(scripts/secret_scan.sh*)",
+      "Bash(scripts/e2e-app.sh*)",
+      "Bash(xvfb-run -a scripts/e2e-app.sh*)",
+      "Bash(xvfb-run -a scripts/dev.sh*)",
+      "Bash(scripts/check_release_binary.sh *)",
+      "Bash(chmod +x scripts/*)",
+      "Bash(python3 scripts/next.py*)",
+      "Bash(scripts/next.py*)",
+      "Bash(python3 scripts/feature.py *)",
+      "Bash(scripts/feature.py *)",
+      "Bash(LECTER_SKIP_VERIFY=1 python3 scripts/feature.py done *)",
+      "Bash(LECTER_SKIP_VERIFY=1 scripts/feature.py done *)",
+      "Bash(python3 scripts/spec.py *)",
+      "Bash(scripts/spec.py *)",
+      "Bash(python3 scripts/evidence.py *)",
+      "Bash(scripts/evidence.py *)",
+      "Bash(python3 scripts/progress.py *)",
+      "Bash(scripts/progress.py *)",
+      "Bash(python3 scripts/add_dep.py *)",
+      "Bash(scripts/add_dep.py *)",
+      "Bash(python3 scripts/check_private.py*)",
+      "Bash(scripts/check_private.py*)",
+      "Bash(python3 scripts/check_tests.py*)",
+      "Bash(scripts/check_tests.py*)",
+      "Bash(python3 scripts/check_deps.py*)",
+      "Bash(scripts/check_deps.py*)",
+      "Bash(python3 scripts/check_arch.py*)",
+      "Bash(scripts/check_arch.py*)",
+      "Bash(python3 scripts/check_size.py*)",
+      "Bash(scripts/check_size.py*)",
+      "Bash(python3 -m unittest discover -s scripts/tests*)",
+      "Bash(cargo build*)",
+      "Bash(cargo check*)",
+      "Bash(cargo test*)",
+      "Bash(cargo nextest *)",
+      "Bash(cargo clippy*)",
+      "Bash(cargo fmt*)",
+      "Bash(cargo tree*)",
+      "Bash(cargo bench*)",
+      "Bash(cargo metadata*)",
+      "Bash(cargo deny *)",
+      "Bash(cargo fetch*)",
+      "Bash(cargo doc*)",
+      "Bash(cargo insta pending-show*)",
+      "Bash(cargo insta test*)",
+      "Bash(cargo insta accept*)",
+      "Bash(cargo run -p lecter-*)",
+      "Bash(cargo run -q -p lecter-*)",
+      "Bash(cargo run --locked -p lecter-*)",
+      "Bash(rustup show*)",
+      "Bash(rustup component add *)",
+      "Bash(rustup target add *)",
+      "Bash(rustfmt *)",
+      "Bash(pnpm -C ui run *)",
+      "Bash(pnpm -C ui exec *)",
+      "Bash(pnpm -C ui install*)",
+      "Bash(pnpm -C ui list*)",
+      "Bash(pnpm -C ui why *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(git stash*)",
+      "Bash(git switch *)",
+      "Bash(git branch*)",
+      "Bash(git rev-parse*)",
+      "Bash(git merge --no-ff --no-commit *)",
+      "Bash(git merge --abort)",
+      "Bash(git merge --ff-only main)",
+      "Bash(git merge main)",
+      "Bash(git merge-base *)",
+      "Bash(git worktree list*)",
+      "Bash(git worktree remove *)",
+      "Bash(git worktree prune)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * rev-parse*)",
+      "Bash(git -C * stash push *)",
+      "Bash(git stash show*)",
+      "Bash(git fetch origin*)",
+      "Bash(git pull --no-rebase origin main)",
+      "Bash(git push origin main)",
+      "Bash(git remote -v)",
+      "Bash(git revert --no-edit *)",
+      "Bash(git init -q -b main)",
+      "Bash(git ls-files*)",
+      "Bash(git check-ignore *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run rerun *)",
+      "Bash(gh pr list *)",
+      "Bash(ls*)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(sed -n *)",
+      "Bash(jq *)",
+      "Bash(diff *)",
+      "Bash(sqlite3 -readonly *)",
+      "Bash(mkdir -p *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:codemirror.net)",
+      "WebFetch(domain:docs.solidjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:models.dev)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebSearch"
+    ],
+    "ask": [
+      "Bash(scripts/live.sh *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(~/.config/lecter-dev/**)",
+      "Edit(~/.config/lecter-dev/**)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.claude-b/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)",
+      "Bash(git rebase*)",
+      "Bash(git tag*)",
+      "Bash(sudo *)",
+      "Bash(cargo add*)",
+      "Bash(cargo install*)",
+      "Bash(cargo publish*)",
+      "Bash(pnpm add*)",
+      "Bash(pnpm -C ui add*)",
+      "Bash(pnpm publish*)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(yarn *)",
+      "Bash(find * -delete*)",
+      "Bash(find * -exec rm*)",
+      "Bash(curl * | *sh*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh release*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "scripts/live.sh *"
+    ],
+    "network": {
+      "allowedDomains": [
+        "crates.io",
+        "index.crates.io",
+        "static.crates.io",
+        "static.rust-lang.org",
+        "registry.npmjs.org",
+        "github.com",
+        "api.github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "cdn.playwright.dev",
+        "playwright.download.prss.microsoft.com"
+      ]
+    },
+    "filesystem": {
+      "allowWrite": [
+        "~/.cargo",
+        "~/.rustup",
+        "~/.local/share/pnpm",
+        "~/.cache/pnpm",
+        "~/.cache/node/corepack",
+        "~/.cache/ms-playwright",
+        "~/.cache/sccache"
+      ],
+      "denyRead": [
+        "~/.ssh",
+        "~/.gnupg",
+        "~/.aws",
+        "~/.claude-b",
+        "~/.config/lecter-dev"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.config/lecter-dev/keys.env",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/.credentials.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude-b/.credentials.json",
+          "mode": "deny"
+        }
+      ],
+      "envVars": [
+        {
+          "name": "GEMINI_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "GOOGLE_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "LECTER_LIVE_TESTS",
+          "mode": "deny"
+        }
+      ]
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/session_start.py\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/post_edit.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/stop_check.py\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

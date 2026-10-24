@@ -1,0 +1,8 @@
+# gitleaks: default rules plus Lecter's own. Paths below are git-ignored or test-only fakes.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "local-only and generated paths"
+paths = ['''tests/corpus/private/''', '''(^|/)target/''', '''(^|/)node_modules/''', '''^\.verify/''', '''^\.evidence/''']
+regexes = ['''sk-test-[0-9A-Za-z]{8,}''', '''AIzaFAKE[0-9A-Za-z_-]{20,}''']

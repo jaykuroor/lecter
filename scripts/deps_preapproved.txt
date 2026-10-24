@@ -1,0 +1,35 @@
+# Native crates covered by Jay's stack decisions (D-001 Tauri, D-005 UI, docs/spec/01-architecture.md#stack-decided).
+# scripts/check_deps.py accepts these without a Deps-Approved trailer. Protected: only Jay edits this file (D-055).
+# Glob patterns, one per line.
+
+# Tauri 2 and its webviews (WebKitGTK on Linux via pkg-config, WKWebView, WebView2)
+atk*
+cairo*
+gdk*
+gio*
+glib*
+gobject*
+gtk*
+javascriptcore*
+pango*
+soup3*
+webkit2gtk*
+libappindicator*
+x11*
+xkb*
+wayland*
+objc*
+webview2-com*
+windows*
+# SQLite (rusqlite with the bundled feature)
+libsqlite3-sys
+# rustls with the ring provider (never aws-lc-sys: it needs cmake and nasm)
+ring
+# Tantivy and zip compression
+zstd*
+lz4*
+bzip2*
+libz-sys
+# keyring on Linux (Secret Service over D-Bus)
+libdbus-sys
+dbus*
