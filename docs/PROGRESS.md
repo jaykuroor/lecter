@@ -5,7 +5,7 @@
 ## Current state
 - Runs: `cargo run -p lecter-cli` prints `lecter 0.0.1`. `pnpm -C ui run dev` shows the app frame (headerbar, rail, document, side panel, status line) against a mocked core. No Tauri app yet.
 - Milestone: M0 · last done: F-011 UI scaffold with mocked core · gate: none
-- Resume point (2026-10-24 00:16): F-011 merged; next dispatch F-012
+- Resume point (2026-10-24 00:16): dispatching F-012 Tauri shell and dev script
 - In progress: none
 - Watch out: UI commands need Node 24 first on PATH (D-061): `ln -s /usr/bin/node-24 $TMPDIR/n24/node` and prepend that dir; verify.sh/worktree_setup.sh don't do it yet. Install with `--store-dir ~/.local/share/pnpm/store` and `XDG_RUNTIME_DIR=$TMPDIR`, or pnpm writes a 300 MB `.pnpm-store/` into the checkout (not git-ignored; the secret scan flags it). verify.sh's `[ -d .git ]` is false in worktrees, so private/tests-guard/deps/secrets lints skip there. Playwright browsers download from storage.googleapis.com (not in the sandbox allowlist); WebKit isn't installed, so `test:e2e` / `verify --full` fail locally.
 - Next up: F-012 Tauri app shell, then F-013, F-014 and the M0 spikes.
