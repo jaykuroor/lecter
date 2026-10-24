@@ -1,0 +1,73 @@
+/* App frame layout (docs/design/components.md#app-frame; sizes from tokens.json "layout").
+   Colours are theme tokens only; F-042 defines the custom properties. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.app-frame {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr) 312px;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  background: var(--window-bg);
+  color: var(--window-fg);
+}
+
+.headerbar {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  min-height: 47px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  background: var(--headerbar-bg);
+  border-bottom: 1px solid var(--headerbar-border);
+}
+
+.headerbar-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rail {
+  grid-column: 1;
+  grid-row: 2;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--borders);
+}
+
+.document-column {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.buffer {
+  overflow: auto;
+  background: var(--view-bg);
+  color: var(--view-fg);
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  background: var(--headerbar-bg);
+  border-top: 1px solid var(--borders);
+}
+
+.side-panel {
+  grid-column: 3;
+  grid-row: 2;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--borders);
+}

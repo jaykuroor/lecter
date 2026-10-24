@@ -1,0 +1,40 @@
+{
+  "name": "lecter-ui",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": "24.18.0",
+    "pnpm": "12.15.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test --project=chromium --project=webkit",
+    "test:e2e:smoke": "playwright test --project=smoke --grep @smoke",
+    "lint": "biome check .",
+    "lint:dup": "jscpd --config .jscpd.json",
+    "lint:unused": "knip"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "solid-js": "^1.9.17"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.2",
+    "@playwright/test": "^1.64.1",
+    "@solidjs/testing-library": "^0.8.10",
+    "@types/node": "^24.19.2",
+    "jscpd": "^5.4.2",
+    "jsdom": "^30.1.3",
+    "knip": "^6.42.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^5.0.5"
+  }
+}
