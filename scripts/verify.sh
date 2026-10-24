@@ -23,7 +23,35 @@ done
 on() { [[ " $STAGES " == *" $1 "* ]]; }
 mkdir -p .verify
 export CARGO_TERM_COLOR=never NO_COLOR=1 FORCE_COLOR=0
-. scripts/lib_env.sh   # pnpm proxy, the Node 24 fallback, pnpm's store outside the checkout (D-057, D-061)
+# The same environment block is in init.sh and verify.sh (kept inline: verify.sh is protected and must not
+# source an unprotected file that changes PATH).
+# pnpm reads npm_config_* before HTTPS_PROXY, but inside the Claude Code sandbox only HTTPS_PROXY and NO_PROXY
+# point at the sandbox proxy, so make pnpm follow them (no effect when no proxy is set). D-057.
+if [ -n "${HTTPS_PROXY:-}" ]; then
+  export npm_config_https_proxy="$HTTPS_PROXY" npm_config_proxy="${HTTP_PROXY:-$HTTPS_PROXY}" npm_config_noproxy="${NO_PROXY:-}"
+fi
+# ui/package.json pins engines.node (D-058). When plain `node` is another version, put a `node` link to the
+# fallback first on PATH (D-061), in a dir the user owns (the user cache, else the sandbox's per-user TMPDIR);
+# a link that points anywhere else is replaced.
+NODE_WANT=$(sed -n 's/^ *"node": *"\([0-9.]*\)".*/\1/p' ui/package.json 2>/dev/null | head -n 1)
+NODE_FALLBACK="${LECTER_NODE_FALLBACK:-/usr/bin/node-24}" NODE_NOTE=""
+if [ -n "$NODE_WANT" ] && [ "$(node --version 2>/dev/null)" != "v$NODE_WANT" ] && [ -x "$NODE_FALLBACK" ] \
+  && [ "$("$NODE_FALLBACK" --version 2>/dev/null)" = "v$NODE_WANT" ]; then
+  for _shim in "${XDG_CACHE_HOME:-$HOME/.cache}/lecter/node-v$NODE_WANT" "${TMPDIR:+$TMPDIR/lecter-node-v$NODE_WANT}"; do
+    [ -n "$_shim" ] && mkdir -p -m 700 "$_shim" 2>/dev/null && [ -O "$_shim" ] || continue
+    [ "$(readlink "$_shim/node" 2>/dev/null)" = "$NODE_FALLBACK" ] || ln -sfn "$NODE_FALLBACK" "$_shim/node" 2>/dev/null || continue
+    export PATH="$_shim:$PATH" NODE_NOTE="node: using $NODE_FALLBACK (v$NODE_WANT)"; break
+  done
+fi
+# pnpm keeps its store lock under XDG_RUNTIME_DIR, which the sandbox mounts read-only. And when the home store is
+# on another mount than the checkout (sandbox bind mounts), pnpm puts a ~300 MB store in the checkout, which
+# gitleaks then scans; keep it in the home store (pnpm 12 reads pnpm_config_*). CI never hits either.
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ ! -w "$XDG_RUNTIME_DIR" ]; then export XDG_RUNTIME_DIR="${TMPDIR:-/tmp}"; fi
+if [ -z "${pnpm_config_store_dir:-}" ] && [ -f ui/package.json ] && command -v pnpm >/dev/null 2>&1; then
+  case "$(pnpm -C ui store path 2>/dev/null)" in
+    "$PWD"/*) export pnpm_config_store_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm/store" ;;
+  esac
+fi
 PY=$(command -v python3 || command -v python)
 FAIL=0
 DONE=" $("$PY" -c 'import json;print(" ".join(f["id"] for f in json.load(open("docs/features.json"))["features"] if f["status"]=="done"))' 2>/dev/null) "

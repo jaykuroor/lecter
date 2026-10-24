@@ -299,7 +299,7 @@ fn dependabot_groups_weekly_updates_with_three_open_prs_each() -> Result<(), Str
 fn bare_path(extra: &[(&str, &str)]) -> Result<tempdir::Dir, String> {
     let dir = tempdir::Dir::new()?;
     let real = std::env::var("PATH").unwrap_or_default();
-    for tool in ["bash", "dirname", "uname", "mkdir", "sed", "head", "ln", "cat", "grep", "tr"] {
+    for tool in ["bash", "dirname", "uname", "mkdir", "sed", "head", "ln", "cat", "grep", "tr", "readlink"] {
         let found = std::env::split_paths(&real).map(|p| p.join(tool)).find(|p| p.is_file());
         let src = found.ok_or(format!("{tool} not on PATH"))?;
         std::os::unix::fs::symlink(&src, dir.path().join(tool)).map_err(|e| e.to_string())?;
@@ -374,6 +374,28 @@ fn init_check_wants_the_pinned_node_and_falls_back_to_node_24() -> Result<(), St
     }
     if !out.contains(&format!("node: using {}", with_fb.path().join("node-24").display())) {
         return Err(format!("init.sh --check should say it uses the fallback:\n{out}"));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn init_replaces_a_node_link_that_points_somewhere_else() -> Result<(), String> {
+    let want = "24.18.0";
+    let dir = bare_path(&[
+        ("node", "echo v22.23.1"),
+        ("node-24", &format!("echo v{want}")),
+        ("planted", &format!("echo v{want}")),
+    ])?;
+    // HOME is the bare dir, so the link lives in <dir>/.cache/lecter/node-v<want>; plant a wrong one there.
+    let shim = dir.path().join(format!(".cache/lecter/node-v{want}"));
+    std::fs::create_dir_all(&shim).map_err(|e| e.to_string())?;
+    std::os::unix::fs::symlink(dir.path().join("planted"), shim.join("node")).map_err(|e| e.to_string())?;
+    let fallback = dir.path().join("node-24");
+    let (_, out) = init_check(dir.path(), &fallback)?;
+    let target = std::fs::read_link(shim.join("node")).map_err(|e| e.to_string())?;
+    if target != fallback {
+        return Err(format!("the planted link was kept ({}):\n{out}", target.display()));
     }
     Ok(())
 }

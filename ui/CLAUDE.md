@@ -26,7 +26,7 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 
 ## Learned
 
-- pnpm and verify need Node 24 (D-061): `scripts/lib_env.sh` (sourced by init/verify) puts a `node` link to `/usr/bin/node-24` first on `PATH`; for bare pnpm commands do it yourself.
+- pnpm and verify need Node 24 (D-061): init.sh and verify.sh put a `node` link to `/usr/bin/node-24` first on `PATH`; for bare pnpm commands do it yourself.
 - pnpm 12 reads settings from `pnpm_config_*` env vars, not `npm_config_*` (e.g. `pnpm_config_store_dir`) (F-013).
 - In the sandbox, add_dep.py fails with a read-only "store operation lock" unless `XDG_RUNTIME_DIR` points at a writable dir (e.g. `$TMPDIR/xdg-run`).
 - `installMockCore` is serialised by `page.addInitScript`: keep it self-contained (no imported values at runtime).
