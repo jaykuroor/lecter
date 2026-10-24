@@ -8,6 +8,11 @@
 //        + Σ per distinct frame (after paint − rAF start): the main-thread time the keystroke costs,
 //          without the idle vsync wait or browser→renderer queueing. Compared with keystroke_p99_ms.
 //          It misses the browser default action between beforeinput and input (text insertion).
+//   handler / frame = the two parts of work, reported separately.
+//   With `syncFlush` (the `?sync=1` pass), each event's end mark first runs it (CodeMirror's measure
+//   cycle, then a forced style + layout), so `handler` becomes "sync": input handling through
+//   layout with no rAF and no vsync. Paint, raster and composite are not in it. That pass changes
+//   when CodeMirror measures, so its raw/work numbers are not reported.
 const EVENTS = ["keydown", "keypress", "beforeinput", "input", "keyup"] as const;
 
 interface Pending {
@@ -27,9 +32,11 @@ function afterTask(cb: () => void): void {
   ch.port2.postMessage(0);
 }
 
-export function installProbe(): void {
+export function installProbe(syncFlush?: () => void): void {
   const raw: number[] = [];
   const work: number[] = [];
+  const handler: number[] = [];
+  const frame: number[] = [];
   let missed = 0; // events whose end listener never ran (stopImmediatePropagation)
   let cur: Pending | null = null;
   let waiters: (() => void)[] = [];
@@ -59,7 +66,15 @@ export function installProbe(): void {
     p.open++;
     const target = e.target;
     if (target instanceof EventTarget) {
-      target.addEventListener(e.type, () => queueMicrotask(() => (tEnd = performance.now())), { once: true });
+      target.addEventListener(
+        e.type,
+        () =>
+          queueMicrotask(() => {
+            syncFlush?.();
+            tEnd = performance.now();
+          }),
+        { once: true },
+      );
     }
     requestAnimationFrame((frameTs) => {
       const tRaf = performance.now();
@@ -83,6 +98,8 @@ export function installProbe(): void {
             for (const v of cur.frames.values()) frameWork += v;
             raw.push(cur.lastPaint - cur.start);
             work.push(cur.eventWork + frameWork);
+            handler.push(cur.eventWork);
+            frame.push(frameWork);
           }
           cur = null;
           resolve();
@@ -93,10 +110,12 @@ export function installProbe(): void {
     reset: () => {
       raw.length = 0;
       work.length = 0;
+      handler.length = 0;
+      frame.length = 0;
       missed = 0;
       cur = null;
       waiters = [];
     },
-    samples: () => ({ raw: [...raw], work: [...work], missed }),
+    samples: () => ({ raw: [...raw], work: [...work], handler: [...handler], frame: [...frame], missed }),
   };
 }

@@ -67,9 +67,27 @@ Fixture: 200 slides, 3,970 lines, 149,654 chars. JS bundle (CM6 + Vim + KaTeX + 
 | chromium-novsync (raw, budget number) | 77 ms | 2.9 / 4.5 / **5.2** / 6.1 ms | 5.0 → 7.2 → 8.5 MB | 450 → 530 MB |
 | chromium (vsync, work, upper bound) | 83 ms | 4.9 / 7.5 / 19 / 26 ms | 5.0 → 7.4 → 8.5 MB | 447 → 536 MB |
 | chromium (vsync, raw) | 83 ms | 15.2 / 17.5 / 22.7 / 27.3 ms | n/a | n/a |
-| webkit | not measured: host libraries missing (above) | | | |
+| webkit 27.2 (work, upper bound; playwright:v1.64.1-noble container, run by Jay) | 156 ms | 5 / 9 / **11** / 15 ms | n/a | 530 → 568 (scrolled) → 736 MB |
+| webkit 27.2 (raw) | 156 ms | 15 / 21 / 25 / 34 ms | n/a | n/a |
 
 - **Chromium: GO.** End-to-end p99 is 5.2 ms against 8 ms, with headroom. The JS heap stays under 9 MB after every widget has rendered once.
-- **WebKit: open.** Measure it on Ubuntu 24.04 before relying on it. The real app's WebKitGTK is also measured by the `keystroke_p99_ms` WebDriver trace from M0.5.
+- **WebKit: NO-GO by the script** (work p99 11 ms > 8). That run came before the handler/frame split, so it can't show how much of the tail is frame wait. WebKit coarsens `performance.now()` to 1 ms (every WebKit number is an integer), and work sums about 6 intervals, so each sample also carries a few ms of quantization. Re-run with the split (below) before deciding. The real app's WebKitGTK is measured by the `keystroke_p99_ms` WebDriver trace from M0.5.
 - RSS here is headless Chromium's whole process tree (browser, GPU, network, renderer), so it isn't comparable with `idle_rss_mb`, which is the Tauri app with WebKitGTK.
 - The bundle is 289 KB gz, over `ui_main_chunk_kb_gz` (≤ 250 KB). KaTeX (75 KB gz minified) and lang-markdown are the candidates to lazy-load out of the main chunk when the real surface is built.
+
+### Split and sync pass (added after the first WebKit run)
+
+`measure.mjs` now also reports `handler` and `frame` (the two parts of work), the mean split of the
+slowest 5 % / 1 % of keystrokes, the timer resolution, and a second typing pass on a fresh page
+(`?sync=1`). That pass flushes CodeMirror's measure and forces style + layout at each event's end
+mark, so its `handler` ("sync") is input handling through layout with no rAF (no paint or composite).
+The earlier numbers are computed exactly as before. Chromium (`.evidence/F-001/measurement-chromium-split.log`):
+
+| Engine | handler p50 / p99 | frame p50 / p99 | slowest 1 %: work = handler + frame | sync p50 / p99 / max |
+|---|---|---|---|---|
+| chromium (vsync) | 2.1 / 6.3 | 3.2 / 15.5 | 20.7 = 3.5 + 17.2 | 3.3 / 6.8 / 7.7 ms |
+| chromium-novsync | 0.8 / 1.9 | 1.4 / 2.4 | 4.5 = 2.0 + 2.5 | 1.1 / 2.3 / 3.4 ms |
+| webkit | pending the container re-run | | | |
+
+- In vsync Chromium, the slowest 1 % is almost all frame time (17.2 ms ≈ one 16.7 ms frame): the after-paint task landed a frame late. That's the artifact, not editor work.
+- Handler and sync times are also about 3× higher with vsync on than off (sync p99 6.8 vs 2.3 ms), on the same code. The likely cause is the CPU clocking down while idle between frames; that isn't proven. Real use behaves the same way, so the vsync-on sync number is the cautious one.

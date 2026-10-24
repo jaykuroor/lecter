@@ -31,7 +31,19 @@ const view = new EditorView({
   }),
 });
 
-installProbe();
+// `?sync=1`: flush CodeMirror's measure cycle and force style + layout at each event's end mark
+// (see probe.ts). `measure` is CodeMirror's internal flush (the one its rAF runs); spike only.
+const syncPass = new URLSearchParams(location.search).get("sync") === "1";
+const internal = view as unknown as { measure: (flush?: boolean) => void };
+installProbe(
+  syncPass
+    ? () => {
+        internal.measure(true);
+        void view.contentDOM.getBoundingClientRect().height;
+        void document.body.offsetHeight;
+      }
+    : undefined,
+);
 
 const w = window as unknown as Record<string, unknown>;
 w.__stats = () => ({ slides, chars: view.state.doc.length, lines: view.state.doc.lines });

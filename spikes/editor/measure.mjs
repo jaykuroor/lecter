@@ -88,6 +88,55 @@ function summary(xs) {
   return { n: s.length, p50: pct(s, 50), p95: pct(s, 95), p99: pct(s, 99), max: +s[s.length - 1].toFixed(2) };
 }
 
+/** Put the cursor on the middle slide, Vim `o`, type `keys` one by one; returns the probe's samples. */
+async function typePass(page, keys) {
+  const line = await page.evaluate((n) => window.__gotoSlide(n), Math.ceil(SLIDES / 2));
+  if (line < 0) throw new Error("slide not found");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("o"); // Vim: open a line below, insert mode
+  await page.evaluate(() => window.__probe.flush());
+  await page.evaluate(() => window.__probe.reset());
+  for (const k of keys) {
+    await page.keyboard.press(k);
+    await page.evaluate(() => window.__probe.flush());
+  }
+  const s = await page.evaluate(() => window.__probe.samples());
+  if (s.work.length !== keys.length) throw new Error(`expected ${keys.length} samples, got ${s.work.length}`);
+  return s;
+}
+
+/** Second pass on a fresh page with ?sync=1: handler = input handling through forced layout, no rAF. */
+async function syncPass(page, base, keys) {
+  await page.goto(`${base}/?slides=${SLIDES}&sync=1`);
+  await page.waitForFunction(() => window.__ready === true, null, { timeout: 60_000 });
+  const s = await typePass(page, keys);
+  return summary(s.handler.slice(WARMUP));
+}
+
+/** Smallest non-zero step of performance.now() (WebKit coarsens it). */
+function timerResolution() {
+  let min = Number.POSITIVE_INFINITY;
+  let last = performance.now();
+  const until = last + 50;
+  while (last < until) {
+    const t = performance.now();
+    if (t > last) min = Math.min(min, t - last);
+    last = t;
+  }
+  return +min.toFixed(4);
+}
+
+/** Mean handler and frame share of the slowest 5 % and 1 % of keystrokes (by work). */
+function tail(work, handler, frame) {
+  const idx = work.map((w, i) => [w, i]).sort((a, b) => b[0] - a[0]).map(([, i]) => i);
+  const part = (share) => {
+    const top = idx.slice(0, Math.max(1, Math.round(work.length * share)));
+    const mean = (xs) => +(top.reduce((a, i) => a + xs[i], 0) / top.length).toFixed(2);
+    return { n: top.length, work: mean(work), handler: mean(handler), frame: mean(frame) };
+  };
+  return { top5: part(0.05), top1: part(0.01) };
+}
+
 async function measure(name, { type, args }, base) {
   const server = await type.launchServer({ headless: true, args });
   const browser = await type.connect(server.wsEndpoint());
@@ -103,19 +152,9 @@ async function measure(name, { type, args }, base) {
     await page.evaluate(() => window.__scrollThrough());
     mem.scrolled = { rssMb: treeRssMb(pid), jsHeapMb: await jsHeapMb(name, page) };
 
-    const line = await page.evaluate((n) => window.__gotoSlide(n), Math.ceil(SLIDES / 2));
-    if (line < 0) throw new Error("slide not found");
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("o"); // Vim: open a line below, insert mode
-    await page.evaluate(() => window.__probe.flush());
     const keys = keySequence(WARMUP + KEYS);
-    await page.evaluate(() => window.__probe.reset());
-    for (const k of keys) {
-      await page.keyboard.press(k);
-      await page.evaluate(() => window.__probe.flush());
-    }
-    const { raw, work, missed } = await page.evaluate(() => window.__probe.samples());
-    if (work.length !== keys.length) throw new Error(`expected ${keys.length} samples, got ${work.length}`);
+    const main = await typePass(page, keys);
+    const { raw, work, handler, frame, missed } = main;
     mem.typed = { rssMb: treeRssMb(pid), jsHeapMb: await jsHeapMb(name, page) };
     const typedOk = await page.evaluate(() => document.querySelector(".cm-content")?.textContent?.includes("cross terms; check"));
 
@@ -124,7 +163,17 @@ async function measure(name, { type, args }, base) {
       version: browser.version(),
       fixture: stats,
       firstPaintMs,
-      keystrokes: { work: summary(work.slice(WARMUP)), raw: summary(raw.slice(WARMUP)), missedEvents: missed, typedOk },
+      timerResolutionMs: await page.evaluate(timerResolution),
+      keystrokes: {
+        work: summary(work.slice(WARMUP)),
+        raw: summary(raw.slice(WARMUP)),
+        handler: summary(handler.slice(WARMUP)),
+        frame: summary(frame.slice(WARMUP)),
+        tail: tail(work.slice(WARMUP), handler.slice(WARMUP), frame.slice(WARMUP)),
+        sync: await syncPass(page, base, keys),
+        missedEvents: missed,
+        typedOk,
+      },
       memory: mem,
     };
   } finally {
@@ -163,6 +212,11 @@ for (const name of ENGINES) {
       `${name} ${r.version}: fixture ${r.fixture.lines} lines / ${r.fixture.chars} chars; first paint ${r.firstPaintMs} ms\n` +
         `  keystroke work  p50 ${k.work.p50} p95 ${k.work.p95} p99 ${k.work.p99} max ${k.work.max} ms (n=${k.work.n})\n` +
         `  keystroke raw   p50 ${k.raw.p50} p95 ${k.raw.p95} p99 ${k.raw.p99} max ${k.raw.max} ms (includes vsync wait)\n` +
+        `  handler         p50 ${k.handler.p50} p95 ${k.handler.p95} p99 ${k.handler.p99} max ${k.handler.max} ms\n` +
+        `  frame           p50 ${k.frame.p50} p95 ${k.frame.p95} p99 ${k.frame.p99} max ${k.frame.max} ms\n` +
+        `  tail (slowest 5% / 1%): work ${k.tail.top5.work} / ${k.tail.top1.work} = handler ${k.tail.top5.handler} / ${k.tail.top1.handler} + frame ${k.tail.top5.frame} / ${k.tail.top1.frame} ms\n` +
+        `  sync (2nd pass, no rAF, through layout) p50 ${k.sync.p50} p95 ${k.sync.p95} p99 ${k.sync.p99} max ${k.sync.max} ms\n` +
+        `  timer resolution ${r.timerResolutionMs} ms\n` +
         `  typed text visible: ${k.typedOk}; events without an end mark: ${k.missedEvents}\n` +
         `  memory loaded   rss ${r.memory.loaded.rssMb} MB, js heap ${r.memory.loaded.jsHeapMb ?? "n/a"} MB\n` +
         `  memory scrolled rss ${r.memory.scrolled.rssMb} MB, js heap ${r.memory.scrolled.jsHeapMb ?? "n/a"} MB\n` +
