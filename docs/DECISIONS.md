@@ -301,3 +301,32 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: Jay asked to use `node-24` and leave `node` alone.
 - Instead of: repointing the system `node` at 24.
 - Revisit if: Fedora makes 24 the default `node`.
+
+## D-062 · Hand-written IPC contract until generated bindings
+2026-10-24 · session F-011 · active
+- Decision: `ui/src/core/commands.ts` declares the `Commands` map (only `app_info`) and `IpcError` by hand. F-017 replaces it with the generated `bindings.ts`.
+- Why: the mocked core needs a typed contract now.
+- Instead of: inventing more commands ahead of the spec.
+
+## D-063 · The mocked core replaces `__TAURI_INTERNALS__`
+2026-10-24 · session F-011 · active
+- Decision: `installMockCore()` stands in for Tauri IPC. Playwright installs it with `addInitScript`; `pnpm run dev` in a plain browser installs it itself (dev builds only; production drops it).
+- Why: one mock serves e2e tests and browser dev.
+- Instead of: `@tauri-apps/api/mocks`, which can't be serialised into `addInitScript`.
+
+## D-064 · Playwright port derived from the checkout path
+2026-10-24 · session F-011 · active
+- Decision: the e2e dev server port is a hash of the checkout path (`LECTER_E2E_PORT` overrides), with `reuseExistingServer: false`. Projects: `smoke` (Chromium, `@smoke`), `chromium`, `webkit`; `test:e2e` runs chromium and webkit (D-028).
+- Why: parallel worktrees must not serve each other's code.
+- Instead of: a fixed port.
+
+## D-065 · jsdom for Vitest; shell colours are tokens only
+2026-10-24 · session F-011 · active
+- Decision: Vitest uses jsdom. Shell CSS uses token variables only (`--window-bg` etc.), left undefined until F-042 defines them.
+- Why: happy-dom has had RCE advisories; no hard-coded colours (AGENTS.md).
+- Instead of: happy-dom; placeholder colour values.
+
+## D-066 · UI dependencies added (F-011)
+2026-10-24 · session F-011 · active
+- Decision: Runtime: solid-js 1.9, @tauri-apps/api 2.12 (whole app bundle 5.4 KB gz). Dev: typescript 7.0, vite 8.3, vite-plugin-solid, @biomejs/biome 2.6, vitest 5.0, jsdom, @solidjs/testing-library, @playwright/test 1.64, jscpd, knip, @types/node. All MIT, Apache-2.0 or ISC; added through add_dep.py (Dep-Added trailers on the branch).
+- Why: the stack in 01-architecture.md#stack-decided and the checks verify.sh calls.

@@ -3,16 +3,23 @@
 <!-- Everything above the LOG marker is printed into every session by scripts/next.py. Keep it ≤ 40 lines and true. Rewrite it each session (handoff skill). -->
 
 ## Current state
-- Runs: `cargo run -p lecter-cli` prints `lecter 0.0.1`. No app or UI yet.
-- Milestone: M0 · last done: F-010 Rust workspace scaffold · gate: none
-- Resume point (2026-10-24 00:07): merging F-011 from feat/F-011-ui-scaffold
+- Runs: `cargo run -p lecter-cli` prints `lecter 0.0.1`. `pnpm -C ui run dev` shows the app frame (headerbar, rail, document, side panel, status line) against a mocked core. No Tauri app yet.
+- Milestone: M0 · last done: F-011 UI scaffold with mocked core · gate: none
+- Resume point (2026-10-24 00:16): F-011 merged; next dispatch F-012
 - In progress: none
-- Watch out: Node is pinned to 24.18.0 (D-058). Jay's machine has it as `node-24`, but plain `node` still runs 22.23.1; point `node` at 24 before F-011.
-- Next up: F-011 UI scaffold (set `packageManager` and `engines.node` per D-058), then F-012 to F-014 and the M0 spikes.
+- Watch out: UI commands need Node 24 first on PATH (D-061): `ln -s /usr/bin/node-24 $TMPDIR/n24/node` and prepend that dir; verify.sh/worktree_setup.sh don't do it yet. Install with `--store-dir ~/.local/share/pnpm/store` and `XDG_RUNTIME_DIR=$TMPDIR`, or pnpm writes a 300 MB `.pnpm-store/` into the checkout (not git-ignored; the secret scan flags it). verify.sh's `[ -d .git ]` is false in worktrees, so private/tests-guard/deps/secrets lints skip there. Playwright browsers download from storage.googleapis.com (not in the sandbox allowlist); WebKit isn't installed, so `test:e2e` / `verify --full` fail locally.
+- Next up: F-012 Tauri app shell, then F-013, F-014 and the M0 spikes.
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-011 · done
+- Built: `ui/` with Vite + SolidJS + strict TypeScript, Biome, Vitest (jsdom) and Playwright. A mocked core replaces Tauri IPC (`ui/e2e/mock-core/`); one `@smoke` test loads the app shell in Chromium. Node 24.18.0 and pnpm 12.15.0 pinned in package.json.
+- Code: ui/src, ui/e2e/mock-core, ui/package.json, ui/vite.config.ts, ui/playwright.config.ts, ui/biome.json
+- Tests: ui/test/scaffold.test.ts, ui/src/**/*.test.ts(x), ui/e2e/shell.spec.ts, ui/e2e/dev-mock.spec.ts
+- Decisions: D-061 to D-066
+- Follow-ups: kit fixes in "Watch out" (Node 24 on PATH, pnpm store, worktree lints, Playwright download host, WebKit)
 
 ### 2026-10-23 · F-010 · done
 - Built: Cargo workspace with all nine crates (`lecter-core`, `-parse`, `-models`, `-index`, `-ai`, `-cas`, `-harness`, `-cli`, `-fake-provider`), each with a smoke test. The `lecter` binary prints its version. Toolchain pinned. Also deny.toml, clippy.toml, rustfmt.toml and .gitattributes.
