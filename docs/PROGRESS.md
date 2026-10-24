@@ -5,7 +5,7 @@
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (`.github/workflows/ci.yml`: lint, test on 3 OSes, e2e) is written but has never run: it runs on the first push.
 - Milestone: M0 · last done: F-013 CI workflows and verify stages · gate: none
-- Resume point (2026-10-24 10:05): CI-5e897b2 merged; F-014 builder running
+- Resume point (2026-10-24 10:14): merging CI-c1493e7 from fix/ci-c1493e7
 - In progress: none
 - Watch out: CI is UNVERIFIED until the first push (macOS and Windows especially; check that setup-node reads engines.node and that pnpm/action-setup accepts package_json_file). init.sh and verify.sh now pick Node 24 (falling back to /usr/bin/node-24, D-061), keep pnpm's store out of the checkout and run every lint in worktrees; the same env block is inline in both (D-074), so jscpd may flag it. Something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI starts inside the Claude sandbox, so window checks and F-016's e2e-app need Jay. Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally (`--stage e2e` fails here). The sandbox can't push (no ~/.ssh); Jay pushes.
 - Next up: F-014 code-health gates, then the M0 spikes.
