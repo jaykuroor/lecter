@@ -5,7 +5,7 @@
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload (Jay confirmed). `pnpm -C ui run dev` shows the same shell in a browser against the mocked core. `cargo run -p lecter-cli` prints `lecter 0.0.1`.
 - Milestone: M0 · last done: F-012 Tauri shell and dev script · gate: none
-- Resume point (2026-10-24 02:10): F-012 merged; next dispatch F-014
+- Resume point (2026-10-24 02:00): dispatching F-013 CI workflows and verify stages
 - In progress: none
 - Watch out: No GUI starts inside the Claude sandbox (AF_UNIX socket denied, Xvfb can't lock /tmp), so window checks and F-016's e2e-app need Jay outside it. Release builds need `--features custom-protocol` (they refuse to compile without it). UI commands need Node 24 first on PATH (D-061): link `node` to /usr/bin/node-24 in a temp dir and prepend it; verify.sh/worktree_setup.sh don't do it yet. Install with `--store-dir ~/.local/share/pnpm/store` and `XDG_RUNTIME_DIR=$TMPDIR`; worktree_setup.sh still leaves a ~300 MB `.pnpm-store/` in worktrees that gitleaks flags. verify.sh's `[ -d .git ]` is false in worktrees, so private/tests-guard/deps/secrets lints skip there. Playwright browsers download from storage.googleapis.com (not allowlisted); WebKit isn't installed. Pushing from the sandbox fails (no ~/.ssh); Jay pushes.
 - Next up: F-014 code-health gates, then F-013 and the M0 spikes.

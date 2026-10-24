@@ -175,9 +175,10 @@
     ".github/workflows/**",
     "scripts/verify.sh"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 1003
+   "priority": 1003,
+   "base": "f4d2af02d25c13e16783683881dd7e1e511f874d"
   },
   {
    "id": "F-014",
