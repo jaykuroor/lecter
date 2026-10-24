@@ -53,5 +53,10 @@ Add the performance presets (D-081) to the spec and the features.
 - Context: Jay decided at the F-001 stack call (D-080, D-081) that performance settings default to Balanced and are user-configurable. A Performance / Balanced / Quality preset goes in Settings > Performance and `:set`. Quality shows a lag warning. Build sessions can't add acceptance criteria.
 - Recommendation: in the planning session (`scripts/loop.sh plan`), add the preset to the settings schema (F-030), the settings window (F-045) and the `:set` command, and to the editor-surface feature: idle-time Markdown highlighting in Balanced, lazy KaTeX, live in Quality. Add the "performance toggles default to Balanced" rule to the settings spec.
 
+## Q-007 · planning · blocks: nothing
+Mention spike crates in the 01-architecture crate table (D-082).
+- Context: check_arch.py now allows `lecter-spike-*` crates under `spikes/` with no Lecter dependencies (D-082, applied by the author). The spec table doesn't mention them yet.
+- Recommendation: add one line under the 01-architecture crate table: "Spike crates (`spikes/*`, `lecter-spike-*`) are throwaway, may depend on no Lecter crate, and are never depended on."
+
 ## Gate notes
 <!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->
