@@ -4,9 +4,10 @@
 //   raw  = first event's timeStamp → after the paint of the last frame that event handlers requested
 //          (rAF, then a MessageChannel task, which runs after that frame's paint). Includes the idle
 //          wait for the next vsync, so it is bounded below by the display's frame interval.
-//   work = Σ per event (end of the event's task − event.timeStamp)
+//   work = Σ per event (end of its listeners and their microtasks − its first capture listener)
 //        + Σ per distinct frame (after paint − rAF start): the main-thread time the keystroke costs,
-//          without the idle vsync wait. This is the number compared with keystroke_p99_ms.
+//          without the idle vsync wait or browser→renderer queueing. Compared with keystroke_p99_ms.
+//          It misses the browser default action between beforeinput and input (text insertion).
 const EVENTS = ["keydown", "keypress", "beforeinput", "input", "keyup"] as const;
 
 interface Pending {
@@ -29,6 +30,7 @@ function afterTask(cb: () => void): void {
 export function installProbe(): void {
   const raw: number[] = [];
   const work: number[] = [];
+  let missed = 0; // events whose end listener never ran (stopImmediatePropagation)
   let cur: Pending | null = null;
   let waiters: (() => void)[] = [];
 
@@ -39,21 +41,33 @@ export function installProbe(): void {
   const onEvent = (e: Event) => {
     if (!cur) cur = { start: e.timeStamp, eventWork: 0, frames: new Map(), lastPaint: 0, open: 0 };
     const p = cur;
-    const t0 = e.timeStamp;
-    p.open += 2;
-    afterTask(() => {
-      p.eventWork += performance.now() - t0;
+    // Handlers start when this capture listener on window runs. They end after the last listener on
+    // the target (added now, so it runs after the editor's own listeners there; Vim stops propagation,
+    // so a bubbling listener on window would never see it) plus the microtasks they queued (CodeMirror
+    // reads DOM changes in a MutationObserver). A task posted from here is no use: Chromium runs the
+    // next frame first, which would count the vsync wait.
+    const tCap = performance.now();
+    let tEnd = Number.NaN;
+    let parts = 1;
+    const part = () => {
+      if (--parts > 0) return;
+      if (Number.isNaN(tEnd)) missed++;
+      else p.eventWork += tEnd - tCap;
       p.open--;
       settle();
-    });
+    };
+    p.open++;
+    const target = e.target;
+    if (target instanceof EventTarget) {
+      target.addEventListener(e.type, () => queueMicrotask(() => (tEnd = performance.now())), { once: true });
+    }
     requestAnimationFrame((frameTs) => {
       const tRaf = performance.now();
       afterTask(() => {
         const tPaint = performance.now();
         if (!p.frames.has(frameTs)) p.frames.set(frameTs, tPaint - tRaf);
         p.lastPaint = Math.max(p.lastPaint, tPaint);
-        p.open--;
-        settle();
+        part();
       });
     });
   };
@@ -79,9 +93,10 @@ export function installProbe(): void {
     reset: () => {
       raw.length = 0;
       work.length = 0;
+      missed = 0;
       cur = null;
       waiters = [];
     },
-    samples: () => ({ raw: [...raw], work: [...work] }),
+    samples: () => ({ raw: [...raw], work: [...work], missed }),
   };
 }

@@ -15,3 +15,7 @@ Spikes never become dependencies of `crates/` or `ui/`. Port what you learned; d
 
 ## Learned
 
+- Spike npm installs in the sandbox need init.sh's pnpm env (store lock, home store, proxy); `spikes/editor/pnpm.sh` wraps it.
+- Playwright WebKit won't launch on Fedora 44 (its Ubuntu build needs ICU 74, libjpeg.so.8, libjxl 0.8); measure WebKit on Ubuntu.
+- Keystroke latency: a task posted from a key handler runs after the next frame in Chromium; use `--disable-gpu-vsync --disable-frame-rate-limit` for end-to-end numbers.
+

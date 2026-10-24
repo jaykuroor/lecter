@@ -19,7 +19,7 @@ function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : def;
 }
-const ENGINES = arg("engines", "chromium,webkit").split(",");
+const ENGINES = arg("engines", "chromium,chromium-novsync,webkit").split(",");
 const SLIDES = Number(arg("slides", "200"));
 const KEYS = Number(arg("keys", "500"));
 const WARMUP = Number(arg("warmup", "50"));
@@ -60,7 +60,7 @@ function treeRssMb(pid) {
 }
 
 async function jsHeapMb(engine, page) {
-  if (engine !== "chromium") return null; // WebKit exposes no JS heap API to Playwright.
+  if (!engine.startsWith("chromium")) return null; // WebKit exposes no JS heap API to Playwright.
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("HeapProfiler.collectGarbage");
   const { usedSize } = await cdp.send("Runtime.getHeapUsage");
@@ -88,8 +88,8 @@ function summary(xs) {
   return { n: s.length, p50: pct(s, 50), p95: pct(s, 95), p99: pct(s, 99), max: +s[s.length - 1].toFixed(2) };
 }
 
-async function measure(name, type, base) {
-  const server = await type.launchServer({ headless: true });
+async function measure(name, { type, args }, base) {
+  const server = await type.launchServer({ headless: true, args });
   const browser = await type.connect(server.wsEndpoint());
   const pid = server.process().pid;
   try {
@@ -114,7 +114,7 @@ async function measure(name, type, base) {
       await page.keyboard.press(k);
       await page.evaluate(() => window.__probe.flush());
     }
-    const { raw, work } = await page.evaluate(() => window.__probe.samples());
+    const { raw, work, missed } = await page.evaluate(() => window.__probe.samples());
     if (work.length !== keys.length) throw new Error(`expected ${keys.length} samples, got ${work.length}`);
     mem.typed = { rssMb: treeRssMb(pid), jsHeapMb: await jsHeapMb(name, page) };
     const typedOk = await page.evaluate(() => document.querySelector(".cm-content")?.textContent?.includes("cross terms; check"));
@@ -124,7 +124,7 @@ async function measure(name, type, base) {
       version: browser.version(),
       fixture: stats,
       firstPaintMs,
-      keystrokes: { work: summary(work.slice(WARMUP)), raw: summary(raw.slice(WARMUP)), typedOk },
+      keystrokes: { work: summary(work.slice(WARMUP)), raw: summary(raw.slice(WARMUP)), missedEvents: missed, typedOk },
       memory: mem,
     };
   } finally {
@@ -143,7 +143,13 @@ function bundleKbGz() {
 const server = await serve();
 const base = `http://127.0.0.1:${server.address().port}`;
 mkdirSync(join(HERE, "data"), { recursive: true });
-const types = { chromium, webkit };
+// chromium-novsync: frames are produced as soon as they are needed, so its "raw" number is an
+// end-to-end keystroke-to-paint without the vsync wait (a cross-check of the probe's "work").
+const types = {
+  chromium: { type: chromium, args: [] },
+  "chromium-novsync": { type: chromium, args: ["--disable-gpu-vsync", "--disable-frame-rate-limit"] },
+  webkit: { type: webkit, args: [] },
+};
 const results = [];
 let failed = false;
 console.log(`F-001 editor spike · ${SLIDES} slides · ${KEYS} keystrokes (+${WARMUP} warm-up) · bundle ${bundleKbGz()} KB gz JS`);
@@ -157,7 +163,7 @@ for (const name of ENGINES) {
       `${name} ${r.version}: fixture ${r.fixture.lines} lines / ${r.fixture.chars} chars; first paint ${r.firstPaintMs} ms\n` +
         `  keystroke work  p50 ${k.work.p50} p95 ${k.work.p95} p99 ${k.work.p99} max ${k.work.max} ms (n=${k.work.n})\n` +
         `  keystroke raw   p50 ${k.raw.p50} p95 ${k.raw.p95} p99 ${k.raw.p99} max ${k.raw.max} ms (includes vsync wait)\n` +
-        `  typed text visible: ${k.typedOk}\n` +
+        `  typed text visible: ${k.typedOk}; events without an end mark: ${k.missedEvents}\n` +
         `  memory loaded   rss ${r.memory.loaded.rssMb} MB, js heap ${r.memory.loaded.jsHeapMb ?? "n/a"} MB\n` +
         `  memory scrolled rss ${r.memory.scrolled.rssMb} MB, js heap ${r.memory.scrolled.jsHeapMb ?? "n/a"} MB\n` +
         `  memory typed    rss ${r.memory.typed.rssMb} MB, js heap ${r.memory.typed.jsHeapMb ?? "n/a"} MB`,
@@ -168,10 +174,22 @@ for (const name of ENGINES) {
   }
 }
 server.close();
-const go = results.length === ENGINES.length && results.every((r) => r.keystrokes.work.p99 < BUDGET_MS && r.keystrokes.typedOk);
+// The number held against the budget, per engine:
+// - chromium-novsync: raw p99, a true end-to-end keystroke-to-paint (no vsync wait to exclude).
+// - webkit: work p99. Vsync can't be switched off, and in vsync runs the after-paint task sometimes
+//   lands a frame late, so this is an upper bound (compare chromium work with chromium-novsync raw).
+// - chromium (vsync): context only, for that comparison.
+const budgetP99 = (r) =>
+  r.engine === "chromium-novsync" ? r.keystrokes.raw.p99 : r.engine === "webkit" ? r.keystrokes.work.p99 : null;
+for (const r of results) {
+  const b = budgetP99(r);
+  if (b !== null) console.log(`budget metric ${r.engine}: p99 ${b} ms (${b < BUDGET_MS ? "within" : "over"} ${BUDGET_MS} ms)`);
+}
+const judged = results.filter((r) => budgetP99(r) !== null);
+const go = judged.length > 0 && judged.every((r) => budgetP99(r) < BUDGET_MS && r.keystrokes.typedOk);
 console.log(
   failed
-    ? "VERDICT: INCOMPLETE (an engine was not measured)"
-    : `VERDICT: ${go ? "GO" : "NO-GO"} (keystroke work p99 < ${BUDGET_MS} ms in every engine)`,
+    ? `VERDICT: INCOMPLETE (an engine was not measured)${go ? "; GO for the engines measured" : ""}`
+    : `VERDICT: ${go ? "GO" : "NO-GO"} (keystroke p99 < ${BUDGET_MS} ms)`,
 );
 process.exit(failed ? 2 : go ? 0 : 1);
