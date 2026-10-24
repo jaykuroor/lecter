@@ -8,54 +8,100 @@ and Windows so that, once sandboxed, it has **no network**, can **read only its 
 
 ## Method
 
-`lecter-spike-os-sandbox` is a workspace crate with one child binary, `sandbox-probe`, and six tests
-(`tests/sandbox.rs`). Each test runs a probe twice: once unsandboxed (the control, which must succeed)
-and once sandboxed (which must be refused with exit code 10; exit 20 means the sandbox couldn't be
-applied, so the test fails rather than passing by accident).
+`lecter-spike-os-sandbox` is a workspace crate with one child binary, `sandbox-probe`, and the tests
+in `tests/sandbox.rs`. A denial test runs its probe twice. The unsandboxed control run must succeed.
+The sandboxed run must be refused with exit code 10. Exit 20 means the sandbox couldn't be applied,
+so the test fails instead of passing by accident.
 
-| Probe | Control expects | Sandboxed expects |
-|---|---|---|
-| `read <input>` | — | read OK |
-| `read <sibling file>` | read OK | refused |
-| `read <file in another folder>` (the crate's `Cargo.toml`) | read OK | refused |
-| `net <loopback listener>` | connected | refused |
-| `alloc 1088` MiB (1 GiB + 64 MiB, one byte written per page) | holds it | allocation refused |
-| `alloc 256` MiB | — | holds it |
+| Test | Probe | Control | Sandboxed |
+|---|---|---|---|
+| can read its input | `read-input` | — | read OK |
+| cannot read a sibling file | `read <secret next to input>` | read OK | refused |
+| cannot read a file in another folder | `read <crate Cargo.toml>` | read OK | refused |
+| cannot read an earlier run's input | run 1 reads A; run 2 (input B) reads A | read OK | refused |
+| cannot read a system file (Windows) | `read %SystemRoot%\win.ini` | read OK | refused |
+| cannot open a network socket | `net <loopback listener>` | connected | refused |
+| cannot use an inherited socket (Unix) | `use-fd <connected TCP fd, CLOEXEC cleared>` | write OK | refused |
+| cannot exceed 1 GiB | `alloc 1088` MiB (one byte written per page) | holds it | refused |
+| cannot start a process to exceed 1 GiB | `spawn-alloc 768`: two processes × 768 MiB | both hold it | refused |
+| can allocate under the limit | `alloc 256` | — | holds it |
+| can start a thread | `thread` | — | runs |
+| enter refuses when a thread started first (Linux) | `--thread-first --sandbox …` | — | exit 20 |
 
-| OS | How (code) | Network | Files | Memory |
+| OS | Applied by | Network | Files | Memory and processes |
 |---|---|---|---|---|
-| Linux | child applies to itself (`src/linux/`) | seccomp: `socket`, `socketpair`, `connect`, `bind`, `listen`, `accept*` → `EPERM`; Landlock ≥ ABI 4 also handles TCP bind/connect | Landlock: every fs right handled, one `READ_FILE` rule on the input | `RLIMIT_AS` = 1 GiB |
-| macOS | child applies to itself (`src/macos.rs`) | Seatbelt `(deny default)` | Seatbelt `(allow file-read* (literal <input>))` | `RLIMIT_AS` = map size at entry + 1 GiB (the dyld shared region already exceeds 1 GiB) |
-| Windows | parent launches (`src/windows.rs`) | AppContainer with no capabilities (no loopback either) | ACL grant to the container SID on the exe and the input only | Job object: `ProcessMemoryLimit` 1 GiB, 1 active process, kill on close |
+| Linux (`src/linux/`) | the child, first thing | seccomp: `socket`, `socketpair`, `connect`, `bind`, `listen`, `accept*` → `EPERM`. Landlock handles TCP bind/connect (ABI ≥ 4) and UDP (ABI ≥ 10) too | Landlock handles every fs right defined up to ABI 10 that the kernel supports (incl. RESOLVE_UNIX at ABI 9). The one rule is `READ_FILE` on the input. `close_range(3, ~0)` closes inherited fds first | `RLIMIT_AS` = 1 GiB. seccomp: `clone` only with `CLONE_THREAD`, `clone3` → `ENOSYS` (libc falls back to `clone`), `fork`/`vfork` → `EPERM`. `PR_SET_PDEATHSIG` = `SIGKILL` |
+| macOS (`src/macos.rs`) | the child, first thing | Seatbelt `(deny default)` | Seatbelt `(allow file-read* (literal <input>))`. Every fd above 2 (from `/dev/fd`) is closed first | `RLIMIT_AS` = map size at entry + 1 GiB, because the dyld shared region already exceeds 1 GiB. `(deny default)` also denies `process-fork` and `process-exec` |
+| Windows (`src/windows.rs`) | the parent, at creation | AppContainer with no capabilities (no loopback either) | Less Privileged AppContainer (ALL APPLICATION PACKAGES grants don't apply). The only ACE is read/execute on the probe exe. The input is opened by the parent and inherited as one handle via `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`; the file's ACL is never touched | Job object: `ProcessMemoryLimit` 1 GiB, 1 active process, kill on job close |
 
-Other hardening in the filter: a foreign syscall ABI (i386 on x86_64, x32) kills the process;
-io_uring, `ptrace` and `process_vm_*` return `EPERM`.
+Other seccomp hardening: a foreign syscall ABI (i386 on x86_64, x32) kills the process, and io_uring,
+`ptrace` and `process_vm_*` return `EPERM`.
 
 ## Rerun
 
 ```sh
-spikes/os-sandbox/run.sh                         # this OS
+spikes/os-sandbox/run.sh                         # this OS; prints every probe's result
 cargo nextest run -p lecter-spike-os-sandbox     # the same tests, plain
 ```
 
-macOS and Windows run in the `test` job of `.github/workflows/ci.yml` (it runs the whole workspace on
-ubuntu-24.04, macos-15 and windows-2025).
+macOS and Windows run in the `test` job of `.github/workflows/ci.yml`, which runs the whole workspace
+on ubuntu-24.04, macos-15 and windows-2025.
 
 ## Results
 
-**Linux** (Fedora 44, kernel 7.2.11, x86_64; inside Claude Code's bubblewrap sandbox, which already
-sets `no_new_privs` and its own seccomp filter, so ours stacks on top): 6/6 pass. Landlock ABI 10.
-Sandboxed `read` of a sibling or another folder → `EACCES`; `net` → `EPERM` at `socket()`;
-`alloc 1088` → refused after 1008 MiB; `alloc 256` → held. With the sandbox switched off, the four
-denial tests fail (the probe reads, connects and holds 1088 MiB).
+| OS | Go / no-go | Evidence |
+|---|---|---|
+| Linux | **GO** | 11/11 pass locally (below) |
+| macOS | **UNVERIFIED-ON macos** until the `test` job runs | compile- and clippy-clean for `aarch64-apple-darwin` |
+| Windows | **UNVERIFIED-ON windows** until the `test` job runs | compile- and clippy-clean for `x86_64-pc-windows-msvc` |
 
-**macOS, Windows:** not yet measured (CI). Compile- and clippy-clean for `aarch64-apple-darwin` and
-`x86_64-pc-windows-msvc`.
+**Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
+sandbox, which already sets `no_new_privs` and its own seccomp filter; ours stacks on top. Sandboxed
+results:
+- reads of a sibling file, another folder or the earlier run's input → `EACCES`;
+- `net` → `EPERM` at `socket()`;
+- `alloc 1088` → refused after 1008 MiB;
+- `spawn-alloc` → `fork` gets `EPERM`;
+- the inherited socket → `EBADF`;
+- `--thread-first` → `enter` refuses.
 
-## Known gaps (for the parse worker, not this spike)
+Two runs with key lines switched off show the tests catch a missing defence. With the whole sandbox
+off, the first four denial tests fail. With `close_range`, the thread check and the clone/fork rules
+off, their three tests fail (`.evidence/F-005/`, not tracked).
 
-- Windows: files whose ACL grants ALL APPLICATION PACKAGES (most of `C:\Windows`) stay readable.
-- macOS: `sandbox_init` is deprecated (still shipped and used by Chromium); `RLIMIT_AS` enforcement
-  on XNU is what the `test` job measures.
-- The 60 s time limit (SEC-01) is the parent's job (wall clock kill); not part of this spike.
-- The seccomp filter is a deny list; the worker should switch to an allow list once its syscalls are known.
+Risks the CI run decides:
+- **macOS:** if XNU doesn't enforce `RLIMIT_AS`, the 1 GiB test fails and macOS memory needs a
+  parent-side footprint watchdog.
+- **Windows:** loopback blocking for AppContainers depends on the firewall service.
+- **Windows:** `C:\Windows` usually grants ALL *RESTRICTED* APPLICATION PACKAGES as well, which LPAC
+  still honours. If the system-file test fails, "input only" on Windows needs a restricted token as
+  well (Chromium's lockdown token).
+- **Windows:** if LPAC can't start the probe on the runner, every Windows sandboxed test fails with a
+  `CreateProcessW` error. That is a measured result, not a flaky test.
+
+## Requirements for the parse worker
+
+Implemented here and to be ported as is:
+1. **Windows input by handle.** No ACE on the input. The parent opens it read-only and passes exactly
+   that handle via `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`. A later run in the same container can't open
+   it by path.
+2. **Windows LPAC.** `PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY` =
+   `PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT`.
+
+Rules the worker must keep:
+3. **No new processes.** `RLIMIT_AS` is per process, so the worker must never be able to fork. On
+   Linux, `clone` is allowed only with `CLONE_THREAD`, `clone3` returns `ENOSYS`, and `fork`/`vfork`
+   are denied. macOS relies on Seatbelt's `process-fork` denial. Windows relies on the job's
+   one-process limit. On Linux the worker also dies with its parent (`PR_SET_PDEATHSIG`). On macOS the
+   core must kill it when the app exits; Windows does that through the job's kill on close.
+4. **No inherited fds.** Close every fd above 2 before sandboxing (`close_range` on Linux, `/dev/fd` on
+   macOS). Landlock and Seatbelt only gate new opens, and seccomp still allows `read`, `write` and
+   `sendmsg` on an fd the worker already holds. The worker's stdin/stdout pipes are fds 0 and 1.
+5. **`enter()` before any thread.** Landlock's `restrict_self` restricts only the calling thread.
+   `enter` refuses if `/proc/self/status` shows more than one thread. If a future ABI's
+   `LANDLOCK_RESTRICT_SELF_TSYNC` is available, the worker may use it as well.
+6. **Windows IPC handles.** The worker's pipe handles go through the same `HANDLE_LIST`, never through
+   `bInheritHandles = TRUE` alone, which would leak every inheritable handle in the core.
+7. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
+   become an allow list once the worker's syscalls are known. macOS `sandbox_init` is deprecated but
+   still shipped (Chromium uses it).
