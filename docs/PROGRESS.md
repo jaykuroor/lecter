@@ -3,16 +3,23 @@
 <!-- Everything above the LOG marker is printed into every session by scripts/next.py. Keep it ≤ 40 lines and true. Rewrite it each session (handoff skill). -->
 
 ## Current state
-- Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with Vite hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (`.github/workflows/ci.yml`: lint, test on 3 OSes, e2e) is written but has never run: it runs on the first push.
-- Milestone: M0 · last done: F-013 CI workflows and verify stages · gate: none
-- Resume point (2026-10-24 10:25): merging F-014 from feat/F-014-lint-config
+- Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (lint, test on ubuntu/macos/windows, e2e) is green on main (run 40106531943).
+- Milestone: M0 · last done: F-014 Code-health gates · gate: none
+- Resume point (2026-10-24 10:30): F-014 merged; next dispatch the M0 spikes
 - In progress: none
-- Watch out: CI is UNVERIFIED until the first push (macOS and Windows especially; check that setup-node reads engines.node and that pnpm/action-setup accepts package_json_file). init.sh and verify.sh now pick Node 24 (falling back to /usr/bin/node-24, D-061), keep pnpm's store out of the checkout and run every lint in worktrees; the same env block is inline in both (D-074), so jscpd may flag it. Something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI starts inside the Claude sandbox, so window checks and F-016's e2e-app need Jay. Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally (`--stage e2e` fails here). The sandbox can't push (no ~/.ssh); Jay pushes.
-- Next up: F-014 code-health gates, then the M0 spikes.
+- Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally. The sandbox can't push; the author pushes.
+- Next up: the M0 spikes (F-001 onwards).
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-014 · done
+- Built: the lint stage enforces unwrap/expect outside tests, blocking std::fs/std::net and thread::sleep bans in async crates, the Tauri identifier-path ban, jscpd (30+ line copies in ui/src, crates, app/src), knip (unused exports), check_arch and check_size. Each gate has fixture evidence of failing, then passing.
+- Code: clippy.toml, crates/{parse,models,harness}/clippy.toml, ui/.jscpd.json, ui/knip.json, tests/fixtures/lint/clippy/
+- Tests: crates/harness/tests/lint_gates.rs, ui/test/lint-gates.test.ts
+- Decisions: D-075 to D-077 (D-075 supersedes D-059)
+- Follow-ups: knip.json `classMembers` key (author); guard now protects crates/*/clippy.toml (author's commit c53127d)
 
 ### 2026-10-24 · CI-c1493e7 · done
 - Fixed: Vitest crashed on windows-2025 (`file:///@solid-refresh` is an invalid file URL) because vite-plugin-solid injected HMR in test mode. ui/vite.config.ts sets `solid({ hot: mode !== "test" })`; dev and e2e keep HMR. UNVERIFIED-ON: windows until the next CI run.

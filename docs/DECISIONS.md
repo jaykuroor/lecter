@@ -283,7 +283,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Revisit if: a new Rust stable fixes something we need, or Node 26 enters active LTS.
 
 ## D-059 · Blocking fs in async code is a review rule
-2026-10-23 · session F-010 · active
+2026-10-23 · session F-010 · superseded by D-075
 - Decision: `clippy.toml` disallows only `std::thread::sleep`. Blocking `std::fs` calls stay allowed, because the parse and model workers and `spawn_blocking` bodies need them; reviewers reject them on an async runtime thread.
 - Why: Clippy's `disallowed-methods` can't tell async code from sync code, so banning `std::fs` would put an `#[allow]` on every legitimate call.
 - Instead of: banning `std::fs::*` with per-call-site allows.
@@ -379,3 +379,20 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `init.sh` and `verify.sh` each carry the same inline environment block. It sets the pnpm proxy and falls back to `/usr/bin/node-24` when `node` isn't the pinned version (`LECTER_NODE_FALLBACK` overrides it). The node link lives in a user-owned, mode-700 dir (`~/.cache/lecter/…`, else `$TMPDIR`, never bare /tmp) and is re-pointed if wrong. The block moves XDG_RUNTIME_DIR to TMPDIR when it isn't writable, and points `pnpm_config_store_dir` at the home store when pnpm's store would fall inside the checkout. verify.sh checks `[ -e .git ]`, so worktrees run every lint. `init.sh --check` prints Fedora install commands.
 - Why: sessions kept setting these up by hand (D-061). A shared sourced file would let a builder change what protected checks run, since only verify.sh is protected (review of F-013).
 - Instead of: a shared `scripts/lib_env.sh`; a link in shared /tmp.
+
+## D-075 · Blocking calls banned in async crates (supersedes D-059)
+2026-10-24 · session F-014 · active
+- Decision: the root clippy.toml (core, index, ai, cas, cli, app, fake-provider) bans `std::thread::sleep`, 24 blocking `std::fs` calls, 12 `std::net` calls and the 5 Tauri `app_*_dir` helpers. `crates/{parse,models,harness}/clippy.toml` are identical copies without the fs/net bans, since parse/models are sync worker processes and harness is a sync CLI and test driver. Clippy uses the nearest config and doesn't merge it with the root one. Tests, build.rs and test modules allow the fs ban at the call site with a reason. A test pins the config set to exactly these four files and forbids `CLIPPY_CONF_DIR` in `.cargo/config*`. The guard protects `crates/*/clippy.toml` (the author, c53127d).
+- Why: the spec bans these calls "in async crates" (criterion F-014.2); D-059 left them to reviewers.
+- Instead of: D-059's review-only rule; banning everywhere with per-call allows.
+
+## D-076 · Clippy fixture uses a stand-in tauri crate
+2026-10-24 · session F-014 · active
+- Decision: `tests/fixtures/lint/clippy/` (manifests named `Cargo.fixture.toml`, so cargo and check_deps ignore them) runs in a temp workspace with the real `[workspace.lints]`. The real Tauri paths are checked in lecter-app itself: clippy warns on an unresolvable disallowed path, which fails under `-D warnings`.
+- Why: seconds per run instead of compiling Tauri in the test stage.
+- Instead of: a workspace-member fixture.
+
+## D-077 · jscpd and knip scope
+2026-10-24 · session F-014 · active
+- Decision: jscpd scans `ui/src`, `crates` and `app/src` (ts/tsx/rust), with `minLines` 30 and `exitCode` 1, ignoring the generated `bindings.ts` and `gen/`. `scripts/` isn't scanned, so the D-074 env blocks stay duplicated. knip has explicit entries and ignores `src/core/bindings.ts` until F-017 generates it.
+- Why: criterion F-014.4.

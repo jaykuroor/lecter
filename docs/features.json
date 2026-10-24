@@ -216,7 +216,7 @@
    "protected": [
     "clippy.toml"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 1004,
    "base": "5e897b23a97e06edcbbfeeec78f3b8438c3a29d5"
