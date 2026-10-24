@@ -85,14 +85,17 @@ def check(root):
             continue
         if not man.get("lints", {}).get("workspace"):
             problems.append(f"{rel}/Cargo.toml: add [lints] workspace = true")
-        if me not in ALLOWED:
+        allowed = ALLOWED.get(me)
+        if allowed is None and me.startswith("spike-") and rel.startswith("spikes/"):
+            allowed = set()  # throwaway spike crates (spikes/*) may not depend on any Lecter crate (D-082)
+        if allowed is None:
             problems.append(f"{rel}: crate lecter-{me} is not in the architecture table (01-architecture.md); add it there first")
             continue
         for dep, spec in deps_of(man, ws_deps).items():
             other = short(dep)
             if other is None:
                 continue
-            if other not in ALLOWED[me]:
+            if other not in allowed:
                 problems.append(f"{rel}: lecter-{me} → lecter-{other} is not an allowed dependency (01-architecture.md)")
             elif (me, other) in PROTO_ONLY:
                 feats = set(spec.get("features", []))

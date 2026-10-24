@@ -421,3 +421,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the F-001 spike profile (Chromium) puts the Markdown parse at about 0.85 ms/key. On WebKit, turning it off took sync p99 from 9 to 7 ms, under the 8 ms budget (D-080). Users on fast machines can opt into Quality.
 - Instead of: dropping Markdown highlighting from v0, or a fixed per-keystroke parse.
 - Spec: needs criteria in the settings features (F-030, F-045) and the editor surface. Q-006 asks the planning session to add them.
+
+## D-082 · Spike crates are allowed in the workspace with no Lecter edges
+2026-10-24 · Who: Jay · active
+- Decision: `scripts/check_arch.py` accepts any workspace crate named `lecter-spike-*` whose folder is under `spikes/`, and allows it no dependency on any Lecter crate. The author applies the kit change (the file is guard-protected). Spikes stay throwaway and outside the 01-architecture table until Q-007 adds a line about them.
+- Why: F-005's criterion 1 requires a workspace test crate, so CI's `test` job runs it on macOS and Windows. Without this, verify is red on arch and the harness lint test.
+- Instead of: excluding spikes from the workspace (breaks F-005 criteria 1 and 3), or adding each spike to the table.
