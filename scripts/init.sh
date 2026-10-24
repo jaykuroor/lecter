@@ -4,25 +4,27 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export CARGO_TERM_COLOR=never NO_COLOR=1
-# pnpm reads npm_config_* before HTTPS_PROXY, but inside the Claude Code sandbox only HTTPS_PROXY and NO_PROXY
-# point at the sandbox proxy, so make pnpm follow them (no effect when no proxy is set). D-057.
-if [ -n "${HTTPS_PROXY:-}" ]; then
-  export npm_config_https_proxy="$HTTPS_PROXY" npm_config_proxy="${HTTP_PROXY:-$HTTPS_PROXY}" npm_config_noproxy="${NO_PROXY:-}"
-fi
+. scripts/lib_env.sh   # pnpm proxy, the Node 24 fallback, pnpm's store outside the checkout (D-057, D-061)
+# Every missing tool is listed with the Fedora command that installs it.
 missing=()
 need() { command -v "$1" >/dev/null 2>&1 || missing+=("$1 ($2)"); }
-need git     "https://git-scm.com"
-command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=("python3 (3.10+)")
-need cargo   "rustup: https://rustup.rs"
-need node    "Node LTS: https://nodejs.org"
-need pnpm    "corepack enable && corepack prepare pnpm@latest --activate"
-need gitleaks "secret scan: Fedora 'sudo dnf install gitleaks'; others: https://github.com/gitleaks/gitleaks/releases"
+PNPM_WANT=$(sed -n 's/^ *"packageManager": *"pnpm@\([0-9.]*\)".*/\1/p' ui/package.json 2>/dev/null | head -n 1)
+need git     "sudo dnf install git"
+command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=("python3 (3.10+: sudo dnf install python3)")
+need cargo   "rustup: sudo dnf install rustup && rustup-init -y"
+node_found=$(node --version 2>/dev/null || true)
+if [ -z "$node_found" ] || { [ -n "$NODE_WANT" ] && [ "$node_found" != "v$NODE_WANT" ]; }; then
+  missing+=("node ${NODE_WANT:-LTS} (found ${node_found:-none}: sudo dnf install nodejs24, which provides $NODE_FALLBACK)")
+fi
+need pnpm    "${PNPM_WANT:-latest}: sudo npm install -g pnpm@${PNPM_WANT:-latest}"
+need gitleaks "secret scan: sudo dnf install gitleaks"
 if [ "$(uname -s)" = "Linux" ]; then
-  pkg-config --exists webkit2gtk-4.1 2>/dev/null || missing+=("webkit2gtk-4.1 dev headers (Tauri 2 Linux prerequisites)")
+  pkg-config --exists webkit2gtk-4.1 2>/dev/null || missing+=("webkit2gtk-4.1 (Tauri 2 prerequisites: sudo dnf install webkit2gtk4.1-devel openssl-devel libappindicator-gtk3-devel librsvg2-devel && sudo dnf group install c-development)")
   [ -n "${CI:-}" ] || need bwrap "Claude Code sandbox: sudo dnf install bubblewrap"
   [ -n "${CI:-}" ] || need socat "Claude Code sandbox: sudo dnf install socat"
   need xvfb-run "headless app runs: sudo dnf install xorg-x11-server-Xvfb"
 fi
+[ -z "$NODE_NOTE" ] || echo "$NODE_NOTE"
 command -v pdftotext >/dev/null 2>&1 || echo "optional: pdftotext (poppler-utils) lets check_private.py fingerprint private PDFs"
 if [ "${1:-}" = "--check" ]; then
   for t in cargo-nextest cargo-deny; do command -v "$t" >/dev/null 2>&1 || missing+=("$t (cargo install $t --locked)"); done

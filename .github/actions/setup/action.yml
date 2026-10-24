@@ -1,0 +1,50 @@
+# The shared Setup steps of 16-ci-cd.md#ciyml-every-push-to-main-every-pull-request-manual-dispatch:
+# toolchains, caches, Linux system packages, cargo tools, gitleaks, then scripts/init.sh.
+# Logic stays in scripts (16-ci-cd.md#rules); this file only wires them up.
+name: Setup
+description: Toolchains, caches, system packages, cargo tools and gitleaks, then scripts/init.sh
+runs:
+  using: composite
+  steps:
+    - name: Rust toolchain from rust-toolchain.toml
+      shell: bash
+      run: |
+        channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+        rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy --no-self-update
+        rustc --version
+
+    - name: Rust cache
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+    - name: Tauri 2 system packages (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file \
+          libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb
+
+    - name: pnpm from ui/package.json
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      with:
+        package_json_file: ui/package.json
+
+    - name: Node from ui/package.json, with the pnpm store cache
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: ui/package.json
+        cache: pnpm
+        cache-dependency-path: ui/pnpm-lock.yaml
+
+    - name: Cargo tools (prebuilt)
+      uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+      with:
+        tool: cargo-nextest,cargo-deny
+
+    - name: gitleaks (pinned, checksum-verified; SEC-51)
+      shell: bash
+      run: bash .github/scripts/install-gitleaks.sh "$RUNNER_TEMP/gitleaks" && echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
+
+    - name: Install (scripts/init.sh)
+      shell: bash
+      run: scripts/init.sh
