@@ -4,6 +4,12 @@
 // Release builds on Windows open no console window next to the app.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// `dev` (set by tauri-build when tauri lacks `custom-protocol`) means the window loads
+// build.devUrl. A release binary like that would hand the main capability's IPC to whatever
+// listens on that port, so it must not build (SEC-30, SEC-31, SEC-34).
+#[cfg(all(dev, not(debug_assertions)))]
+compile_error!("release builds must embed the UI: build with `--features custom-protocol` (Tauri's CLI adds it)");
+
 mod ipc;
 
 fn main() {

@@ -16,5 +16,5 @@ Spec: `01-architecture.md#processes`, `#packaging`; `13-security.md`; `08-figure
 
 ## Learned
 - Inside the Claude Code sandbox no window can open: AF_UNIX `socket()` is denied (GTK can't reach X/Wayland) and Xvfb can't write `/tmp/.X<n>-lock`, so it never listens; `cargo run -p lecter-app` stops at "Failed to initialize GTK" (F-012)
-- Without `tauri/custom-protocol` (which the Tauri CLI adds), even `cargo build --release` loads `build.devUrl`; packaging must enable it (F-012)
+- Without `tauri/custom-protocol` a build loads `build.devUrl`; main.rs's `compile_error!` stops such release builds, so build releases with `--features custom-protocol` (F-012)
 

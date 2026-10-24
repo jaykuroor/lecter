@@ -18,13 +18,18 @@ VITE=$!
 trap 'kill "$VITE" 2>/dev/null || true' EXIT INT TERM
 
 # Wait until Vite accepts connections (at most 30 s), so the window never opens on an error page.
+ready=0
 for _ in $(seq 1 150); do
   if ! kill -0 "$VITE" 2>/dev/null; then
     echo "dev.sh: Vite exited (is port $PORT already in use?)" >&2
     exit 1
   fi
-  if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then break; fi
+  if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then ready=1; break; fi
   sleep 0.2
 done
+if [ "$ready" != 1 ]; then
+  echo "dev.sh: Vite did not answer on 127.0.0.1:$PORT within 30 s" >&2
+  exit 1
+fi
 
 cargo run -p lecter-app

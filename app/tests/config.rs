@@ -12,7 +12,8 @@ script-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; fra
 #[test]
 fn tauri_conf_sets_identifier_version_and_the_sec_30_csp() {
     let c = conf();
-    assert_eq!(c["identifier"], "io.github.jaykuroor.lecter");
+    // The expected identifier comes from the spec (docs/ is not code), so no second copy exists.
+    assert_eq!(c["identifier"], spec_identifier());
     assert_eq!(c["version"], "0.0.1");
     assert_eq!(c["version"], env!("CARGO_PKG_VERSION"), "tauri.conf.json and the workspace version differ");
     assert_eq!(c["app"]["security"]["csp"], SEC_30_CSP);
@@ -61,21 +62,55 @@ fn release_config_has_devtools_disabled() {
 fn identifier_has_one_source_read_into_app_id() {
     let id = conf()["identifier"].as_str().unwrap_or_default().to_owned();
     assert_eq!(lecter_core::identity::APP_ID, id);
+    let parts: Vec<&str> = id.split('.').collect();
+    assert!(parts.len() >= 3 && parts.iter().all(|p| !p.is_empty()), "{id} is not reverse-DNS");
     let app = app_dir();
     let root = app.parent().unwrap_or(&app);
-    let mut files = Vec::new();
-    for dir in ["app", "crates", "ui/src", "ui/e2e", "ui/test", "scripts", "tests"] {
-        walk(&root.join(dir), &mut files);
-    }
-    // This file pins the expected value for criterion 1; it is the check, not a second source.
-    let allowed = [app_dir().join("tauri.conf.json"), app_dir().join("tests/config.rs")];
-    let offenders: Vec<_> = files
+    // Every tracked or new (not ignored) file outside docs/, the spec and plan that may name it.
+    let out = std::process::Command::new("git")
+        .args(["ls-files", "--cached", "--others", "--exclude-standard", "-z"])
+        .current_dir(root)
+        .output()
+        .unwrap_or_else(|e| panic!("git ls-files: {e}"));
+    assert!(out.status.success(), "git ls-files failed");
+    let files: Vec<String> = String::from_utf8_lossy(&out.stdout)
+        .split('\0')
+        .filter(|f| !f.is_empty() && !f.starts_with("docs/"))
+        .map(str::to_owned)
+        .collect();
+    assert!(files.len() > 50, "git ls-files listed only {} files", files.len());
+    let offenders: Vec<&String> = files
         .iter()
-        .filter(|p| !allowed.contains(p))
-        .filter(|p| std::fs::read_to_string(p).is_ok_and(|t| t.contains(&id)))
-        .map(|p| p.display().to_string())
+        .filter(|f| f.as_str() != "app/tauri.conf.json")
+        .filter(|f| std::fs::read(root.join(f)).is_ok_and(|b| String::from_utf8_lossy(&b).contains(&id)))
         .collect();
     assert!(offenders.is_empty(), "the identifier is spelled out in {offenders:?}");
+}
+
+/// SEC-30/31/34: a release build must embed the UI (Tauri's `custom-protocol`). Without it the
+/// binary loads devUrl, and the main capability's IPC would reach whatever binds that port.
+#[test]
+fn release_builds_cannot_compile_without_the_embedded_ui() {
+    let manifest = read("Cargo.toml");
+    let features = manifest.split("\n[features]").nth(1).and_then(|s| s.split("\n[").next()).unwrap_or("");
+    assert!(
+        features.lines().any(|l| l.replace(' ', "") == "custom-protocol=[\"tauri/custom-protocol\"]"),
+        "lecter-app needs a custom-protocol feature that turns on tauri/custom-protocol"
+    );
+    let main = read("src/main.rs");
+    let guard = main.find("#[cfg(all(dev, not(debug_assertions)))]").unwrap_or_else(|| panic!("no release guard"));
+    assert!(
+        main[guard..].lines().nth(1).is_some_and(|l| l.starts_with("compile_error!(")),
+        "guard is not a compile_error!"
+    );
+}
+
+/// The identifier as the spec states it (01-architecture.md#app-identity-and-migration).
+fn spec_identifier() -> String {
+    let spec = read("../docs/spec/01-architecture.md");
+    let marker = "The bundle identifier is `";
+    let start = spec.find(marker).unwrap_or_else(|| panic!("spec no longer states the identifier")) + marker.len();
+    spec[start..].split('`').next().unwrap_or_default().to_owned()
 }
 
 fn dev_port() -> String {

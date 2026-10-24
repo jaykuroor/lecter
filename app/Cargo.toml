@@ -18,5 +18,10 @@ tauri = "2"
 serde_json = "1"
 lecter-core = { path = "../crates/core" }
 
+[features]
+# Embeds ui/dist and serves it over Tauri's custom protocol. Release builds need it (main.rs
+# refuses to compile without it); debug builds leave it off and load build.devUrl.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = "2"
