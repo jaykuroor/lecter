@@ -18,6 +18,5 @@ Spikes never become dependencies of `crates/` or `ui/`. Port what you learned; d
 - Spike npm installs in the sandbox need init.sh's pnpm env (store lock, home store, proxy); `spikes/editor/pnpm.sh` wraps it.
 - Playwright WebKit won't launch on Fedora 44 (its Ubuntu build needs ICU 74, libjpeg.so.8, libjxl 0.8); measure WebKit on Ubuntu.
 - Keystroke latency: a task posted from a key handler runs after the next frame in Chromium; use `--disable-gpu-vsync --disable-frame-rate-limit` for end-to-end numbers.
-
 - Landlock (ABI 10) and a stacked seccomp filter work inside Claude Code's bubblewrap sandbox; `rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin` lets `cargo clippy --target` check cfg(windows/macos) code (F-005).
-- A Rust spike crate in the workspace (`lecter-spike-*`) fails `scripts/check_arch.py` until the guardrail learns spikes (F-005).
+- A Rust spike is a workspace crate named `lecter-spike-*` under `spikes/`; check_arch gives it no Lecter edges (D-082).
