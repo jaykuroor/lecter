@@ -1,0 +1,49 @@
+/* Throwaway spike styling; the real UI uses docs/design tokens. System colours only. */
+:root {
+  --bg: Canvas;
+  --fg: CanvasText;
+  --muted: GrayText;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+#app,
+#app .cm-editor {
+  height: 100%;
+}
+.cm-scroller {
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+}
+.cm-slide-header {
+  font-weight: 600;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--muted);
+}
+.cm-gloss-bar {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 4px;
+}
+.cm-gloss-open,
+.cm-gloss-body,
+.cm-gloss-close {
+  border-left: 3px solid var(--muted);
+  padding-left: 8px;
+}
+.cm-note-open,
+.cm-note-body,
+.cm-note-close {
+  border-left: 3px dashed var(--muted);
+  padding-left: 8px;
+}
+.cm-math-display {
+  text-align: center;
+  padding: 4px 0;
+}
