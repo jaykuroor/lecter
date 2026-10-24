@@ -74,8 +74,8 @@ Fixture: 200 slides, 3,970 lines, 149,654 chars. JS bundle (CM6 + Vim + KaTeX + 
 | webkit 27.2 (work, upper bound; playwright:v1.64.1-noble container, run by Jay) | 156 ms | 5 / 9 / **11** / 15 ms | n/a | 530 → 568 (scrolled) → 736 MB |
 | webkit 27.2 (raw) | 156 ms | 15 / 21 / 25 / 34 ms | n/a | n/a |
 
-- **Chromium: GO.** End-to-end p99 is 5.2 ms against 8 ms, with headroom. The JS heap stays under 9 MB after every widget has rendered once.
-- **WebKit: NO-GO by the script** (work p99 11 ms > 8). That run came before the handler/frame split, so it can't show how much of the tail is frame wait. WebKit coarsens `performance.now()` to 1 ms (every WebKit number is an integer), and work sums about 6 intervals, so each sample also carries a few ms of quantization. Re-run with the split (below) before deciding. The real app's WebKitGTK is measured by the `keystroke_p99_ms` WebDriver trace from M0.5.
+- **Chromium: GO.** End-to-end p99 is 5.2 ms against 8 ms (4.8 after the optimisation), with headroom. The JS heap stays under 9 MB after every widget has rendered once.
+- **WebKit: NO-GO by the script in all three runs** (work p99 11–12 ms > 8; full table under "Optimisation round"). WebKit coarsens `performance.now()` to 1 ms, and work sums about 6 intervals, so each sample also carries a few ms of quantization. The real app's WebKitGTK is measured by the `keystroke_p99_ms` WebDriver trace from M0.5. Decision: D-080 / D-081 (see Conclusion).
 - RSS here is headless Chromium's whole process tree (browser, GPU, network, renderer), so it isn't comparable with `idle_rss_mb`, which is the Tauri app with WebKitGTK.
 - The bundle was 289 KB gz in one chunk, over `ui_main_chunk_kb_gz` (≤ 250 KB). The optimisation round below splits KaTeX and markdown out (main chunk 140 KB gz).
 
@@ -118,7 +118,26 @@ Chromium before/after (`measurement-chromium-split.log` → `measurement-chromiu
 
 - Keystroke cost in Chromium barely moved (within run-to-run noise), as the profile predicted: the decoration code wasn't the cost. Leaving out markdown lowers handler and sync p50 by about 0.3 ms (novsync) and 1.1 ms (vsync sync p50). The p99 differences are within noise of single runs.
 - First paint improved (lazy chunks), and the main chunk is now within `ui_main_chunk_kb_gz`.
-- WebKit after the optimisation: pending Jay's container run 3 (`measurement-webkit-opt.log`).
+WebKit 27.2, all runs (Jay's `playwright:v1.64.1-noble` container; 1 ms timer, so every number is an
+integer; `measurement-webkit.log`, `measurement-webkit-split.log`, `measurement-webkit-opt.log`):
+
+| WebKit run | first paint | work p50/p95/p99/max | raw p50/p95/p99/max | handler p50/p95/p99/max | frame p50/p95/p99/max | slowest 5 % / 1 % (work = h + f) | sync p50/p95/p99/max | RSS load → scrolled → typed | script |
+|---|---|---|---|---|---|---|---|---|---|
+| 1, before split | 156 | 5 / 9 / 11 / 15 | 15 / 21 / 25 / 34 | n/a | n/a | n/a | n/a | 530 → 568 → 736 | NO-GO |
+| 2, split, before opt | 153 | 5 / 9 / 12 / 25 | 15 / 21 / 27 / 29 | 2 / 5 / 6 / 11 | 2 / 5 / 7 / 14 | 11.08 = 5.36 + 5.72 / 16 = 8.2 + 7.8 | 4 / 7 / 9 / 12 | 526 → 569 → 749 | NO-GO |
+| 3, optimised | 50 | 5 / 9 / 11 / 15 | 15 / 22 / 27 / 29 | 3 / 5 / 6 / 8 | 3 / 5 / 7 / 10 | 10.44 = 4.36 + 6.08 / 12.6 = 5 + 7.6 | 4 / 7 / 9 / 17 | 531 → 561 → 712 | NO-GO |
+| 3, optimised, md=0 | 54 | 5 / 9 / 11 / 18 | 15 / 21 / 25 / 26 | 2 / 4 / 6 / 8 | 3 / 6 / 8 / 12 | 10.32 = 4 + 6.32 / 13 = 5.6 + 7.4 | 3 / 6 / **7** / 9 | 519 → 544 → 585 | NO-GO |
+
+- After the optimisation, WebKit work p99 is still 11 ms, so the script says NO-GO (budget metric is work p99 < 8). The slowest 1 % shrank from 16 to 12.6 ms, and its handler part from 8.2 to 5 ms.
+- With markdown off, WebKit sync p99 is 7 ms (under 8); with markdown on it is 9. Typed RSS is 585 vs 712 MB.
+- Cold first paint dropped from about 155 ms to 50 ms (lazy KaTeX and markdown).
+
+## Conclusion
+
+Jay decided the stack: **D-080** (CodeMirror 6 surface: GO with conditions) and **D-081**
+(Performance / Balanced / Quality presets, Balanced the default; in Balanced, Markdown highlighting
+runs after a typing pause instead of on each keystroke). Both point to the tables above for the
+numbers. The spike stays as measured; the presets are not built here.
 
 - In vsync Chromium, the slowest 1 % is almost all frame time (17.2 ms ≈ one 16.7 ms frame): the after-paint task landed a frame late. That's the artifact, not editor work.
 - Handler and sync times are also about 3× higher with vsync on than off (sync p99 6.8 vs 2.3 ms), on the same code. The likely cause is the CPU clocking down while idle between frames; that isn't proven. Real use behaves the same way, so the vsync-on sync number is the cautious one.
