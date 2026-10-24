@@ -14,8 +14,10 @@ esac
 FILE="gitleaks_${VERSION}_${ASSET}"
 mkdir -p "$DIR"
 curl -fsSL --retry 3 -o "$DIR/$FILE" "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${FILE}"
-if command -v sha256sum >/dev/null 2>&1; then GOT=$(sha256sum "$DIR/$FILE" | cut -d' ' -f1)
-else GOT=$(shasum -a 256 "$DIR/$FILE" | cut -d' ' -f1); fi
+# Hash stdin, not a path: GNU sha256sum prefixes its line with `\` when the path holds a
+# backslash (Windows $RUNNER_TEMP), which would break the strict compare below.
+if command -v sha256sum >/dev/null 2>&1; then GOT=$(sha256sum < "$DIR/$FILE" | cut -d' ' -f1)
+else GOT=$(shasum -a 256 < "$DIR/$FILE" | cut -d' ' -f1); fi
 if [ "$GOT" != "$SHA" ]; then
   echo "install-gitleaks: checksum mismatch for $FILE (expected $SHA, got $GOT)"; rm -f "$DIR/$FILE"; exit 1
 fi

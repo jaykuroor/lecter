@@ -234,6 +234,11 @@ fn ci_installs_a_pinned_checksum_verified_gitleaks() -> Result<(), String> {
     if !(script.contains("sha256sum") && script.contains("shasum -a 256")) || !script.contains("exit 1") {
         return Err("install-gitleaks.sh must verify the SHA-256 (sha256sum or shasum) and fail on mismatch".into());
     }
+    // GNU sha256sum prefixes its line with `\` when the file name holds a backslash (Windows
+    // $RUNNER_TEMP), which broke the compare on windows (CI-5e897b2). Hash stdin, never a path.
+    if let Some(line) = script.lines().find(|l| l.contains("sha256sum \"") || l.contains("shasum -a 256 \"")) {
+        return Err(format!("install-gitleaks.sh must hash stdin (`sha256sum < \"$f\"`), not a path: {line}"));
+    }
     Ok(())
 }
 
