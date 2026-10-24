@@ -10,7 +10,7 @@ use std::process::Command;
 const CRATE_FOLDERS: [&str; 8] = ["core", "parse", "models", "index", "ai", "cas", "harness", "cli"];
 
 /// Licences allowed by `01-architecture.md#dependency-policy`, as SPDX ids.
-const ALLOWED_LICENSES: [&str; 10] = [
+const ALLOWED_LICENSES: [&str; 11] = [
     "MIT",
     "Apache-2.0",
     "BSD-2-Clause",
@@ -21,6 +21,8 @@ const ALLOWED_LICENSES: [&str; 10] = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
     "CC0-1.0",
+    // D-067: Jay allows it for target-lexicon (Tauri's tree); the exception only widens Apache-2.0.
+    "Apache-2.0 WITH LLVM-exception",
 ];
 
 fn repo_root() -> PathBuf {
