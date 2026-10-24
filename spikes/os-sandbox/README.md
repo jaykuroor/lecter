@@ -102,6 +102,20 @@ Rules the worker must keep:
    `LANDLOCK_RESTRICT_SELF_TSYNC` is available, the worker may use it as well.
 6. **Windows IPC handles.** The worker's pipe handles go through the same `HANDLE_LIST`, never through
    `bInheritHandles = TRUE` alone, which would leak every inheritable handle in the core.
-7. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
+7. **Parent-death on Linux (ROB-40).** `PR_SET_PDEATHSIG` fires when the spawning *thread* exits, not
+   the process. A tokio blocking-pool thread retires after about 10 s, so the core must spawn workers
+   from one long-lived thread. The prctl also runs after exec, so a core that died before it leaves
+   the worker running. The core passes its pid, and after the prctl the worker compares `getppid()`
+   with it and exits if they differ.
+8. **Windows input handle stays private (SEC-01).** `SetHandleInformation(HANDLE_FLAG_INHERIT)` leaves
+   the handle inheritable in the core while the process starts. A concurrent `CreateProcess` with
+   `bInheritHandles = TRUE` (for example std `Command`) could receive it. Either open it
+   non-inheritable and `DuplicateHandle` it into the suspended child, or hold std's spawn lock and
+   clear the flag right after `CreateProcessW`. The spike uses the simple flag because its tests
+   start nothing else concurrently.
+9. **CI caveat for `cannot_read_a_system_file`.** If it fails on Windows, check whether
+   `icacls %SystemRoot%\win.ini` lists ALL RESTRICTED APPLICATION PACKAGES. If it does, LPAC is
+   behaving as designed and the test's expectation is wrong, not the sandbox.
+10. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
    become an allow list once the worker's syscalls are known. macOS `sandbox_init` is deprecated but
    still shipped (Chromium uses it).
