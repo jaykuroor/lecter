@@ -4,6 +4,7 @@
 
 use std::path::Path;
 
+#[allow(clippy::disallowed_methods, reason = "a build script runs before any async runtime exists")]
 fn main() {
     let conf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../app/tauri.conf.json");
     println!("cargo:rerun-if-changed={}", conf.display());

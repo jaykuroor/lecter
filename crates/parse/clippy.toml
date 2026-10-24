@@ -1,0 +1,16 @@
+# Clippy configuration for a sync crate (crates/parse, crates/models and crates/harness carry identical
+# copies). They run as worker processes or a command-line test driver, never on an async runtime
+# thread, so blocking std::fs and std::net calls are allowed here. Everything else matches the root
+# clippy.toml (the async crates' configuration); crates/harness/tests/lint_gates.rs checks both.
+
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+disallowed-methods = [
+  { path = "std::thread::sleep", reason = "blocks the thread; wait on an event or a channel instead" },
+  { path = "tauri::path::PathResolver::app_config_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_data_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_cache_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_local_data_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_log_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+]
