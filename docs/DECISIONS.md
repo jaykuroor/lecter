@@ -402,3 +402,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: when `CI` is set, `scripts/init.sh` runs only `cargo fetch --locked`, `cargo build --workspace --locked` and `pnpm -C ui install --frozen-lockfile`. A mismatch prints which lockfile to update and exits 1. Local runs keep the unlocked fallback. `crates/harness/tests/init_install.rs` pins both cases with stubbed tools (unix only). The harness lint tests run Python with `PYTHONUTF8=1`, so kit scripts that print "→" work on Windows consoles.
 - Why: M0 security review (SEC-50, Q-005). A PR with stale lockfiles had them rewritten in CI and went green.
 - Instead of: leaving the fix to the planning session.
+
+## D-079 · F-001 spike installs its own packages
+2026-10-24 · Who: Jay · active
+- Decision: the editor spike keeps its own `spikes/editor/package.json` with exact pins (CodeMirror 6, @replit/codemirror-vim, KaTeX, Vite, @playwright/test; all MIT) and its own lockfile. The builder may run `pnpm -C spikes/editor install` and `pnpm -C spikes/editor exec playwright install webkit`. Nothing is added to `ui/` or `crates/`. If WebKit won't install or launch on Fedora 44, the spike records that and measures it later (CI on ubuntu, or the real app via F-016).
+- Why: `add_dep.py` covers only `ui/` and Rust, and the spike can't measure anything without these packages.
+- Instead of: adding the packages to `ui/`, or skipping the WebKit measurement.
