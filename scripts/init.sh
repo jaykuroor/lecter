@@ -80,12 +80,24 @@ done
 command -v cargo-audit >/dev/null 2>&1 || echo "optional (used by --full): cargo install cargo-audit --locked"
 
 [ -e .git ] || git init -q -b main   # -e: in a worktree .git is a file
+# Under CI only the lockfiles count: a manifest that doesn't match them fails the job instead of being
+# re-resolved, so a PR can't go green on a rewritten lockfile (SEC-50). Locally, fall back and update them.
 if [ -f Cargo.toml ]; then
-  cargo fetch --locked -q 2>/dev/null || cargo fetch -q
-  cargo build --workspace -q
+  if [ -n "${CI:-}" ]; then
+    cargo fetch --locked -q || { echo "Cargo.lock does not match the manifests: run 'cargo fetch' locally and commit Cargo.lock."; exit 1; }
+    cargo build --workspace --locked -q
+  else
+    cargo fetch --locked -q 2>/dev/null || cargo fetch -q
+    cargo build --workspace -q
+  fi
 fi
 if [ -f ui/package.json ]; then
-  pnpm -C ui install --frozen-lockfile --silent 2>/dev/null || pnpm -C ui install --reporter=append-only   # fallback shows errors
+  if [ -n "${CI:-}" ]; then
+    pnpm -C ui install --frozen-lockfile --reporter=append-only \
+      || { echo "ui/pnpm-lock.yaml does not match ui/package.json: run 'pnpm -C ui install' locally and commit ui/pnpm-lock.yaml."; exit 1; }
+  else
+    pnpm -C ui install --frozen-lockfile --silent 2>/dev/null || pnpm -C ui install --reporter=append-only   # fallback shows errors
+  fi
   if grep -q '"build"' ui/package.json; then pnpm --silent -C ui run build; fi
   # Playwright's Chromium for the e2e smoke test, into ~/.cache/ms-playwright (no-op when present).
   # Skipped when PLAYWRIGHT_BROWSERS_PATH is set: whoever set it manages the browsers.
