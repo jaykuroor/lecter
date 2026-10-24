@@ -211,26 +211,54 @@ fn sync_crates_keep_every_ban_except_blocking_fs_and_net() -> Result<(), String>
     Ok(())
 }
 
-#[test]
-fn no_other_crate_overrides_the_root_clippy_toml() -> Result<(), String> {
+/// Every file under the repo root as a `/`-separated relative path, outside fixtures, build output,
+/// dependencies, git, the private corpus and `.claude/` (which holds other worktrees).
+fn repo_files() -> Result<Vec<String>, String> {
+    const SKIP: [&str; 9] =
+        [".git", ".claude", "target", "node_modules", "fixtures", "private", "dist", ".verify", ".evidence"];
     let root = repo_root();
-    let mut found = Vec::new();
-    let mut stack = vec![root.join("crates"), root.join("app"), root.join("tests")];
+    let mut out = Vec::new();
+    let mut stack = vec![root.clone()];
     while let Some(d) = stack.pop() {
         for e in std::fs::read_dir(&d).map_err(|e| format!("{}: {e}", d.display()))? {
             let p = e.map_err(|e| e.to_string())?.path();
-            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
-            if p.is_dir() && !matches!(name.as_str(), "target" | "node_modules" | "fixtures" | "private") {
-                stack.push(p);
-            } else if name == "clippy.toml" || name == ".clippy.toml" {
-                found.push(p.strip_prefix(&root).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/"));
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            if p.is_dir() {
+                if !SKIP.contains(&name) {
+                    stack.push(p);
+                }
+            } else {
+                out.push(p.strip_prefix(&root).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/"));
             }
         }
     }
-    found.sort();
-    let mut want: Vec<String> = SYNC_CRATES.iter().map(|c| format!("crates/{c}/clippy.toml")).collect();
+    out.sort();
+    Ok(out)
+}
+
+#[test]
+fn no_other_crate_overrides_the_root_clippy_toml() -> Result<(), String> {
+    let files = repo_files()?;
+    // Clippy uses the nearest config folder and prefers .clippy.toml over clippy.toml in it, so any
+    // other file (a root .clippy.toml included) would replace the root bans.
+    let found: Vec<&str> = files
+        .iter()
+        .map(String::as_str)
+        .filter(|f| matches!(f.rsplit('/').next(), Some("clippy.toml" | ".clippy.toml")))
+        .collect();
+    let mut want = vec!["clippy.toml".to_string()];
+    want.extend(SYNC_CRATES.iter().map(|c| format!("crates/{c}/clippy.toml")));
     want.sort();
-    assert_eq!(found, want, "only the sync crates may carry their own clippy.toml (it replaces the root one)");
+    assert_eq!(found, want, "only the root and the sync crates may carry a clippy config");
+    // CLIPPY_CONF_DIR in a cargo config's [env] would point every crate at another file.
+    let cargo_configs = files.iter().filter(|f| {
+        let mut parts = f.rsplit('/');
+        matches!(parts.next(), Some("config" | "config.toml")) && parts.next() == Some(".cargo")
+    });
+    for f in cargo_configs {
+        let text = read(&repo_root().join(f))?;
+        assert!(!text.contains("CLIPPY_CONF_DIR"), "{f} sets CLIPPY_CONF_DIR, which bypasses clippy.toml");
+    }
     Ok(())
 }
 
