@@ -54,7 +54,7 @@
     "clippy.toml",
     "rustfmt.toml"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 1000,
    "base": "c8f5faf6d8bc5d42f0f6d5b147d4d35eecc97890"

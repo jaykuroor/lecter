@@ -159,7 +159,11 @@ fn gitattributes_forces_lf_and_marks_binary_fixtures() -> Result<(), String> {
     let rule = |pattern: &str| rules.iter().find(|r| r.first() == Some(&pattern)).cloned().unwrap_or_default();
     let all = rule("*");
     assert!(all.contains(&"text=auto") && all.contains(&"eol=lf"), "`*` must be `text=auto eol=lf`, got {all:?}");
-    for ext in ["*.pdf", "*.pptx", "*.png", "*.jpg", "*.zip", "*.woff2"] {
+    assert!(!rules.iter().any(|r| r.contains(&"eol=crlf")), "no text file may be checked out with CRLF");
+    for ext in [
+        "*.pdf", "*.pptx", "*.ppsx", "*.potx", "*.epub", "*.png", "*.jpg", "*.jpeg", "*.heic", "*.tif", "*.tiff",
+        "*.zip", "*.woff2",
+    ] {
         assert!(rule(ext).contains(&"binary"), "{ext} must be marked binary");
     }
     Ok(())

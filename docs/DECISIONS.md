@@ -274,3 +274,23 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 ## D-057 · Sandbox fixes from the kit dry run
 2026-10-24 · Claude (kit) · active
 - Decision: Changes from running the kit in a real sandboxed Claude Code session. `init.sh` creates the sandbox's write folders and, if it can't, prints the `mkdir -p` line to run outside, because the sandbox only grants writes to folders that already exist. `.gitignore` ignores the placeholders the sandbox mounts over root dotfiles and Claude Code's own `.claude/` folders (only `settings.json`, `agents/` and `skills/` are tracked there), because they break `git add -A` mid-session. The allowlist accepts each script both as `scripts/x.py` and as `python3 scripts/x.py`. `init.sh` and `verify.sh` point pnpm at `HTTPS_PROXY`, because pnpm prefers inherited `npm_config_*` proxy settings that the sandbox doesn't replace. `init.sh` passes `--silent` to pnpm rather than to the build script, installs Playwright's Chromium (unless `PLAYWRIGHT_BROWSERS_PATH` is set), and `verify.sh` runs biome with `--colors=off` so failure lines stay readable.
+
+## D-058 · Toolchain pins: Rust 1.99.1, Node 24.18.0, pnpm 12.15.0
+2026-10-23 · Jay (Node) + session F-010 · active
+- Decision: `rust-toolchain.toml` pins `channel = "1.99.1"` (current stable, with rustfmt and clippy, minimal profile). Node is pinned to the 24 LTS line, exactly 24.18.0 (the version Fedora's `nodejs24` package ships, so local runs match CI), and pnpm to 12.15.0. F-011 writes them into `ui/package.json` (`packageManager: "pnpm@12.15.0"`, `engines.node`) and F-013 into CI. Jay chose Node 24 over the installed 22.23.1.
+- Why: Exact pins make local runs, CI and every session build the same way (D-019). Node 24 is the active LTS line, and 22 is in maintenance.
+- Instead of: `channel = "stable"` (it moves under us); Node 22.23.1 (installed on Jay's machine, but older LTS).
+- Revisit if: a new Rust stable fixes something we need, or Node 26 enters active LTS.
+
+## D-059 · Blocking fs in async code is a review rule
+2026-10-23 · session F-010 · active
+- Decision: `clippy.toml` disallows only `std::thread::sleep`. Blocking `std::fs` calls stay allowed, because the parse and model workers and `spawn_blocking` bodies need them; reviewers reject them on an async runtime thread.
+- Why: Clippy's `disallowed-methods` can't tell async code from sync code, so banning `std::fs` would put an `#[allow]` on every legitimate call.
+- Instead of: banning `std::fs::*` with per-call-site allows.
+- Revisit if: a clippy lint for blocking calls in async contexts becomes available.
+
+## D-060 · `lecter` v0 prints `lecter <version>` for any arguments
+2026-10-23 · session F-010 · active
+- Decision: The v0 `lecter` binary prints exactly `lecter 0.0.1\n` on stdout, nothing on stderr, and exits 0 whatever its arguments. Every crate has a smoke test asserting its package name (`lecter-<folder>`) and that its version is SemVer `x.y.z`. Repo-shape tests (members, version, toolchain, deny.toml, .gitattributes) live in `crates/harness/tests/workspace.rs`. `deny.toml` spells "Unicode" in the policy as SPDX `Unicode-3.0` and `Unicode-DFS-2016`, and turns off warnings for allowed licences nothing uses yet.
+- Why: This is the conventional `--version` shape. Ignoring arguments keeps the stub free of v1 command parsing. The harness is the workspace's test crate.
+- Instead of: printing only `0.0.1`; adding a `toml` dev-dependency for the shape tests (std string parsing is enough).

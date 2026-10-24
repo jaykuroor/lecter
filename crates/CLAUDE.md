@@ -4,7 +4,7 @@ Applies to every crate. Crate-specific rules are in each crate's `CLAUDE.md`.
 
 - Crate names are `lecter-<folder>` (`lecter-core`, `lecter-parse`, …). Shared versions go in root `[workspace.dependencies]`.
 - Crate edges: the table in `01-architecture.md#repository-layout`, enforced by `scripts/check_arch.py` (lint stage). `parse` and `models` are separate binaries that talk to `core` over stdin/stdout (`18-contracts.md#worker-protocol`).
-- `unwrap`/`expect` are denied by workspace lints; tests opt out with `#[allow(clippy::unwrap_used)]`. `clippy.toml` disallows blocking calls (`std::thread::sleep`, blocking fs) in async code.
+- `unwrap`/`expect` are denied by workspace lints; tests opt out with `#[allow(clippy::unwrap_used)]`. `clippy.toml` disallows `std::thread::sleep`; blocking `std::fs` calls are allowed in sync code but never on an async runtime thread (wrap them in `spawn_blocking`; reviewers check it, D-059).
 - Errors: one `thiserror` enum per crate (`Error`), with `pub type Result<T>`. Convert at crate boundaries; don't leak foreign error types in public APIs.
 - Async: tokio multi-thread runtime owned by `app`. Libraries take a `Handle` or are runtime-agnostic. CPU-heavy work (parsing, embedding, BM25 build) goes to `spawn_blocking` or a worker process, never on a runtime thread.
 - Cancellation: every job takes a `tokio_util::sync::CancellationToken` and checks it at await points and loop heads.
@@ -16,4 +16,4 @@ Applies to every crate. Crate-specific rules are in each crate's `CLAUDE.md`.
 - Core behaviour you can check without the GUI goes through `lecter-harness` (`crates/harness`), which every feature extends rather than forks.
 
 ## Learned
-
+- Bumping `rust-toolchain.toml` → the next cargo call makes rustup download that toolchain, which needs network to static.rust-lang.org (F-010)

@@ -1,14 +1,12 @@
 # Text is stored and checked out with LF on every OS (Windows included).
 * text=auto eol=lf
 
-# Windows-only scripts keep CRLF.
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
-
 # Binary fixtures and assets: never diffed, never converted.
 *.pdf binary
 *.pptx binary
+*.ppsx binary
+*.potx binary
+*.epub binary
 *.docx binary
 *.xlsx binary
 *.key binary
@@ -19,6 +17,9 @@
 *.jpeg binary
 *.gif binary
 *.webp binary
+*.heic binary
+*.tif binary
+*.tiff binary
 *.ico binary
 *.icns binary
 *.ttf binary
