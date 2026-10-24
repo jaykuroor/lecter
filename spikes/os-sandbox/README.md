@@ -52,8 +52,8 @@ on ubuntu-24.04, macos-15 and windows-2025.
 | OS | Go / no-go | Evidence |
 |---|---|---|
 | Linux | **GO** | 11/11 pass locally (below) |
-| macOS | **UNVERIFIED-ON macos** until the `test` job runs | compile- and clippy-clean for `aarch64-apple-darwin` |
-| Windows | **UNVERIFIED-ON windows** until the `test` job runs | compile- and clippy-clean for `x86_64-pc-windows-msvc` |
+| macOS | **GO** | macos-15, CI run 40119881557 (8f4b4a7): every spike test passed, including `RLIMIT_AS` at +1 GiB |
+| Windows | **UNVERIFIED-ON windows**: the system-file, earlier-input and spawn tests haven't run yet (fail-fast) | windows-2025, run 40119881557: under LPAC, Winsock can't even initialise (`WSAStartup` → 10107 WSASYSCALLFAILURE). std asserted on that and the probe panicked; the probe now calls `WSAStartup` itself and reports DENIED |
 
 **Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
 sandbox, which already sets `no_new_privs` and its own seccomp filter; ours stacks on top. Sandboxed
@@ -80,10 +80,12 @@ CI run 40119212625 (e4b5dcf) found two spike bugs; nextest's fail-fast then skip
   write errors, a panic hook reports the panic and exits 101, and the child gets a stderr pipe
   through the handle list.
 
+**Windows network:** in an LPAC child, the network is denied as early as Winsock initialisation:
+`WSAStartup` returns 10107 (WSASYSCALLFAILURE). std's lazy Winsock init asserts on success, so any
+`std::net` call in such a child panics. The parse worker must not use `std::net`, and anything that
+might touch Winsock must call `WSAStartup` itself and treat failure as "no network".
+
 Risks the next CI run decides:
-- **macOS:** if XNU doesn't enforce `RLIMIT_AS`, the 1 GiB test fails and macOS memory needs a
-  parent-side footprint watchdog.
-- **Windows:** loopback blocking for AppContainers depends on the firewall service.
 - **Windows:** `C:\Windows` usually grants ALL *RESTRICTED* APPLICATION PACKAGES as well, which LPAC
   still honours. If the system-file test fails, "input only" on Windows needs a restricted token as
   well (Chromium's lockdown token).

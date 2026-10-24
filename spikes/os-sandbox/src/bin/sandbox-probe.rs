@@ -78,11 +78,32 @@ fn read_input(input: &Input) -> i32 {
     }
 }
 
+/// Initialises Winsock ourselves. std's lazy init asserts that `WSAStartup` succeeded, so in an LPAC
+/// child (where it fails with WSASYSCALLFAILURE, 10107) `std::net` would panic instead of failing.
+#[cfg(windows)]
+fn winsock_ready() -> Result<(), i32> {
+    #[link(name = "ws2_32")]
+    unsafe extern "system" {
+        fn WSAStartup(version: u16, data: *mut core::ffi::c_void) -> i32;
+    }
+    // WSADATA is about 400 bytes on 64-bit Windows; a larger zeroed, 8-byte-aligned buffer holds it.
+    let mut data = [0u64; 128];
+    // SAFETY: version 2.2 and a writable buffer larger than WSADATA. On success std's own init adds
+    // a second reference, which is allowed.
+    let rc = unsafe { WSAStartup(0x0202, data.as_mut_ptr().cast()) };
+    if rc == 0 { Ok(()) } else { Err(rc) }
+}
+
 fn net(addr: &str) -> i32 {
     let Ok(addr) = addr.parse::<SocketAddr>() else {
         say!("bad address {addr}");
         return USAGE;
     };
+    #[cfg(windows)]
+    if let Err(code) = winsock_ready() {
+        say!("connect refused: WSAStartup failed with WSA error {code}");
+        return DENIED;
+    }
     match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
         Ok(_) => {
             say!("connected to {addr}");
