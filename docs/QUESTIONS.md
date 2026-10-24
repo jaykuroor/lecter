@@ -42,11 +42,11 @@ Run the hands-on Mac checklist on a real Mac before the first public release?
 - Recommended: borrow a Mac for one session before tagging v0.1.0 (applied as default: no).
 - Answer:
 
-## Q-005 · open · blocks: nothing (fix before M0.5 work lands dependency changes)
+## Q-005 · answered · blocks: nothing
 M0 security review: CI installs fall back to unlocked when lockfiles don't match. Make them strict in CI?
 - Context: `scripts/init.sh:84` (`cargo fetch --locked … || cargo fetch`) and `:88` (`pnpm install --frozen-lockfile … || pnpm install`) fall back to unlocked installs. Since F-013, CI's setup action runs init.sh, so a PR whose manifests don't match the committed lockfiles gets them rewritten in the runner, resolves new versions from `^` ranges and goes green; verify.sh's `--locked` then checks against the rewritten lockfile (SEC-50).
 - Recommendation: when `CI` is set, run only `cargo fetch --locked` and `pnpm install --frozen-lockfile`, with no fallback, and add a test in crates/harness/tests/ci.rs. Keep the fallback for local runs. Small CI fix (owner: scripts/init.sh, F-013's path).
-- Answer:
+- Answer: the author, at the M0 gate: fix it now, before passing the gate. Done in CI-4ec6f29 (D-078).
 
 ## Gate notes
 <!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->

@@ -396,3 +396,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 2026-10-24 · session F-014 · active
 - Decision: jscpd scans `ui/src`, `crates` and `app/src` (ts/tsx/rust), with `minLines` 30 and `exitCode` 1, ignoring the generated `bindings.ts` and `gen/`. `scripts/` isn't scanned, so the D-074 env blocks stay duplicated. knip has explicit entries and ignores `src/core/bindings.ts` until F-017 generates it.
 - Why: criterion F-014.4.
+
+## D-078 · CI installs only from the lockfiles
+2026-10-24 · the author (at the M0 gate) + CI-4ec6f29 · active
+- Decision: when `CI` is set, `scripts/init.sh` runs only `cargo fetch --locked`, `cargo build --workspace --locked` and `pnpm -C ui install --frozen-lockfile`. A mismatch prints which lockfile to update and exits 1. Local runs keep the unlocked fallback. `crates/harness/tests/init_install.rs` pins both cases with stubbed tools (unix only). The harness lint tests run Python with `PYTHONUTF8=1`, so kit scripts that print "→" work on Windows consoles.
+- Why: M0 security review (SEC-50, Q-005). A PR with stale lockfiles had them rewritten in CI and went green.
+- Instead of: leaving the fix to the planning session.
