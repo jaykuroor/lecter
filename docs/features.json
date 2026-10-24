@@ -248,9 +248,10 @@
    "evidence": [
     "log:measurement"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 1005
+   "priority": 1005,
+   "base": "3d20225c65f350c9bfd7a17b4b5526a9e3096da0"
   },
   {
    "id": "F-005",

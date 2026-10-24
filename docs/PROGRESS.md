@@ -5,7 +5,7 @@
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (lint, test on ubuntu/macos/windows, e2e) is green on main (run 40106531943).
 - Milestone: M0.5 next · last done: F-014 Code-health gates · gate: M0 passed
-- Resume point (2026-10-24 10:45): M0 gate passed; next dispatch the spikes (F-001, F-005, F-006)
+- Resume point (2026-10-24 10:55): dispatching F-001 Spike: CodeMirror lecture surface performance
 - In progress: none
 - Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally. The sandbox can't push; the author pushes.
 - Next up: the M0 spikes (F-001 onwards).
