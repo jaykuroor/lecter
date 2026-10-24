@@ -12,7 +12,7 @@ use crate::probe::SANDBOX_FLAG;
 pub struct Outcome {
     /// Exit code, or `None` if a signal ended it.
     pub code: Option<i32>,
-    /// What the child wrote to stderr (empty for a Windows AppContainer child, which gets no handles).
+    /// What the child wrote to stderr (on Windows through a pipe passed in the handle list).
     pub stderr: String,
 }
 

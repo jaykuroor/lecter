@@ -10,6 +10,7 @@
 //! The worker's IPC pipes must be passed the same way, never by bInheritHandles = TRUE alone.
 
 use std::ffi::OsStr;
+use std::io::Read;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::Path;
@@ -35,7 +36,7 @@ use windows_sys::Win32::System::Threading::{
     CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
     GetExitCodeProcess, InitializeProcThreadAttributeList, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
     PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ResumeThread,
-    STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 
 use crate::launch::{Outcome, sandboxed_args};
@@ -264,7 +265,15 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
     if unsafe { SetHandleInformation(input_handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT) } == 0 {
         return Err(Error::last_os("SetHandleInformation"));
     }
-    let inherited: [HANDLE; 1] = [input_handle];
+    // The child's stderr: a pipe whose write end is the only other inherited handle, so a failing
+    // probe explains itself. The read end stays private to this process.
+    let (mut err_reader, err_writer) = std::io::pipe().map_err(|e| Error::new("pipe", e))?;
+    let err_handle: HANDLE = err_writer.as_raw_handle();
+    // SAFETY: a valid handle owned by `err_writer`.
+    if unsafe { SetHandleInformation(err_handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT) } == 0 {
+        return Err(Error::last_os("SetHandleInformation (stderr)"));
+    }
+    let inherited: [HANDLE; 2] = [input_handle, err_handle];
 
     let mut size = 0usize;
     // SAFETY: size query with a null list; it fails with ERROR_INSUFFICIENT_BUFFER and sets `size`.
@@ -310,6 +319,8 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
     let mut si = STARTUPINFOEXW::default();
     si.StartupInfo.cb = size_of::<STARTUPINFOEXW>() as u32;
     si.lpAttributeList = attrs.ptr();
+    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.StartupInfo.hStdError = err_handle;
     let mut pi = PROCESS_INFORMATION::default();
     // SAFETY: every pointer is valid for the call. bInheritHandles is TRUE, but HANDLE_LIST limits
     // inheritance to the input handle.
@@ -331,6 +342,13 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
         return Err(Error::last_os("CreateProcessW (AppContainer)"));
     }
     let process = Handle(pi.hProcess);
+    // Only the child holds the write end now, so the reader sees EOF when the child exits.
+    drop(err_writer);
+    let stderr = std::thread::spawn(move || {
+        let mut text = String::new();
+        let _ = err_reader.read_to_string(&mut text);
+        text
+    });
     let thread = Handle(pi.hThread);
 
     // SAFETY: both handles are valid; the child is still suspended.
@@ -362,5 +380,6 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
     if unsafe { GetExitCodeProcess(process.0, &mut code) } == 0 {
         return Err(Error::last_os("GetExitCodeProcess"));
     }
-    Ok(Outcome { code: Some(code as i32), stderr: String::new() })
+    let stderr = stderr.join().unwrap_or_default();
+    Ok(Outcome { code: Some(code as i32), stderr })
 }

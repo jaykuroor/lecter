@@ -8,7 +8,7 @@
 
 use std::ffi::{CStr, CString, c_char, c_int};
 
-use crate::{Error, MEMORY_LIMIT_BYTES};
+use crate::{Entered, Error, MEMORY_LIMIT_BYTES};
 
 /// `mach_task_basic_info` (`<mach/task_info.h>`, `#pragma pack(4)`).
 #[repr(C, packed(4))]
@@ -70,8 +70,10 @@ fn close_inherited_fds() -> Result<(), Error> {
 
 /// Restricts the calling process: map size at most +1 GiB, read access to `input` only, no network,
 /// no new processes, no inherited fds.
-pub fn enter(input: &std::path::Path) -> Result<String, Error> {
+pub fn enter(input: &std::path::Path) -> Result<Entered, Error> {
     close_inherited_fds()?;
+    // Opened before the profile applies: Seatbelt checks opens, not reads on an open fd.
+    let file = std::fs::File::open(input).map_err(|e| Error::new("open input", e))?;
     // Seatbelt matches the resolved path (/var → /private/var).
     let real = input.canonicalize().map_err(|e| Error::new("canonicalize input", e))?;
     let real = real.to_str().ok_or_else(|| Error::other("input path", "not UTF-8"))?;
@@ -100,5 +102,8 @@ pub fn enter(input: &std::path::Path) -> Result<String, Error> {
         };
         return Err(Error::other("sandbox_init", message));
     }
-    Ok(format!("fds closed + RLIMIT_AS +1 GiB ({limit} bytes) + Seatbelt deny-default"))
+    Ok(Entered {
+        input: Some(file),
+        applied: format!("fds closed + RLIMIT_AS +1 GiB ({limit} bytes) + Seatbelt deny-default"),
+    })
 }

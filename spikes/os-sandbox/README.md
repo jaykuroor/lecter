@@ -31,8 +31,8 @@ so the test fails instead of passing by accident.
 | OS | Applied by | Network | Files | Memory and processes |
 |---|---|---|---|---|
 | Linux (`src/linux/`) | the child, first thing | seccomp: `socket`, `socketpair`, `connect`, `bind`, `listen`, `accept*` → `EPERM`. Landlock handles TCP bind/connect (ABI ≥ 4) and UDP (ABI ≥ 10) too | Landlock handles every fs right defined up to ABI 10 that the kernel supports (incl. RESOLVE_UNIX at ABI 9). The one rule is `READ_FILE` on the input. `close_range(3, ~0)` closes inherited fds first | `RLIMIT_AS` = 1 GiB. seccomp: `clone` only with `CLONE_THREAD`, `clone3` → `ENOSYS` (libc falls back to `clone`), `fork`/`vfork` → `EPERM`. `PR_SET_PDEATHSIG` = `SIGKILL` |
-| macOS (`src/macos.rs`) | the child, first thing | Seatbelt `(deny default)` | Seatbelt `(allow file-read* (literal <input>))`. Every fd above 2 (from `/dev/fd`) is closed first | `RLIMIT_AS` = map size at entry + 1 GiB, because the dyld shared region already exceeds 1 GiB. `(deny default)` also denies `process-fork` and `process-exec` |
-| Windows (`src/windows.rs`) | the parent, at creation | AppContainer with no capabilities (no loopback either) | Less Privileged AppContainer (ALL APPLICATION PACKAGES grants don't apply). The only ACE is read/execute on the probe exe. The input is opened by the parent and inherited as one handle via `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`; the file's ACL is never touched | Job object: `ProcessMemoryLimit` 1 GiB, 1 active process, kill on job close |
+| macOS (`src/macos.rs`) | the child, first thing | Seatbelt `(deny default)` | `enter` opens the input before `sandbox_init`, and the worker reads through that fd. The profile also allows `file-read*` on the input literal. Every fd above 2 (from `/dev/fd`) is closed first | `RLIMIT_AS` = map size at entry + 1 GiB, because the dyld shared region already exceeds 1 GiB. `(deny default)` also denies `process-fork` and `process-exec` |
+| Windows (`src/windows.rs`) | the parent, at creation | AppContainer with no capabilities (no loopback either) | Less Privileged AppContainer (ALL APPLICATION PACKAGES grants don't apply). The only ACE is read/execute on the probe exe. The input is opened by the parent and inherited as one handle via `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`; the file's ACL is never touched. A stderr pipe is the only other inherited handle | Job object: `ProcessMemoryLimit` 1 GiB, 1 active process, kill on job close |
 
 Other seccomp hardening: a foreign syscall ABI (i386 on x86_64, x32) kills the process, and io_uring,
 `ptrace` and `process_vm_*` return `EPERM`.
@@ -69,7 +69,18 @@ Two runs with key lines switched off show the tests catch a missing defence. Wit
 off, the first four denial tests fail. With `close_range`, the thread check and the clone/fork rules
 off, their three tests fail (`.evidence/F-005/`, not tracked).
 
-Risks the CI run decides:
+CI run 40119212625 (e4b5dcf) found two spike bugs; nextest's fail-fast then skipped the rest:
+- **macOS:** `read-input` opened the input by its `/var/folders/…` path inside the sandbox and got
+  `EPERM`, although the profile allowed the canonical `/private/var/…` literal. The likely cause is
+  that the lookup through the `/var` symlink is itself denied. Fix: `enter` now opens the input
+  before the profile applies (Linux does the same), so the worker never resolves a path inside the
+  sandbox. The denial tests still read other files by path.
+- **Windows:** the sandboxed probe exited 101 (a panic) with no stderr. The likely cause is that
+  `eprintln!` panicked on the LPAC child's unusable console handle. Fix: the probe's logging ignores
+  write errors, a panic hook reports the panic and exits 101, and the child gets a stderr pipe
+  through the handle list.
+
+Risks the next CI run decides:
 - **macOS:** if XNU doesn't enforce `RLIMIT_AS`, the 1 GiB test fails and macOS memory needs a
   parent-side footprint watchdog.
 - **Windows:** loopback blocking for AppContainers depends on the firewall service.

@@ -37,12 +37,23 @@ use std::path::Path;
 /// The memory limit from SEC-01: 1 GiB.
 pub const MEMORY_LIMIT_BYTES: u64 = 1 << 30;
 
+/// What [`enter`] leaves the child with.
+#[derive(Debug)]
+pub struct Entered {
+    /// The input, opened just before the sandbox closed (Linux, macOS). On Windows the parent passes
+    /// an inherited handle instead, so this is `None`.
+    pub input: Option<std::fs::File>,
+    /// A short description of what was applied.
+    pub applied: String,
+}
+
 /// Child side: sandbox the calling process so that it can read only `input`.
 ///
-/// Call it first thing, before reading any untrusted byte. Returns a short description of what was
-/// applied. On Windows the parent has already applied the sandbox ([`run_sandboxed`]), so this only
+/// Call it first thing, before reading any untrusted byte or starting a thread. It opens the input
+/// before the sandbox closes, so the worker reads through that handle and never needs a path lookup
+/// inside the sandbox (on macOS a lookup through the `/var` symlink is itself denied). On Windows the parent has already applied the sandbox ([`run_sandboxed`]), so this only
 /// reports that.
-pub fn enter(input: &Path) -> Result<String, Error> {
+pub fn enter(input: &Path) -> Result<Entered, Error> {
     #[cfg(target_os = "linux")]
     {
         linux::enter(input)
@@ -54,7 +65,7 @@ pub fn enter(input: &Path) -> Result<String, Error> {
     #[cfg(windows)]
     {
         let _ = input;
-        Ok("AppContainer + job object (applied by the parent)".to_owned())
+        Ok(Entered { input: None, applied: "LPAC AppContainer + job object (applied by the parent)".to_owned() })
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     {

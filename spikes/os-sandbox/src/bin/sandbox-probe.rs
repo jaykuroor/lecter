@@ -5,8 +5,9 @@
 )]
 
 use std::ffi::OsString;
+use std::io::Read;
 use std::net::{SocketAddr, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -19,10 +20,23 @@ use lecter_spike_os_sandbox::probe::{
 /// The smallest page size of the three OSes.
 const PAGE: usize = 4096;
 
+/// Writes one line to stderr and ignores failure. A sandboxed child may have no usable stderr, and
+/// `eprintln!` would then panic (exit 101) instead of reporting the probe's result.
+macro_rules! say {
+    ($($t:tt)*) => {{
+        use std::io::Write as _;
+        let _ = writeln!(std::io::stderr(), $($t)*);
+    }};
+}
+
+/// Exit code for a panic (also Rust's default), reported through [`say!`] first.
+const PANICKED: u8 = 101;
+
 /// Where `read-input` reads from.
 enum Input {
     None,
-    Path(PathBuf),
+    /// Opened by `enter` before the sandbox closed (Linux, macOS).
+    File(std::fs::File),
     #[cfg_attr(not(windows), allow(dead_code))]
     Handle(usize),
 }
@@ -30,11 +44,11 @@ enum Input {
 fn report(what: &str, r: std::io::Result<usize>) -> i32 {
     match r {
         Ok(n) => {
-            eprintln!("{what}: {n} bytes");
+            say!("{what}: {n} bytes");
             OK
         }
         Err(e) => {
-            eprintln!("{what} refused: {e}");
+            say!("{what} refused: {e}");
             DENIED
         }
     }
@@ -47,10 +61,12 @@ fn read(path: &Path) -> i32 {
 fn read_input(input: &Input) -> i32 {
     match input {
         Input::None => USAGE,
-        Input::Path(p) => report("read-input", std::fs::read(p).map(|b| b.len())),
+        Input::File(f) => {
+            let mut buf = Vec::new();
+            report("read-input", (&*f).read_to_end(&mut buf))
+        }
         #[cfg(windows)]
         Input::Handle(h) => {
-            use std::io::Read;
             use std::os::windows::io::FromRawHandle;
             // SAFETY: the parent passed this handle to us through PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
             let mut file = unsafe { std::fs::File::from_raw_handle(*h as std::os::windows::io::RawHandle) };
@@ -64,29 +80,31 @@ fn read_input(input: &Input) -> i32 {
 
 fn net(addr: &str) -> i32 {
     let Ok(addr) = addr.parse::<SocketAddr>() else {
-        eprintln!("bad address {addr}");
+        say!("bad address {addr}");
         return USAGE;
     };
     match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
         Ok(_) => {
-            eprintln!("connected to {addr}");
+            say!("connected to {addr}");
             OK
         }
         Err(e) => {
-            eprintln!("connect refused: {e}");
+            say!("connect refused: {e}");
             DENIED
         }
     }
 }
 
 fn alloc(mib: usize) -> i32 {
-    let target = mib << 20;
+    let Some(target) = mib.checked_mul(1 << 20) else {
+        return USAGE;
+    };
     let mut held: Vec<Vec<u8>> = Vec::with_capacity(target / ALLOC_CHUNK_BYTES + 1);
     let mut total = 0usize;
     while total < target {
         let mut chunk = Vec::new();
         if let Err(e) = chunk.try_reserve_exact(ALLOC_CHUNK_BYTES) {
-            eprintln!("allocation refused after {} MiB: {e}", total >> 20);
+            say!("allocation refused after {} MiB: {e}", total >> 20);
             return DENIED;
         }
         // Write one byte per page so the memory is resident, not just reserved.
@@ -96,7 +114,7 @@ fn alloc(mib: usize) -> i32 {
         held.push(chunk);
         total += ALLOC_CHUNK_BYTES;
     }
-    eprintln!("holding {} MiB", total >> 20);
+    say!("holding {} MiB", total >> 20);
     OK
 }
 
@@ -106,7 +124,7 @@ fn spawn_alloc(mib: usize) -> i32 {
     // SAFETY: this process is single-threaded here; the child only allocates and _exits.
     let pid = unsafe { libc::fork() };
     if pid < 0 {
-        eprintln!("fork refused: {}", std::io::Error::last_os_error());
+        say!("fork refused: {}", std::io::Error::last_os_error());
         return DENIED;
     }
     if pid == 0 {
@@ -119,7 +137,7 @@ fn spawn_alloc(mib: usize) -> i32 {
     // SAFETY: waiting for our own child.
     unsafe { libc::waitpid(pid, &mut status, 0) };
     let theirs = if libc::WIFEXITED(status) { libc::WEXITSTATUS(status) } else { DENIED };
-    eprintln!("two processes: parent {mine}, child {theirs}");
+    say!("two processes: parent {mine}, child {theirs}");
     if mine == OK && theirs == OK { OK } else { DENIED }
 }
 
@@ -128,19 +146,19 @@ fn spawn_alloc(mib: usize) -> i32 {
     let exe = match std::env::current_exe() {
         Ok(exe) => exe,
         Err(e) => {
-            eprintln!("current_exe: {e}");
+            say!("current_exe: {e}");
             return USAGE;
         }
     };
     match std::process::Command::new(exe).args(["alloc", &mib.to_string()]).spawn() {
         Err(e) => {
-            eprintln!("spawn refused: {e}");
+            say!("spawn refused: {e}");
             DENIED
         }
         Ok(mut child) => {
             let mine = alloc(mib);
             let theirs = child.wait().ok().and_then(|s| s.code()).unwrap_or(DENIED);
-            eprintln!("two processes: parent {mine}, child {theirs}");
+            say!("two processes: parent {mine}, child {theirs}");
             if mine == OK && theirs == OK { OK } else { DENIED }
         }
     }
@@ -149,11 +167,11 @@ fn spawn_alloc(mib: usize) -> i32 {
 fn thread() -> i32 {
     match std::thread::Builder::new().spawn(|| 7).map(|h| h.join()) {
         Ok(Ok(7)) => {
-            eprintln!("thread ran");
+            say!("thread ran");
             OK
         }
         _ => {
-            eprintln!("thread refused");
+            say!("thread refused");
             DENIED
         }
     }
@@ -167,6 +185,10 @@ fn use_fd(fd: i32) -> i32 {
 }
 
 fn main() -> ExitCode {
+    std::panic::set_hook(Box::new(|info| {
+        say!("probe panicked: {info}");
+        std::process::exit(i32::from(PANICKED));
+    }));
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
     let mut rest: &[OsString] = &args;
     let mut input = Input::None;
@@ -185,13 +207,17 @@ fn main() -> ExitCode {
             return ExitCode::from(USAGE as u8);
         };
         match enter(Path::new(path)) {
-            Ok(applied) => eprintln!("sandbox: {applied}"),
+            Ok(entered) => {
+                say!("sandbox: {}", entered.applied);
+                if let Some(file) = entered.input {
+                    input = Input::File(file);
+                }
+            }
             Err(e) => {
-                eprintln!("sandbox failed: {e}");
+                say!("sandbox failed: {e}");
                 return ExitCode::from(SANDBOX_FAILED as u8);
             }
         }
-        input = Input::Path(PathBuf::from(path));
         rest = &rest[2..];
         if rest.first().is_some_and(|a| a == INPUT_HANDLE_FLAG) {
             match rest.get(1).and_then(|h| h.to_str()?.parse::<usize>().ok()) {
@@ -214,7 +240,7 @@ fn main() -> ExitCode {
         #[cfg(unix)]
         (Some("use-fd"), _, Some(fd)) => use_fd(fd as i32),
         _ => {
-            eprintln!("usage: see lecter_spike_os_sandbox::probe");
+            say!("usage: see lecter_spike_os_sandbox::probe");
             USAGE
         }
     };
