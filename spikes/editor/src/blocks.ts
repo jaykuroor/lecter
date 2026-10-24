@@ -1,9 +1,10 @@
 // Block-level decorations (they change vertical layout, so CodeMirror needs them from a StateField):
-// slide headers, gloss cards with a meta bar widget, own notes, display math. After an edit only the
-// slides touched by the change are rescanned; the rest of the set is mapped through the change.
+// slide headers, gloss cards with a meta bar widget, own notes, display math. After an edit the set
+// is mapped through the change and only the changed lines are rescanned (the whole slide when a
+// `:::` fence line was touched). KaTeX arriving (`mathLoaded`) rebuilds everything once.
 import { type EditorState, type Range, StateField, type Text } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
-import { MathWidget } from "./math";
+import { MathWidget, mathLoaded } from "./math";
 
 class SlideHeader extends WidgetType {
   constructor(readonly label: string) {
@@ -54,9 +55,11 @@ const NOTE_RE = /^::: \{\.note /;
 const DISPLAY_RE = /^\$\$(.+)\$\$$/;
 
 /** Decorations for whole lines from `fromLine` to `toLine` (1-based, inclusive). */
-function scan(doc: Text, fromLine: number, toLine: number): Range<Decoration>[] {
+type Inside = "gloss" | "note" | null;
+
+function scan(doc: Text, fromLine: number, toLine: number, start: Inside = null): Range<Decoration>[] {
   const out: Range<Decoration>[] = [];
-  let inside: "gloss" | "note" | null = null;
+  let inside: Inside = start;
   for (let n = fromLine; n <= toLine; n++) {
     const line = doc.line(n);
     const t = line.text;
@@ -93,6 +96,20 @@ function slideEnd(doc: Text, lineNo: number): number {
   return doc.lines;
 }
 
+/** Whether line `lineNo` is inside a gloss or note div: walk back to the nearest fence line. */
+function insideAt(doc: Text, lineNo: number): Inside {
+  for (let n = lineNo - 1; n >= 1; n--) {
+    const t = doc.line(n).text;
+    if (!t.startsWith(":::")) continue;
+    if (GLOSS_RE.test(t)) return "gloss";
+    if (NOTE_RE.test(t)) return "note";
+    return null; // a closing fence or a slide opener
+  }
+  return null;
+}
+
+const hasFence = (text: string) => text.startsWith(":::") || text.includes("\n:::");
+
 function build(state: EditorState): DecorationSet {
   return Decoration.set(scan(state.doc, 1, state.doc.lines), true);
 }
@@ -100,19 +117,31 @@ function build(state: EditorState): DecorationSet {
 export const blockField = StateField.define<DecorationSet>({
   create: build,
   update(deco, tr) {
+    if (tr.effects.some((e) => e.is(mathLoaded))) return build(tr.state);
     if (!tr.docChanged) return deco;
     const doc = tr.state.doc;
+    const before = tr.startState.doc;
     let next = deco.map(tr.changes);
-    tr.changes.iterChangedRanges((_fa, _ta, fromB, toB) => {
-      const a = slideStart(doc, doc.lineAt(fromB).number);
-      const b = slideEnd(doc, doc.lineAt(toB).number);
-      const from = doc.line(a).from;
-      const to = doc.line(b).to;
+    tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+      const la = doc.lineAt(fromB);
+      const lb = doc.lineAt(toB);
+      // Only the changed lines, unless a fence line (`:::`) was touched before or after the edit:
+      // then the gloss/note structure may have changed, so rescan the whole slide.
+      const oldText = before.sliceString(before.lineAt(fromA).from, before.lineAt(toA).to);
+      const newText = doc.sliceString(la.from, lb.to);
+      let a = la.number;
+      let b = lb.number;
+      let start = insideAt(doc, a);
+      if (hasFence(oldText) || hasFence(newText)) {
+        a = slideStart(doc, a);
+        b = slideEnd(doc, b);
+        start = null;
+      }
       next = next.update({
-        filterFrom: from,
-        filterTo: to,
+        filterFrom: doc.line(a).from,
+        filterTo: doc.line(b).to,
         filter: () => false,
-        add: scan(doc, a, b),
+        add: scan(doc, a, b, start),
         sort: true,
       });
     });

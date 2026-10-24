@@ -1,18 +1,22 @@
 // Throwaway lecture surface: one CodeMirror 6 buffer, Vim mode, KaTeX (MathML) and gloss widgets,
 // over a synthetic 200-slide lecture. Exposes hooks on `window` for measure.mjs.
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
-import { EditorSelection, EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, keymap } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { blockField } from "./blocks";
 import { fixtureLecture } from "./fixture";
-import { inlineMath } from "./math";
+import { inlineMath, loadKatex } from "./math";
 import { installProbe } from "./probe";
 import "./style.css";
 
-const slides = Number(new URLSearchParams(location.search).get("slides") ?? "200");
+const params = new URLSearchParams(location.search);
+const slides = Number(params.get("slides") ?? "200");
 const doc = fixtureLecture(slides);
+// lang-markdown is loaded after the first paint into this compartment; `?md=0` leaves it out (to
+// measure what its incremental parse costs per keystroke).
+const language = new Compartment();
+const withMarkdown = params.get("md") !== "0";
 
 const view = new EditorView({
   parent: document.getElementById("app") as HTMLElement,
@@ -23,7 +27,7 @@ const view = new EditorView({
       history(),
       drawSelection(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
-      markdown(),
+      language.of([]),
       EditorView.lineWrapping,
       blockField,
       inlineMath,
@@ -76,8 +80,18 @@ requestAnimationFrame(() =>
     const ch = new MessageChannel();
     ch.port1.onmessage = () => r();
     ch.port2.postMessage(0);
-  }).then(() => {
+  }).then(async () => {
     w.__firstPaintMs = performance.now();
+    // Lazy chunks after the first paint; measurement starts once they are in (steady state).
+    loadKatex(view);
+    if (withMarkdown) {
+      const { markdown } = await import("@codemirror/lang-markdown");
+      view.dispatch({ effects: language.reconfigure(markdown()) });
+    }
+    await new Promise<void>((r) => {
+      const wait = () => (document.querySelector(".cm-math-display math") ? r() : setTimeout(wait, 10));
+      wait();
+    });
     w.__ready = true;
   }),
 );

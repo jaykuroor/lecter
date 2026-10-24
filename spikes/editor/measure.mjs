@@ -23,6 +23,9 @@ const ENGINES = arg("engines", "chromium,chromium-novsync,webkit").split(",");
 const SLIDES = Number(arg("slides", "200"));
 const KEYS = Number(arg("keys", "500"));
 const WARMUP = Number(arg("warmup", "50"));
+// Extra page query, e.g. `--query md=0` (spike variants); `--tag x` names the output data/<engine>-x.json.
+const QUERY = arg("query", "") ? `&${arg("query", "")}` : "";
+const TAG = arg("tag", "");
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 function serve() {
@@ -107,7 +110,7 @@ async function typePass(page, keys) {
 
 /** Second pass on a fresh page with ?sync=1: handler = input handling through forced layout, no rAF. */
 async function syncPass(page, base, keys) {
-  await page.goto(`${base}/?slides=${SLIDES}&sync=1`);
+  await page.goto(`${base}/?slides=${SLIDES}&sync=1${QUERY}`);
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 60_000 });
   const s = await typePass(page, keys);
   return summary(s.handler.slice(WARMUP));
@@ -143,7 +146,7 @@ async function measure(name, { type, args }, base) {
   const pid = server.process().pid;
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await page.goto(`${base}/?slides=${SLIDES}`);
+    await page.goto(`${base}/?slides=${SLIDES}${QUERY}`);
     await page.waitForFunction(() => window.__ready === true, null, { timeout: 60_000 });
     const firstPaintMs = +(await page.evaluate(() => window.__firstPaintMs)).toFixed(1);
     const stats = await page.evaluate(() => window.__stats());
@@ -206,7 +209,7 @@ for (const name of ENGINES) {
   try {
     const r = await measure(name, types[name], base);
     results.push(r);
-    writeFileSync(join(HERE, "data", `${name}.json`), JSON.stringify(r, null, 2));
+    writeFileSync(join(HERE, "data", `${name}${TAG ? `-${TAG}` : ""}.json`), JSON.stringify(r, null, 2));
     const k = r.keystrokes;
     console.log(
       `${name} ${r.version}: fixture ${r.fixture.lines} lines / ${r.fixture.chars} chars; first paint ${r.firstPaintMs} ms\n` +
