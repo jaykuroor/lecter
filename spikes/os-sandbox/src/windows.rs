@@ -2,16 +2,21 @@
 //! a job object (1 GiB process memory, one active process, killed when the job closes), then resumes it.
 //!
 //! An AppContainer has no network without the `internetClient` / `privateNetworkClientServer`
-//! capabilities (loopback included), and opens a file only if its ACL names the container's SID or
-//! ALL APPLICATION PACKAGES. The parent grants the container read on the child's executable and on
-//! the input file, nothing else. System folders that grant ALL APPLICATION PACKAGES stay readable.
+//! capabilities (loopback included). It is a Less Privileged AppContainer (LPAC): it opens a file
+//! only if the file's ACL names the container SID or ALL RESTRICTED APPLICATION PACKAGES, not
+//! ALL APPLICATION PACKAGES. The parent grants the container read/execute on the child's executable
+//! only. The input is never granted: the parent opens it read-only and the child inherits exactly
+//! that one handle (PROC_THREAD_ATTRIBUTE_HANDLE_LIST), so a later run can't open it by path.
+//! The worker's IPC pipes must be passed the same way, never by bInheritHandles = TRUE alone.
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
+use std::os::windows::io::AsRawHandle;
 use std::path::Path;
 
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GENERIC_EXECUTE, GENERIC_READ, HANDLE, LocalFree, WAIT_OBJECT_0, WAIT_TIMEOUT,
+    CloseHandle, GENERIC_EXECUTE, GENERIC_READ, HANDLE, HANDLE_FLAG_INHERIT, LocalFree, SetHandleInformation,
+    WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows_sys::Win32::Security::Authorization::{
     EXPLICIT_ACCESS_W, GRANT_ACCESS, GetNamedSecurityInfoW, NO_MULTIPLE_TRUSTEE, SE_FILE_OBJECT, SetEntriesInAclW,
@@ -28,20 +33,25 @@ use windows_sys::Win32::System::JobObjects::{
 };
 use windows_sys::Win32::System::Threading::{
     CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-    GetExitCodeProcess, InitializeProcThreadAttributeList, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
-    PROCESS_INFORMATION, ResumeThread, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
-    WaitForSingleObject,
+    GetExitCodeProcess, InitializeProcThreadAttributeList, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+    PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ResumeThread,
+    STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 
 use crate::launch::{Outcome, sandboxed_args};
+use crate::probe::INPUT_HANDLE_FLAG;
 use crate::{Error, MEMORY_LIMIT_BYTES};
 
-/// One container for every spike run: a fixed name keeps the granted ACEs to one SID.
+/// One container for every spike run: a fixed name keeps the one ACE (on the probe exe) to one SID.
 const CONTAINER_NAME: &str = "lecter.spike.os-sandbox";
 /// HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS).
 const HRESULT_ALREADY_EXISTS: i32 = 0x8007_00B7_u32 as i32;
 /// How long a probe may run before the parent kills it.
 const WAIT_MS: u32 = 120_000;
+/// Attributes on the child: security capabilities, the LPAC policy, the inherited handle list.
+const ATTRIBUTES: u32 = 3;
+/// `PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT` (winbase.h).
+const PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT: u32 = 1;
 
 fn wide(s: &OsStr) -> Vec<u16> {
     s.encode_wide().chain(std::iter::once(0)).collect()
@@ -97,6 +107,30 @@ struct AttrList(Vec<usize>);
 impl AttrList {
     fn ptr(&mut self) -> *mut core::ffi::c_void {
         self.0.as_mut_ptr().cast()
+    }
+}
+impl AttrList {
+    /// Adds one attribute.
+    ///
+    /// # Safety
+    /// `value` must point at `size` readable bytes that outlive the process creation.
+    unsafe fn set(&mut self, attribute: u32, value: *const core::ffi::c_void, size: usize) -> Result<(), Error> {
+        // SAFETY: the list is initialised; the caller guarantees `value`.
+        let ok = unsafe {
+            UpdateProcThreadAttribute(
+                self.ptr(),
+                0,
+                attribute as usize,
+                value,
+                size,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+            )
+        };
+        if ok == 0 {
+            return Err(Error::last_os("UpdateProcThreadAttribute"));
+        }
+        Ok(())
     }
 }
 impl Drop for AttrList {
@@ -220,15 +254,24 @@ fn job() -> Result<Handle, Error> {
 pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> {
     let sid = container_sid()?;
     grant(exe, &sid, GENERIC_READ | GENERIC_EXECUTE)?;
-    grant(input, &sid, GENERIC_READ)?;
     let job = job()?;
+
+    // The input is opened here, read-only, and only this handle is inherited (HANDLE_LIST). No ACE
+    // is added to the file, so no later run (same container) can open it by path.
+    let file = std::fs::File::open(input).map_err(|e| Error::new("open input", e))?;
+    let input_handle: HANDLE = file.as_raw_handle();
+    // SAFETY: a valid handle owned by `file`.
+    if unsafe { SetHandleInformation(input_handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT) } == 0 {
+        return Err(Error::last_os("SetHandleInformation"));
+    }
+    let inherited: [HANDLE; 1] = [input_handle];
 
     let mut size = 0usize;
     // SAFETY: size query with a null list; it fails with ERROR_INSUFFICIENT_BUFFER and sets `size`.
-    unsafe { InitializeProcThreadAttributeList(std::ptr::null_mut(), 1, 0, &mut size) };
+    unsafe { InitializeProcThreadAttributeList(std::ptr::null_mut(), ATTRIBUTES, 0, &mut size) };
     let mut buf = vec![0usize; size.div_ceil(size_of::<usize>())];
     // SAFETY: `buf` holds at least `size` bytes.
-    if unsafe { InitializeProcThreadAttributeList(buf.as_mut_ptr().cast(), 1, 0, &mut size) } == 0 {
+    if unsafe { InitializeProcThreadAttributeList(buf.as_mut_ptr().cast(), ATTRIBUTES, 0, &mut size) } == 0 {
         return Err(Error::last_os("InitializeProcThreadAttributeList"));
     }
     let mut attrs = AttrList(buf);
@@ -238,25 +281,27 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
         CapabilityCount: 0,
         Reserved: 0,
     };
-    // SAFETY: `caps` outlives CreateProcessW below; the list was initialised with room for one.
-    let ok = unsafe {
-        UpdateProcThreadAttribute(
-            attrs.ptr(),
-            0,
-            PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES as usize,
-            (&raw const caps).cast(),
-            size_of::<SECURITY_CAPABILITIES>(),
-            std::ptr::null_mut(),
-            std::ptr::null(),
-        )
-    };
-    if ok == 0 {
-        return Err(Error::last_os("UpdateProcThreadAttribute"));
+    // Less Privileged AppContainer: ALL APPLICATION PACKAGES grants no longer apply.
+    let lpac: u32 = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
+    // SAFETY (all three): each value outlives CreateProcessW below; the list has room for three.
+    unsafe {
+        attrs.set(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, (&raw const caps).cast(), size_of_val(&caps))?;
+        attrs.set(
+            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+            (&raw const lpac).cast(),
+            size_of_val(&lpac),
+        )?;
+        attrs.set(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherited.as_ptr().cast(), size_of_val(&inherited))?;
     }
 
+    let handle_arg = (input_handle as usize).to_string();
+    let mut child_args = sandboxed_args(input, &[]);
+    child_args.push(OsStr::new(INPUT_HANDLE_FLAG));
+    child_args.push(OsStr::new(&handle_arg));
+    child_args.extend_from_slice(args);
     let mut cmdline = Vec::new();
     quote(exe.as_os_str(), &mut cmdline);
-    for a in sandboxed_args(input, args) {
+    for a in child_args {
         cmdline.push(b' ' as u16);
         quote(a, &mut cmdline);
     }
@@ -266,14 +311,15 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
     si.StartupInfo.cb = size_of::<STARTUPINFOEXW>() as u32;
     si.lpAttributeList = attrs.ptr();
     let mut pi = PROCESS_INFORMATION::default();
-    // SAFETY: every pointer is valid for the call; handles are not inherited.
+    // SAFETY: every pointer is valid for the call. bInheritHandles is TRUE, but HANDLE_LIST limits
+    // inheritance to the input handle.
     let ok = unsafe {
         CreateProcessW(
             app.as_ptr(),
             cmdline.as_mut_ptr(),
             std::ptr::null(),
             std::ptr::null(),
-            0,
+            1,
             EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED | CREATE_NO_WINDOW,
             std::ptr::null(),
             std::ptr::null(),

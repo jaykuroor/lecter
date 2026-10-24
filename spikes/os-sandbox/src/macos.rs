@@ -1,4 +1,6 @@
-//! macOS: `RLIMIT_AS`, then a Seatbelt profile through `sandbox_init`. Applied by the child to itself.
+//! macOS: close inherited fds, `RLIMIT_AS`, then a Seatbelt profile through `sandbox_init`. Applied by
+//! the child to itself. `(deny default)` also denies `process-fork` and `process-exec`, so the child
+//! can't start processes to multiply the per-process memory limit.
 //!
 //! A macOS process already maps the dyld shared region (several GiB of address space) at start, and
 //! XNU refuses an `RLIMIT_AS` below the current map size. So the limit is the size at entry + 1 GiB:
@@ -52,8 +54,24 @@ pub fn profile(input: &str) -> String {
     format!("(version 1)\n(deny default)\n(allow file-read* (literal \"{}\"))\n", sbpl_string(input))
 }
 
-/// Restricts the calling process: map size at most +1 GiB, read access to `input` only, no network.
+/// Closes every fd above stderr: Seatbelt only checks new opens, so an inherited fd without CLOEXEC
+/// (a socket, a file) would stay usable. `/dev/fd` lists exactly this process's open fds.
+fn close_inherited_fds() -> Result<(), Error> {
+    let fds: Vec<c_int> = std::fs::read_dir("/dev/fd")
+        .map_err(|e| Error::new("read_dir /dev/fd", e))?
+        .filter_map(|e| e.ok()?.file_name().to_str()?.parse().ok())
+        .collect();
+    for fd in fds.into_iter().filter(|&fd| fd > 2) {
+        // SAFETY: closing fds this process owns; EBADF for the already-closed read_dir fd is fine.
+        unsafe { libc::close(fd) };
+    }
+    Ok(())
+}
+
+/// Restricts the calling process: map size at most +1 GiB, read access to `input` only, no network,
+/// no new processes, no inherited fds.
 pub fn enter(input: &std::path::Path) -> Result<String, Error> {
+    close_inherited_fds()?;
     // Seatbelt matches the resolved path (/var → /private/var).
     let real = input.canonicalize().map_err(|e| Error::new("canonicalize input", e))?;
     let real = real.to_str().ok_or_else(|| Error::other("input path", "not UTF-8"))?;
@@ -82,5 +100,5 @@ pub fn enter(input: &std::path::Path) -> Result<String, Error> {
         };
         return Err(Error::other("sandbox_init", message));
     }
-    Ok(format!("RLIMIT_AS +1 GiB ({limit} bytes) + Seatbelt deny-default"))
+    Ok(format!("fds closed + RLIMIT_AS +1 GiB ({limit} bytes) + Seatbelt deny-default"))
 }

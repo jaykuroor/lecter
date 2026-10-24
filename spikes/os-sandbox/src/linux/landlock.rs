@@ -1,6 +1,9 @@
-//! Landlock through raw syscalls (uapi `linux/landlock.h`): every file system right the kernel knows
-//! is handled, and the only rule grants `READ_FILE` on the input. From ABI 4 TCP bind/connect are
-//! handled too (no rule, so denied), and from ABI 6 abstract Unix sockets and signals are scoped.
+//! Landlock through raw syscalls (uapi `linux/landlock.h`). Handled (so denied unless a rule allows
+//! it): every file system right defined up to ABI 10 that the running kernel supports (ABI 1 bits
+//! 0-12, REFER at 2, TRUNCATE at 3, IOCTL_DEV at 5, RESOLVE_UNIX at 9); TCP bind/connect from ABI 4
+//! and UDP bits 2-3 from ABI 10; abstract Unix sockets and signals scoped from ABI 6. The only rule
+//! grants `READ_FILE` on the input. Rights added after ABI 10 are not handled until this list grows.
+//! `restrict_self` restricts the calling thread only: call it before any thread starts.
 //! Fails closed: no Landlock, no sandbox.
 
 use std::ffi::CString;
@@ -36,7 +39,7 @@ impl Drop for Fd {
     }
 }
 
-/// The file system rights handled at a given ABI (ABI 1: bits 0-12; 2: REFER; 3: TRUNCATE; 5: IOCTL_DEV).
+/// The file system rights handled at a given ABI (1: bits 0-12; 2: REFER; 3: TRUNCATE; 5: IOCTL_DEV; 9: RESOLVE_UNIX).
 fn handled_fs(abi: i64) -> u64 {
     let mut access = (1u64 << 13) - 1;
     if abi >= 2 {
@@ -47,6 +50,9 @@ fn handled_fs(abi: i64) -> u64 {
     }
     if abi >= 5 {
         access |= 1 << 15;
+    }
+    if abi >= 9 {
+        access |= 1 << 16;
     }
     access
 }
@@ -67,7 +73,11 @@ pub fn restrict_to_file(input: &Path) -> Result<i64, Error> {
     }
     let attr = RulesetAttr {
         handled_access_fs: handled_fs(abi),
-        handled_access_net: if abi >= 4 { 0b11 } else { 0 },
+        handled_access_net: match abi {
+            ..=3 => 0,
+            4..=9 => 0b11,
+            _ => 0b1111,
+        },
         scoped: if abi >= 6 { 0b11 } else { 0 },
     };
     let size = match abi {
