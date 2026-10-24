@@ -2,7 +2,7 @@ import type { CommandName, Commands, IpcError } from "../../src/core/commands";
 import type { MockFixture } from "./fixture";
 
 /** One handler per command; a mock that drifts from `Commands` fails `tsc`. */
-export type MockHandlers = {
+type MockHandlers = {
   [K in CommandName]: (args: Commands[K]["args"]) => Commands[K]["result"];
 };
 
