@@ -13,7 +13,6 @@
     "nsExports": "error",
     "nsTypes": "error",
     "duplicates": "error",
-    "enumMembers": "error",
-    "classMembers": "error"
+    "enumMembers": "error"
   }
 }
