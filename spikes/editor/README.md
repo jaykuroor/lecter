@@ -36,7 +36,14 @@
 - A first probe that ended each event with a posted task measured 60–130 ms "work": Chromium runs
   the next frame before such a task. Don't use task posting to find the end of input handling.
 - **Memory**: RSS of the whole browser process tree (`ps`), both engines; JS heap after a forced GC
-  (CDP `Runtime.getHeapUsage`) in Chromium only, because WebKit exposes no heap API to Playwright.
+  (CDP `Runtime.getHeapUsage`) in Chromium only.
+- **WebKit heap size: can't be met as written** (criterion 2 asks for heap size in WebKit;
+  `14-quality.md#when-the-criteria-cant-be-met`, recorded in D-080). Playwright exposes no protocol
+  session or heap API for WebKit (`newCDPSession` is Chromium-only), and `performance.memory` is
+  Chromium-only (it doesn't exist in WebKit pages). Process-tree RSS was measured instead. Nothing
+  else was tried: no other in-page or Playwright-level heap API exists for WebKit. A WebKit heap
+  number would need the Web Inspector protocol outside Playwright, or the real app's WebKitGTK
+  (F-016).
 - Headless, 1280×800. Playwright 1.64.1 browsers (Chromium 1248; WebKit from `playwright install webkit`).
 
 ## Rerun
@@ -49,6 +56,12 @@ spikes/editor/pnpm.sh install                         # its own lockfile; not pa
 spikes/editor/pnpm.sh exec playwright install webkit  # once; Chromium is shared with ui/
 spikes/editor/pnpm.sh run measure 2>&1 | tee .evidence/F-001/measurement.log
 ```
+
+`.evidence/F-001/measurement.log` (the card's `log:measurement`) holds the final script's Chromium run
+(`--engines chromium,chromium-novsync`, novsync raw p99 5.2 ms, GO). Below it, under a header, is Jay's
+WebKit run 3 copied verbatim from `measurement-webkit-opt.log` (container, same script; work p99 11 ms,
+NO-GO in both the markdown-on and `md=0` passes). The first, superseded run (old script, WebKit not
+launched) is kept as `measurement-run0-superseded.log`.
 
 One engine: `spikes/editor/pnpm.sh run build && node spikes/editor/measure.mjs --engines webkit`
 (engines: `chromium`, `chromium-novsync`, `webkit`). Exit 0 = GO, 1 = NO-GO, 2 = an engine could
