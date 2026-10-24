@@ -1,5 +1,7 @@
 //! `lecter-core`: Course and lecture files, document model, journal, jobs, settings and keychain.
 
+pub mod identity;
+
 /// This crate's package name.
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 
