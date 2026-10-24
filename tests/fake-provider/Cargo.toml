@@ -1,0 +1,11 @@
+[package]
+name = "lecter-fake-provider"
+description = "Scripted fake AI provider for hermetic tests."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

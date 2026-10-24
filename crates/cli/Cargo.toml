@@ -1,0 +1,15 @@
+[package]
+name = "lecter-cli"
+description = "The lecter command-line tool (v1; prints its version in v0)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "lecter"
+path = "src/main.rs"
+
+[lints]
+workspace = true

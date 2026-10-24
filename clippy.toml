@@ -1,0 +1,5 @@
+# Blocking calls that must not run on an async runtime thread (crates/CLAUDE.md).
+# Sync code that needs one (a worker process, a spawn_blocking body) allows it at the call site with a reason.
+disallowed-methods = [
+  { path = "std::thread::sleep", reason = "blocks the thread; await tokio::time::sleep, or wait on an event in tests" },
+]

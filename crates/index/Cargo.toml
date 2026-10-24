@@ -1,0 +1,11 @@
+[package]
+name = "lecter-index"
+description = "Search: Tantivy BM25, int8 vectors, retrieval tiers, course card and digest."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

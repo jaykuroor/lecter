@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "tests/fake-provider"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/jaykuroor/lecter"
+publish = false
+
+# Shared third-party versions go here (crates/CLAUDE.md); add them only through scripts/add_dep.py.
+[workspace.dependencies]
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

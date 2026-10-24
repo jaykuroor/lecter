@@ -1,0 +1,11 @@
+[package]
+name = "lecter-cas"
+description = "LaTeX to expression conversion and numeric step checks."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
