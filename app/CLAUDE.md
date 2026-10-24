@@ -15,4 +15,6 @@ Spec: `01-architecture.md#processes`, `#packaging`; `13-security.md`; `08-figure
 - Debug-only test hooks (embedded WebDriver, `LECTER_TEST_*`, devtools) live behind `cfg(debug_assertions)`; `scripts/check_release_binary.sh` proves release builds don't have them.
 
 ## Learned
+- Inside the Claude Code sandbox no window can open: AF_UNIX `socket()` is denied (GTK can't reach X/Wayland) and Xvfb can't write `/tmp/.X<n>-lock`, so it never listens; `cargo run -p lecter-app` stops at "Failed to initialize GTK" (F-012)
+- Without `tauri/custom-protocol` (which the Tauri CLI adds), even `cargo build --release` loads `build.devUrl`; packaging must enable it (F-012)
 
