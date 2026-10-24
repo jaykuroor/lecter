@@ -22,7 +22,7 @@ from common import checkout_root, resolve  # noqa: E402
 
 PROTECTED = (  # existing files only; creating new tests and snapshots is always fine
     "scripts/verify.sh", "tests/perf/budgets.json", "tests/corpus/thresholds.json", ".github/workflows/*",
-    "deny.toml", "clippy.toml", ".clippy.toml", "rustfmt.toml", "rust-toolchain.toml", "ui/biome.json", "ui/biome.jsonc",
+    "deny.toml", "clippy.toml", ".clippy.toml", "crates/*/clippy.toml", "crates/*/.clippy.toml", "rustfmt.toml", "rust-toolchain.toml", "ui/biome.json", "ui/biome.jsonc",
     "ui/playwright.config.ts", "tests/e2e/wdio.conf.ts", "ui/knip.json", "ui/.jscpd.json", "ui/tsconfig.json",
     "*.snap", "*/__snapshots__/*", "tests/visual/baselines/*",
 )
