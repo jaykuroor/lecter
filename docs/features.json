@@ -248,7 +248,7 @@
    "evidence": [
     "log:measurement"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 1005,
    "base": "3d20225c65f350c9bfd7a17b4b5526a9e3096da0"

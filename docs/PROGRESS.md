@@ -4,15 +4,21 @@
 
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (lint, test on ubuntu/macos/windows, e2e) is green on main (run 40106531943).
-- Milestone: M0.5 next · last done: F-014 Code-health gates · gate: M0 passed
+- Milestone: M0 spikes (F-005, F-006 left), then M0.5 · last done: F-001 Spike: CodeMirror lecture surface · gate: M0 passed
 - Resume point (2026-10-24 11:54): merging F-001 from feat/F-001-editor-spike
 - In progress: none
-- Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). WebKit isn't installed locally. The sandbox can't push; the author pushes.
-- Next up: the M0 spikes (F-001 onwards).
+- Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). Playwright WebKit can't launch on Fedora 44; measure WebKit in the `mcr.microsoft.com/playwright:v1.64.1-noble` container (podman, run by the author outside the sandbox; command in spikes/editor/README.md). WebKit timers are 1 ms and it has no heap API. The editor's WebKit keystroke budget is decided by the real-app trace in F-016 (D-080), and performance presets await the planning session (Q-006). The sandbox can't push; the author pushes.
+- Next up: F-005 Spike: parse-worker OS sandboxes, then F-006.
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-001 · done
+- Built: throwaway CodeMirror 6 + Vim + KaTeX + gloss lecture-surface spike (200-slide synthetic fixture) and a Playwright measurement and profiling script. Chromium GO (novsync p99 4.8–5.2 ms). Headless WebKit is NO-GO end to end (work p99 11–12 ms; sync p99 7 ms with the Markdown parse off). Lazy KaTeX/markdown took the main chunk from 289 to 140 KB gz.
+- Code: spikes/editor/ · Tests: spikes/editor/measure.mjs, profile.mjs · Evidence: .evidence/F-001/
+- Decisions: D-079 (spike's own packages), D-080 (keep CM6 with conditions; F-016 decides), D-081 (Performance/Balanced/Quality presets, Balanced default). Q-006 for the planning session.
+- Review: 1 FIX round (evidence log regenerated, WebKit heap stated as unmeasurable), then PASS.
 
 ### 2026-10-24 · CI-4ec6f29 + M0 gate · done
 - Fixed: under CI, init.sh installs only from the lockfiles (M0 security review, Q-005, D-078); harness lint tests run Python in UTF-8 (Windows console failure on check_arch's "→").
