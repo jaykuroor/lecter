@@ -5,7 +5,7 @@
 ## Current state
 - Runs: `cargo run -p lecter-cli` prints `lecter 0.0.1`. No app or UI yet.
 - Milestone: M0 · last done: F-010 Rust workspace scaffold · gate: none
-- Resume point (2026-10-23 23:55): dispatching F-011 UI scaffold with mocked core
+- Resume point (2026-10-24 00:07): merging F-011 from feat/F-011-ui-scaffold
 - In progress: none
 - Watch out: Node is pinned to 24.18.0 (D-058). Jay's machine has it as `node-24`, but plain `node` still runs 22.23.1; point `node` at 24 before F-011.
 - Next up: F-011 UI scaffold (set `packageManager` and `engines.node` per D-058), then F-012 to F-014 and the M0 spikes.
