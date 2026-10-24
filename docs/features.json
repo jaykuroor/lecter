@@ -962,7 +962,7 @@
     "log:tests"
    ],
    "status": "todo",
-   "notes": "",
+   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006.",
    "priority": 3025
   },
   {
@@ -1433,7 +1433,7 @@
    ],
    "try": "Open Settings with Ctrl-, and change the hint bar detail",
    "status": "todo",
-   "notes": "",
+   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006.",
    "priority": 3040
   },
   {

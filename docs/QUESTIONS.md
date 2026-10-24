@@ -48,5 +48,10 @@ M0 security review: CI installs fall back to unlocked when lockfiles don't match
 - Recommendation: when `CI` is set, run only `cargo fetch --locked` and `pnpm install --frozen-lockfile`, with no fallback, and add a test in crates/harness/tests/ci.rs. Keep the fallback for local runs. Small CI fix (owner: scripts/init.sh, F-013's path).
 - Answer: the author, at the M0 gate: fix it now, before passing the gate. Done in CI-4ec6f29 (D-078).
 
+## Q-006 · planning · blocks: F-030, F-045
+Add the performance presets (D-081) to the spec and the features.
+- Context: Jay decided at the F-001 stack call (D-080, D-081) that performance settings default to Balanced and are user-configurable. A Performance / Balanced / Quality preset goes in Settings > Performance and `:set`. Quality shows a lag warning. Build sessions can't add acceptance criteria.
+- Recommendation: in the planning session (`scripts/loop.sh plan`), add the preset to the settings schema (F-030), the settings window (F-045) and the `:set` command, and to the editor-surface feature: idle-time Markdown highlighting in Balanced, lazy KaTeX, live in Quality. Add the "performance toggles default to Balanced" rule to the settings spec.
+
 ## Gate notes
 <!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->

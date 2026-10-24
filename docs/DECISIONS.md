@@ -408,3 +408,16 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the editor spike keeps its own `spikes/editor/package.json` with exact pins (CodeMirror 6, @replit/codemirror-vim, KaTeX, Vite, @playwright/test; all MIT) and its own lockfile. The builder may run `pnpm -C spikes/editor install` and `pnpm -C spikes/editor exec playwright install webkit`. Nothing is added to `ui/` or `crates/`. If WebKit won't install or launch on Fedora 44, the spike records that and measures it later (CI on ubuntu, or the real app via F-016).
 - Why: `add_dep.py` covers only `ui/` and Rust, and the spike can't measure anything without these packages.
 - Instead of: adding the packages to `ui/`, or skipping the WebKit measurement.
+
+## D-080 · CodeMirror 6 stays, with conditions (F-001 result)
+2026-10-24 · Who: Jay · active
+- Decision: GO with conditions for the CodeMirror 6 lecture surface. Measured numbers are in the F-001 spike entry (`spikes/editor/README.md`). Chromium passes (novsync p99 4.8–5.2 ms). Headless WebKit 27.2 in a container misses the 8 ms keystroke budget end to end (work p99 11 ms in every run; the script says NO-GO). After the fixes, with the Markdown parse off the keystroke path, WebKit sync p99 is 7 ms (9 ms with it on). Conditions: KaTeX loads lazily. No Markdown parse on the keystroke path in the default preset (D-081). The real-app keystroke p99 on WebKitGTK (F-016 WebDriver trace) is the deciding check. If it is ≥ 8 ms, the stack is revisited before more editor work.
+- Why: the remaining WebKit cost is CodeMirror core plus the Markdown parse. Headless, no GPU and 1 ms timers make the container a harsher test than the shipped app.
+- Instead of: NO-GO and a new editor stack, or holding the decision until F-016.
+
+## D-081 · Performance presets; Balanced is the default
+2026-10-24 · Who: Jay · active
+- Decision: performance features that can change without breaking the app are user-configurable and default to **Balanced**. One preset setting in Settings > Performance and `:set` has three presets. **Performance:** no live Markdown highlighting or live math. **Balanced (default):** KaTeX loads lazily, and Markdown highlighting runs after a short pause in typing (idle-time parse, off the keystroke path). **Quality:** full live highlighting and math on every keystroke, with a visible note that it can add input lag on slower machines. Markdown highlighting is in v0 (Balanced form).
+- Why: the F-001 spike shows the Markdown parse costs about 1 ms/key on WebKit and pushes it over budget (D-080). Users on fast machines can opt into Quality.
+- Instead of: dropping Markdown highlighting from v0, or a fixed per-keystroke parse.
+- Spec: needs criteria in the settings features (F-030, F-045) and the editor surface. Q-006 asks the planning session to add them.
