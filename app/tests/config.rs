@@ -1,5 +1,7 @@
 //! F-012 criteria 1, 3 and 5: identifier, version, CSP, devtools and the identifier's one source.
 
+#![allow(clippy::disallowed_methods, reason = "tests read repo files on plain test threads, not on an async runtime")]
+
 mod support;
 
 use std::path::Path;

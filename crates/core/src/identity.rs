@@ -5,6 +5,7 @@
 pub const APP_ID: &str = env!("LECTER_APP_ID");
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods, reason = "tests read repo files on plain test threads")]
 mod tests {
     use super::APP_ID;
 

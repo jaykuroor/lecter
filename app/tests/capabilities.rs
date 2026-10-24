@@ -1,6 +1,8 @@
 //! F-012 criterion 2 (SEC-31): the main window's capability lists only the commands the shell
 //! registers, and no capability names a remote URL.
 
+#![allow(clippy::disallowed_methods, reason = "tests read repo files on plain test threads, not on an async runtime")]
+
 mod support;
 
 use support::{app_dir, conf, json};

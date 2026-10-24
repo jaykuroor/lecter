@@ -1,5 +1,69 @@
-# Blocking calls that must not run on an async runtime thread (crates/CLAUDE.md).
-# Sync code that needs one (a worker process, a spawn_blocking body) allows it at the call site with a reason.
+# Clippy configuration for the async crates (core, index, ai, cas, cli, app, fake-provider).
+# Clippy reads the nearest clippy.toml above a crate's manifest, so this file applies to every crate
+# except the sync ones that carry their own: crates/parse, crates/models and crates/harness (worker
+# processes and a command-line test driver, which never run on an async runtime thread). Those copy
+# everything below except the std::fs and std::net bans. crates/harness/tests/lint_gates.rs checks
+# that no other clippy.toml exists and that each ban is reported (fixture: tests/fixtures/lint/clippy).
+#
+# A blocking call that really belongs here (a spawn_blocking body, a build script, a test) allows it
+# where it is made: #[allow(clippy::disallowed_methods, reason = "...")].
+
+# unwrap/expect are denied by [workspace.lints.clippy] in Cargo.toml; tests may use them.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
 disallowed-methods = [
+  # Sleeping blocks the thread.
   { path = "std::thread::sleep", reason = "blocks the thread; await tokio::time::sleep, or wait on an event in tests" },
+
+  # Blocking file system calls: use tokio::fs, or std::fs inside spawn_blocking.
+  { path = "std::fs::canonicalize", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::copy", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::create_dir", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::create_dir_all", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::exists", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::hard_link", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::metadata", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::read", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::read_dir", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::read_link", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::read_to_string", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::remove_dir", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::remove_dir_all", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::remove_file", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::rename", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::set_permissions", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::symlink_metadata", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::write", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::File::open", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::File::create", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::File::create_new", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::File::sync_all", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::File::sync_data", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::OpenOptions::open", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+  { path = "std::fs::DirBuilder::create", reason = "blocking fs call; use tokio::fs or spawn_blocking" },
+
+  # Blocking network calls and DNS: use tokio::net.
+  { path = "std::net::ToSocketAddrs::to_socket_addrs", reason = "blocking DNS lookup; use tokio::net::lookup_host" },
+  { path = "std::net::TcpStream::connect", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::TcpStream::connect_timeout", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::TcpListener::bind", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::TcpListener::accept", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::TcpListener::incoming", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::UdpSocket::bind", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::UdpSocket::connect", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::UdpSocket::send", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::UdpSocket::send_to", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::UdpSocket::recv", reason = "blocking network call; use tokio::net" },
+  { path = "std::net::UdpSocket::recv_from", reason = "blocking network call; use tokio::net" },
+
+  # Identifier-based paths: user data must not depend on the bundle identifier
+  # (01-architecture.md#app-identity-and-migration). Derive paths from lecter_core::identity::APP_DIR_NAME.
+  # Clippy warns on a path it can't resolve in a crate that depends on tauri, so the lint stage
+  # catches a rename in Tauri.
+  { path = "tauri::path::PathResolver::app_config_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_data_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_cache_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_local_data_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
+  { path = "tauri::path::PathResolver::app_log_dir", reason = "keyed by the bundle identifier; derive from identity::APP_DIR_NAME" },
 ]

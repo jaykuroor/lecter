@@ -1,0 +1,11 @@
+{
+  "path": ["src", "../crates", "../app/src"],
+  "format": ["typescript", "tsx", "rust"],
+  "ignore": ["**/node_modules/**", "**/target/**", "**/dist/**", "**/gen/**", "src/core/bindings.ts"],
+  "minLines": 30,
+  "minTokens": 50,
+  "exitCode": 1,
+  "gitignore": true,
+  "reporters": ["console"],
+  "noTips": true
+}
