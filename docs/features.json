@@ -442,9 +442,10 @@
    "evidence": [
     "harness:version"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2011
+   "priority": 2011,
+   "base": "d4b069bd0b2130710abff8d72f2cc1749696d230"
   },
   {
    "id": "F-016",
