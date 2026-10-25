@@ -14,6 +14,8 @@ publish = false
 serde_json = "1.0.154"
 # tauri-specta needs specta pinned exactly while both are release candidates (D-048).
 specta = { version = "=2.0.0-rc.25", default-features = false, features = ["std", "derive"] }
+# Each crate names the features it uses (core: process, time, io-util; harness: rt).
+tokio = { version = "1.54.1", default-features = false }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

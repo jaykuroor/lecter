@@ -18,7 +18,11 @@ workspace = true
 
 [dependencies]
 lecter-core = { path = "../core" }
+# The parse worker itself: `lecter-harness parse` runs it as its own child process.
+lecter-parse = { path = "../parse" }
 serde_json.workspace = true
+# A current-thread runtime for the core's async worker calls.
+tokio = { workspace = true, features = ["rt"] }
 
 [dev-dependencies]
 # TestEnv (a throwaway LECTER_TEST_HOME) for the tests that run the binary. test-hooks keeps it in
