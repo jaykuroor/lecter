@@ -58,14 +58,16 @@ fn every_capability_is_enabled_by_name_and_local_only() {
 
 #[test]
 fn the_ui_calls_only_registered_commands() {
-    let ui = support::read("../ui/src/core/commands.ts");
-    let body = ui.split("export interface Commands {").nth(1).and_then(|s| s.split('}').next()).unwrap_or("");
+    // The generated contract (F-017): `export type Commands = {` with one `  name: {` entry each.
+    let ui = support::read("../ui/src/core/bindings.ts");
+    let body = ui.split("export type Commands = {").nth(1).and_then(|s| s.split("\n};").next()).unwrap_or("");
     let called: Vec<&str> = body
         .lines()
+        .filter(|l| l.starts_with("  ") && !l.starts_with("   ") && l.trim_end().ends_with('{'))
         .filter_map(|l| l.trim().split_once(':').map(|(n, _)| n.trim()))
         .filter(|n| !n.is_empty())
         .collect();
-    assert!(!called.is_empty(), "no commands found in commands.ts");
+    assert!(!called.is_empty(), "no commands found in bindings.ts");
     for c in &called {
         assert!(COMMANDS.contains(c), "the UI calls {c}, which the shell does not register");
     }

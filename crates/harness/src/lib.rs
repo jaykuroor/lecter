@@ -8,7 +8,7 @@
 pub mod commands;
 pub mod error;
 
-use error::HarnessError;
+use error::{ExitStatus, HarnessError};
 
 /// This crate's package name.
 pub const NAME: &str = env!("CARGO_PKG_NAME");

@@ -1,10 +1,11 @@
 //! The `app` area: what the shell shows about the running app.
 
 use serde::Serialize;
+use specta::Type;
 use tauri::PackageInfo;
 
-/// `app_info`'s result; the UI's `AppInfo` (`ui/src/core/commands.ts`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// `app_info`'s result; the UI's `AppInfo` (`ui/src/core/bindings.ts`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct AppInfo {
     pub name: String,
     pub version: String,
@@ -19,6 +20,7 @@ impl AppInfo {
 /// The product name and version from `tauri.conf.json`. Takes no arguments, so there is nothing
 /// to validate (SEC-32).
 #[tauri::command]
+#[specta::specta]
 pub fn app_info(app: tauri::AppHandle) -> AppInfo {
     AppInfo::from_package(app.package_info())
 }

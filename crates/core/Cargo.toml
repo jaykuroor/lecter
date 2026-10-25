@@ -12,6 +12,9 @@ workspace = true
 
 [dependencies]
 directories = "6.0.0"
+serde = { version = "1", default-features = false, features = ["derive"] }
+# The TypeScript shape of the IPC types for the app's generated bindings; nothing else needs it.
+specta = { workspace = true, optional = true }
 thiserror = "2.0.21"
 
 [features]
@@ -19,3 +22,8 @@ thiserror = "2.0.21"
 # Debug builds have them anyway; the app's release build never enables this
 # (scripts/check_release_binary.sh).
 test-hooks = []
+# Derives specta::Type on the types the app exports to ui/src/core/bindings.ts (18-contracts.md#ipc).
+specta = ["dep:specta"]
+
+[dev-dependencies]
+serde_json.workspace = true

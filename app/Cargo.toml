@@ -6,22 +6,30 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true
+# Two binaries (the app and export-bindings); `cargo run -p lecter-app` and Tauri's CLI run the app.
+default-run = "lecter-app"
 
 [lints]
 workspace = true
 
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
+lecter-core = { path = "../crates/core", features = ["specta"] }
+specta.workspace = true
+specta-typescript = "=0.0.12"
 tauri = "2"
 tauri-plugin-dialog = "2.8.3"
 # The embedded WebDriver server, for real-app e2e only (01-architecture.md#debug-only-test-hooks).
 # Optional: Cargo can't pick dependencies on cfg(debug_assertions) (such a table compiles into
 # release builds too), so it comes with the `test-hooks` feature that scripts/e2e-app.sh turns on.
 tauri-plugin-wdio-webdriver = { version = "=1.4.0", optional = true }
+tauri-specta = { version = "=2.0.0-rc.25", default-features = false, features = ["derive", "typescript"] }
+tracing = "0.1.44"
+serde_json.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 lecter-core = { path = "../crates/core", features = ["test-hooks"] }
+tauri = { version = "2", default-features = false, features = ["test"] }
 
 [features]
 # Embeds ui/dist and serves it over Tauri's custom protocol. Release builds need it (main.rs
@@ -30,6 +38,13 @@ custom-protocol = ["tauri/custom-protocol"]
 # The test hooks in any profile, plus the embedded WebDriver server (D-091). Never on in a release
 # or packaging build: scripts/check_release_binary.sh fails a binary that has them.
 test-hooks = ["dep:tauri-plugin-wdio-webdriver"]
+
+# Writes ui/src/core/bindings.ts from the IPC contract in src/ipc/; `-- --check` fails on stale
+# bindings (verify.sh bindings-stale). Its logic is tested in the app's own test target (ipc::export).
+[[bin]]
+name = "export-bindings"
+path = "src/bin/export-bindings.rs"
+test = false
 
 [build-dependencies]
 tauri-build = "2"
