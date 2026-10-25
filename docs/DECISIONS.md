@@ -588,3 +588,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: F-019 (the first shipping crate that loads PDFium) adds a CI step that runs the pinned, SHA-256-checked PDFium fetch with `actions/cache` keyed on the pins file, and an `init.sh` step that does the same locally. Tests only read the verified local library and stay offline; D-086's network exception does not extend to lecter-parse.
 - Why: tests must not hit the network (AGENTS.md); downloading ~25 MB on every fresh runner is slow and flaky.
 - Instead of: leaving Q-009 to a planning session; per-test downloads.
+
+## D-109 · WebDriver plugin and service move to 1.5.0
+2026-10-25 · session CI-17ae5e6 · active (supersedes D-096's 1.4.0 pin)
+- Decision: `tauri-plugin-wdio-webdriver` =1.5.0 and `@wdio/tauri-service` 1.5.0 (both MIT, dev/test-hooks only, published 2026-10-08). They move together.
+- Why: plugin 1.4.0 needs webview2-com 0.38 / windows 0.61 while tauri 2.12.5 uses 0.39 / 0.62, so it didn't compile on Windows (two `ICoreWebView2` types). Service 1.4.0 runs the msedgedriver check on Windows even for the embedded server and then never sets the session's hostname/port ("No browserName … nor hostname or port"). Branch CI run 40229046760 green on all three OSes.
+- Instead of: 1.5.1 (2026-10-24, under two weeks); downgrading tauri; `autoDownloadEdgeDriver: true`.
+
+## D-110 · Platform-honest tests for origins, file names and paths
+2026-10-25 · session CI-17ae5e6 · active
+- Decision: IPC guard tests call from the platform's local origin (`http://tauri.localhost` on Windows/Android, `tauri://localhost` elsewhere). The non-UTF-8 file-name test is `cfg(all(unix, not(target_vendor = "apple")))` (APFS/HFS+ refuse such names). e2e flows compare paths with `realpathSync.native` (expands Windows 8.3 short names like Rust's canonicalize). Doc comments on specta `Type`s are compiled into the binary, so they must not name test-only tools.
+- Why: each was a CI failure on macOS, Windows or release-check that Linux didn't show.
+- Instead of: runtime skips; loosened path comparisons; a weaker release check.
