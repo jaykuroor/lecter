@@ -490,9 +490,10 @@
     ".github/workflows/ci.yml",
     "tests/e2e/wdio.conf.ts"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2012
+   "priority": 2012,
+   "base": "a3ef1d0b0a43c2874a785b73c1319807ddbb2ac8"
   },
   {
    "id": "F-017",
