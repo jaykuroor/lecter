@@ -54,25 +54,7 @@ impl HarnessError {
 mod tests {
     use super::*;
 
-    /// The codes in the first column of the table under `### Error codes` in 18-contracts.md.
-    fn spec_codes() -> Vec<String> {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/spec/18-contracts.md");
-        let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path}: {e}"));
-        let section = text.split("### Error codes").nth(1).expect("an Error codes section");
-        section
-            .lines()
-            .skip_while(|l| !l.starts_with('|'))
-            .take_while(|l| l.starts_with('|'))
-            .filter_map(|l| l.split('|').nth(1).map(|c| c.trim().trim_matches('`').to_owned()))
-            .filter(|c| c.starts_with("E_"))
-            .collect()
-    }
-
-    #[test]
-    fn codes_are_exactly_the_contract_table_in_order() {
-        let ours: Vec<&str> = ErrorCode::ALL.iter().map(|c| c.as_str()).collect();
-        assert_eq!(ours, spec_codes());
-    }
+    // The code list itself is pinned to 18-contracts.md#error-codes in lecter_core::error_code.
 
     #[test]
     fn error_json_has_code_message_and_retryable_under_error() {
