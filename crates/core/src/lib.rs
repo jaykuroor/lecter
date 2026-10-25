@@ -1,5 +1,6 @@
 //! `lecter-core`: Course and lecture files, document model, journal, jobs, settings and keychain.
 
+pub mod course;
 pub mod error;
 pub mod error_code;
 pub mod identity;
