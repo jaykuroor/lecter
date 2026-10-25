@@ -125,6 +125,32 @@ mod tests {
         assert_eq!(canonical_folder(Path::new("courses/x")).err().map(|e| e.code), Some(ErrorCode::InvalidArgument));
     }
 
+    /// SEC-35: a symlink to a folder opens the folder it points at, never the link's own path.
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_to_a_folder_comes_back_as_the_target() {
+        let env = env();
+        let target = env.home().join("Real Course");
+        std::fs::create_dir(&target).unwrap_or_else(|e| panic!("{e}"));
+        let link = env.home().join("Shortcut");
+        std::os::unix::fs::symlink(&target, &link).unwrap_or_else(|e| panic!("{e}"));
+        let root = canonical_folder(&link).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(root, std::fs::canonicalize(&target).unwrap_or_else(|e| panic!("{e}")));
+        assert_eq!(names(&root).unwrap_or_else(|e| panic!("{e:?}")).1, "Real Course");
+    }
+
+    /// SEC-35: a symlink is judged by what it points at, so a link to a file is not a folder.
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_to_a_file_is_refused() {
+        let env = env();
+        let file = env.home().join("notes.md");
+        std::fs::write(&file, "x").unwrap_or_else(|e| panic!("{e}"));
+        let link = env.home().join("Looks Like A Course");
+        std::os::unix::fs::symlink(&file, &link).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(canonical_folder(&link).err().map(|e| e.code), Some(ErrorCode::InvalidArgument));
+    }
+
     #[test]
     fn result_serialises_with_snake_case_trust() {
         let r = CourseOpened { path: "/c/a".into(), name: "a".into(), trust: Trust::Trusted };
