@@ -71,7 +71,7 @@ fn plain(canonical: &str) -> String {
 
 /// The chosen path, canonicalised (symlinks resolved), if it is an existing folder (SEC-35).
 #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
-fn canonical_folder(picked: &Path) -> Result<PathBuf> {
+pub(crate) fn canonical_folder(picked: &Path) -> Result<PathBuf> {
     if !picked.is_absolute() {
         return Err(Error::NotAbsolute);
     }

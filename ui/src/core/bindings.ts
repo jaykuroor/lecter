@@ -15,10 +15,18 @@ export const commands = {
 	 *  Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 	 *  listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
 	 *  never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
+	 *  The course is remembered for this session, so its lectures can be opened.
 	 */
 	courseOpen: () => typedError<({
 	trust: Trust,
 }) & (CourseListing) | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
+	/**
+	 *  Opens `path` (`lectures/<name>.md`, relative to the course) in `course`, which must be a
+	 *  course `course_open` returned this session, and returns the whole file. A path outside
+	 *  `lectures/` is E_INVALID_ARGUMENT, a missing file E_NOT_FOUND and a link out of the course
+	 *  E_NOT_TRUSTED.
+	 */
+	lectureOpen: (course: string, path: string) => typedError<Lecture, IpcError_Serialize>(__TAURI_INVOKE("lecture_open", { course, path })),
 };
 
 /* Types */
@@ -108,6 +116,16 @@ export type IpcError_Serialize = {
 	detail?: string | null,
 };
 
+/**  An opened lecture file. */
+export type Lecture = {
+	/**  The path relative to the course root with `/` separators, e.g. `lectures/l07.md`. */
+	path: string,
+	/**  The file name, e.g. `l07.md`. */
+	name: string,
+	/**  The whole file: front matter and body, exactly as on disk. */
+	text: string,
+};
+
 /**  Whether the folder-trust question (02-course-folder.md#trust) still has to be asked. */
 export type Trust = "ask" | "trusted";
 
@@ -133,6 +151,11 @@ export type Commands = {
     args: Record<string, never>;
     result: CommandOk<Awaited<ReturnType<typeof commands.courseOpen>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.courseOpen>>>;
+  };
+  lecture_open: {
+    args: { course: Parameters<typeof commands.lectureOpen>[0]; path: Parameters<typeof commands.lectureOpen>[1] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.lectureOpen>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.lectureOpen>>>;
   };
 };
 

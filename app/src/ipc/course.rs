@@ -4,9 +4,10 @@
 use lecter_core::course::{self, CourseListing};
 use serde::Serialize;
 use specta::Type;
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 
 use super::error::{ErrorCode, IpcError};
+use super::session::OpenedCourses;
 use crate::dialog;
 
 /// Whether the folder-trust question (02-course-folder.md#trust) still has to be asked.
@@ -35,9 +36,10 @@ pub struct CourseOpened {
 /// Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 /// listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
 /// never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
+/// The course is remembered for this session, so its lectures can be opened.
 #[tauri::command]
 #[specta::specta]
-pub async fn course_open(app: AppHandle) -> Result<Option<CourseOpened>, IpcError> {
+pub async fn course_open(app: AppHandle, courses: State<'_, OpenedCourses>) -> Result<Option<CourseOpened>, IpcError> {
     let Some(picked) = dialog::pick_folder(&app).await else {
         return Ok(None);
     };
@@ -45,11 +47,12 @@ pub async fn course_open(app: AppHandle) -> Result<Option<CourseOpened>, IpcErro
         .await
         .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not check that folder."))?
         .map_err(ipc_error)?;
+    courses.remember(&course.path);
     Ok(Some(CourseOpened { course, trust: trust() }))
 }
 
 /// The core's error as the contract's `IpcError`: its code and its one-sentence message.
-fn ipc_error(e: lecter_core::Error) -> IpcError {
+pub(super) fn ipc_error(e: lecter_core::Error) -> IpcError {
     IpcError::new(e.code(), e.to_string())
 }
 

@@ -4,6 +4,7 @@ pub mod course;
 pub mod error;
 pub mod error_code;
 pub mod identity;
+pub mod lecture;
 pub mod paths;
 #[cfg(any(debug_assertions, feature = "test-hooks"))]
 pub mod testenv;

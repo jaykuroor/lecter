@@ -7,8 +7,10 @@ pub mod app;
 pub mod course;
 pub mod error;
 pub mod guard;
+pub mod lecture;
 #[cfg(test)]
 mod names;
+pub mod session;
 pub mod validate;
 
 use tauri::Wry;
@@ -17,7 +19,9 @@ use tauri_specta::{Builder, collect_commands, collect_events};
 
 /// Every command and event the shell exposes, with their types.
 pub fn contract() -> Builder<Wry> {
-    Builder::<Wry>::new().commands(collect_commands![app::app_info, course::course_open]).events(collect_events![])
+    Builder::<Wry>::new()
+        .commands(collect_commands![app::app_info, course::course_open, lecture::lecture_open])
+        .events(collect_events![])
 }
 
 /// The invoke handler for `tauri::Builder::invoke_handler`: the contract's commands behind the
