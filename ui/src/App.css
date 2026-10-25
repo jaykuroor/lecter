@@ -36,6 +36,8 @@ body,
 .rail {
   grid-column: 1;
   grid-row: 2;
+  min-height: 0;
+  overflow: auto;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--borders);
 }

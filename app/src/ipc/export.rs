@@ -44,6 +44,12 @@ pub fn command_names<R: Runtime>(contract: &Builder<R>) -> Vec<String> {
     commands(contract).into_iter().map(|(name, _)| name).collect()
 }
 
+/// The argument names of the contract's command `name`, or `None` if it has no such command.
+#[cfg(test)]
+pub fn command_args<R: Runtime>(contract: &Builder<R>, name: &str) -> Option<Vec<String>> {
+    commands(contract).into_iter().find(|(n, _)| n == name).map(|(_, args)| args)
+}
+
 /// Each command's name and argument names, in declaration order.
 fn commands<R: Runtime>(contract: &Builder<R>) -> Vec<Signature> {
     let found = Rc::new(RefCell::new(Vec::new()));
