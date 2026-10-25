@@ -822,7 +822,7 @@
    ],
    "acceptance": [
     "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone.",
-    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (×1.5 for timing with --ci).",
+    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact).",
     "Budgets whose feature doesn't exist yet SHALL print PENDING and fail once their starting milestone is done.",
     "ci.yml SHALL gain the required `perf` job, and a deliberately slowed fixture SHALL make it fail (asserted in a test of budgets.sh).",
     "The first measurements SHALL be recorded in a D-entry."

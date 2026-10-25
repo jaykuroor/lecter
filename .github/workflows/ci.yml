@@ -26,6 +26,31 @@ env:
   CARGO_INCREMENTAL: "0"
 
 jobs:
+  # Docs-only pushes run lint alone (16-ci-cd.md "Docs-only pushes"). Anything unclear counts as code.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          code=true
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+             && git merge-base --is-ancestor "$BEFORE" "$GITHUB_SHA" 2>/dev/null \
+             && files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA") && [ -n "$files" ]; then
+            if ! printf '%s\n' "$files" | grep -vE '\.md$|^docs/' | grep -q . \
+               && ! printf '%s\n' "$files" | grep -qx 'docs/features.json'; then code=false; fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   lint:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -38,6 +63,8 @@ jobs:
       - run: scripts/verify.sh --stage lint
 
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +79,8 @@ jobs:
       - run: scripts/verify.sh --stage test
 
   e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -75,10 +104,13 @@ jobs:
           if-no-files-found: ignore
 
   e2e-app:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
+        # macOS and Windows only on manual runs (and nightly); every push and PR runs Linux.
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-24.04","macos-15","windows-2025"]') || fromJSON('["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -101,6 +133,8 @@ jobs:
           if-no-files-found: ignore
 
   release-check:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
