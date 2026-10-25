@@ -48,13 +48,13 @@ def trailers(root, base, names):
     return out
 
 
-def jay_decision(root, did):
-    """True when docs/DECISIONS.md has `## D-0NN · …` whose next line names Jay as the decider."""
+def maintainer_decision(root, did):
+    """True when docs/DECISIONS.md has `## D-0NN · …` whose next line names the maintainer as the decider."""
     p = Path(root) / "docs" / "DECISIONS.md"
     if not p.exists():
         return False
     m = re.search(rf"^## {re.escape(did)} ·.*\n(.*)$", p.read_text(encoding="utf-8"), re.M)
-    return bool(m and "Jay" in m.group(1))
+    return bool(m and ("maintainer" in m.group(1).lower()))
 
 
 def old_text(root, base, path):

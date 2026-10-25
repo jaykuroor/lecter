@@ -33,24 +33,24 @@ if [ -z "${pnpm_config_store_dir:-}" ] && [ -f ui/package.json ] && command -v p
     "$PWD"/*) export pnpm_config_store_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm/store" ;;
   esac
 fi
-# Every missing tool is listed with the Fedora command that installs it.
+# Every missing tool is listed with a hint on how to install it.
 missing=()
 need() { command -v "$1" >/dev/null 2>&1 || missing+=("$1 ($2)"); }
 PNPM_WANT=$(sed -n 's/^ *"packageManager": *"pnpm@\([0-9.]*\)".*/\1/p' ui/package.json 2>/dev/null | head -n 1)
-need git     "sudo dnf install git"
-command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=("python3 (3.10+: sudo dnf install python3)")
-need cargo   "rustup: sudo dnf install rustup && rustup-init -y"
+need git     "package git"
+command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=("python3 (3.10+: package python3)")
+need cargo   "rustup: https://rustup.rs"
 node_found=$(node --version 2>/dev/null || true)
 if [ -z "$node_found" ] || { [ -n "$NODE_WANT" ] && [ "$node_found" != "v$NODE_WANT" ]; }; then
-  missing+=("node ${NODE_WANT:-LTS} (found ${node_found:-none}: sudo dnf install nodejs24, which provides $NODE_FALLBACK)")
+  missing+=("node ${NODE_WANT:-LTS} (found ${node_found:-none}: install Node 24, for example package nodejs24, which provides $NODE_FALLBACK)")
 fi
 need pnpm    "${PNPM_WANT:-latest}: sudo npm install -g pnpm@${PNPM_WANT:-latest}"
-need gitleaks "secret scan: sudo dnf install gitleaks"
+need gitleaks "secret scan: your package manager or https://github.com/gitleaks/gitleaks/releases"
 if [ "$(uname -s)" = "Linux" ]; then
-  pkg-config --exists webkit2gtk-4.1 2>/dev/null || missing+=("webkit2gtk-4.1 (Tauri 2 prerequisites: sudo dnf install webkit2gtk4.1-devel openssl-devel libappindicator-gtk3-devel librsvg2-devel && sudo dnf group install c-development)")
-  [ -n "${CI:-}" ] || need bwrap "Claude Code sandbox: sudo dnf install bubblewrap"
-  [ -n "${CI:-}" ] || need socat "Claude Code sandbox: sudo dnf install socat"
-  need xvfb-run "headless app runs: sudo dnf install xorg-x11-server-Xvfb"
+  pkg-config --exists webkit2gtk-4.1 2>/dev/null || missing+=("webkit2gtk-4.1 (Tauri 2 prerequisites, https://v2.tauri.app/start/prerequisites/#linux: the dev packages for webkit2gtk 4.1, openssl, libappindicator-gtk3 and librsvg2, plus a C toolchain)")
+  [ -n "${CI:-}" ] || need bwrap "Claude Code sandbox: package bubblewrap"
+  [ -n "${CI:-}" ] || need socat "Claude Code sandbox: package socat"
+  need xvfb-run "headless app runs: the Xvfb package (provides xvfb-run)"
 fi
 [ -z "$NODE_NOTE" ] || echo "$NODE_NOTE"
 command -v pdftotext >/dev/null 2>&1 || echo "optional: pdftotext (poppler-utils) lets check_private.py fingerprint private PDFs"

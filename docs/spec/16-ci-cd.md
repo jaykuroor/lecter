@@ -3,7 +3,7 @@
 There is no production server. CI/CD exists for two reasons:
 
 - to stop a session from breaking what earlier sessions built;
-- to prove Lecter builds and passes on the platforms nobody runs locally (the build machine is Fedora Linux, so macOS and Windows are only ever exercised in CI).
+- to prove Lecter builds and passes on the platforms nobody runs locally (maintainers build on Linux, so macOS and Windows are only ever exercised in CI).
 
 Repository: `github.com/jaykuroor/lecter`, default branch `main`.
 
@@ -16,7 +16,7 @@ Repository: `github.com/jaykuroor/lecter`, default branch `main`.
 5. **Least privilege.** Every workflow starts with `permissions: contents: read` and widens per job only where needed. Third-party actions are pinned by commit SHA, with the version in a trailing comment.
 6. **Fast.** `ci.yml` should finish in under 20 minutes wall-clock. If it grows past that, the gardening session fixes it (caching, splitting, test speed), never by dropping checks.
 7. **Workflows are protected files** (`14-quality.md#protected-checks`). Only features that list them in `protected` may change them.
-8. **macOS is verified only in CI** until Jay has a Mac (Q-entry with a hands-on checklist before the first public release).
+8. **macOS is verified only in CI** until the maintainer has a Mac (Q-entry with a hands-on checklist before the first public release).
 
 ## Workflows
 
@@ -61,7 +61,7 @@ Nightly failures don't stop merges. The orchestrator collects them at its next g
 
 ### `release.yml`: push of a tag `v*.*.*`
 
-Tags are created only by Jay; sessions never tag.
+Tags are created only by the maintainer; sessions never tag.
 
 1. Matrix build with `tauri-apps/tauri-action` for every target in `01-architecture.md#packaging`:
    - macOS universal (`macos-15`): `.dmg` and `.app.tar.gz`.
@@ -77,11 +77,11 @@ Tags are created only by Jay; sessions never tag.
 4. **Draft GitHub release:**
    - body from `CHANGELOG.md` for that version;
    - attach the artifacts, SBOMs and the updater `latest.json`;
-   - Jay reviews and publishes.
+   - The maintainer reviews and publishes.
 
 ### `dependabot.yml`
 
-Weekly updates, grouped per ecosystem (github-actions, cargo, npm in `ui/`), with at most 3 open PRs each. Jay merges them on GitHub once CI is green. The orchestrator lists the green ones for him at each gardening pass. Sessions never merge PRs.
+Weekly updates, grouped per ecosystem (github-actions, cargo, npm in `ui/`), with at most 3 open PRs each. The maintainer merges them on GitHub once CI is green. The orchestrator lists the green ones for them at each gardening pass. Sessions never merge PRs.
 
 ## Branches, merging and pushing
 
@@ -96,13 +96,13 @@ Weekly updates, grouped per ecosystem (github-actions, cargo, npm in `ui/`), wit
   - Find the run for the pushed commit: `gh run list --workflow ci.yml --branch main --commit <sha> --json databaseId,status,conclusion`.
   - Before the next merge, it must be green or still running.
   - If it is red: `gh run view <id> --log-failed | tail -n 80`, then fix it first (rule 2).
-- **Syncing:** before pushing, run `git pull --no-rebase origin main`. Jay merges Dependabot PRs on GitHub, so `origin` can be ahead.
+- **Syncing:** before pushing, run `git pull --no-rebase origin main`. The maintainer merges Dependabot PRs on GitHub, so `origin` can be ahead.
 - Force pushes, history rewrites, tags and releases are never done by sessions (the guard hook enforces this).
 
 ## Versions and changelog
 
 - **Version numbers:** SemVer `0.MINOR.PATCH` during v0. Finishing a milestone is a minor version (M1 → `v0.1.0`, M2 → `v0.2.0`, …); the walking skeleton (M0.5) is `v0.0.1`. The version lives in the root `Cargo.toml` workspace, `app/tauri.conf.json` and `ui/package.json`, and must match (checked in the `lint` stage).
-- **`CHANGELOG.md`:** Keep a Changelog format. Every merged feature adds one user-facing line under `## [Unreleased]`. At release, Jay (or a session he asks) moves those lines under the new version heading.
+- **`CHANGELOG.md`:** Keep a Changelog format. Every merged feature adds one user-facing line under `## [Unreleased]`. At release, the maintainer (or a session they ask) moves those lines under the new version heading.
 
 ## Adding to CI
 

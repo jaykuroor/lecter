@@ -2,7 +2,7 @@
 """Small, safe edits to docs/PROGRESS.md for the orchestrator.
 
   scripts/progress.py resume "<one line>"   set the 'Resume point' line in Current state
-The resume point is what a fresh orchestrator (for example on Jay's other account) reads first.
+The resume point is what a fresh orchestrator (for example after a usage limit) reads first.
 Write it before every dispatch and merge: what is running, what was about to happen next.
 """
 import datetime, re, sys

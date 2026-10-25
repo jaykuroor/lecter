@@ -3,25 +3,25 @@
 Choices made outside or on top of the spec. The spec wins over this file; this file wins over the code. Format and rules: `.claude/skills/handoff/SKILL.md`. Never delete an entry; supersede it.
 
 ## D-001 · Tauri 2 with a Rust core
-2026-10-23 · Jay · active
+2026-10-23 · maintainer · active
 - Decision: Desktop shell is Tauri 2 using the system webview; all heavy work in a Rust core (tokio).
 - Why: Smallest memory and install size of the cross-platform options while keeping a web UI; Rust for latency and safety.
 - Instead of: Electron (memory), native per-OS UIs (3× the work), Flutter.
 
 ## D-002 · Local-first, no Lecter server in v0
-2026-10-23 · Jay · active
+2026-10-23 · maintainer · active
 - Decision: Everything runs on the user's machine; users connect their own AI providers. No accounts, no telemetry.
 - Why: Privacy, zero running cost, simplest security story. Cloud sync and hosted models are later (`15-later.md`).
 
 ## D-003 · MIT licence and a permissive-only dependency policy
-2026-10-23 · Jay · active
+2026-10-23 · maintainer · active
 - Decision: Lecter is MIT. Dependencies only MIT, Apache-2.0, BSD, ISC, Zlib, MPL-2.0 (and similar); enforced by cargo-deny.
 - Why: Open source like opencode, with room for paid services later. Excludes AGPL MuPDF, hence PDFium.
 
 ## D-004 · Open source now, optional paid services later
-2026-10-23 · Jay · active
+2026-10-23 · maintainer · active
 - Decision: Build v0 with no billing code; keep a provider slot so a hosted "Lecter" provider can be added later.
-- Revisit if: Jay starts the subscription plan.
+- Revisit if: a paid plan is introduced.
 
 ## D-005 · SolidJS + TypeScript + Vite for the UI
 2026-10-23 · Claude (planning) · active
@@ -36,7 +36,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: Mature Vim emulation, virtualised rendering, decorations API fits anchored glosses. Confirmed or rejected by F-001.
 
 ## D-007 · Lecture files are Pandoc Markdown with fenced divs and attributes
-2026-10-23 · Jay + Claude · active
+2026-10-23 · maintainer + Claude · active
 - Decision: Format exactly as `03-lecture-files.md`: readable without Lecter, anchors by block id.
 
 ## D-008 · Settings are JSONC with a JSON Schema generated from Rust types
@@ -45,18 +45,18 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: One source of truth for validation, completion and the settings UI.
 
 ## D-009 · Image understanding uses the provider by default; local model is opt-in
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: `parsing.vision = provider` by default; `local` (PaddleOCR-VL class, CPU-capable) and `auto` are options; text-layer slides need neither.
-- Why: Jay: don't assume 16 GB RAM or a GPU; providers' vision is strong and cheap with a fast model.
+- Why: don't assume 16 GB RAM or a GPU; providers' vision is strong and cheap with a fast model.
 - Revisit if: F-002 shows the local model wins on quality per cost on typical laptops.
 
 ## D-010 · Web search uses the provider's native tool by default, configurable at four levels
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: Modes `native | service | off`; precedence prompt > role (gloss type) > course > global; AI harness settings page exposes all of it.
-- Why: Jay wants results as close as possible to chatgpt.com and claude.ai; native tools are what those products use.
+- Why: results should be as close as possible to chatgpt.com and claude.ai; native tools are what those products use.
 
 ## D-011 · Local small embeddings by default; provider embeddings allowed if stored
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: `index.embeddings = local-small` by default; `provider` allowed (vectors stored locally, never recomputed per query). Final default chosen by the F-003 eval.
 
 ## D-012 · No graph RAG in v0
@@ -66,11 +66,11 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Revisit if: revise and gap-finder quality is poor in the AI eval.
 
 ## D-013 · Feedback sharing: ratings and metadata opt-in; text is a second opt-in
-2026-10-24 · default applied (Jay did not object) · active
+2026-10-24 · default applied (maintainer did not object) · active
 - Decision: Both off unless chosen in onboarding; stored locally until `feedback.endpoint` exists.
 
 ## D-014 · Global config folder is ~/.config/lecter
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: `~/.config/lecter` (or `$XDG_CONFIG_HOME/lecter`) on Linux/macOS; `%APPDATA%\lecter` on Windows.
 - Why: XDG convention: folders inside `~/.config` don't start with a dot.
 
@@ -108,7 +108,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 ## D-022 · Budgets added by the kit beyond 14-quality.md
 2026-10-24 · Claude (kit) · active
 - Decision: UI main chunk ≤ 250 KB gzipped; a numeric step check ≤ 5 ms per pair; the local-model worker must run CPU-only on 8 GB RAM.
-- Why: Keep cold start and keystroke budgets reachable; honour Jay's "no GPU assumed".
+- Why: Keep cold start and keystroke budgets reachable; honour "no GPU assumed".
 
 ## D-023 · Build process: spec-driven, one feature per fresh session
 2026-10-24 · Claude (kit) · active
@@ -116,25 +116,25 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: Fresh context per feature keeps quality high and tokens low; files carry memory between sessions.
 
 ## D-024 · Default models are picked at connect time from the catalog
-2026-10-24 · Jay + Claude · active
+2026-10-24 · maintainer + Claude · active
 - Decision: default-fast is the provider's fast tier (Gemini Flash, Claude Haiku, OpenAI's GPT Luna line, e.g. `gpt-6-luna` / `gpt-5.6-luna`), default-strong a Sonnet-class model or equal; the user can change both. No model ids hard-coded beyond catalog fallbacks.
-- Why: Jay wants fast models by default; model names change faster than releases.
+- Why: fast models by default; model names change faster than releases.
 
 ## D-025 · Repository is github.com/jaykuroor/lecter (public), trunk on main
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: Public from day one (free CI on all three OSes). Default branch `main`; sessions push `main` after every verified feature; feature branches `feat/F-0NN-<slug>` merged with `--no-ff`; sessions push `main` only with `LECTER_ALLOW_PUSH=1`; never tag or force-push.
 
 ## D-026 · CI/CD as in 16-ci-cd.md
 2026-10-24 · Claude (kit) · active
 - Decision: ci.yml (lint, test on ubuntu-24.04/macos-15/windows-2025, e2e; perf from F-126), nightly.yml (full, fuzz, tauri-e2e, chaos, soak), release.yml on tags (tauri-action, signing optional, SBOM, draft release), dependabot weekly. `scripts/verify.sh --stage` is the only entry point.
-- Why: The build machine is Fedora; CI is the only place macOS and Windows are exercised, and it stops one session from breaking another's work.
+- Why: maintainers build on Linux; CI is the only place macOS and Windows are exercised, and it stops one session from breaking another's work.
 - Instead of: Separate CI logic in YAML (drifts from local checks); PR-per-feature with required checks (serialises builds behind 3-OS CI).
 - Updated 2026-10-24 (kit rebuild): perf runs from the walking skeleton (F-025, D-044); ci.yml adds `e2e-app` (real app on 3 OSes) and `release-check`; nightly adds the perf matrix on 3 OSes; the lint stage adds the kit lints and gitleaks (16-ci-cd.md).
 
 ## D-027 · Orchestrated parallel builds
 2026-10-24 · Claude (kit) · active
 - Decision: An interactive orchestrator session (PROMPT.orchestrate.md) runs up to N background `builder` subagents, each in its own git worktree; it alone reviews, merges and writes shared state (PROGRESS, DECISIONS, QUESTIONS, CHANGELOG, README, features.json). The guard blocks shared-state edits inside worktrees.
-- Why: Jay wants many agents working while he watches and answers questions in the Claude Code CLI; a single writer avoids merge conflicts on state files.
+- Why: many agents work while the maintainer watches and answers questions in the Claude Code CLI; a single writer avoids merge conflicts on state files.
 - Updated 2026-10-24 (kit rebuild): default N is 1 and a second builder needs non-overlapping owned paths (D-040, D-051); builders set up with `scripts/worktree_setup.sh`; a security reviewer joins the reviewer (D-039); the orchestrator stops at milestone gates (D-038).
 
 ## D-028 · Test tooling
@@ -146,65 +146,65 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: One version in Cargo `[workspace.package]`, `app/tauri.conf.json` and `ui/package.json` (checked by verify); Keep a Changelog with one line per merged feature; `scripts/dev.sh` runs the app in dev mode; `README.md` is the public face and its Roadmap status is updated when a milestone completes.
 
 ## D-030 · App identifier io.github.jaykuroor.lecter, built to be renamed
-2026-10-24 · Jay · active
-- Decision: Use `io.github.jaykuroor.lecter` until Jay owns a domain. Nothing durable depends on it: paths and keychain use the fixed name `lecter`, the webview stores nothing durable, Windows keeps a fixed WiX upgradeCode, and `identity::migrate()` handles `LEGACY_APP_IDS` (01-architecture.md#app-identity-and-migration).
-- Why: Jay wants a real domain-based id later without breaking users' data or updates. `io.github.<user>.<app>` is also an accepted Flathub id pattern, so a rename may never be needed.
+2026-10-24 · maintainer · active
+- Decision: Use `io.github.jaykuroor.lecter` until the project owns a domain. Nothing durable depends on it: paths and keychain use the fixed name `lecter`, the webview stores nothing durable, Windows keeps a fixed WiX upgradeCode, and `identity::migrate()` handles `LEGACY_APP_IDS` (01-architecture.md#app-identity-and-migration).
+- Why: a real domain-based id may come later, without breaking users' data or updates. `io.github.<user>.<app>` is also an accepted Flathub id pattern, so a rename may never be needed.
 
 ## D-031 · Live AI testing uses Gemini (API key) and OpenAI (ChatGPT sign-in)
-2026-10-24 · Jay · active
-- Decision: Live spikes and the AI eval use Gemini via `GEMINI_API_KEY`, and OpenAI through the app's own ChatGPT sign-in once F-055 exists (F-070 re-runs the comparisons). Anthropic and other adapters are tested only against the fake provider until Jay adds a key.
+2026-10-24 · maintainer · active
+- Decision: Live spikes and the AI eval use Gemini via `GEMINI_API_KEY`, and OpenAI through the app's own ChatGPT sign-in once F-055 exists (F-070 re-runs the comparisons). Anthropic and other adapters are tested only against the fake provider until the maintainer adds a key.
 - Consequence: features marked `needs: ["live-keys"]` run only with `LECTER_LIVE_TESTS=1`.
 - Updated 2026-10-24 (kit rebuild): keys live in `~/.config/lecter-dev/keys.env` and reach only commands run through `scripts/live.sh` (D-046), never the session environment. The ChatGPT sign-in is F-085; F-111 re-runs the comparisons. Gemini is the free tier (D-035).
 
-## D-032 · Jay's lecture files are a private, local-only test corpus
-2026-10-24 · Jay · active
+## D-032 · The maintainer's lecture files are a private, local-only test corpus
+2026-10-24 · maintainer · active
 - Decision: 25 real files (slides with and without annotations, dense text, fully handwritten notes) live in `tests/corpus/private/` with a manifest (ids P-01…P-25, kind guesses from text-layer stats). Confidential: never committed, bundled, quoted or named in tracked files. Enforced by .gitignore (all documents ignored outside fixtures/public corpus), scripts/check_private.py and the guard hook.
 
 ## D-033 · The tutorial teaches the app with synthetic English content
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: "Lecter 101" sample course, one plain-English lecture about using Lecter, canned "Sample answer" glosses, works offline with no provider. No statistics demo, no real course material.
 
 ## D-034 · Two parallel builders by default
-2026-10-24 · Jay · superseded by D-040
-- Decision: `LECTER_PARALLEL=2` (Jay: 32 GB RAM, Claude Pro). Builders run as background subagents that Jay watches from the agent panel; agent teams (experimental, no resume, no worktree isolation) are not used.
+2026-10-24 · maintainer · superseded by D-040
+- Decision: `LECTER_PARALLEL=2` (a 32 GB RAM machine, Claude Pro). Builders run as background subagents that the maintainer watches from the agent panel; agent teams (experimental, no resume, no worktree isolation) are not used.
 
 ## D-035 · Free-tier Gemini may receive slides; nothing is published
-2026-10-24 · Jay · active
-- Decision: Live spikes and the AI eval may send Jay's private slides to his free-tier Gemini key. Nothing from them is ever published or made public; the private-corpus rules (D-032) are unchanged.
+2026-10-24 · maintainer · active
+- Decision: Live spikes and the AI eval may send the maintainer's private slides to their own free-tier Gemini key. Nothing from them is ever published or made public; the private-corpus rules (D-032) are unchanged.
 - Consequence: live scripts rate-limit themselves (Gemini free-tier preset in `scripts/live.sh`: 8 requests/min, 200/day, 200k tokens/min by default), honour `retry-after`, back off with jitter, and save partial results (SEC-15). The app ships the same preset (SEC-10).
 
 ## D-036 · The concept demo becomes docs/design
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: The look and interaction patterns of `lecter-concept-demo.html` become `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). The demo palette is the bundled default "Lecter" theme and the fallback; GTK themes still win on Linux. None of the demo's course content is used; committed crops were sanitised.
-- Consequence: UI features attach screenshots that the reviewer compares with the reference crops; per-OS baselines come with F-177 and only Jay approves baseline changes.
+- Consequence: UI features attach screenshots that the reviewer compares with the reference crops; per-OS baselines come with F-177 and only the maintainer approves baseline changes.
 
 ## D-037 · Local build inside the Claude Code sandbox
-2026-10-24 · Jay · active
-- Decision: Jay runs `claude` in the unzipped kit on his Fedora machine (no container or VM). `.claude/settings.json` turns on Claude Code's sandbox (bubblewrap + socat) with `failIfUnavailable`, a network allowlist (crates, npm, GitHub, Playwright, rustup), no unsandboxed retries, and denied reads of SSH, GPG, AWS, the second account's config and the live keys.
+2026-10-24 · maintainer · active
+- Decision: The maintainer runs `claude` in the repo on their own Linux machine (no container or VM). `.claude/settings.json` turns on Claude Code's sandbox (bubblewrap + socat) with `failIfUnavailable`, a network allowlist (crates, npm, GitHub, Playwright, rustup), no unsandboxed retries, and denied reads of SSH, GPG, AWS, the second account's config and the live keys.
 - Why: Agents run for hours with permission prompts mostly pre-approved; the sandbox bounds what a mistaken or injected command can reach.
-- Revisit if: the dry run on Jay's machine finds a blocked essential step: narrow the allowlist (never disable the sandbox) and record a D-entry.
+- Revisit if: the dry run on the maintainer's machine finds a blocked essential step: narrow the allowlist (never disable the sandbox) and record a D-entry.
 
-## D-038 · Milestone gates pause the build for Jay
-2026-10-24 · Jay · active
-- Decision: When a milestone's non-spike features are all done, `next.py` exits 5 and the orchestrator stops dispatching. It runs the security reviewer on the milestone, shows Jay a 5–10 minute checklist for `scripts/dev.sh` (`feature.py gate`, from each feature's `try` line), and waits. Jay's notes go to QUESTIONS → planning session → features. `feature.py gate M<n> --pass` records his go.
+## D-038 · Milestone gates pause the build for the maintainer
+2026-10-24 · maintainer · active
+- Decision: When a milestone's non-spike features are all done, `next.py` exits 5 and the orchestrator stops dispatching. It runs the security reviewer on the milestone, shows the maintainer a 5–10 minute checklist for `scripts/dev.sh` (`feature.py gate`, from each feature's `try` line), and waits. The maintainer's notes go to QUESTIONS → planning session → features. `feature.py gate M<n> --pass` records his go.
 
 ## D-039 · A security reviewer and the robustness basics
-2026-10-24 · Jay · active
+2026-10-24 · maintainer · active
 - Decision: `.claude/agents/security-reviewer.md` reviews every feature with `reviews: ["security"]` (parse worker, IPC or capabilities, keys, network, figure iframe, file writes, updater; 44 features) and each milestone, against a fixed checklist mapped to SEC-xx (13-security.md) and ROB-xx (17-robustness.md). Those specs now cover outbound rate limiting, spend caps, coalescing, timeouts, input limits, file watching, external edits, data versioning, file-system edge cases, secrets, logs, output handling, Tauri lockdown, processes, supply chain and provider drift.
 - Why: these are what vibe-coded apps usually leave out (OWASP Top 10 for LLM Applications 2025, Tauri's capability model).
 
-## D-040 · Quality over speed: one builder at a time, two Pro accounts
-2026-10-24 · Jay · active
-- Decision: `LECTER_PARALLEL` defaults to 1. Jay may opt into 2 only for features with non-overlapping owned paths (`next.py --ready --beside`). Jay alternates two Claude Pro accounts by hand: A (default) until its limit, then B (`alias claude-b='CLAUDE_CONFIG_DIR=~/.claude-b claude'`), then A after its reset. The orchestrator writes a resume point to PROGRESS before every dispatch and merge and recovers builders that died mid-step (stash, then resume the branch).
-- Why: usage windows are the bottleneck; a second builder spends them twice as fast and adds merge conflicts. Holding two accounts is allowed; sharing or rotation tools are not, so switching is manual with the official commands.
+## D-040 · Quality over speed: one builder at a time
+2026-10-24 · maintainer · active
+- Decision: `LECTER_PARALLEL` defaults to 1. The maintainer may opt into 2 only for features with non-overlapping owned paths (`next.py --ready --beside`). The orchestrator writes a resume point to PROGRESS before every dispatch and merge and recovers builders that died mid-step (stash, then resume the branch).
+- Why: usage windows are the bottleneck; a second builder spends them twice as fast and adds merge conflicts.
 - Instead of: D-034 (two builders by default).
 
 ## D-041 · Dependency approval policy
-2026-10-24 · Jay · active
-- Decision: Agents may add small pure-Rust or JS packages within the licence policy, with a `Dep-Added` trailer and a D-entry. Native code (ONNX Runtime, PDFium builds, C/C++ build scripts, system libraries), more than 30 new crates, or more than 100 KB gzipped to the UI need Jay first (`NEEDS_JAY`, then a `Deps-Approved: D-0NN` trailer). Single source: `01-architecture.md#dependency-policy`; enforced by `scripts/add_dep.py`, `scripts/check_deps.py` and the guard.
+2026-10-24 · maintainer · active
+- Decision: Agents may add small pure-Rust or JS packages within the licence policy, with a `Dep-Added` trailer and a D-entry. Native code (ONNX Runtime, PDFium builds, C/C++ build scripts, system libraries), more than 30 new crates, or more than 100 KB gzipped to the UI need the maintainer first (`NEEDS_MAINTAINER`, then a `Deps-Approved: D-0NN` trailer). Single source: `01-architecture.md#dependency-policy`; enforced by `scripts/add_dep.py`, `scripts/check_deps.py` and the guard.
 
-## D-042 · macOS is verified only in CI until Jay has a Mac
-2026-10-24 · Jay · active
+## D-042 · macOS is verified only in CI until the maintainer has a Mac
+2026-10-24 · maintainer · active
 - Decision: macOS builds and real-app e2e run in CI (macos-15). A hands-on Mac checklist (Q-004) runs before the first public release.
 
 ## D-043 · Walking skeleton (M0.5) before any polish
@@ -224,12 +224,12 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 
 ## D-046 · Live keys reach only scripts/live.sh
 2026-10-24 · Claude (kit) · active
-- Decision: Keys live in `~/.config/lecter-dev/keys.env` (mode 600). `scripts/live.sh F-0NN -- <cmd>` loads them into that one command, only for an in-progress feature with `needs: ["live-keys"]`, logs what ran, and Jay approves each run. The sandbox denies the file and the key variables to every other command; the guard and permission rules block reading it; SessionStart warns if a key is in the session environment.
+- Decision: Keys live in `~/.config/lecter-dev/keys.env` (mode 600). `scripts/live.sh F-0NN -- <cmd>` loads them into that one command, only for an in-progress feature with `needs: ["live-keys"]`, logs what ran, and the maintainer approves each run. The sandbox denies the file and the key variables to every other command; the guard and permission rules block reading it; SessionStart warns if a key is in the session environment.
 - Why: the old guide exported keys before `claude`, so every builder inherited live mode (review bug 3).
 
 ## D-047 · Protected checks, the test-weakening lint and the IMPOSSIBLE outcome
 2026-10-24 · Claude (kit) · active
-- Decision: The guard blocks edits (and shell writes) to existing checks: verify.sh, budgets, thresholds, workflows, lint configs, snapshots and baselines, unless the in-progress feature lists the file under `protected`. `scripts/check_tests.py` fails a change that deletes or skips tests, adds retries, loosens budgets or thresholds, or changes snapshots, unless a `Test-Removed`, `Snapshot-Changed` or `Budget-Changed` (with Jay's D-entry) trailer explains it. A builder that can't meet a criterion reports `IMPOSSIBLE` with evidence.
+- Decision: The guard blocks edits (and shell writes) to existing checks: verify.sh, budgets, thresholds, workflows, lint configs, snapshots and baselines, unless the in-progress feature lists the file under `protected`. `scripts/check_tests.py` fails a change that deletes or skips tests, adds retries, loosens budgets or thresholds, or changes snapshots, unless a `Test-Removed`, `Snapshot-Changed` or `Budget-Changed` (with the maintainer's D-entry) trailer explains it. A builder that can't meet a criterion reports `IMPOSSIBLE` with evidence.
 - Why: research criterion 11; agents game checks they can edit, and an explicit way out cuts gaming sharply.
 
 ## D-048 · IPC contract generated with tauri-specta
@@ -257,7 +257,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 
 ## D-053 · Secret scanning with gitleaks
 2026-10-24 · Claude (kit) · active
-- Decision: `scripts/secret_scan.sh` (gitleaks; old and new CLIs) runs in the lint stage (commits since the base, staged, unstaged and untracked files) and in the Stop hook (this session's commits). CI scans the full history. Findings stop the push; Jay rotates the secret.
+- Decision: `scripts/secret_scan.sh` (gitleaks; old and new CLIs) runs in the lint stage (commits since the base, staged, unstaged and untracked files) and in the Stop hook (this session's commits). CI scans the full history. Findings stop the push; the maintainer rotates the secret.
 
 ## D-054 · Mechanical architecture and code-health rules
 2026-10-24 · Claude (kit) · active
@@ -265,7 +265,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 
 ## D-055 · Native crates covered by the decided stack
 2026-10-24 · Claude (kit) · active
-- Decision: `scripts/deps_preapproved.txt` lists native crates that Jay's stack decisions already imply (Tauri's webview bindings, bundled SQLite, ring, compression, D-Bus for the keychain), so `check_deps.py` doesn't stop for them. Anything else native needs Jay (D-041). The file is a kit file only Jay edits.
+- Decision: `scripts/deps_preapproved.txt` lists native crates that the stack decisions already imply (Tauri's webview bindings, bundled SQLite, ring, compression, D-Bus for the keychain), so `check_deps.py` doesn't stop for them. Anything else native needs the maintainer (D-041). The file is a kit file only the maintainer edits.
 
 ## D-056 · Builder discipline: baseline first, stuck rule
 2026-10-24 · Claude (kit) · active
@@ -276,10 +276,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Changes from running the kit in a real sandboxed Claude Code session. `init.sh` creates the sandbox's write folders and, if it can't, prints the `mkdir -p` line to run outside, because the sandbox only grants writes to folders that already exist. `.gitignore` ignores the placeholders the sandbox mounts over root dotfiles and Claude Code's own `.claude/` folders (only `settings.json`, `agents/` and `skills/` are tracked there), because they break `git add -A` mid-session. The allowlist accepts each script both as `scripts/x.py` and as `python3 scripts/x.py`. `init.sh` and `verify.sh` point pnpm at `HTTPS_PROXY`, because pnpm prefers inherited `npm_config_*` proxy settings that the sandbox doesn't replace. `init.sh` passes `--silent` to pnpm rather than to the build script, installs Playwright's Chromium (unless `PLAYWRIGHT_BROWSERS_PATH` is set), and `verify.sh` runs biome with `--colors=off` so failure lines stay readable.
 
 ## D-058 · Toolchain pins: Rust 1.99.1, Node 24.18.0, pnpm 12.15.0
-2026-10-23 · Jay (Node) + session F-010 · active
-- Decision: `rust-toolchain.toml` pins `channel = "1.99.1"` (current stable, with rustfmt and clippy, minimal profile). Node is pinned to the 24 LTS line, exactly 24.18.0 (the version Fedora's `nodejs24` package ships, so local runs match CI), and pnpm to 12.15.0. F-011 writes them into `ui/package.json` (`packageManager: "pnpm@12.15.0"`, `engines.node`) and F-013 into CI. Jay chose Node 24 over the installed 22.23.1.
+2026-10-23 · maintainer (Node) + session F-010 · active
+- Decision: `rust-toolchain.toml` pins `channel = "1.99.1"` (current stable, with rustfmt and clippy, minimal profile). Node is pinned to the 24 LTS line, exactly 24.18.0 (the version the build machine's `nodejs24` package ships, so local runs match CI), and pnpm to 12.15.0. F-011 writes them into `ui/package.json` (`packageManager: "pnpm@12.15.0"`, `engines.node`) and F-013 into CI. The maintainer chose Node 24 over the installed 22.23.1.
 - Why: Exact pins make local runs, CI and every session build the same way (D-019). Node 24 is the active LTS line, and 22 is in maintenance.
-- Instead of: `channel = "stable"` (it moves under us); Node 22.23.1 (installed on Jay's machine, but older LTS).
+- Instead of: `channel = "stable"` (it moves under us); Node 22.23.1 (installed on the maintainer's machine, but older LTS).
 - Revisit if: a new Rust stable fixes something we need, or Node 26 enters active LTS.
 
 ## D-059 · Blocking fs in async code is a review rule
@@ -296,11 +296,11 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: printing only `0.0.1`; adding a `toml` dev-dependency for the shape tests (std string parsing is enough).
 
 ## D-061 · Use `node-24` explicitly; system `node` stays on 22
-2026-10-23 · Jay · active
-- Decision: Jay's system `node` keeps pointing at 22.23.1. Sessions run the UI toolchain on Node 24.18.0 through `/usr/bin/node-24` (for example a `node` link to it at the front of `PATH` for pnpm commands), without changing the system `node`.
-- Why: Jay asked to use `node-24` and leave `node` alone.
+2026-10-23 · maintainer · active
+- Decision: the maintainer's system `node` keeps pointing at 22.23.1. Sessions run the UI toolchain on Node 24.18.0 through `/usr/bin/node-24` (for example a `node` link to it at the front of `PATH` for pnpm commands), without changing the system `node`.
+- Why: the maintainer asked to use `node-24` and leave `node` alone.
 - Instead of: repointing the system `node` at 24.
-- Revisit if: Fedora makes 24 the default `node`.
+- Revisit if: the build machine's default `node` becomes 24.
 
 ## D-062 · Hand-written IPC contract until generated bindings
 2026-10-24 · session F-011 · active
@@ -332,8 +332,8 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the stack in 01-architecture.md#stack-decided and the checks verify.sh calls.
 
 ## D-067 · Tauri 2 crate tree approved, with the LLVM-exception licence
-2026-10-24 · Jay · active
-- Decision: Jay approves adding `tauri` 2 (about 381 crates, including the native build crates embed-resource, iana-time-zone-haiku, system-deps and vswhom-sys) to `lecter-app`, plus `tauri-build` 2 as its build dependency. This is an exception to the 30-crate limit (D-041). Jay also allows the licence `Apache-2.0 WITH LLVM-exception` (target-lexicon), so F-012 may add it to `deny.toml`'s allow list. Since `add_dep.py` has no build-dependency flag, F-012 may add `tauri-build` to `[build-dependencies]` by hand, with a `Dep-Added` trailer. F-012 may also add `"app"` to the root `Cargo.toml` members.
+2026-10-24 · maintainer · active
+- Decision: the maintainer approves adding `tauri` 2 (about 381 crates, including the native build crates embed-resource, iana-time-zone-haiku, system-deps and vswhom-sys) to `lecter-app`, plus `tauri-build` 2 as its build dependency. This is an exception to the 30-crate limit (D-041). The maintainer also allows the licence `Apache-2.0 WITH LLVM-exception` (target-lexicon), so F-012 may add it to `deny.toml`'s allow list. Since `add_dep.py` has no build-dependency flag, F-012 may add `tauri-build` to `[build-dependencies]` by hand, with a `Dep-Added` trailer. F-012 may also add `"app"` to the root `Cargo.toml` members.
 - Why: D-001 picks Tauri 2, and the app shell, and everything in M0 that needs it, depends on this. The LLVM exception only makes Apache-2.0 more permissive.
 - Instead of: blocking F-012.
 - Revisit if: Tauri's tree grows a copyleft licence or the crate count roughly doubles.
@@ -376,7 +376,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 
 ## D-074 · init and verify set up their own environment
 2026-10-24 · session F-013 · active
-- Decision: `init.sh` and `verify.sh` each carry the same inline environment block. It sets the pnpm proxy and falls back to `/usr/bin/node-24` when `node` isn't the pinned version (`LECTER_NODE_FALLBACK` overrides it). The node link lives in a user-owned, mode-700 dir (`~/.cache/lecter/…`, else `$TMPDIR`, never bare /tmp) and is re-pointed if wrong. The block moves XDG_RUNTIME_DIR to TMPDIR when it isn't writable, and points `pnpm_config_store_dir` at the home store when pnpm's store would fall inside the checkout. verify.sh checks `[ -e .git ]`, so worktrees run every lint. `init.sh --check` prints Fedora install commands.
+- Decision: `init.sh` and `verify.sh` each carry the same inline environment block. It sets the pnpm proxy and falls back to `/usr/bin/node-24` when `node` isn't the pinned version (`LECTER_NODE_FALLBACK` overrides it). The node link lives in a user-owned, mode-700 dir (`~/.cache/lecter/…`, else `$TMPDIR`, never bare /tmp) and is re-pointed if wrong. The block moves XDG_RUNTIME_DIR to TMPDIR when it isn't writable, and points `pnpm_config_store_dir` at the home store when pnpm's store would fall inside the checkout. verify.sh checks `[ -e .git ]`, so worktrees run every lint. `init.sh --check` prints an install hint for each missing tool.
 - Why: sessions kept setting these up by hand (D-061). A shared sourced file would let a builder change what protected checks run, since only verify.sh is protected (review of F-013).
 - Instead of: a shared `scripts/lib_env.sh`; a link in shared /tmp.
 
@@ -404,26 +404,26 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: leaving the fix to the planning session.
 
 ## D-079 · F-001 spike installs its own packages
-2026-10-24 · Who: Jay · active
-- Decision: the editor spike keeps its own `spikes/editor/package.json` with exact pins (CodeMirror 6, @replit/codemirror-vim, KaTeX, Vite, @playwright/test; all MIT) and its own lockfile. The builder may run `pnpm -C spikes/editor install` and `pnpm -C spikes/editor exec playwright install webkit`. Nothing is added to `ui/` or `crates/`. If WebKit won't install or launch on Fedora 44, the spike records that and measures it later (CI on ubuntu, or the real app via F-016).
+2026-10-24 · Who: maintainer · active
+- Decision: the editor spike keeps its own `spikes/editor/package.json` with exact pins (CodeMirror 6, @replit/codemirror-vim, KaTeX, Vite, @playwright/test; all MIT) and its own lockfile. The builder may run `pnpm -C spikes/editor install` and `pnpm -C spikes/editor exec playwright install webkit`. Nothing is added to `ui/` or `crates/`. If WebKit won't install or launch on the build machine, the spike records that and measures it later (CI on ubuntu, or the real app via F-016).
 - Why: `add_dep.py` covers only `ui/` and Rust, and the spike can't measure anything without these packages.
 - Instead of: adding the packages to `ui/`, or skipping the WebKit measurement.
 
 ## D-080 · CodeMirror 6 stays, with conditions (F-001 result)
-2026-10-24 · Who: Jay · active
+2026-10-24 · Who: maintainer · active
 - Decision: GO with conditions for the CodeMirror 6 lecture surface. Measured numbers are in the F-001 spike entry (`spikes/editor/README.md`). Chromium passes (novsync p99 4.8–5.2 ms). Headless WebKit 27.2 in a container misses the 8 ms keystroke budget end to end (work p99 11–12 ms across all four runs; the script says NO-GO every time). WebKit heap size couldn't be measured (Playwright exposes no heap API for WebKit, and `performance.memory` is Chromium-only), so the spike reports browser process-tree RSS (512–749 MB) instead. That isn't comparable with the app's idle_rss budget, and the WebKitGTK memory check moves to F-016. After the fixes, with the Markdown parse off the keystroke path, WebKit sync p99 is 7 ms (9 ms with it on). Conditions: KaTeX loads lazily. No Markdown parse on the keystroke path in the default preset (D-081). The real-app keystroke p99 on WebKitGTK (F-016 WebDriver trace) is the deciding check. If it is ≥ 8 ms, the stack is revisited before more editor work.
 - Why: the remaining WebKit cost is CodeMirror core plus the Markdown parse. Headless, no GPU and 1 ms timers make the container a harsher test than the shipped app.
 - Instead of: NO-GO and a new editor stack, or holding the decision until F-016.
 
 ## D-081 · Performance presets; Balanced is the default
-2026-10-24 · Who: Jay · active
+2026-10-24 · Who: maintainer · active
 - Decision: performance features that can change without breaking the app are user-configurable and default to **Balanced**. One preset setting in Settings > Performance and `:set` has three presets. **Performance:** no live Markdown highlighting or live math. **Balanced (default):** KaTeX loads lazily, and Markdown highlighting runs after a short pause in typing (idle-time parse, off the keystroke path). **Quality:** full live highlighting and math on every keystroke, with a visible note that it can add input lag on slower machines. Markdown highlighting is in v0 (Balanced form).
 - Why: the F-001 spike profile (Chromium) puts the Markdown parse at about 0.85 ms/key. On WebKit, turning it off took sync p99 from 9 to 7 ms, under the 8 ms budget (D-080). Users on fast machines can opt into Quality.
 - Instead of: dropping Markdown highlighting from v0, or a fixed per-keystroke parse.
 - Spec: needs criteria in the settings features (F-030, F-045) and the editor surface. Q-006 asks the planning session to add them.
 
 ## D-082 · Spike crates are allowed in the workspace with no Lecter edges
-2026-10-24 · Who: Jay · active
+2026-10-24 · Who: maintainer · active
 - Decision: `scripts/check_arch.py` accepts any workspace crate named `lecter-spike-*` whose folder is under `spikes/`, and allows it no dependency on any Lecter crate. The author applies the kit change (the file is guard-protected). Spikes stay throwaway and outside the 01-architecture table until Q-007 adds a line about them.
 - Why: F-005's criterion 1 requires a workspace test crate, so CI's `test` job runs it on macOS and Windows. Without this, verify is red on arch and the harness lint test.
 - Instead of: excluding spikes from the workspace (breaks F-005 criteria 1 and 3), or adding each spike to the table.
@@ -436,19 +436,19 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Dep-Added: libc, windows-sys 0.61 (both already in Cargo.lock; spike crate only).
 
 ## D-084 · PDFium comes from bblanchon/pdfium-binaries, pinned by SHA-256
-2026-10-24 · Who: Jay · active
+2026-10-24 · Who: maintainer · active
 - Decision: Lecter's PDFium is the prebuilt release from github.com/bblanchon/pdfium-binaries at one fixed release tag. PDFium itself is BSD-3-Clause/Apache-2.0; the build scripts are MIT. The download script pins a SHA-256 for each of linux-x64, linux-arm64, macos-universal, windows-x64 and windows-arm64, and refuses any file that doesn't match before it is used (SEC-51).
 - Why: it is the source pdfium-render documents. Prebuilt binaries for all five targets avoid a depot_tools/gn build per OS.
 - Instead of: building PDFium from Google's source in CI.
 
 ## D-085 · pdfium-render approved as a dependency
-2026-10-24 · Who: Jay · active
-- Decision: `pdfium-render` 0.9.4 (MIT OR Apache-2.0; 9 crates with default features off; features `thread_safe`, `pdfium_7881`) may be used to load PDFium dynamically. The F-006 branch commit's `Deps-Approved: D-084` trailer is covered by this entry. Jay approved the crate separately from the binary source (D-084).
+2026-10-24 · Who: maintainer · active
+- Decision: `pdfium-render` 0.9.4 (MIT OR Apache-2.0; 9 crates with default features off; features `thread_safe`, `pdfium_7881`) may be used to load PDFium dynamically. The F-006 branch commit's `Deps-Approved: D-084` trailer is covered by this entry. The maintainer approved the crate separately from the binary source (D-084).
 - Why: criterion 2 of F-006 names it. It avoids hand-written FFI.
 - Instead of: hand-written bindings.
 
 ## D-086 · Network allowed in the PDFium spike's tests until a CI cache exists
-2026-10-24 · Who: Jay · active
+2026-10-24 · Who: maintainer · active
 - Decision: an exception to "no real network in tests", for the `lecter-spike-pdfium` crate only. Its tests may download the pinned PDFium archives from bblanchon/pdfium-binaries GitHub releases (each SHA-256-checked before use, cached in `target/pdfium`). No other test may use the network. Before any shipping crate needs PDFium, a pinned CI cache/setup step keyed on `pins.json` replaces the downloads (Q-009).
 - Why: F-006 criterion 2 needs PDFium on all three CI OSes, and a CI setup step needs a ci.yml change.
 - Instead of: changing ci.yml now, or blocking F-006.
@@ -522,7 +522,13 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: tauri-driver (no macOS); rfd directly.
 
 ## D-098 · Right-size reviews and verification
-2026-10-25 · Jay · active
+2026-10-25 · maintainer · active
 - Decision: one `reviewer` per feature, given SECURITY when the card lists `reviews: ["security"]`; the `security-reviewer` runs at milestone gates and on the 15 deep-security cards. Re-checks resume the same reviewer, and only blocker/major findings send work back. Reviewers read evidence instead of re-running suites. reviewer, security-reviewer and gardener run on Sonnet, builders on Opus. No reviewer for spikes or CI fixes under 40 lines. Explore only for searches across several crates. `scripts/verify.sh` reuses heavy checks on a committed tree that already passed (cheap lints always run; never in CI; agents can't touch the cache; `--no-cache`; the gardener always runs full). Builders run narrow checks per step. New worktrees clone main's `target/` when the disk supports it. macOS/Windows `e2e-app` runs only nightly and on manual runs, plus a branch run before merging three-OS cards. CI timing budgets over ×1.5 are measured once more before failing. Docs-only pushes run lint only. Nightly skips commits it already tested, and its failures are fixed in one batch at gardening. Gardener at gates and every 10 merges. The orchestrator suggests /clear every 4 merges.
 - Why: Claude usage windows are the bottleneck. These cut repeated cold-start reviews, repeated verify runs and fix loops on noisy or unreproducible CI failures, while every check still runs somewhere.
 - Instead of: two reviewers per security card with a fresh spawn per round, the session model for every agent, every OS on every push, verify re-run on unchanged trees.
+
+## D-099 · Generic maintainer wording; personal setup stays local
+2026-10-25 · maintainer · active
+- Decision: the kit names a role, not a person. The role word is "maintainer": builders report `NEEDS_MAINTAINER`, cards use `ask_maintainer_first`, scripts check `maintainer_decision()`, decider lines read `<date> · maintainer · active`, and prose says "the maintainer" ("they"). Install hints in `init.sh` and the scripts name packages and links instead of one distro's commands. Personal setup lives in the git-ignored `CLAUDE.local.md` (machine, keys, Node and WebKit quirks, business plans moved from `15-later.md`) and `.claude/settings.local.json` (the second-account credential protections). The orchestrator no longer tracks usage or accounts. LICENSE, the README copyright line, the repo URL and the app id `io.github.jaykuroor.lecter` stay. Git history is not rewritten.
+- Why: the repository is public and should work for any maintainer.
+- Instead of: naming one person throughout the kit.

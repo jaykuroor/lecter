@@ -5,7 +5,7 @@ Spec: `14-quality.md`, `16-ci-cd.md`. **How to add any kind of test: `docs/TESTI
 | Folder | What | Rules |
 |---|---|---|
 | `fixtures/` | Small course folders, lectures, settings files | Checked in, tiny, synthetic or openly licensed |
-| `corpus/` | Parse corpus + scorer (CER, LaTeX exact match, render-back) | `corpus/public/`: synthetic or openly licensed. `corpus/private/`: Jay's confidential files, local only. Refer to them by manifest id only (`docs/TESTING.md#private-lecture-files-confidential`) |
+| `corpus/` | Parse corpus + scorer (CER, LaTeX exact match, render-back) | `corpus/public/`: synthetic or openly licensed. `corpus/private/`: the maintainer's confidential files, local only. Refer to them by manifest id only (`docs/TESTING.md#private-lecture-files-confidential`) |
 | `fake-provider/` | Scripted SSE server for all adapters | Deterministic; scenarios: slow first token, 429 + retry-after, 5xx, dropped stream, malformed SSE |
 | `ai-eval/` | 50 fixed questions over a fixture course | Live only through `scripts/live.sh`; logs tokens, TTFT, accuracy per provider |
 | `perf/` | Budget measurements (`budgets.sh`) | Prints measured vs budget; non-zero exit on breach. `budgets.json` is protected |

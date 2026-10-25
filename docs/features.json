@@ -164,7 +164,7 @@
     "Every workflow SHALL start with `permissions: contents: read` and pin third-party actions by commit SHA with the version in a comment.",
     "ci.yml SHALL use the concurrency group from 16-ci-cd.md, cache Rust and pnpm, and install cargo-nextest, cargo-deny and a checksum-verified gitleaks binary.",
     ".github/dependabot.yml SHALL group weekly updates for github-actions, cargo and npm (ui/) with at most 3 open PRs each.",
-    "WHEN `scripts/init.sh` runs on a clean checkout THEN it SHALL install dependencies, build, and print `INIT OK`; `scripts/init.sh --check` SHALL list missing tools with Fedora install commands."
+    "WHEN `scripts/init.sh` runs on a clean checkout THEN it SHALL install dependencies, build, and print `INIT OK`; `scripts/init.sh --check` SHALL list missing tools with install hints."
    ],
    "verify": [
     "scripts/verify.sh",
@@ -311,7 +311,7 @@
    "evidence": [
     "log:tests"
    ],
-   "ask_jay_first": "PDFium is a native binary. Approve the source (for example bblanchon/pdfium-binaries, BSD/Apache) and pinning by SHA-256 per OS?",
+   "ask_maintainer_first": "PDFium is a native binary. Approve the source (for example bblanchon/pdfium-binaries, BSD/Apache) and pinning by SHA-256 per OS?",
    "status": "done",
    "notes": "",
    "priority": 1007,
@@ -3267,7 +3267,7 @@
    ],
    "acceptance": [
     "With the ChatGPT sign-in stored in the keychain, the F-002 and F-004 measurements SHALL be re-run for OpenAI fast models through scripts/live.sh and appended to their D-entries with a recommendation.",
-    "IF the sandbox blocks keychain access THEN the builder SHALL report BLOCKED with the exact command for Jay to run in his own terminal."
+    "IF the sandbox blocks keychain access THEN the builder SHALL report BLOCKED with the exact command for the maintainer to run in their own terminal."
    ],
    "verify": [
     "see spikes/vision/README.md and spikes/ttft/README.md"
@@ -3278,7 +3278,7 @@
    "needs": [
     "live-keys"
    ],
-   "ask_jay_first": "Sign in with ChatGPT in scripts/dev.sh (Settings → Providers) so the spike can use the keychain token?",
+   "ask_maintainer_first": "Sign in with ChatGPT in scripts/dev.sh (Settings → Providers) so the spike can use the keychain token?",
    "status": "todo",
    "notes": "",
    "priority": 5097
@@ -3407,7 +3407,7 @@
    "evidence": [
     "perf"
    ],
-   "ask_jay_first": "Local embeddings need a model download and possibly ONNX Runtime (native). Approve the runtime and model chosen in the F-003 D-entry?",
+   "ask_maintainer_first": "Local embeddings need a model download and possibly ONNX Runtime (native). Approve the runtime and model chosen in the F-003 D-entry?",
    "status": "todo",
    "notes": "",
    "priority": 6101,
@@ -3596,7 +3596,7 @@
    "reviews": [
     "security"
    ],
-   "ask_jay_first": "The local document model is a native runtime plus a large download. Approve the runtime and model from the F-002 D-entry?",
+   "ask_maintainer_first": "The local document model is a native runtime plus a large download. Approve the runtime and model from the F-002 D-entry?",
    "status": "todo",
    "notes": "",
    "priority": 6107
@@ -4630,7 +4630,7 @@
    ],
    "acceptance": [
     "tests/visual SHALL compare WebDriver screenshots of the main screens with per-OS baselines, failing above a 0.5% pixel difference.",
-    "Baseline files SHALL be protected, so only a Jay-approved feature can change them."
+    "Baseline files SHALL be protected, so only a feature the maintainer approved can change them."
    ],
    "verify": [
     "scripts/e2e-app.sh visual"
@@ -4641,7 +4641,7 @@
    "protected": [
     "tests/visual/baselines/**"
    ],
-   "ask_jay_first": "Approve the first set of per-OS screenshot baselines (the orchestrator shows them before merging)?",
+   "ask_maintainer_first": "Approve the first set of per-OS screenshot baselines (the orchestrator shows them before merging)?",
    "status": "todo",
    "notes": "",
    "priority": 8140

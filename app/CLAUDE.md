@@ -11,7 +11,7 @@ Spec: `01-architecture.md#processes`, `#packaging`; `13-security.md`; `08-figure
 - Capabilities: an allow-list per window. The figure frame window or iframe gets nothing.
 - CSP on the main webview: no remote content, no `eval`, no inline scripts. Figure pages get their own CSP with no network.
 - Startup: cold open of a lecture in < 400 ms. Defer everything that isn't needed for first paint (catalog refresh, indexing, pre-warm happen after paint).
-- Updates are signed. Builds are signed per OS (credentials come from Jay; see QUESTIONS).
+- Updates are signed. Builds are signed per OS (credentials come from the maintainer; see QUESTIONS).
 - Debug-only test hooks (embedded WebDriver, `LECTER_TEST_*`, devtools) live behind `cfg(debug_assertions)`; `scripts/check_release_binary.sh` proves release builds don't have them.
 
 ## Learned

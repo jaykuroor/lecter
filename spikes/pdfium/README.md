@@ -4,7 +4,7 @@
 (`01-architecture.md#packaging`) and load it dynamically through `pdfium-render`
 (`#stack-decided`), with the download refused on a SHA-256 mismatch (SEC-51)?
 
-**Answer: GO.** Source and pinning are Jay's D-084.
+**Answer: GO.** Source and pinning are the maintainer's D-084.
 
 ## What is pinned
 

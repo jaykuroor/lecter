@@ -4,7 +4,7 @@
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Shell | Tauri 2 (system webview) | Decided by Jay. Keep the core UI-agnostic |
+| Shell | Tauri 2 (system webview) | Decided by the maintainer. Keep the core UI-agnostic |
 | Core | Rust (stable), tokio | All heavy work, all I/O, all network |
 | Frontend | TypeScript + SolidJS + Vite | Small and fine-grained (D-005). No other UI framework |
 | Document surface | CodeMirror 6 + `@replit/codemirror-vim` | Slides and glosses are widgets and decorations over one text buffer |
@@ -82,7 +82,7 @@ The one place this is defined. The `add-dependency` skill and `scripts/add_dep.p
 
 - **Licences:** MIT, Apache-2.0, BSD-2/3, ISC, Zlib, MPL-2.0, Unicode, CC0. Never GPL, LGPL (static), AGPL, SSPL or "non-commercial" terms. Enforced by `cargo-deny` and the npm licence check.
 - **Agents may add** small pure-Rust crates and JS packages within the licence policy, with a D-entry (why, size, licence, alternative rejected).
-- **Jay approves first** (the builder reports `NEEDS_JAY`): anything native (ONNX Runtime, PDFium builds, `-sys` crates, system libraries), anything that adds more than 30 crates to `Cargo.lock`, or more than 100 KB gzipped to the UI bundle. `scripts/check_deps.py` enforces this: such a change needs a commit trailer `Deps-Approved: D-0NN` naming Jay's D-entry.
+- **The maintainer approves first** (the builder reports `NEEDS_MAINTAINER`): anything native (ONNX Runtime, PDFium builds, `-sys` crates, system libraries), anything that adds more than 30 crates to `Cargo.lock`, or more than 100 KB gzipped to the UI bundle. `scripts/check_deps.py` enforces this: such a change needs a commit trailer `Deps-Approved: D-0NN` naming the maintainer's D-entry.
 - Prefer the standard library and crates already in the tree. Shared versions go in root `[workspace.dependencies]`. Lockfiles are committed.
 
 ## Document model

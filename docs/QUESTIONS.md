@@ -1,9 +1,9 @@
 # Open and later questions
 
-Questions that can't be answered right now. In interactive sessions, agents ask Jay directly and record the answer in `docs/DECISIONS.md`. This file holds only:
-- **open**: raised during a headless run; Jay answers on the `Answer:` line, and the next planning session applies it;
-- **later**: things Jay will decide when the time comes. Don't block on these; they name the feature that needs them.
-- **Gate notes**: what Jay noticed while trying a milestone; the next planning session turns them into features.
+Questions that can't be answered right now. In interactive sessions, agents ask the maintainer directly and record the answer in `docs/DECISIONS.md`. This file holds only:
+- **open**: raised during a headless run; the maintainer answers on the `Answer:` line, and the next planning session applies it;
+- **later**: things the maintainer will decide when the time comes. Don't block on these; they name the feature that needs them.
+- **Gate notes**: what the maintainer noticed while trying a milestone; the next planning session turns them into features.
 
 Format: `.claude/skills/handoff/SKILL.md`.
 
@@ -15,7 +15,7 @@ Who provides code-signing credentials (Apple Developer ID for signing and notari
 
 ## Q-002 · later · blocks: F-172
 Generate the Tauri updater signing key pair and store the private key as the `TAURI_SIGNING_PRIVATE_KEY` repository secret?
-- Context: Jay must run `pnpm tauri signer generate` himself and keep the private key off the repository; the public key goes into `app/tauri.conf.json`.
+- Context: The maintainer must run `pnpm tauri signer generate` themselves and keep the private key off the repository; the public key goes into `app/tauri.conf.json`.
 - Recommended: do it when F-172 starts (applied as default: no).
 - Answer:
 
@@ -27,7 +27,7 @@ Where should opted-in feedback be sent (`feedback.endpoint`)?
 
 ## Q-004 · later · blocks: first public release (F-170)
 Run the hands-on Mac checklist on a real Mac before the first public release?
-- Context: macOS is verified only in CI until Jay has a Mac (D-042). CI can't judge feel, gestures, menus, notarisation prompts or WKWebView quirks.
+- Context: macOS is verified only in CI until the maintainer has a Mac (D-042). CI can't judge feel, gestures, menus, notarisation prompts or WKWebView quirks.
 - Checklist (30 minutes, Apple Silicon and, if possible, Intel):
   1. Install the `.dmg`; first launch shows no Gatekeeper error (signed and notarised) or the expected unsigned-preview warning.
   2. Onboarding, Lecter 101 tutorial, then open a real course folder from iCloud Drive and from a local folder.
@@ -50,7 +50,7 @@ M0 security review: CI installs fall back to unlocked when lockfiles don't match
 
 ## Q-006 · planning · blocks: F-030, F-045
 Add the performance presets (D-081) to the spec and the features.
-- Context: Jay decided at the F-001 stack call (D-080, D-081) that performance settings default to Balanced and are user-configurable. A Performance / Balanced / Quality preset goes in Settings > Performance and `:set`. Quality shows a lag warning. Build sessions can't add acceptance criteria.
+- Context: the maintainer decided at the F-001 stack call (D-080, D-081) that performance settings default to Balanced and are user-configurable. A Performance / Balanced / Quality preset goes in Settings > Performance and `:set`. Quality shows a lag warning. Build sessions can't add acceptance criteria.
 - Recommendation: in the planning session (`scripts/loop.sh plan`), add the preset to the settings schema (F-030), the settings window (F-045) and the `:set` command, and to the editor-surface feature: idle-time Markdown highlighting in Balanced, lazy KaTeX, live in Quality. Add the "performance toggles default to Balanced" rule to the settings spec.
 
 ## Q-007 · planning · blocks: nothing
@@ -81,4 +81,4 @@ Change F-016's verify line `scripts/check_release_binary.sh` to `tests/e2e/relea
 - Answer:
 
 ## Gate notes
-<!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->
+<!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

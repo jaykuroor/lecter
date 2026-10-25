@@ -27,7 +27,7 @@ fi
 
 # WebKitGTK needs a display. Without one, run the whole script under a virtual X server.
 if [ "$(uname)" = Linux ] && [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -z "${LECTER_E2E_XVFB:-}" ]; then
-  command -v xvfb-run >/dev/null 2>&1 || { echo "no display and no xvfb-run (Fedora: sudo dnf install xorg-x11-server-Xvfb)"; exit 1; }
+  command -v xvfb-run >/dev/null 2>&1 || { echo "no display and no xvfb-run (install the Xvfb package, which provides xvfb-run)"; exit 1; }
   LECTER_E2E_XVFB=1 exec xvfb-run -a -s "-screen 0 1280x800x24" bash "$0" ${FLOW:+"$FLOW"} ${EVIDENCE:+--evidence "$EVIDENCE"}
 fi
 

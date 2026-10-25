@@ -7,15 +7,15 @@ never `cargo add` or `pnpm add` directly (the guard blocks those).
 
 Adds it, then measures: new crates in Cargo.lock, native ones, licences (Rust); licence and gzipped
 bundle growth (UI). Within policy: keeps it and prints the commit trailer to use. Outside policy (native,
-> 30 crates, > 100 KB gz, or a licence not on the list): undoes the change and prints NEEDS_JAY with the
-numbers for the builder's report. --approved D-0NN (Jay's decision) keeps it anyway.
+> 30 crates, > 100 KB gz, or a licence not on the list): undoes the change and prints NEEDS_MAINTAINER with the
+numbers for the builder's report. --approved D-0NN (the maintainer's decision) keeps it anyway.
 """
 import argparse, gzip, json, re, subprocess, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_deps import MAX_NEW_CRATES, MAX_UI_KB_GZ, NATIVE_BUILD, NATIVE_NAMES, lock_packages, preapproved  # noqa: E402
-from lib_git import jay_decision  # noqa: E402
+from lib_git import maintainer_decision  # noqa: E402
 import fnmatch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -90,10 +90,10 @@ def ui(a):
 
 
 def finish(a, snap, name, reasons, summary):
-    if reasons and not (a.approved and jay_decision(ROOT, a.approved)):
+    if reasons and not (a.approved and maintainer_decision(ROOT, a.approved)):
         restore(snap)
-        print(f"NEEDS_JAY: {name} is outside the dependency policy ({'; '.join(reasons)}). Change undone.")
-        print("Report it with these numbers; once Jay's D-entry exists, re-run with --approved D-0NN.")
+        print(f"NEEDS_MAINTAINER: {name} is outside the dependency policy ({'; '.join(reasons)}). Change undone.")
+        print("Report it with these numbers; once the maintainer's D-entry exists, re-run with --approved D-0NN.")
         return 4
     print("Add to your commit message:")
     print(f"  Dep-Added: {name} - {summary}, <why, alternative rejected>")
@@ -110,7 +110,7 @@ def main(argv=None):
     ap.add_argument("-p", "--package", help="lecter-<crate> (rust)")
     ap.add_argument("--features")
     ap.add_argument("--dev", action="store_true")
-    ap.add_argument("--approved", help="D-0NN: Jay's approval for an out-of-policy dependency")
+    ap.add_argument("--approved", help="D-0NN: the maintainer's approval for an out-of-policy dependency")
     a = ap.parse_args(argv)
     if a.kind == "rust" and not a.package:
         ap.error("rust needs -p lecter-<crate>")

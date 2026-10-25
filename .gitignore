@@ -46,3 +46,6 @@ tests/ai-eval/results/
 /.vscode
 test-results/
 playwright-report/
+
+# Personal notes for the maintainer's own Claude Code sessions (loaded automatically, never committed).
+/CLAUDE.local.md

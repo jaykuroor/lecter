@@ -148,7 +148,6 @@
       "Read(~/.config/lecter-dev/**)",
       "Edit(~/.config/lecter-dev/**)",
       "Read(~/.claude/.credentials.json)",
-      "Read(~/.claude-b/**)",
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.aws/**)",
@@ -214,7 +213,6 @@
         "~/.ssh",
         "~/.gnupg",
         "~/.aws",
-        "~/.claude-b",
         "~/.config/lecter-dev"
       ]
     },
@@ -226,10 +224,6 @@
         },
         {
           "path": "~/.claude/.credentials.json",
-          "mode": "deny"
-        },
-        {
-          "path": "~/.claude-b/.credentials.json",
           "mode": "deny"
         }
       ],

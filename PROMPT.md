@@ -4,10 +4,10 @@ You are one session in a long build of Lecter v0. Earlier sessions left their st
 
 - The SessionStart hook already printed `== Lecter build state ==` and a `NEXT` or `RESUME` card. If you don't see it, run `python3 scripts/next.py`.
 - `ALL DONE`: run `scripts/verify.sh --full`, write a final PROGRESS entry, commit, and stop.
-- `ALL REMAINING BLOCKED`: in an interactive session, ask Jay what unblocks them. Otherwise make sure each blocker has a Q-entry in `docs/QUESTIONS.md`. Commit, and stop.
+- `ALL REMAINING BLOCKED`: in an interactive session, ask the maintainer what unblocks them. Otherwise make sure each blocker has a Q-entry in `docs/QUESTIONS.md`. Commit, and stop.
 - `RESUME`: a previous session ran out of room. Read its note on the card and the top of `docs/PROGRESS.md`, check `git log -3 --stat`, and continue from there.
-- `MILESTONE GATE`: stop. Jay tries the app first (`python3 scripts/feature.py gate` prints his checklist). In an interactive session, show it to him and wait for his go.
-- `NEXT`: if the card says "Ask Jay before building", ask (interactive) or block with a Q-entry (headless). Otherwise run `scripts/verify.sh --quick` (if `main` is already red, fix that first as a `chore:` or block), then `python3 scripts/feature.py start F-0NN`.
+- `MILESTONE GATE`: stop. The maintainer tries the app first (`python3 scripts/feature.py gate` prints the checklist). In an interactive session, show it to them and wait for their go.
+- `NEXT`: if the card says "Ask the maintainer before building", ask (interactive) or block with a Q-entry (headless). Otherwise run `scripts/verify.sh --quick` (if `main` is already red, fix that first as a `chore:` or block), then `python3 scripts/feature.py start F-0NN`.
 
 ## 2 · Load only what this feature needs
 
@@ -48,7 +48,7 @@ Run them and watch them fail for the right reason; save that failing run as evid
 
 - `docs/PROGRESS.md`: rewrite the Current state block, and add one log entry at the top of the log.
 - `docs/DECISIONS.md`: one D-entry per choice the spec didn't dictate. This includes versions pinned and libraries chosen.
-- **Things only Jay can answer:** in an interactive session, ask him now and record the answer as a D-entry. In a headless run, or if he can't answer yet, add a Q-entry to `docs/QUESTIONS.md` with your recommended answer.
+- **Things only the maintainer can answer:** in an interactive session, ask them now and record the answer as a D-entry. In a headless run, or if they can't answer yet, add a Q-entry to `docs/QUESTIONS.md` with your recommended answer.
 - `CHANGELOG.md`: one user-facing line under `## [Unreleased]`.
 - The nearest folder `CLAUDE.md` → `## Learned`: one line per gotcha that would cost the next session time.
 
@@ -60,6 +60,6 @@ Run them and watch them fail for the right reason; save that failing run as evid
 
 - **Push**, only if `LECTER_ALLOW_PUSH=1`: `git pull --no-rebase origin main`, then `git push origin main`, then check CI (`docs/spec/16-ci-cd.md#branches-merging-and-pushing`).
 
-Then stop. Do not start a second feature. The next session starts clean and will be faster for it. To build many features with Jay watching, use `PROMPT.orchestrate.md` instead.
+Then stop. Do not start a second feature. The next session starts clean and will be faster for it. To build many features with the maintainer watching, use `PROMPT.orchestrate.md` instead.
 
 If your context is getting long (many large outputs, or a compaction happened), jump to step 6 now and leave a precise note. A clean handoff beats a heroic finish.

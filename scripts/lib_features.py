@@ -33,7 +33,7 @@ def keys_file():
 
 def unmet_needs(f):
     """Environment prerequisites a feature declares in `needs` that this machine lacks.
-    live-keys: Jay's keys file exists (scripts/live.sh loads it for the child command only)."""
+    live-keys: the live keys file exists (scripts/live.sh loads it for the child command only)."""
     have = {"live-keys": keys_file().is_file()}
     return [n for n in f.get("needs", []) if not have.get(n, False)]
 
@@ -51,7 +51,7 @@ def milestone_complete(data, ms):
 
 
 def open_gate(data):
-    """The first milestone that is complete but whose gate Jay hasn't passed yet, or None."""
+    """The first milestone that is complete but whose gate the maintainer hasn't passed yet, or None."""
     for ms in milestones(data)[:-1]:
         if ms in data.get("gates", {}):
             continue
@@ -145,6 +145,6 @@ def milestone_line(data):
 
 
 def checklist(data, ms):
-    """Jay's 5-10 minute hands-on checklist for a milestone gate, from the features' `try` lines."""
+    """The maintainer's 5-10 minute hands-on checklist for a milestone gate, from the features' `try` lines."""
     items = [f"{f['id']}: {f['try']}" for f in data["features"] if f["milestone"] == ms and f.get("try")]
     return items[:12]

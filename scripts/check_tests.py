@@ -12,7 +12,7 @@ Also fails on any `.only(` left in a tracked test file.
 Deliberate exceptions need a commit trailer in the range (the reviewer judges the reason):
   Test-Removed: <path>[::name] - <reason>
   Snapshot-Changed: <path> - <reason>
-  Budget-Changed: <id> - D-0NN          (D-0NN must be a decision by Jay)
+  Budget-Changed: <id> - D-0NN          (D-0NN must be a decision by the maintainer)
 Base, in order: --base; the `base` recorded by `feature.py start` for an in-progress feature;
 the merge-base with main on another branch; HEAD's first parent; nothing (pass).
 """
@@ -20,7 +20,7 @@ import argparse, json, re, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib_git import find_base, git, jay_decision, old_text, trailers as _trailers  # noqa: E402
+from lib_git import find_base, git, maintainer_decision, old_text, trailers as _trailers  # noqa: E402
 
 TEST_FILE = re.compile(r"(^|/)(tests?|e2e|__tests__)/|\.(test|spec)\.[jt]sx?$|_test\.rs$")
 SNAPSHOT = re.compile(r"\.snap$|(^|/)__snapshots__/|(^|/)tests/visual/baselines/")
@@ -101,7 +101,7 @@ def check(root, base):
     tr = _trailers(root, base, ("Test-Removed", "Snapshot-Changed", "Budget-Changed"))
     removed_ok = {t[0].split("::")[0] for t in tr["Test-Removed"]}
     snap_ok = {t[0] for t in tr["Snapshot-Changed"]}
-    budget_ok = {t[0] for t in tr["Budget-Changed"] if re.search(r"D-\d+", t[1]) and jay_decision(root, re.search(r"D-\d+", t[1]).group(0))}
+    budget_ok = {t[0] for t in tr["Budget-Changed"] if re.search(r"D-\d+", t[1]) and maintainer_decision(root, re.search(r"D-\d+", t[1]).group(0))}
     status = git(root, "diff", "--name-status", "-M", base).stdout.splitlines()
     for line in status:
         parts = line.split("\t")
@@ -138,7 +138,7 @@ def check(root, base):
         for b in loosened(fn(old), fn(new)):
             key = b.split()[0]
             if key not in budget_ok:
-                problems.append(f"{path}: loosened {b} (needs Budget-Changed: {key} - D-0NN by Jay)")
+                problems.append(f"{path}: loosened {b} (needs Budget-Changed: {key} - D-0NN by the maintainer)")
     return problems
 
 

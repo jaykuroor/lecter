@@ -18,10 +18,10 @@ out = subprocess.run([sys.executable, str(ROOT / "scripts" / "next.py"), "--brie
                      capture_output=True, text=True)
 print(out.stdout.strip())
 if out.returncode == 5:
-    print("\nMILESTONE GATE: dispatch nothing. Show Jay the checklist above (python3 scripts/feature.py gate) "
-          "and wait for his go; he records it with `python3 scripts/feature.py gate <M> --pass`.")
+    print("\nMILESTONE GATE: dispatch nothing. Show the maintainer the checklist above (python3 scripts/feature.py gate) "
+          "and wait for their go; they record it with `python3 scripts/feature.py gate <M> --pass`.")
 if any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LECTER_LIVE_TESTS")):
-    print("\nWARNING: a provider key or LECTER_LIVE_TESTS is set in this session's environment. Tell Jay: keys belong "
-          "only in ~/.config/lecter-dev/keys.env, loaded by scripts/live.sh (build guide section 5).")
+    print("\nWARNING: a provider key or LECTER_LIVE_TESTS is set in this session's environment. Tell the maintainer: keys belong "
+          "only in ~/.config/lecter-dev/keys.env, loaded by scripts/live.sh (docs/TESTING.md#live-keys).")
 if os.environ.get("LECTER_PLANNING") == "1":
     print("\nPLANNING SESSION: spec and features.json may be changed (see PROMPT.plan.md).")

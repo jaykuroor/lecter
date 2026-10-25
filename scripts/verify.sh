@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The one entry point for checks, locally and in CI (docs/spec/16-ci-cd.md). Protected: only Jay edits it.
+# The one entry point for checks, locally and in CI (docs/spec/16-ci-cd.md). Protected: only the maintainer edits it.
 # One line per check; on failure, the tail of its log. Full logs: .verify/<check>.log.
 #   scripts/verify.sh            lint + test + e2e smoke + quick perf      (before feature.py done)
 #   scripts/verify.sh --quick    lint + test                               (while iterating; first thing a builder runs)
@@ -147,7 +147,7 @@ if on lint; then
     run tests-guard "$PY" scripts/check_tests.py
     run deps "$PY" scripts/check_deps.py
     if have gitleaks; then run secrets scripts/secret_scan.sh
-    else echo "FAIL  secrets   (gitleaks is not installed: Fedora 'sudo dnf install gitleaks'; see the build guide)"; FAIL=1; fi
+    else echo "FAIL  secrets   (gitleaks is not installed: scripts/init.sh --check says how)"; FAIL=1; fi
   fi
   if heavy && need rust-lint F-010 exists Cargo.toml; then
     run fmt cargo fmt --all -- --check

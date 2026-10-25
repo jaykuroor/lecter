@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run ONE live-provider command with Jay's keys, for a live spike or the AI eval only.
+# Run ONE live-provider command with the maintainer's provider keys, for a live spike or the AI eval only.
 #   scripts/live.sh F-0NN -- <command...>
 # The keys never enter the agent session: this script reads ~/.config/lecter-dev/keys.env
 # (or $LECTER_KEYS_FILE) and exports it only to the child command, with LECTER_LIVE_TESTS=1.
@@ -25,7 +25,7 @@ if f["status"] != "in_progress":
     sys.exit(f"live.sh: {f['id']} is {f['status']}, not in_progress.")
 PYC
 keys="${LECTER_KEYS_FILE:-$HOME/.config/lecter-dev/keys.env}"
-[ -r "$keys" ] || { echo "live.sh: $keys not found. Jay creates it (lecter-build-guide.md section 5)."; exit 3; }
+[ -r "$keys" ] || { echo "live.sh: $keys not found. The maintainer creates it (docs/TESTING.md#live-keys)."; exit 3; }
 mkdir -p .verify
 echo "$(date -u +%FT%TZ) $fid $1" >> .verify/live-runs.log   # what ran live, never the keys
 exec env LECTER_LIVE_TESTS=1 LECTER_LIVE_RPM="${LECTER_LIVE_RPM:-8}" LECTER_LIVE_RPD="${LECTER_LIVE_RPD:-200}" \

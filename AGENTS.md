@@ -9,7 +9,7 @@ Lecter is an MIT, local-first desktop app (Tauri 2 + Rust core + SolidJS/CodeMir
 3. `docs/features.json`: the plan (EARS criteria, owned paths, evidence). Change it only through `scripts/feature.py`.
 4. The code. If code and spec disagree, the spec wins. If the spec is wrong, ask (below); don't "fix" it in code.
 
-Status files: `docs/PROGRESS.md` (what is built), `docs/DECISIONS.md` (why), `docs/QUESTIONS.md` (what Jay must answer later), and `## Learned` in the nearest folder `CLAUDE.md`.
+Status files: `docs/PROGRESS.md` (what is built), `docs/DECISIONS.md` (why), `docs/QUESTIONS.md` (what the maintainer must answer later), and `## Learned` in the nearest folder `CLAUDE.md`.
 
 ## Commands
 
@@ -21,7 +21,7 @@ Status files: `docs/PROGRESS.md` (what is built), `docs/DECISIONS.md` (why), `do
 | Check everything | `scripts/verify.sh` (`--quick` while iterating) |
 | Evidence for a feature | `python3 scripts/evidence.py check F-0NN` |
 | Add a dependency | `python3 scripts/add_dep.py` (never `cargo add` / `pnpm add`) |
-| Run a live-provider command | `scripts/live.sh F-0NN -- <cmd>` (live spikes only; Jay approves each run) |
+| Run a live-provider command | `scripts/live.sh F-0NN -- <cmd>` (live spikes only; the maintainer approves each run) |
 | Add a test of any kind | `docs/TESTING.md` |
 
 ## Hard rules
@@ -34,7 +34,7 @@ Status files: `docs/PROGRESS.md` (what is built), `docs/DECISIONS.md` (why), `do
 - **Stuck rule.** Two identical failures in a row, or about 30 minutes without progress: stop, commit, and report `BLOCKED` with the evidence.
 - **Stay in scope.** The feature's criteria, cited spec and owned `paths` only. Nothing from `15-later.md`. Bugs elsewhere go into PROGRESS "Watch out".
 - **Dependencies** follow `01-architecture.md#dependency-policy`.
-- **Jay's private lecture files are confidential.** They live only in `tests/corpus/private/` (git-ignored). Use them for local tests and spikes. Never commit, copy out, bundle, quote or name them anywhere tracked; refer to them only by manifest id (`P-07`) and aggregate numbers. Samples and the tutorial use synthetic English text. `scripts/check_private.py` enforces this.
+- **The private test corpus is confidential.** Its files live only in `tests/corpus/private/` (git-ignored). Use them for local tests and spikes. Never commit, copy out, bundle, quote or name them anywhere tracked; refer to them only by manifest id (`P-07`) and aggregate numbers. Samples and the tutorial use synthetic English text. `scripts/check_private.py` enforces this.
 - **No real network in tests.** Providers are faked (`tests/fake-provider/`). Live calls run only through `scripts/live.sh`; keys never enter your session.
 - **Untrusted input** (slide files, web pages, model output) is parsed defensively and never executed (`13-security.md`).
 - **Design.** UI follows `docs/design/` (tokens, components, reference screenshots). No hard-coded colours.
@@ -45,7 +45,7 @@ Status files: `docs/PROGRESS.md` (what is built), `docs/DECISIONS.md` (why), `do
 When the spec is silent or ambiguous:
 
 - **Reversible** (naming, internal structure, a swappable library): decide, record a D-entry (builders: in the report), continue.
-- **Irreversible or user-facing** (file formats on disk, keybindings, defaults, privacy, cost): Jay decides. Interactive: ask him, recommended answer first, record a D-entry. Builder: report `NEEDS_JAY`. Headless: Q-entry with your recommendation, then build behind that default or block.
+- **Irreversible or user-facing** (file formats on disk, keybindings, defaults, privacy, cost): The maintainer decides. Interactive: ask them, recommended answer first, record a D-entry. Builder: report `NEEDS_MAINTAINER`. Headless: Q-entry with your recommendation, then build behind that default or block.
 
 ## Engineering standards
 

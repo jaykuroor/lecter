@@ -84,7 +84,7 @@ Use `insta::assert_snapshot!` for structured outputs such as parsed slides or as
 - A binary fixture is at most 200 KB. Record its licence in `tests/fixtures/LICENSES.md`.
 ### Private lecture files (confidential)
 
-Jay's real lecture files live only in `tests/corpus/private/`, which git ignores. They arrive as an unzipped bundle containing `inbox/` and `MANIFEST.json`.
+The maintainer's real lecture files (the private test corpus) live only in `tests/corpus/private/`, which git ignores. They arrive as an unzipped bundle containing `inbox/` and `MANIFEST.json`.
 
 - **What the manifest gives you:** ids (`P-01` …), page counts, text-layer statistics and a `kind_guess`: `slides`, `slides-annotated`, `dense-text` or `handwritten-or-scan`.
 - **Allowed:**
@@ -96,14 +96,14 @@ Jay's real lecture files live only in `tests/corpus/private/`, which git ignores
 - **Enforcement:** `scripts/check_private.py` (lint stage), the guard hook and `.gitignore` enforce this. Don't work around them.
 - **Finding the folder:** test helpers find it via `LECTER_PRIVATE_CORPUS` (an absolute path), falling back to `<repo>/tests/corpus/private`. Builder worktrees symlink the main checkout's folder.
 - **When the folder is absent** (CI, or another developer's machine), tests that need it print `SKIP (no private corpus)` and pass. This is the one allowed skip, and it is never a reason to call a feature done.
-- **Live runs** with private files send their content to Jay's own Gemini (free tier) or ChatGPT account. That's allowed for spikes and the AI eval only, through `scripts/live.sh` (D-035). Results are never published.
+- **Live runs** with private files send their content to the maintainer's own provider account. That's allowed for spikes and the AI eval only, through `scripts/live.sh` (D-035). Results are never published.
 
 ### A parse-corpus case
 
 1. Add the file under `tests/corpus/<category>/`. Categories: `text-pdf`, `pptx`, `scan`, `math`, `chart`, `handwriting`, `builds`.
 2. Write the gold Markdown in `tests/corpus/expected/`.
 3. The scorer reports CER, LaTeX exact match and render-back score per category, against `tests/corpus/thresholds.json`.
-4. Raise thresholds when quality improves. Lowering one needs Jay's D-entry and a `Budget-Changed: <key> - D-0NN` trailer (`thresholds.json` is protected).
+4. Raise thresholds when quality improves. Lowering one needs the maintainer's D-entry and a `Budget-Changed: <key> - D-0NN` trailer (`thresholds.json` is protected).
 
 ### A fake-provider scenario
 
@@ -122,7 +122,7 @@ A scenario is a JSON list of timed events: `{ "after_ms": 1200, "sse": "..." }`,
 1. Add an entry to `tests/perf/budgets.json` (protected: only a feature that lists it under `protected` may edit it): `{ "id": "keystroke_p99_ms", "budget": 8, "unit": "ms", "kind": "timing", "script": "tests/perf/keystroke.ts" }`.
 2. Write the script so it prints one JSON line with the measured value.
 3. `kind: timing` gets the ×1.5 CI allowance; `memory`, `tokens` and `count` do not.
-4. Never raise a budget to pass. Measure, report it, and ask Jay; a loosened budget needs his D-entry and a `Budget-Changed: <id> - D-0NN` trailer.
+4. Never raise a budget to pass. Measure, report it, and ask the maintainer; a loosened budget needs their D-entry and a `Budget-Changed: <id> - D-0NN` trailer.
 
 ### A live AI eval question
 
@@ -139,3 +139,16 @@ The most common causes, in order:
 5. **Test order dependence.**
 
 Reproduce with `gh run view <id> --log-failed`. Fix the cause, add a regression test if it was a code bug, and note the gotcha in the nearest `CLAUDE.md` `## Learned`.
+
+## Live keys
+
+Live spikes and the AI eval (cards with `needs: ["live-keys"]`) call real providers with the maintainer's own keys. Agents never see them, and every other test uses the fake provider.
+
+1. Create the file once, outside the repo. Never `source` it or export a key before starting `claude` (the session-start hook warns if it sees one):
+   ```bash
+   mkdir -p ~/.config/lecter-dev && chmod 700 ~/.config/lecter-dev
+   printf 'GEMINI_API_KEY=...\n' > ~/.config/lecter-dev/keys.env && chmod 600 ~/.config/lecter-dev/keys.env
+   ```
+   Use the variable names the provider adapters read (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). `LECTER_KEYS_FILE` points `scripts/live.sh` at another path.
+2. Once the file exists, `next.py` shows the live-keys cards as ready. Each live command is `scripts/live.sh F-0NN -- <cmd>`: it loads the file into that one command only, runs outside the sandbox, logs what ran to `.verify/live-runs.log` (never the keys), and asks the maintainer to approve every run.
+3. Rate limits default to a free tier (8 requests a minute, 200 a day, 200k tokens a minute). Add `LECTER_LIVE_RPM=`, `LECTER_LIVE_RPD=` or `LECTER_LIVE_TPM=` lines to the file to change them.

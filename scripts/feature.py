@@ -7,7 +7,7 @@
   scripts/feature.py block F-033 "needs Q-004"   blocked, with the reason in notes
   scripts/feature.py unblock F-033               blocked → todo
   scripts/feature.py note F-033 "text"           append a short note (≤ 300 characters) for the next session
-  scripts/feature.py gate [M1] [--pass]          show the open milestone gate and Jay's checklist; --pass records Jay's go
+  scripts/feature.py gate [M1] [--pass]          show the open milestone gate and the maintainer's checklist; --pass records their go
   scripts/feature.py add '<json>'                planning sessions only (LECTER_PLANNING=1)
   scripts/feature.py set F-033 <field> '<json>'  planning only; todo/blocked features
   scripts/feature.py validate                    schema check (verify.sh lint stage)
@@ -19,7 +19,7 @@ from lib_features import ROOT, load, save, by_id, counts, milestone_line, milest
 
 REQUIRED = {"id", "milestone", "kind", "title", "spec", "depends_on", "acceptance", "verify", "paths", "evidence"}
 SETTABLE = ("title", "spec", "depends_on", "acceptance", "verify", "priority", "needs", "paths", "evidence",
-            "reviews", "protected", "try", "ask_jay_first")
+            "reviews", "protected", "try", "ask_maintainer_first")
 EVIDENCE_KINDS = ("screenshot:", "log:", "harness:", "perf")
 
 
@@ -98,11 +98,11 @@ def main(argv):
             save(data)
             print(f"gate {ms} passed")
             return 0
-        print(f"MILESTONE GATE {ms}: every feature is merged. Jay tries the app before the next milestone starts.")
+        print(f"MILESTONE GATE {ms}: every feature is merged. The maintainer tries the app before the next milestone starts.")
         print("Run scripts/dev.sh, then (5-10 minutes):")
         for line in checklist(data, ms) or ["(no hands-on items: check scripts/verify.sh --full and CI)"]:
             print(f"  [ ] {line}")
-        print("Jay's notes become features via PROMPT.plan.md; then: python3 scripts/feature.py gate " + ms + " --pass")
+        print("The maintainer's notes become features via PROMPT.plan.md; then: python3 scripts/feature.py gate " + ms + " --pass")
         return 0
 
     if cmd == "add":

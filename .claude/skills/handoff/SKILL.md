@@ -38,7 +38,7 @@ Add one entry at the end, with the next free number:
 
 ```
 ## D-0NN · <decision in ≤ 8 words>
-2026-MM-DD · <session F-0NN | Jay> · active
+2026-MM-DD · <session F-0NN | maintainer> · active
 - Decision: <what, concretely>
 - Why: <the reason, with numbers if measured>
 - Instead of: <rejected options, one line>
@@ -49,7 +49,7 @@ To reverse a decision, add a new entry and change the old one's status to `super
 
 ## docs/QUESTIONS.md
 
-Only for questions that can't be answered now: headless runs, or things Jay will decide later. In an interactive session, ask Jay instead and record a D-entry. Add one entry at the end:
+Only for questions that can't be answered now: headless runs, or things the maintainer will decide later. In an interactive session, ask the maintainer instead and record a D-entry. Add one entry at the end:
 
 ```
 ## Q-0NN · open|later · blocks: F-0NN | nothing
@@ -59,7 +59,7 @@ Only for questions that can't be answered now: headless runs, or things Jay will
 - Answer:
 ```
 
-Leave `Answer:` blank; Jay fills it in. Planning sessions mark it `answered`.
+Leave `Answer:` blank; the maintainer fills it in. Planning sessions mark it `answered`.
 
 ## Folder CLAUDE.md → `## Learned`
 

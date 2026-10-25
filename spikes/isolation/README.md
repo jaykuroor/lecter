@@ -29,7 +29,7 @@ Rerun: `pnpm -C ui install`, then `node spikes/isolation/measure.mjs [--engines 
 
 ## Results
 
-Fedora 44, Intel i7-14700KF, Node 24.18.0, Playwright's Chromium 156.0.8078.4 (ms per call):
+Linux x86-64, Intel i7-14700KF, Node 24.18.0, Playwright's Chromium 156.0.8078.4 (ms per call):
 
 | Insert | JSON body | Sealed body | Plain mean / p99 | Isolated mean / p99 | Core mean / p99 | **Added mean / p99** |
 |---|---|---|---|---|---|---|
@@ -47,7 +47,7 @@ Fedora 44, Intel i7-14700KF, Node 24.18.0, Playwright's Chromium 156.0.8078.4 (m
 
 ## Not covered
 
-- **WebKitGTK and WKWebView.** Playwright's WebKit build won't launch on Fedora 44 (spikes/CLAUDE.md).
+- **WebKitGTK and WKWebView.** Playwright's WebKit build won't launch on the build machine (spikes/CLAUDE.md).
   `--engines webkit` runs it on Ubuntu. The real-app number (WebKitGTK with
   `app.security.pattern = isolation`) needs a display, which the build sandbox doesn't have.
 - The core-side column is a Node/OpenSSL estimate of serde_json + `aes-gcm`, not the Rust code.

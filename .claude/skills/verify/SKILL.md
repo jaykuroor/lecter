@@ -30,13 +30,13 @@ On a clean, committed tree whose code already passed (same files apart from the 
 | lint | `pnpm -C ui exec biome check --write <file>` |
 | ui-tests | `pnpm -C ui exec vitest run <file> --reporter=dot` |
 | e2e-smoke | `pnpm -C ui exec playwright test <spec> --reporter=line` |
-| placeholders | The listed lines contain `todo!`, `unimplemented!`, `TODO` or `FIXME`: finish the code, or write `TODO(#123)` with an issue number only if Jay asked to defer it |
-| spec-refs | A feature cites a spec anchor that doesn't exist: tell Jay in QUESTIONS (you can't edit the spec or features) |
+| placeholders | The listed lines contain `todo!`, `unimplemented!`, `TODO` or `FIXME`: finish the code, or write `TODO(#123)` with an issue number only if the maintainer asked to defer it |
+| spec-refs | A feature cites a spec anchor that doesn't exist: tell the maintainer in QUESTIONS (you can't edit the spec or features) |
 | tests-guard | `python3 scripts/check_tests.py`: you removed or weakened a test, budget, threshold or snapshot. Undo it (`14-quality.md#protected-checks`) |
-| deps | `python3 scripts/check_deps.py`: a dependency lacks its trailer or needs Jay (`add-dependency` skill) |
+| deps | `python3 scripts/check_deps.py`: a dependency lacks its trailer or needs the maintainer (`add-dependency` skill) |
 | arch | `python3 scripts/check_arch.py`: a forbidden crate edge or missing lint config (`01-architecture.md#repository-layout`) |
 | size | `python3 scripts/check_size.py`: split the file by responsibility |
-| secrets | `scripts/secret_scan.sh`: stop, don't push, tell Jay (he rotates it) |
+| secrets | `scripts/secret_scan.sh`: stop, don't push, tell the maintainer (they rotate it) |
 | private-corpus | `python3 scripts/check_private.py`: a private file, its name or copied text is tracked. Remove it from the commit |
 | bindings-stale | `cargo run -q -p lecter-app --bin export-bindings` regenerates `ui/src/core/bindings.ts`; commit it |
 | perf | `bash tests/perf/budgets.sh --only <id>`; never loosen the budget |

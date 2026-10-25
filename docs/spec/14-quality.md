@@ -22,7 +22,7 @@ These are CI gates from the walking skeleton on (milestone M0.5). Every feature 
 Rules:
 - A budget is born with the feature that makes it measurable, and its entry lists the milestone it starts gating (`"from"`). Entries without a measurement yet print `PENDING` and fail once their milestone is done.
 - `kind: timing` budgets: shared CI runners are noisy, so with `--ci` a timing value gets a ×1.5 allowance, and a value over it is measured once more: the budget fails only if both runs are over ×1.5 (the report keeps both values). Locally (`--quick`, `--only`) they gate at ×1. Memory, size and token budgets are exact everywhere. The gardener tracks values between ×1 and ×1.5.
-- Never loosen a budget to pass. Measure, record a D-entry, and ask Jay. `tests/perf/budgets.json` is a protected file (`#protected-checks`), and the test-weakening lint fails on any loosened value.
+- Never loosen a budget to pass. Measure, record a D-entry, and ask the maintainer. `tests/perf/budgets.json` is a protected file (`#protected-checks`), and the test-weakening lint fails on any loosened value.
 
 ## Perf harness
 
@@ -64,7 +64,7 @@ Each feature lists the evidence it needs in `features.json` → `evidence`. The 
 Builders can add tests, snapshots, fixtures and budget entries, but they can't weaken the checks that judge them. The guard hook (`scripts/hooks/guard.py`, lists `PROTECTED` and `KIT_FILES`, the single source) blocks edits, including shell writes, to existing:
 
 - **checks:** `scripts/verify.sh`, `tests/perf/budgets.json`, `tests/corpus/thresholds.json`, `.github/workflows/**`, `deny.toml`, `clippy.toml`, `rustfmt.toml`, `rust-toolchain.toml`, `ui/biome.json`, `ui/tsconfig.json`, `ui/playwright.config.ts`, `tests/e2e/wdio.conf.ts`, `ui/knip.json`, `ui/.jscpd.json`, snapshot files and visual baselines. A feature may edit one only when it lists it under `protected` (for example F-025 creates the budgets).
-- **kit files** (Jay only): `.claude/settings*.json`, `.claude/agents/**`, `scripts/hooks/**`, the lint scripts, `scripts/live.sh`, `scripts/deps_preapproved.txt`, `.gitleaks.toml`, `scripts/tests/**`.
+- **kit files** (the maintainer only): `.claude/settings*.json`, `.claude/agents/**`, `scripts/hooks/**`, the lint scripts, `scripts/live.sh`, `scripts/deps_preapproved.txt`, `.gitleaks.toml`, `scripts/tests/**`.
 
 `scripts/check_tests.py` (lint stage) compares the change with its base and fails when it:
 
@@ -73,7 +73,7 @@ Builders can add tests, snapshots, fixtures and budget entries, but they can't w
 - loosens a value in `budgets.json` or `thresholds.json`;
 - changes an existing snapshot.
 
-A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a Jay decision).
+A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a decision by the maintainer).
 
 ## Definition of done
 

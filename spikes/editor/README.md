@@ -58,7 +58,7 @@ spikes/editor/pnpm.sh run measure 2>&1 | tee .evidence/F-001/measurement.log
 ```
 
 `.evidence/F-001/measurement.log` (the card's `log:measurement`) holds the final script's Chromium run
-(`--engines chromium,chromium-novsync`, novsync raw p99 5.2 ms, GO). Below it, under a header, is Jay's
+(`--engines chromium,chromium-novsync`, novsync raw p99 5.2 ms, GO). Below it, under a header, is the maintainer's
 WebKit run 3 copied verbatim from `measurement-webkit-opt.log` (container, same script; work p99 11 ms,
 NO-GO in both the markdown-on and `md=0` passes). The first, superseded run (old script, WebKit not
 launched) is kept as `measurement-run0-superseded.log`.
@@ -67,15 +67,15 @@ One engine: `spikes/editor/pnpm.sh run build && node spikes/editor/measure.mjs -
 (engines: `chromium`, `chromium-novsync`, `webkit`). Exit 0 = GO, 1 = NO-GO, 2 = an engine could
 not be measured. Raw JSON lands in `data/` (git-ignored).
 
-**WebKit on Fedora.** Playwright doesn't support Fedora and installs its Ubuntu 24.04 WebKit build,
-which needs `libicu*.so.74`, `libjpeg.so.8`, `libjxl.so.0.8` and `libbacktrace.so.0`. Fedora 44 ships
+**WebKit off Ubuntu.** On a distro Playwright doesn't support, it installs its Ubuntu 24.04 WebKit build,
+which needs `libicu*.so.74`, `libjpeg.so.8`, `libjxl.so.0.8` and `libbacktrace.so.0`. The build machine ships
 other sonames, so it won't launch. Run the WebKit part on Ubuntu 24.04 (a CI runner or a container):
 `sudo npx playwright install-deps webkit`, then the three commands above. The runs so far used the
 `mcr.microsoft.com/playwright:v1.64.1-noble` image with only `spikes/editor` mounted, running
 `npx vite build && node measure.mjs --engines webkit` inside it (optimisation round: also
 `node measure.mjs --engines webkit --query md=0 --tag nomd`). Tee the output on the host.
 
-## Results (2026-10-24, Fedora 44 x86-64, headless, Playwright 1.64.1)
+## Results (2026-10-24, Linux x86-64, headless, Playwright 1.64.1)
 
 Fixture: 200 slides, 3,970 lines, 149,654 chars. JS bundle (CM6 + Vim + KaTeX + markdown) 289 KB gz.
 
@@ -84,7 +84,7 @@ Fixture: 200 slides, 3,970 lines, 149,654 chars. JS bundle (CM6 + Vim + KaTeX + 
 | chromium-novsync (raw, budget number) | 77 ms | 2.9 / 4.5 / **5.2** / 6.1 ms | 5.0 → 7.2 → 8.5 MB | 450 → 530 MB |
 | chromium (vsync, work, upper bound) | 83 ms | 4.9 / 7.5 / 19 / 26 ms | 5.0 → 7.4 → 8.5 MB | 447 → 536 MB |
 | chromium (vsync, raw) | 83 ms | 15.2 / 17.5 / 22.7 / 27.3 ms | n/a | n/a |
-| webkit 27.2 (work, upper bound; playwright:v1.64.1-noble container, run by Jay) | 156 ms | 5 / 9 / **11** / 15 ms | n/a | 530 → 568 (scrolled) → 736 MB |
+| webkit 27.2 (work, upper bound; playwright:v1.64.1-noble container, run by the maintainer) | 156 ms | 5 / 9 / **11** / 15 ms | n/a | 530 → 568 (scrolled) → 736 MB |
 | webkit 27.2 (raw) | 156 ms | 15 / 21 / 25 / 34 ms | n/a | n/a |
 
 - **Chromium: GO.** End-to-end p99 is 5.2 ms against 8 ms (4.8 after the optimisation), with headroom. The JS heap stays under 9 MB after every widget has rendered once.
@@ -104,7 +104,7 @@ The earlier numbers are computed exactly as before. Chromium (`.evidence/F-001/m
 |---|---|---|---|---|
 | chromium (vsync) | 2.1 / 6.3 | 3.2 / 15.5 | 20.7 = 3.5 + 17.2 | 3.3 / 6.8 / 7.7 ms |
 | chromium-novsync | 0.8 / 1.9 | 1.4 / 2.4 | 4.5 = 2.0 + 2.5 | 1.1 / 2.3 / 3.4 ms |
-| webkit 27.2 (run 2, Jay's container; 1 ms timer) | 2 / 6 | 2 / 7 | 16 = 8.2 + 7.8 | 4 / 9 / 12 ms |
+| webkit 27.2 (run 2, the maintainer's container; 1 ms timer) | 2 / 6 | 2 / 7 | 16 = 8.2 + 7.8 | 4 / 9 / 12 ms |
 
 WebKit run 2 (`.evidence/F-001/measurement-webkit-split.log`): work 5/9/12/25, raw 15/21/27/29 ms, first paint 153 ms, RSS 526 → 569 → 749 MB. Script verdict **NO-GO** (p99 12). Unlike Chromium, the WebKit tail is about half handler and half frame, not one late frame, and sync p99 is 9 ms (≥ 8). So WebKit's tail is real editor/engine work, not only the artifact.
 
@@ -131,7 +131,7 @@ Chromium before/after (`measurement-chromium-split.log` → `measurement-chromiu
 
 - Keystroke cost in Chromium barely moved (within run-to-run noise), as the profile predicted: the decoration code wasn't the cost. Leaving out markdown lowers handler and sync p50 by about 0.3 ms (novsync) and 1.1 ms (vsync sync p50). The p99 differences are within noise of single runs.
 - First paint improved (lazy chunks), and the main chunk is now within `ui_main_chunk_kb_gz`.
-WebKit 27.2, all runs (Jay's `playwright:v1.64.1-noble` container; 1 ms timer, so every number is an
+WebKit 27.2, all runs (the maintainer's `playwright:v1.64.1-noble` container; 1 ms timer, so every number is an
 integer; `measurement-webkit.log`, `measurement-webkit-split.log`, `measurement-webkit-opt.log`):
 
 | WebKit run | first paint | work p50/p95/p99/max | raw p50/p95/p99/max | handler p50/p95/p99/max | frame p50/p95/p99/max | slowest 5 % / 1 % (work = h + f) | sync p50/p95/p99/max | RSS load → scrolled → typed | script |
@@ -147,7 +147,7 @@ integer; `measurement-webkit.log`, `measurement-webkit-split.log`, `measurement-
 
 ## Conclusion
 
-Jay decided the stack: **D-080** (CodeMirror 6 surface: GO with conditions) and **D-081**
+The maintainer decided the stack: **D-080** (CodeMirror 6 surface: GO with conditions) and **D-081**
 (Performance / Balanced / Quality presets, Balanced the default; in Balanced, Markdown highlighting
 runs after a typing pause instead of on each keystroke). Both point to the tables above for the
 numbers. The spike stays as measured; the presets are not built here.

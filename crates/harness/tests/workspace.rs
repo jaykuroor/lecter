@@ -21,7 +21,7 @@ const ALLOWED_LICENSES: [&str; 11] = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
     "CC0-1.0",
-    // D-067: Jay allows it for target-lexicon (Tauri's tree); the exception only widens Apache-2.0.
+    // D-067: the maintainer allows it for target-lexicon (Tauri's tree); the exception only widens Apache-2.0.
     "Apache-2.0 WITH LLVM-exception",
 ];
 

@@ -8,5 +8,5 @@
   - Edits are auto-formatted. Stop runs a secret scan, and in loop runs refuses to end until work and PROGRESS are committed.
 - **Skills:** `verify` (run and narrow checks), `spec-check` (criteria → tests), `drive-app` (run the real app, screenshots, evidence), `handoff` (PROGRESS/DECISIONS/QUESTIONS formats), `add-dependency`.
 - **Subagents:** `reviewer` and `security-reviewer` (fresh-context review before done), `builder` (orchestrator only), `gardener`, `Explore` (only for searches that span several crates; `rg` first).
-- **Run modes:** `PROMPT.md` (one feature, then stop), `PROMPT.orchestrate.md` (Jay's session dispatches builders), `scripts/loop.sh` (headless, sequential).
+- **Run modes:** `PROMPT.md` (one feature, then stop), `PROMPT.orchestrate.md` (the maintainer's session dispatches builders), `scripts/loop.sh` (headless, sequential).
 - Use a task list for the feature's steps; it survives compaction.

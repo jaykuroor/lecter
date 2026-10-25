@@ -7,8 +7,8 @@ Blocks, for file edits:
   shared state files      (PROGRESS, DECISIONS, QUESTIONS, CHANGELOG, README) from inside a builder worktree
   protected checks        (PROTECTED below) unless the in-progress feature lists the file under `protected`;
                           new files are fine (docs/spec/14-quality.md#protected-checks)
-  kit files               .claude/settings*.json, scripts/hooks/**, the lint scripts (Jay only: LECTER_KIT_EDIT=1)
-  anything outside the project, secret files (.env, *.pem, *.key) and Jay's live keys file
+  kit files               .claude/settings*.json, scripts/hooks/**, the lint scripts (the maintainer only: LECTER_KIT_EDIT=1)
+  anything outside the project, secret files (.env, *.pem, *.key) and the live keys file
 Blocks, for shell commands:
   git push (unless LECTER_ALLOW_PUSH=1), any force push, history rewrites, mass deletes, find -delete,
   --no-verify, the verify green cache (.git/lecter-verify-cache), writes to features.json, the spec or protected files through the shell, cargo/pnpm/npm add
@@ -68,7 +68,7 @@ def check_path(raw, cwd=None):
     if "lecter-verify-cache" in str(p) and not KIT_EDIT:
         block("the verify cache is written only by scripts/verify.sh. Run it; use --no-cache for a full run.")
     if KEYS.search(str(p)):
-        block("Jay's live keys are never read or written by agents. Live commands run through scripts/live.sh.")
+        block("The live keys are never read or written by agents. Live commands run through scripts/live.sh.")
     if re.search(r"(^|/)\.env(\.|$)|\.(pem|key|p12)$", rel):
         block("secret files are off limits.")
     if rel == "docs/features.json":
@@ -79,7 +79,7 @@ def check_path(raw, cwd=None):
     if (root / ".git").is_file() and rel in SHARED_STATE:  # inside a git worktree = a builder
         block(f"{rel} is written only by the orchestrator in the main checkout. Put this in your final report.")
     if _match(rel, KIT_FILES) and not KIT_EDIT:
-        block("guardrail files are Jay's. Propose the change in docs/QUESTIONS.md.")
+        block("guardrail files are the maintainer's. Propose the change in docs/QUESTIONS.md.")
     if _match(rel, PROTECTED) and p.exists() and not KIT_EDIT and not protected_ok(root, rel):
         block(f"{rel} is a protected check. Make the code meet it; if it can't be met as specified, report "
               "IMPOSSIBLE with evidence (docs/spec/14-quality.md#when-the-criteria-cant-be-met). New tests and new "
@@ -87,8 +87,8 @@ def check_path(raw, cwd=None):
 
 
 BASH_RULES = [
-    (r"\bgit\s+push\b.*(--tags|--follow-tags|\brefs/tags/|\s+v\d+\.\d+)", "tags and releases are Jay's."),
-    (r"\bgit\s+tag\b", "tags and releases are Jay's."),
+    (r"\bgit\s+push\b.*(--tags|--follow-tags|\brefs/tags/|\s+v\d+\.\d+)", "tags and releases are the maintainer's."),
+    (r"\bgit\s+tag\b", "tags and releases are the maintainer's."),
     (r"\bgit\s+add\b.*(\s-f\b|--force)", "force-adding ignored files is blocked (it is how private files leak)."),
     (r"\bgit\s+add\b.*tests/corpus/private", "tests/corpus/private is confidential and never committed."),
     (r"\b(cp|mv|ln|rsync|install)\b[^|;&]*tests/corpus/private\S*\s+(?!\S*tests/corpus/private)\S+", "private corpus files never leave tests/corpus/private."),
@@ -120,7 +120,7 @@ def normalise(cmd):
 def check_bash(cmd, cwd=None):
     cmd = normalise(cmd)
     if re.search(r"\bgit\s+push\b", cmd) and os.environ.get("LECTER_ALLOW_PUSH") != "1":
-        block("pushing is off until Jay sets LECTER_ALLOW_PUSH=1. Commit locally.")
+        block("pushing is off until the maintainer sets LECTER_ALLOW_PUSH=1. Commit locally.")
     if "lecter-verify-cache" in cmd and not KIT_EDIT:
         block("the verify cache is written only by scripts/verify.sh. Run it; use --no-cache for a full run.")
     for pat, msg in BASH_RULES:
@@ -129,7 +129,7 @@ def check_bash(cmd, cwd=None):
     if not PLANNING and re.search(r"(>|sed\s+-i[^|]*|tee\s)\s*\S*docs/spec/", cmd):
         block("the spec is read-only in build sessions.")
     if KEYS.search(cmd) and not re.match(r"\s*scripts/live\.sh\s", cmd):
-        block("Jay's live keys are never read by agents. Live commands run through scripts/live.sh F-0NN -- <cmd>.")
+        block("The live keys are never read by agents. Live commands run through scripts/live.sh F-0NN -- <cmd>.")
     if not KIT_EDIT:
         root = checkout_root(Path(cwd or os.getcwd()).resolve()) or Path(os.getcwd())
         for rx in WRITE_TARGETS:
@@ -140,7 +140,7 @@ def check_bash(cmd, cwd=None):
                 except ValueError:
                     continue
                 if _match(rel, KIT_FILES):
-                    block(f"{rel} is a guardrail file (Jay's).")
+                    block(f"{rel} is a guardrail file (the maintainer's).")
                 if _match(rel, PROTECTED) and (root / rel).exists() and not protected_ok(root, rel):
                     block(f"{rel} is a protected check; shell writes to it are blocked too (docs/spec/14-quality.md#protected-checks).")
 
