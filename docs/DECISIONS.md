@@ -600,3 +600,28 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: IPC guard tests call from the platform's local origin (`http://tauri.localhost` on Windows/Android, `tauri://localhost` elsewhere). The non-UTF-8 file-name test is `cfg(all(unix, not(target_vendor = "apple")))` (APFS/HFS+ refuse such names). e2e flows compare paths with `realpathSync.native` (expands Windows 8.3 short names like Rust's canonicalize). Doc comments on specta `Type`s are compiled into the binary, so they must not name test-only tools.
 - Why: each was a CI failure on macOS, Windows or release-check that Linux didn't show.
 - Instead of: runtime skips; loosened path comparisons; a weaker release check.
+
+## D-111 · Worker protocol framing and block shape
+2026-10-25 · session F-019 · active
+- Decision: frames are a 4-byte little-endian length plus a postcard body, capped at 128 MiB and checked before allocation on both ends. `Block{id "s<p>b<n>", page, kind, text, bbox, method, confidence}`; bbox in PDF points with a top-left origin. Worker failures carry `FailCode` io/unreadable/limit/engine, and every worker failure maps to E_PARSE_FAILED. SEC-04 limits in SI units (500 000 000 B file, 1 000 000 B text per page); the worker enforces file, page and text limits.
+- Why: 18-contracts says only "length-prefixed"; one error code keeps the UI simple.
+- Instead of: a varint prefix; a separate E_IO.
+- Revisit if: image/OCR features need the megapixel and depth limits enforced (F-057+).
+
+## D-112 · Core runs the worker with tokio; fakes in Python
+2026-10-25 · session F-019 · active
+- Decision: the core spawns the worker with tokio (process, time, io-util, macros; `kill_on_drop`; stderr inherited) under a 60 s limit. Core tests use small Python fake workers (crash mid-frame with `os._exit(70)`, real `os.abort()` at start, hang, garbage, bad Hello, exit 0/7); they probe python3, python, py. On Windows an exit code ≥ 0xC0000000 is shown as hex ("it crashed (0xC0000409)").
+- Why: core tests can't build the lecter-parse binary; `os.abort()` exits 0xC0000409 on Windows (CI run 40230309165); NTSTATUS codes are documented in hex.
+- Instead of: std threads; re-executing the test binary (libtest writes to stdout); a signed-decimal Windows code.
+
+## D-113 · PDFium location and the CI cache
+2026-10-25 · session F-019 · active
+- Decision: lecter-parse loads PDFium only from an absolute `--pdfium-dir`, with no fallback. Dev and tests find `target/pdfium/chromium-7881/<host>` by walking up; `LECTER_PDFIUM_DIR` overrides it in the harness and tests only. The fetch script and pins stay in `spikes/pdfium`. The cache step lives in `.github/actions/setup/action.yml` (actions/cache v6.0.0 pinned by SHA, key os/arch + pins.json hash), used by every job. `lecter-harness parse` runs itself as the worker (`__parse-worker`). The bundled app's PDFium dir is passed by whoever builds `WorkerCommand` (packaging feature).
+- Why: D-087 (never the system library), D-108 (tests offline); the setup action already holds setup steps; the sibling lecter-parse binary is missing under `-p` and cargo-mutants.
+- Instead of: ci.yml (protected); requiring a built lecter-parse for the harness.
+
+## D-114 · lecter-parse dependencies added
+2026-10-25 · session F-019 · active
+- Decision: `postcard` (3 crates), `pdfium-render` (D-085), `tokio` (workspace dependency, default features off), plus already-in-tree `serde`, `thiserror`, `serde_json`.
+- Why: Dep-Added trailers on F-019 commits; check_deps OK.
+- Instead of: see D-111 and D-112.
