@@ -223,14 +223,10 @@ fn ci_caches_the_pinned_pdfium_keyed_on_the_pins_before_init() -> Result<(), Str
     let step = &setup[cache..];
     let step = &step[..step[1..].find("\n    - ").map_or(step.len(), |i| i + 1)];
     for needle in ["actions/cache@", "path: target/pdfium", "hashFiles('spikes/pdfium/pins.json')"] {
-        if !step.contains(needle) {
-            return Err(format!("the PDFium cache step lacks `{needle}`:\n{step}"));
-        }
+        assert!(step.contains(needle), "the PDFium cache step lacks `{needle}`:\n{step}");
     }
     let init = setup.find("run: scripts/init.sh").ok_or("the setup action doesn't run init.sh")?;
-    if init < cache {
-        return Err("the PDFium cache must be restored before init.sh fetches PDFium".into());
-    }
+    assert!(init > cache, "the PDFium cache must be restored before init.sh fetches PDFium");
     Ok(())
 }
 

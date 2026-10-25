@@ -106,7 +106,7 @@ fn continues(group: &[Run], line: &Run) -> bool {
     let (big, small) = (last.height().max(line.height()), last.height().min(line.height()));
     let gap = last.bottom - line.top;
     let overlaps = line.left < last.right && last.left < line.right;
-    gap <= SAME_BLOCK_MAX_GAP * big && big <= SAME_BLOCK_MAX_SIZE_RATIO * small && overlaps && line.top < last.top
+    gap <= SAME_BLOCK_MAX_GAP * big && big <= SAME_BLOCK_MAX_SIZE_RATIO * small && overlaps
 }
 
 /// The block numbered `n` on `page` from its lines.

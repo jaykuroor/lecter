@@ -156,23 +156,17 @@ fn locally_a_stale_lockfile_still_falls_back_to_an_unlocked_install() -> Result<
 #[test]
 fn init_fetches_the_pinned_pdfium_through_the_checked_script() -> Result<(), String> {
     let r = init(&[("CI", "true")])?;
-    if r.code != 0 {
-        return Err(format!("init.sh failed ({}):\n{}", r.code, r.out));
-    }
-    if !r.calls.iter().any(|c| c == "python3 -I spikes/pdfium/fetch_pdfium.py") {
-        return Err(format!("no PDFium fetch:\n{}", r.calls.join("\n")));
-    }
+    assert_eq!(r.code, 0, "init.sh failed:\n{}", r.out);
+    let fetches: Vec<&String> = r.calls.iter().filter(|c| c.contains("fetch_pdfium.py")).collect();
+    assert_eq!(fetches, ["python3 -I spikes/pdfium/fetch_pdfium.py"], "{}", r.calls.join("\n"));
     Ok(())
 }
 
 #[test]
 fn a_pdfium_checksum_mismatch_fails_init() -> Result<(), String> {
     let r = init(&[("CI", "true"), ("FAIL_PDFIUM", "1")])?;
-    if r.code == 0 || r.out.contains("INIT OK") {
-        return Err(format!("init.sh passed with a PDFium checksum mismatch:\n{}", r.out));
-    }
-    if !r.out.contains("Fetching the pinned PDFium failed") {
-        return Err(format!("the failure doesn't name PDFium:\n{}", r.out));
-    }
+    assert_ne!(r.code, 0, "init.sh passed with a PDFium checksum mismatch:\n{}", r.out);
+    assert!(!r.out.contains("INIT OK"), "{}", r.out);
+    assert!(r.out.contains("Fetching the pinned PDFium failed"), "{}", r.out);
     Ok(())
 }

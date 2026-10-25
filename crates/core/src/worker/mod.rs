@@ -12,8 +12,8 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::time::Duration;
 
-pub use lecter_parse::proto::{BBox, Block, BlockKind, Codec, Crop, Figure, Limits, Method};
 use lecter_parse::proto::PDFIUM_DIR_FLAG;
+pub use lecter_parse::proto::{BBox, Block, BlockKind, Codec, Crop, Figure, Limits, Method};
 pub use parse::{Parsed, parse_file};
 
 /// SEC-01's time limit for one file.

@@ -91,6 +91,13 @@ fn clean_eof_before_a_frame_is_none_but_a_cut_frame_is_an_error() {
 }
 
 #[test]
+fn a_frame_holds_up_to_128_mib() {
+    // 2,000 pages of slide text plus boxes is tens of MiB as JSON; the cap leaves room for that.
+    assert_eq!(MAX_FRAME_BYTES, 128 << 20);
+    assert_eq!(body_len((64u32 << 20).to_le_bytes()).unwrap(), 64 << 20);
+}
+
+#[test]
 fn a_length_over_the_limit_is_refused_before_reading_the_body() {
     assert_eq!(body_len((MAX_FRAME_BYTES as u32).to_le_bytes()).unwrap(), MAX_FRAME_BYTES);
     let over = (MAX_FRAME_BYTES as u32 + 1).to_le_bytes();

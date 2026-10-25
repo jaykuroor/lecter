@@ -68,6 +68,11 @@ fn a_page_with_more_text_than_the_limit_fails() {
     // Page 1 holds 114 bytes of text in four runs, none longer than 36.
     let e = pdf::read(pdfium(), &path, &Limits { page_text_bytes: 40, ..Limits::default() }, |_, _| {}).unwrap_err();
     assert!(matches!(&e, Error::Limit(m) if m.starts_with("page 1 ") && m.contains("limits.page_text_bytes")), "{e:?}");
+    // Exactly at the limit is allowed; one byte less is not.
+    let at = pdf::read(pdfium(), &path, &Limits { page_text_bytes: 114, ..Limits::default() }, |_, _| {});
+    assert_eq!(at.map(|b| b.len()), Ok(5));
+    let e = pdf::read(pdfium(), &path, &Limits { page_text_bytes: 113, ..Limits::default() }, |_, _| {}).unwrap_err();
+    assert!(matches!(&e, Error::Limit(m) if m.starts_with("page 1 ")), "{e:?}");
 }
 
 #[test]

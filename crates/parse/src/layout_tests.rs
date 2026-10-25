@@ -86,6 +86,11 @@ fn a_gap_of_three_heights_is_still_one_line_and_more_is_two() {
     assert_eq!(texts(&one), [("s1b1", "a b")]);
     let two = blocks(1, 792.0, vec![run("a", 72.0, 700.0, 100.0, 716.0), run("b", 148.5, 700.0, 170.0, 716.0)]);
     assert_eq!(texts(&two), [("s1b1", "a"), ("s1b2", "b")]);
+    // The same with the right-hand run half a point higher, so it is seen first.
+    let one = blocks(1, 792.0, vec![run("a", 72.0, 700.0, 100.0, 716.0), run("b", 148.0, 700.5, 170.0, 716.5)]);
+    assert_eq!(texts(&one), [("s1b1", "a b")]);
+    let two = blocks(1, 792.0, vec![run("a", 72.0, 700.0, 100.0, 716.0), run("b", 148.5, 700.5, 170.0, 716.5)]);
+    assert_eq!(texts(&two), [("s1b1", "b"), ("s1b2", "a")]);
 }
 
 #[test]
@@ -100,6 +105,8 @@ fn half_a_height_of_vertical_overlap_is_one_line_and_less_is_two() {
 #[test]
 fn lines_that_do_not_overlap_horizontally_are_separate_blocks() {
     let b = blocks(1, 792.0, vec![run("a", 72.0, 700.0, 200.0, 716.0), run("b", 200.0, 680.0, 300.0, 696.0)]);
+    assert_eq!(texts(&b), [("s1b1", "a"), ("s1b2", "b")]);
+    let b = blocks(1, 792.0, vec![run("a", 200.0, 700.0, 300.0, 716.0), run("b", 72.0, 680.0, 200.0, 696.0)]);
     assert_eq!(texts(&b), [("s1b1", "a"), ("s1b2", "b")]);
 }
 

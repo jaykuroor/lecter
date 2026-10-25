@@ -34,6 +34,10 @@ if mode == "no-hello":
 send({"Hello": {"proto_version": version}})
 assert recv() == {"Hello": {"proto_version": version}}
 job = recv()["Parse"]
+if mode == "exit-7":
+    sys.exit(7)
+if mode == "exit-0":
+    sys.exit(0)
 if mode == "crash":
     send({"Progress": {"page": 1, "pages": 3}})
     os.abort()
@@ -128,8 +132,18 @@ async fn worker_done_returns_the_blocks_and_relays_progress() {
 async fn worker_crash_mid_parse_is_parse_failed() {
     let (r, seen) = run("crash", PARSE_TIMEOUT).await;
     let msg = parse_failed(r);
-    assert!(msg.starts_with("The parse worker stopped unexpectedly"), "{msg}");
+    // Python's abort() is SIGABRT on Unix and exit code 3 on Windows.
+    let how = if cfg!(unix) { "it crashed" } else { "exit code 3" };
+    assert_eq!(msg, format!("The parse worker stopped unexpectedly (its output ended; {how})."));
     assert_eq!(seen, [(1, 3)]);
+}
+
+#[tokio::test]
+async fn worker_exiting_without_an_answer_is_parse_failed_with_its_status() {
+    let msg = parse_failed(run("exit-7", PARSE_TIMEOUT).await.0);
+    assert_eq!(msg, "The parse worker stopped unexpectedly (its output ended; exit code 7).");
+    let msg = parse_failed(run("exit-0", PARSE_TIMEOUT).await.0);
+    assert_eq!(msg, "The parse worker stopped unexpectedly (its output ended; it exited without an error).");
 }
 
 #[tokio::test]
