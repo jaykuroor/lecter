@@ -279,8 +279,8 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "in_progress",
-   "notes": "",
+   "status": "blocked",
+   "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox.",
    "priority": 1006,
    "base": "d51d35fc12ca12a273acde87f9d2026a071d0439"
   },

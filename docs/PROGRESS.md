@@ -4,15 +4,21 @@
 
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (lint, test on ubuntu/macos/windows, e2e) is green on main (run 40106531943).
-- Milestone: M0 spikes (F-005, F-006 left), then M0.5 · last done: F-001 Spike: CodeMirror lecture surface · gate: M0 passed
-- Resume point (2026-10-24 11:55): dispatching F-005 Spike: parse-worker OS sandboxes
+- Milestone: M0 spikes (F-006 left; F-005 blocked), then M0.5 · last done: F-001 Spike: CodeMirror lecture surface · gate: M0 passed
+- Resume point (2026-10-24 21:32): F-005 blocked on Q-008; next dispatch F-006
 - In progress: none
-- Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). Playwright WebKit can't launch on Fedora 44; measure WebKit in the `mcr.microsoft.com/playwright:v1.64.1-noble` container (podman, run by the author outside the sandbox; command in spikes/editor/README.md). WebKit timers are 1 ms and it has no heap API. The editor's WebKit keystroke budget is decided by the real-app trace in F-016 (D-080), and performance presets await the planning session (Q-006). The sandbox can't push; the author pushes.
-- Next up: F-005 Spike: parse-worker OS sandboxes, then F-006.
+- Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). Playwright WebKit can't launch on Fedora 44; measure WebKit in the `mcr.microsoft.com/playwright:v1.64.1-noble` container (podman, run by the author outside the sandbox; command in spikes/editor/README.md). WebKit timers are 1 ms and it has no heap API. The editor's WebKit keystroke budget is decided by the real-app trace in F-016 (D-080), and performance presets await the planning session (Q-006). The sandbox can't push; the author pushes, and runs CI on a branch with `gh workflow run ci.yml --ref <branch>` when macOS/Windows results are needed before a merge. nextest fail-fast in verify.sh hides later tests after the first failure. In the sandbox, `gh run view --log` needs `XDG_CACHE_HOME=$TMPDIR/cache`.
+- Next up: F-006 Spike: PDFium bundling per OS. F-005 is blocked on Q-008 (planning).
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-005 · blocked (IMPOSSIBLE on Windows)
+- Built: OS sandbox spike crate (`spikes/os-sandbox`, branch `feat/F-005-os-sandbox` at the builder's last commit), with 11 tests per OS. Linux and macOS GO. Windows meets everything except "no file other than its input" (OS files granted to ALL RESTRICTED APPLICATION PACKAGES stay readable). Lockdown token attempt failed at start-up.
+- Review: reviewer FIX (go/no-go line) → fixed; security review: 7 findings (input ACE, fork, inherited fds, LPAC, Landlock bits, thread sync, handle list) → fixed with tests, plus 2 carry-forward requirements. Reviewer agreed with IMPOSSIBLE.
+- CI on the branch: runs 40119212625, 40119881557, 40120703752, 40153640323 and 40154388308 (spike bugs on macOS/Windows fixed along the way).
+- Decisions: D-082 (spike crates in check_arch; the author applied the kit change), D-083 (per-OS result). Q-008 for planning.
 
 ### 2026-10-24 · F-001 · done
 - Built: throwaway CodeMirror 6 + Vim + KaTeX + gloss lecture-surface spike (200-slide synthetic fixture) and a Playwright measurement and profiling script. Chromium GO (novsync p99 4.8–5.2 ms). Headless WebKit is NO-GO end to end (work p99 11–12 ms; sync p99 7 ms with the Markdown parse off). Lazy KaTeX/markdown took the main chunk from 289 to 140 KB gz.

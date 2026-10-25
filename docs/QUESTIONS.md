@@ -58,5 +58,10 @@ Mention spike crates in the 01-architecture crate table (D-082).
 - Context: check_arch.py now allows `lecter-spike-*` crates under `spikes/` with no Lecter dependencies (D-082, applied by the author). The spec table doesn't mention them yet.
 - Recommendation: add one line under the 01-architecture crate table: "Spike crates (`spikes/*`, `lecter-spike-*`) are throwaway, may depend on no Lecter crate, and are never depended on."
 
+## Q-008 · planning · blocks: F-005
+Windows parse-worker sandbox: accept the LPAC boundary in SEC-01, or require more?
+- Context: F-005 criterion 1 says the sandboxed child can't "read a file other than its input". On Windows (LPAC AppContainer + job object), CI run 40154388308 passes 55/56. The child can still read `%SystemRoot%\win.ini` through the inherited `(A;ID;0x1200a9;;;S-1-15-2-2)` grant (ALL RESTRICTED APPLICATION PACKAGES, read/execute), which LPAC honours by design. One attempt with a Chromium-style lockdown token (30934ba, run 40153640323) fails at start-up (0xC0000135). The reviewer agreed with IMPOSSIBLE. Evidence: `.evidence/F-005/windows-ci.log`, the spike README, D-083.
+- Recommendation: change SEC-01 for Windows to: "Windows: LPAC AppContainer + job object. Besides its input (passed as a handle), the worker can read only files whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files). Files without that grant, including everything under the user profile, are denied." Keep the rest of SEC-01 (no network, 1 GB, one process). Then update F-005's system-file test to match (for example, a file under the user profile must be denied) and merge the branch. If OS files must be denied too, add a separate parse-worker feature that retries the lockdown token from 30934ba and solves start-up DLL loading.
+
 ## Gate notes
 <!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->
