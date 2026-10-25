@@ -17,7 +17,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-serde_json = "1.0.154"
+serde_json.workspace = true
 
 [dev-dependencies]
 # TestEnv (a throwaway LECTER_TEST_HOME) for the tests that run the binary. test-hooks keeps it in
