@@ -8,15 +8,17 @@ import "./CoursePanel.css";
  * course's name and its `lectures/` and `slides/` files. The course rail (F-035) and the trust
  * screen (F-033) replace this skeleton.
  */
-export function CoursePanel(props: { state: CourseState }): JSX.Element {
+export function CoursePanel(props: {
+  state: CourseState;
+  /** Opens a lecture (course-relative path) in the buffer. */
+  onOpenLecture: (path: string) => void;
+  /** The lecture in the buffer, highlighted in the list. */
+  openLecture: string | null;
+}): JSX.Element {
   // Enter and Space are handled here, not left to the browser's button activation: that runs
   // only for trusted key events, so a synthetic key (the embedded WebDriver, assistive tools)
   // would never open the dialog. preventDefault stops a real keypress from also clicking.
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    e.preventDefault();
-    void props.state.open();
-  };
+  const onKeyDown = (e: KeyboardEvent) => onActivateKey(e, () => void props.state.open());
   return (
     <div class="course-panel">
       <button
@@ -42,7 +44,13 @@ export function CoursePanel(props: { state: CourseState }): JSX.Element {
             <h2 class="course-name" title={course().path}>
               {course().name}
             </h2>
-            <FileList label="Lectures" empty="No lectures yet" files={course().lectures} />
+            <FileList
+              label="Lectures"
+              empty="No lectures yet"
+              files={course().lectures}
+              onOpen={props.onOpenLecture}
+              current={props.openLecture}
+            />
             <FileList label="Slides" empty="No slides yet" files={course().slides} />
           </section>
         )}
@@ -51,7 +59,21 @@ export function CoursePanel(props: { state: CourseState }): JSX.Element {
   );
 }
 
-function FileList(props: { label: string; empty: string; files: CourseFile[] }): JSX.Element {
+/** Enter and Space activate a row button in the app's own handler (see the Open button above). */
+function onActivateKey(e: KeyboardEvent, activate: () => void): void {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  e.preventDefault();
+  activate();
+}
+
+function FileList(props: {
+  label: string;
+  empty: string;
+  files: CourseFile[];
+  /** Makes each row a button that opens its file. */
+  onOpen?: (path: string) => void;
+  current?: string | null;
+}): JSX.Element {
   return (
     <section class="course-section" aria-label={props.label}>
       <h3 class="rlab">
@@ -62,7 +84,19 @@ function FileList(props: { label: string; empty: string; files: CourseFile[] }):
           <For each={props.files}>
             {(f) => (
               <li class="course-file" title={f.path}>
-                {f.name}
+                <Show when={props.onOpen} fallback={f.name}>
+                  {(open) => (
+                    <button
+                      type="button"
+                      class="course-file-open"
+                      aria-current={props.current === f.path ? "page" : undefined}
+                      onClick={() => open()(f.path)}
+                      onKeyDown={(e) => onActivateKey(e, () => open()(f.path))}
+                    >
+                      {f.name}
+                    </button>
+                  )}
+                </Show>
               </li>
             )}
           </For>

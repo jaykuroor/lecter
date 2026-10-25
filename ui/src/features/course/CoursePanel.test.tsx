@@ -17,11 +17,11 @@ const stat311: CourseOpened = {
   trust: "ask",
 };
 
-function mount() {
+function mount(onOpenLecture: (path: string) => void = () => {}, openLecture: string | null = null) {
   // One state per mount: a call inside the JSX prop would run again on every read of the prop.
   render(() => {
     const state = createCourse();
-    return <CoursePanel state={state} />;
+    return <CoursePanel state={state} onOpenLecture={onOpenLecture} openLecture={openLecture} />;
   });
   return screen.getByRole("button", { name: /open course folder/i });
 }
@@ -138,5 +138,31 @@ describe("CoursePanel", () => {
     answer(stat311);
     expect(await screen.findByRole("region", { name: "Course STAT311" })).toBeTruthy();
     expect(open.disabled).toBe(false);
+  });
+
+  // F-020: a lecture opens from the rail by mouse and by key; slide files don't open (yet).
+  it("opens a lecture on click, Enter or Space, and marks the open one", async () => {
+    installMockCore({ ...defaultFixture, courseOpen: stat311 });
+    const opened: string[] = [];
+    fireEvent.click(mount((path) => opened.push(path), "lectures/2026-09-09-l02-probability.md"));
+    const lectures = await screen.findByRole("region", { name: "Lectures" });
+    const [first, second] = within(lectures).getAllByRole("button");
+    if (!first || !second) throw new Error("no lecture buttons");
+    expect([first.textContent, second.textContent]).toEqual([
+      "2026-09-02-l01-introduction.md",
+      "2026-09-09-l02-probability.md",
+    ]);
+    expect([first.getAttribute("aria-current"), second.getAttribute("aria-current")]).toEqual([null, "page"]);
+    fireEvent.click(first);
+    expect(fireEvent.keyDown(second, { key: "Enter" })).toBe(false);
+    expect(fireEvent.keyDown(first, { key: " " })).toBe(false);
+    expect(fireEvent.keyDown(first, { key: "a" })).toBe(true);
+    expect(opened).toEqual([
+      "lectures/2026-09-02-l01-introduction.md",
+      "lectures/2026-09-09-l02-probability.md",
+      "lectures/2026-09-02-l01-introduction.md",
+    ]);
+    const slides = screen.getByRole("region", { name: "Slides" });
+    expect(within(slides).queryAllByRole("button")).toHaveLength(0);
   });
 });
