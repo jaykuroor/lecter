@@ -36,19 +36,38 @@ pub fn default_cache_dir() -> PathBuf {
     spike_dir().join("..").join("..").join("target").join("pdfium")
 }
 
-/// Runs `fetch_pdfium.py` with `args` under the first Python launcher that starts.
-pub fn run_fetch_script(args: &[&str]) -> Result<Output, SpikeError> {
-    let script = spike_dir().join("fetch_pdfium.py");
+/// The first launcher, in the same order on every OS, that really runs Python 3. Each is probed
+/// with a one-line program, so a launcher that starts but isn't Python (the Windows Store stub
+/// exits 9009 with nothing on stdout) is skipped.
+pub fn find_python() -> Result<&'static str, SpikeError> {
     let mut tried = Vec::new();
-    // On Windows `python3` can be the Microsoft Store stub, so try the real launchers first.
-    let candidates: &[&str] = if cfg!(windows) { &["python", "py", "python3"] } else { &["python3", "python"] };
-    for &python in candidates {
-        match Command::new(python).arg("-I").arg(&script).args(args).output() {
-            Ok(out) => return Ok(out),
+    for python in ["python3", "python", "py"] {
+        match Command::new(python).args(["-I", "-c", "import sys; print(sys.version_info[0])"]).output() {
+            Ok(out) if out.status.success() && String::from_utf8_lossy(&out.stdout).trim() == "3" => {
+                return Ok(python);
+            }
+            Ok(out) => tried.push(format!(
+                "{python}: exit {:?}, stdout {:?}, stderr {:?}",
+                out.status.code(),
+                String::from_utf8_lossy(&out.stdout).trim(),
+                String::from_utf8_lossy(&out.stderr).trim()
+            )),
             Err(e) => tried.push(format!("{python}: {e}")),
         }
     }
-    Err(SpikeError(format!("could not start Python to run {}: {}", script.display(), tried.join("; "))))
+    Err(SpikeError(format!("no working Python 3 launcher: {}", tried.join("; "))))
+}
+
+/// Runs `fetch_pdfium.py` with `args` under the first working Python 3.
+pub fn run_fetch_script(args: &[&str]) -> Result<Output, SpikeError> {
+    let script = spike_dir().join("fetch_pdfium.py");
+    let python = find_python()?;
+    Command::new(python)
+        .arg("-I")
+        .arg(&script)
+        .args(args)
+        .output()
+        .map_err(|e| SpikeError(format!("could not run {python} {}: {e}", script.display())))
 }
 
 /// Downloads (or reuses) the host's pinned PDFium in `cache`, verified against `pins.json`, and

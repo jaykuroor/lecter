@@ -3,7 +3,7 @@
   "tag": "chromium/7881",
   "published": "2026-06-08",
   "pdfium_version": "151.0.7881.0",
-  "licence": "PDFium BSD-3-Clause (licenses/pdfium.txt); bundled third-party code under its own notices in licenses/ (FreeType, ICU, libjpeg-turbo, OpenJPEG, libtiff, libpng, lcms, zlib, abseil, AGG, fast_float, simdutf, llvm-libc); build scripts MIT (LICENSE)",
+  "licence": "PDFium BSD-3-Clause AND Apache-2.0 (both texts in licenses/pdfium.txt); bundled third-party code under its own notices in licenses/ (FreeType, ICU, libjpeg-turbo, OpenJPEG, libtiff, libpng, lcms, zlib, abseil, AGG, fast_float, simdutf, llvm-libc); build scripts MIT (LICENSE)",
   "targets": {
     "linux-x64": {
       "asset": "pdfium-linux-x64.tgz",
