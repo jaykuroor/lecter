@@ -63,5 +63,10 @@ Windows parse-worker sandbox: accept the LPAC boundary in SEC-01, or require mor
 - Context: F-005 criterion 1 says the sandboxed child can't "read a file other than its input". On Windows (LPAC AppContainer + job object), CI run 40154388308 passes 55/56. The child can still read `%SystemRoot%\win.ini` through the inherited `(A;ID;0x1200a9;;;S-1-15-2-2)` grant (ALL RESTRICTED APPLICATION PACKAGES, read/execute), which LPAC honours by design. One attempt with a Chromium-style lockdown token (30934ba, run 40153640323) fails at start-up (0xC0000135). The reviewer agreed with IMPOSSIBLE. Evidence: `.evidence/F-005/windows-ci.log`, the spike README, D-083.
 - Recommendation: change SEC-01 for Windows to: "Windows: LPAC AppContainer + job object. Besides its input (passed as a handle), the worker can read only files whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files). Files without that grant, including everything under the user profile, are denied." Keep the rest of SEC-01 (no network, 1 GB, one process). Then update F-005's system-file test to match (for example, a file under the user profile must be denied) and merge the branch. If OS files must be denied too, add a separate parse-worker feature that retries the lockdown token from 30934ba and solves start-up DLL loading.
 
+## Q-009 · planning · blocks: the first shipping crate that loads PDFium
+Add a pinned PDFium CI setup step, so tests stop downloading (D-086).
+- Context: F-006's spike tests download PDFium (~25 MB, SHA-256-checked) on every fresh CI runner, as an exception to the no-network rule (D-086).
+- Recommendation: a CI step (and an init.sh step locally) that runs `fetch_pdfium.py` with an `actions/cache` keyed on `pins.json`. Tests then only read the verified local file, and are offline. Make it part of the parse crate's feature or a small CI feature.
+
 ## Gate notes
 <!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->

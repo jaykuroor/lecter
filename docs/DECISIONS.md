@@ -440,3 +440,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Lecter's PDFium is the prebuilt release from github.com/bblanchon/pdfium-binaries at one fixed release tag. PDFium itself is BSD-3-Clause/Apache-2.0; the build scripts are MIT. The download script pins a SHA-256 for each of linux-x64, linux-arm64, macos-universal, windows-x64 and windows-arm64, and refuses any file that doesn't match before it is used (SEC-51).
 - Why: it is the source pdfium-render documents. Prebuilt binaries for all five targets avoid a depot_tools/gn build per OS.
 - Instead of: building PDFium from Google's source in CI.
+
+## D-085 · pdfium-render approved as a dependency
+2026-10-24 · Who: Jay · active
+- Decision: `pdfium-render` 0.9.4 (MIT OR Apache-2.0; 9 crates with default features off; features `thread_safe`, `pdfium_7881`) may be used to load PDFium dynamically. The F-006 branch commit's `Deps-Approved: D-084` trailer is covered by this entry. Jay approved the crate separately from the binary source (D-084).
+- Why: criterion 2 of F-006 names it. It avoids hand-written FFI.
+- Instead of: hand-written bindings.
+
+## D-086 · Network allowed in the PDFium spike's tests until a CI cache exists
+2026-10-24 · Who: Jay · active
+- Decision: an exception to "no real network in tests", for the `lecter-spike-pdfium` crate only. Its tests may download the pinned PDFium archives from bblanchon/pdfium-binaries GitHub releases (each SHA-256-checked before use, cached in `target/pdfium`). No other test may use the network. Before any shipping crate needs PDFium, a pinned CI cache/setup step keyed on `pins.json` replaces the downloads (Q-009).
+- Why: F-006 criterion 2 needs PDFium on all three CI OSes, and a CI setup step needs a ci.yml change.
+- Instead of: changing ci.yml now, or blocking F-006.
