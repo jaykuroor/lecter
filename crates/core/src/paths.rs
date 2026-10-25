@@ -7,25 +7,13 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::error::{Error, Result};
 use crate::identity::APP_DIR_NAME;
 
 /// The environment variable that moves every config, data and cache folder under one directory.
 /// Debug builds and the `test-hooks` feature only; release builds don't contain it.
 #[cfg(any(debug_assertions, feature = "test-hooks"))]
 pub const TEST_HOME_VAR: &str = "LECTER_TEST_HOME";
-
-/// Why the folders can't be resolved.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum PathsError {
-    /// The OS reports no home directory, so there is nowhere to put the folders.
-    #[error("no home directory: the config, data and cache folders have nowhere to go")]
-    NoHome,
-    /// The test home is empty or relative; resolving it against the working directory could land
-    /// anywhere, so it is refused.
-    #[cfg(any(debug_assertions, feature = "test-hooks"))]
-    #[error("the test home must be an absolute path")]
-    TestHomeNotAbsolute,
-}
 
 /// An operating system row of the folder table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,7 +82,7 @@ pub struct AppDirs {
 
 impl AppDirs {
     /// This user's folders, or the test home's when [`TEST_HOME_VAR`] is set (debug builds).
-    pub fn resolve() -> Result<Self, PathsError> {
+    pub fn resolve() -> Result<Self> {
         #[cfg(any(debug_assertions, feature = "test-hooks"))]
         let test_home = std::env::var_os(TEST_HOME_VAR);
         #[cfg(not(any(debug_assertions, feature = "test-hooks")))]
@@ -108,14 +96,14 @@ impl AppDirs {
         test_home: Option<std::ffi::OsString>,
         os: Os,
         system: impl FnOnce() -> Option<BaseDirs>,
-    ) -> Result<Self, PathsError> {
+    ) -> Result<Self> {
         #[cfg(any(debug_assertions, feature = "test-hooks"))]
         if let Some(home) = test_home {
             return Self::under_test_home(Path::new(&home));
         }
         #[cfg(not(any(debug_assertions, feature = "test-hooks")))]
         let _ = test_home;
-        system().map(|base| Self::for_os(os, &base)).ok_or(PathsError::NoHome)
+        system().map(|base| Self::for_os(os, &base)).ok_or(Error::NoHome)
     }
 
     /// The folders of the table in `01-architecture.md#app-identity-and-migration` for `os`.
@@ -136,9 +124,9 @@ impl AppDirs {
 
     /// `<home>/config`, `<home>/data` and `<home>/cache`.
     #[cfg(any(debug_assertions, feature = "test-hooks"))]
-    pub fn under_test_home(home: &Path) -> Result<Self, PathsError> {
+    pub fn under_test_home(home: &Path) -> Result<Self> {
         if !home.is_absolute() {
-            return Err(PathsError::TestHomeNotAbsolute);
+            return Err(Error::TestHomeNotAbsolute);
         }
         Ok(Self::at(home))
     }
@@ -232,7 +220,7 @@ mod tests {
     fn relative_or_empty_test_home_is_refused() {
         for bad in ["", "relative/dir", "."] {
             let r = AppDirs::resolve_from(Some(bad.into()), Os::host(), || Some(base("/real")));
-            assert_eq!(r, Err(PathsError::TestHomeNotAbsolute), "{bad:?}");
+            assert_eq!(r, Err(Error::TestHomeNotAbsolute), "{bad:?}");
         }
     }
 
@@ -242,9 +230,52 @@ mod tests {
         assert_eq!(all(&d), [Path::new("/r/cfg/lecter"), Path::new("/r/data/lecter"), Path::new("/r/cache/lecter")]);
     }
 
+    /// Set only in the child process that `resolve_reads_the_test_home_from_the_environment` starts.
+    #[cfg(any(debug_assertions, feature = "test-hooks"))]
+    const CHILD_MARK: &str = "LECTER_PATHS_RESOLVE_CHILD";
+
+    /// The real `AppDirs::resolve()`, reading the real environment, in a child copy of this test
+    /// binary started with `TestEnv` (so no test mutates its own process environment).
+    #[test]
+    #[cfg(any(debug_assertions, feature = "test-hooks"))]
+    fn resolve_reads_the_test_home_from_the_environment() {
+        let env = crate::testenv::TestEnv::new().unwrap();
+        let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+        env.apply(&mut cmd).env(CHILD_MARK, "1").args([
+            "--exact",
+            "paths::tests::resolve_in_child_process",
+            "--nocapture",
+            "--test-threads=1",
+        ]);
+        let out = cmd.output().unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(out.status.success(), "child failed:\n{text}\n{}", String::from_utf8_lossy(&out.stderr));
+        let got: Vec<&str> = text.lines().filter_map(|l| l.split_once("RESOLVED ").map(|(_, p)| p)).collect();
+        let d = env.dirs();
+        let want: Vec<String> = all(&d).iter().map(|p| p.display().to_string()).collect();
+        assert_eq!(got, want, "child output:\n{text}");
+        for p in all(&d) {
+            assert!(p.starts_with(env.home()), "{}", p.display());
+        }
+    }
+
+    /// The child half of `resolve_reads_the_test_home_from_the_environment`; does nothing unless
+    /// that test started it.
+    #[test]
+    #[cfg(any(debug_assertions, feature = "test-hooks"))]
+    fn resolve_in_child_process() {
+        if std::env::var_os(CHILD_MARK).is_none() {
+            return;
+        }
+        let d = AppDirs::resolve().unwrap();
+        for p in all(&d) {
+            println!("RESOLVED {}", p.display());
+        }
+    }
+
     #[test]
     fn no_home_directory_is_an_error() {
-        assert_eq!(AppDirs::resolve_from(None, Os::host(), || None), Err(PathsError::NoHome));
+        assert_eq!(AppDirs::resolve_from(None, Os::host(), || None), Err(Error::NoHome));
     }
 
     #[test]
