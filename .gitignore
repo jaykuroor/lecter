@@ -49,3 +49,7 @@ playwright-report/
 
 # Personal notes for the maintainer's own Claude Code sessions (loaded automatically, never committed).
 /CLAUDE.local.md
+
+# Codex config mirrors (local tool setup, not part of the kit).
+/.agents/
+/.codex/
