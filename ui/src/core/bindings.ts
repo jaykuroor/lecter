@@ -12,16 +12,13 @@ export const commands = {
 	 */
 	appInfo: () => __TAURI_INVOKE<AppInfo>("app_info"),
 	/**
-	 *  Opens the native folder dialog and returns the folder, or `None` if the user cancels. Takes
-	 *  no arguments: the path comes from the dialog, never from the UI (SEC-32, SEC-35).
+	 *  Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
+	 *  listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
+	 *  never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
 	 */
-	courseOpen: () => typedError<{
-	/**  Canonical absolute path. */
-	path: string,
-	/**  The folder's own name. */
-	name: string,
+	courseOpen: () => typedError<({
 	trust: Trust,
-} | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
+}) & (CourseListing) | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
 };
 
 /* Types */
@@ -31,14 +28,33 @@ export type AppInfo = {
 	version: string,
 };
 
-/**  `course_open`'s result: the folder the user picked. */
-export type CourseOpened = {
+/**  One file in a course subfolder. */
+export type CourseFile = {
+	/**  The file name, e.g. `07-covariance.pdf`. */
+	name: string,
+	/**  The path relative to the course root with `/` separators, e.g. `slides/07-covariance.pdf`. */
+	path: string,
+};
+
+/**  An opened course folder and the files in its `lectures/` and `slides/`. */
+export type CourseListing = {
 	/**  Canonical absolute path. */
 	path: string,
 	/**  The folder's own name. */
 	name: string,
-	trust: Trust,
+	/**  The lecture files (`lectures/*.md`), by name. */
+	lectures: CourseFile[],
+	/**  The slide files (`slides/*`), by name. */
+	slides: CourseFile[],
 };
+
+/**
+ *  `course_open`'s result: the folder the user picked, its listing (the same JSON
+ *  `lecter-harness course open` prints) and whether trust is still to be asked.
+ */
+export type CourseOpened = {
+	trust: Trust,
+} & CourseListing;
 
 /**
  *  What kind of failure an IPC command (or a harness call) reports. On the wire it is the code's

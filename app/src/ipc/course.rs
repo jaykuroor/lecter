@@ -1,8 +1,7 @@
-//! The `course` area: opening a course folder the user picks in a native dialog.
-//! F-018 adds the folder listing and the course-root checks; F-033 the stored trust.
+//! The `course` area: opening a course folder the user picks in a native dialog, and returning its
+//! `lectures/` and `slides/` listing (`lecter_core::course`). F-033 adds the stored trust.
 
-use std::path::{Path, PathBuf};
-
+use lecter_core::course::{self, CourseListing};
 use serde::Serialize;
 use specta::Type;
 use tauri::AppHandle;
@@ -24,29 +23,34 @@ pub enum Trust {
     Trusted,
 }
 
-/// `course_open`'s result: the folder the user picked.
+/// `course_open`'s result: the folder the user picked, its listing (the same JSON
+/// `lecter-harness course open` prints) and whether trust is still to be asked.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct CourseOpened {
-    /// Canonical absolute path.
-    pub path: String,
-    /// The folder's own name.
-    pub name: String,
+    #[serde(flatten)]
+    pub course: CourseListing,
     pub trust: Trust,
 }
 
-/// Opens the native folder dialog and returns the folder, or `None` if the user cancels. Takes
-/// no arguments: the path comes from the dialog, never from the UI (SEC-32, SEC-35).
+/// Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
+/// listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
+/// never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
 #[tauri::command]
 #[specta::specta]
 pub async fn course_open(app: AppHandle) -> Result<Option<CourseOpened>, IpcError> {
     let Some(picked) = dialog::pick_folder(&app).await else {
         return Ok(None);
     };
-    let root = tauri::async_runtime::spawn_blocking(move || canonical_folder(&picked))
+    let course = tauri::async_runtime::spawn_blocking(move || course::open(&picked))
         .await
-        .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not check that folder."))??;
-    let (path, name) = names(&root)?;
-    Ok(Some(CourseOpened { path, name, trust: trust() }))
+        .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not check that folder."))?
+        .map_err(ipc_error)?;
+    Ok(Some(CourseOpened { course, trust: trust() }))
+}
+
+/// The core's error as the contract's `IpcError`: its code and its one-sentence message.
+fn ipc_error(e: lecter_core::Error) -> IpcError {
+    IpcError::new(e.code(), e.to_string())
 }
 
 /// No trust is stored yet (F-033), so every folder asks, unless a debug run answers for the user.
@@ -58,105 +62,56 @@ fn trust() -> Trust {
     Trust::Ask
 }
 
-/// The picked path, canonicalised (symlinks resolved), if it is an existing folder (SEC-35).
-#[allow(clippy::disallowed_methods, reason = "runs inside spawn_blocking, never on the runtime")]
-fn canonical_folder(picked: &Path) -> Result<PathBuf, IpcError> {
-    if !picked.is_absolute() {
-        return Err(IpcError::new(ErrorCode::InvalidArgument, "The chosen folder path is not absolute."));
-    }
-    let root = std::fs::canonicalize(picked).map_err(|e| match e.kind() {
-        std::io::ErrorKind::NotFound => IpcError::new(ErrorCode::NotFound, "That folder no longer exists."),
-        _ => IpcError::new(ErrorCode::Io, "Lecter could not read that folder."),
-    })?;
-    let meta =
-        std::fs::metadata(&root).map_err(|_| IpcError::new(ErrorCode::Io, "Lecter could not read that folder."))?;
-    if !meta.is_dir() {
-        return Err(IpcError::new(ErrorCode::InvalidArgument, "Choose a folder, not a file."));
-    }
-    Ok(root)
-}
-
-/// The path and folder name as UTF-8; the UI and the course files can't hold anything else.
-fn names(root: &Path) -> Result<(String, String), IpcError> {
-    let not_utf8 = || IpcError::new(ErrorCode::InvalidArgument, "The folder's path is not valid Unicode.");
-    let path = root.to_str().ok_or_else(not_utf8)?.to_owned();
-    let name = root.file_name().map_or(Some(""), |n| n.to_str()).ok_or_else(not_utf8)?.to_owned();
-    Ok((path, name))
-}
-
 #[cfg(test)]
-#[allow(clippy::disallowed_methods, reason = "tests make fixture folders on plain test threads")]
 mod tests {
+    use lecter_core::course::CourseFile;
+
     use super::*;
-    use lecter_core::testenv::TestEnv;
 
-    fn env() -> TestEnv {
-        TestEnv::new().unwrap_or_else(|e| panic!("{e}"))
+    /// Criterion 1: `course_open` has no arguments in the contract, so the UI can't hand it a
+    /// path; the only folder it opens is the one the dialog (or its debug test hook) returns.
+    #[test]
+    fn course_open_takes_no_arguments() {
+        let args = crate::export::command_args(&super::super::contract(), "course_open");
+        assert_eq!(args, Some(Vec::new()));
     }
 
+    /// Criterion 4: the IPC answer is the harness's listing JSON plus `trust`, key for key.
     #[test]
-    fn an_existing_folder_is_returned_canonical() {
-        let env = env();
-        let course = env.home().join("Algebra 101");
-        std::fs::create_dir(&course).unwrap_or_else(|e| panic!("{e}"));
-        let via_dots = env.home().join("Algebra 101").join("..").join("Algebra 101");
-        let root = canonical_folder(&via_dots).unwrap_or_else(|e| panic!("{e:?}"));
-        assert_eq!(root, std::fs::canonicalize(&course).unwrap_or_else(|e| panic!("{e}")));
-        let (path, name) = names(&root).unwrap_or_else(|e| panic!("{e:?}"));
-        assert_eq!(name, "Algebra 101");
-        assert!(Path::new(&path).is_absolute());
+    fn result_is_the_listing_with_trust_beside_it() {
+        let course = CourseListing {
+            path: "/c/STAT311".into(),
+            name: "STAT311".into(),
+            lectures: vec![CourseFile { name: "l01.md".into(), path: "lectures/l01.md".into() }],
+            slides: vec![CourseFile { name: "01.pdf".into(), path: "slides/01.pdf".into() }],
+        };
+        let listing = serde_json::to_value(&course).unwrap_or_else(|e| panic!("{e}"));
+        let json =
+            serde_json::to_value(CourseOpened { course, trust: Trust::Trusted }).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "path": "/c/STAT311",
+                "name": "STAT311",
+                "lectures": [{ "name": "l01.md", "path": "lectures/l01.md" }],
+                "slides": [{ "name": "01.pdf", "path": "slides/01.pdf" }],
+                "trust": "trusted",
+            })
+        );
+        let mut without_trust = json;
+        without_trust.as_object_mut().map(|o| o.remove("trust"));
+        assert_eq!(without_trust, listing);
     }
 
+    /// Criterion 2: a link out of the course reaches the UI as E_NOT_TRUSTED with the core's
+    /// message, which names the entry.
     #[test]
-    fn a_missing_folder_is_not_found() {
-        let env = env();
-        let err = canonical_folder(&env.home().join("gone")).err().map(|e| e.code);
-        assert_eq!(err, Some(ErrorCode::NotFound));
-    }
-
-    #[test]
-    fn a_file_is_refused() {
-        let env = env();
-        let file = env.home().join("notes.md");
-        std::fs::write(&file, "x").unwrap_or_else(|e| panic!("{e}"));
-        assert_eq!(canonical_folder(&file).err().map(|e| e.code), Some(ErrorCode::InvalidArgument));
-    }
-
-    #[test]
-    fn a_relative_path_is_refused() {
-        assert_eq!(canonical_folder(Path::new("courses/x")).err().map(|e| e.code), Some(ErrorCode::InvalidArgument));
-    }
-
-    /// SEC-35: a symlink to a folder opens the folder it points at, never the link's own path.
-    #[cfg(unix)]
-    #[test]
-    fn a_symlink_to_a_folder_comes_back_as_the_target() {
-        let env = env();
-        let target = env.home().join("Real Course");
-        std::fs::create_dir(&target).unwrap_or_else(|e| panic!("{e}"));
-        let link = env.home().join("Shortcut");
-        std::os::unix::fs::symlink(&target, &link).unwrap_or_else(|e| panic!("{e}"));
-        let root = canonical_folder(&link).unwrap_or_else(|e| panic!("{e:?}"));
-        assert_eq!(root, std::fs::canonicalize(&target).unwrap_or_else(|e| panic!("{e}")));
-        assert_eq!(names(&root).unwrap_or_else(|e| panic!("{e:?}")).1, "Real Course");
-    }
-
-    /// SEC-35: a symlink is judged by what it points at, so a link to a file is not a folder.
-    #[cfg(unix)]
-    #[test]
-    fn a_symlink_to_a_file_is_refused() {
-        let env = env();
-        let file = env.home().join("notes.md");
-        std::fs::write(&file, "x").unwrap_or_else(|e| panic!("{e}"));
-        let link = env.home().join("Looks Like A Course");
-        std::os::unix::fs::symlink(&file, &link).unwrap_or_else(|e| panic!("{e}"));
-        assert_eq!(canonical_folder(&link).err().map(|e| e.code), Some(ErrorCode::InvalidArgument));
-    }
-
-    #[test]
-    fn result_serialises_with_snake_case_trust() {
-        let r = CourseOpened { path: "/c/a".into(), name: "a".into(), trust: Trust::Trusted };
-        let json = serde_json::to_value(&r).unwrap_or_else(|e| panic!("{e}"));
-        assert_eq!(json, serde_json::json!({ "path": "/c/a", "name": "a", "trust": "trusted" }));
+    fn a_link_out_of_the_course_is_not_trusted_over_ipc() {
+        let e = ipc_error(lecter_core::Error::OutsideCourse("slides/07.pdf".into()));
+        assert_eq!(e.code, ErrorCode::NotTrusted);
+        assert!(!e.retryable);
+        assert!(e.message.starts_with("slides/07.pdf points outside the course folder"), "{}", e.message);
+        let e = ipc_error(lecter_core::Error::FolderNotFound);
+        assert_eq!((e.code, e.message.as_str()), (ErrorCode::NotFound, "That folder no longer exists."));
     }
 }

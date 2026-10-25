@@ -1,6 +1,7 @@
 //! The harness commands. A feature adds its command here: one file in this folder and one
 //! [`Command`] line in [`COMMANDS`].
 
+mod course;
 mod version;
 
 use serde_json::Value;
@@ -27,7 +28,7 @@ pub struct Command {
 }
 
 /// Every command, in the order a list shows them.
-pub const COMMANDS: &[Command] = &[version::COMMAND];
+pub const COMMANDS: &[Command] = &[course::COMMAND, version::COMMAND];
 
 /// The command called `name`.
 pub fn find(name: &str) -> Option<&'static Command> {
