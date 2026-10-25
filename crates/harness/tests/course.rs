@@ -51,8 +51,11 @@ fn sample_course(env: &TestEnv) -> std::path::PathBuf {
     course
 }
 
+/// The canonical path as the listing shows it: on Windows without the `\\?\` verbatim prefix
+/// (the temp dir is on a drive, never a UNC share).
 fn canonical(p: &Path) -> String {
-    std::fs::canonicalize(p).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().into_owned()
+    let c = std::fs::canonicalize(p).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().into_owned();
+    c.strip_prefix(r"\\?\").map_or(c.clone(), str::to_owned)
 }
 
 #[test]

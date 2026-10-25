@@ -49,11 +49,24 @@ pub struct CourseFile {
 /// it. A missing `lectures/` or `slides/` lists as empty.
 pub fn open(picked: &Path) -> Result<CourseListing> {
     let root = canonical_folder(picked)?;
-    let path = root.to_str().ok_or(Error::NotUnicode)?.to_owned();
+    let path = plain(root.to_str().ok_or(Error::NotUnicode)?);
     let name = root.file_name().map_or(Some(""), |n| n.to_str()).ok_or(Error::NotUnicode)?.to_owned();
     let lectures = listing::files(&root, listing::Folder::Lectures)?;
     let slides = listing::files(&root, listing::Folder::Slides)?;
     Ok(CourseListing { path, name, lectures, slides })
+}
+
+/// A canonical path as the user knows it. Windows canonicalisation returns verbatim paths
+/// (`\\?\C:\Courses`, `\\?\UNC\server\share`); the same folder without that prefix is
+/// `C:\Courses` or `\\server\share`. Anything else is returned as it is.
+fn plain(canonical: &str) -> String {
+    if let Some(unc) = canonical.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{unc}");
+    }
+    match canonical.strip_prefix(r"\\?\") {
+        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => rest.to_owned(),
+        _ => canonical.to_owned(),
+    }
 }
 
 /// The chosen path, canonicalised (symlinks resolved), if it is an existing folder (SEC-35).

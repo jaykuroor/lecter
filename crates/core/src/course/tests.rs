@@ -29,8 +29,10 @@ fn mkdir(dir: &Path, rel: &str) -> PathBuf {
     p
 }
 
-fn canonical(p: &Path) -> PathBuf {
-    std::fs::canonicalize(p).unwrap_or_else(|e| panic!("{e}"))
+/// The path the listing shows for folder `p`: canonical, without a Windows verbatim prefix.
+fn shown(p: &Path) -> String {
+    let canonical = std::fs::canonicalize(p).unwrap_or_else(|e| panic!("{e}"));
+    plain(canonical.to_str().unwrap_or_else(|| panic!("utf-8")))
 }
 
 fn file(dir: &str, name: &str) -> CourseFile {
@@ -79,7 +81,7 @@ fn lists_lecture_markdown_and_every_slide_file_by_name() {
     assert_eq!(
         listing,
         CourseListing {
-            path: canonical(&course).to_str().unwrap_or_else(|| panic!("utf-8")).to_owned(),
+            path: shown(&course),
             name: "STAT311".into(),
             lectures: vec![
                 file("lectures", "2026-09-02-l01-introduction.md"),
@@ -130,7 +132,7 @@ fn the_path_is_canonical_even_when_picked_through_dots() {
     let course = mkdir(env.home(), "Algebra 101");
     let via_dots = env.home().join("Algebra 101").join("..").join("Algebra 101");
     let listing = open_ok(&via_dots);
-    assert_eq!(Path::new(&listing.path), canonical(&course));
+    assert_eq!(listing.path, shown(&course));
     assert_eq!(listing.name, "Algebra 101");
 }
 
@@ -198,6 +200,16 @@ fn the_listing_serialises_with_the_contract_keys() {
             "slides": [],
         })
     );
+}
+
+#[test]
+fn windows_verbatim_prefixes_are_dropped_from_the_shown_path() {
+    assert_eq!(plain(r"\\?\C:\Courses\STAT311"), r"C:\Courses\STAT311");
+    assert_eq!(plain(r"\\?\UNC\server\share\STAT311"), r"\\server\share\STAT311");
+    // Verbatim paths without a drive letter have no plain form; they stay as they are.
+    assert_eq!(plain(r"\\?\Volume{1234}\STAT311"), r"\\?\Volume{1234}\STAT311");
+    assert_eq!(plain("/home/a/STAT311"), "/home/a/STAT311");
+    assert_eq!(plain(r"\\server\share\STAT311"), r"\\server\share\STAT311");
 }
 
 // --- containment (SEC-35) ---------------------------------------------------------------------
@@ -359,7 +371,7 @@ fn a_linked_course_root_opens_as_its_target() {
     let shortcut = env.home().join("Shortcut");
     link(&real, &shortcut);
     let listing = open_ok(&shortcut);
-    assert_eq!(Path::new(&listing.path), canonical(&real));
+    assert_eq!(listing.path, shown(&real));
     assert_eq!(listing.name, "Real Course");
     assert_eq!(listing.slides, vec![file("slides", "01.pdf")]);
 }

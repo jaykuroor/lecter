@@ -91,11 +91,13 @@ describe("open course", () => {
     expect((await names("Lectures"))[2]).toBe("2026-09-16-l03-random-variables.md");
   });
 
-  it("refuses a slide linked outside the course with E_NOT_TRUSTED", async () => {
-    const outside = join(dirname(picked()), "outside-secret.pdf");
-    writeFileSync(outside, "synthetic\n");
-    const link = join(picked(), "slides", "03-linked.pdf");
-    symlinkSync(outside, link);
+  it("refuses a slides entry linked outside the course with E_NOT_TRUSTED", async () => {
+    // A folder link: a junction on Windows, which (unlike a file symlink) needs no privilege.
+    const outside = join(dirname(picked()), "outside-the-course");
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(join(outside, "secret.pdf"), "synthetic\n");
+    const link = join(picked(), "slides", "03-linked");
+    symlinkSync(outside, link, "junction");
     try {
       const code = await browser.execute(async () => {
         const w = window as unknown as {
@@ -110,10 +112,11 @@ describe("open course", () => {
       });
       expect(code).toBe("E_NOT_TRUSTED");
       await openButton().click();
-      await expect($('[role="alert"]')).toHaveText(/^slides\/03-linked\.pdf points outside the course folder/);
+      await expect($('[role="alert"]')).toHaveText(/^slides\/03-linked points outside the course folder/);
       await shot("course-not-trusted");
     } finally {
-      rmSync(link);
+      // Removes the link only, never its target; later flows open this course again.
+      rmSync(link, { force: true });
     }
   });
 });
