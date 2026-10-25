@@ -1,0 +1,8 @@
+# Install scripts pnpm may run (pnpm 12 refuses to install while one is undecided).
+# webdriverio pulls in edgedriver and geckodriver, whose scripts download browser drivers: the
+# real-app e2e (tests/e2e/, F-016) uses the embedded WebDriver server, so it needs neither.
+# esbuild's script only re-checks its platform binary, which the optional @esbuild/* package provides.
+allowBuilds:
+  edgedriver: false
+  esbuild: false
+  geckodriver: false
