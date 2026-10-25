@@ -95,6 +95,30 @@ describe("CoursePanel", () => {
     expect(screen.queryByRole("region", { name: /^Course / })).toBeNull();
   });
 
+  // Every action is reachable by key. The app handles Enter and Space itself instead of relying
+  // on the browser's button activation, which synthetic key events (the embedded WebDriver,
+  // assistive tools) never trigger.
+  for (const key of ["Enter", " "]) {
+    it(`opens the course on ${key === " " ? "Space" : key} on the focused button`, async () => {
+      installMockCore({ ...defaultFixture, courseOpen: stat311 });
+      const open = mount();
+      open.focus();
+      const handled = !fireEvent.keyDown(open, { key });
+      expect(handled).toBe(true);
+      expect(await screen.findByRole("region", { name: "Course STAT311" })).toBeTruthy();
+    });
+  }
+
+  it("leaves other keys on the button alone", async () => {
+    installMockCore({ ...defaultFixture, courseOpen: stat311 });
+    const open = mount() as HTMLButtonElement;
+    for (const key of ["a", "Tab", "Escape"]) {
+      expect(fireEvent.keyDown(open, { key })).toBe(true);
+    }
+    expect(open.disabled).toBe(false);
+    expect(screen.queryByRole("region", { name: /^Course / })).toBeNull();
+  });
+
   it("disables the button while the dialog is open, so one click opens one dialog", async () => {
     installMockCore({ ...defaultFixture, courseOpen: stat311 });
     let calls = 0;

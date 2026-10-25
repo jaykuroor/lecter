@@ -71,9 +71,14 @@ describe("open course", () => {
   });
 
   it("shows the course's lectures and slides after Enter on the Open button", async () => {
-    await browser.execute(() => {
-      (document.querySelector("button.course-open") as HTMLButtonElement | null)?.focus();
+    // The embedded WebDriver sends keys as synthetic KeyboardEvents to document.activeElement,
+    // so the button must hold focus, and the app (not the browser's activation) handles Enter.
+    const focused = await browser.execute(() => {
+      const button = document.querySelector("button.course-open") as HTMLButtonElement | null;
+      button?.focus();
+      return document.activeElement === button && button !== null;
     });
+    expect(focused).toBe(true);
     await browser.keys("Enter");
     await expect(course()).toBeDisplayed();
     await expect(course().$("h2")).toHaveText(basename(picked()));

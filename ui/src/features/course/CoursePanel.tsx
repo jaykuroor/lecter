@@ -9,6 +9,14 @@ import "./CoursePanel.css";
  * screen (F-033) replace this skeleton.
  */
 export function CoursePanel(props: { state: CourseState }): JSX.Element {
+  // Enter and Space are handled here, not left to the browser's button activation: that runs
+  // only for trusted key events, so a synthetic key (the embedded WebDriver, assistive tools)
+  // would never open the dialog. preventDefault stops a real keypress from also clicking.
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    void props.state.open();
+  };
   return (
     <div class="course-panel">
       <button
@@ -17,6 +25,7 @@ export function CoursePanel(props: { state: CourseState }): JSX.Element {
         title="Open a course folder"
         disabled={props.state.busy()}
         onClick={() => void props.state.open()}
+        onKeyDown={onKeyDown}
       >
         <span aria-hidden="true">+</span> Open course folder
       </button>
