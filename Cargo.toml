@@ -12,6 +12,8 @@ publish = false
 # Shared third-party versions go here (crates/CLAUDE.md); add them only through scripts/add_dep.py.
 [workspace.dependencies]
 serde_json = "1.0.154"
+# tauri-specta needs specta pinned exactly while both are release candidates (D-048).
+specta = { version = "=2.0.0-rc.25", default-features = false, features = ["std", "derive"] }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

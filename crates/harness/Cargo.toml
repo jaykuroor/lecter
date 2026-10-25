@@ -17,6 +17,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+lecter-core = { path = "../core" }
 serde_json.workspace = true
 
 [dev-dependencies]
