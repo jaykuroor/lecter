@@ -52,7 +52,7 @@ on ubuntu-24.04, macos-15 and windows-2025.
 | OS | Go / no-go | Evidence |
 |---|---|---|
 | Linux | **GO** | 11/11 pass locally (below) |
-| macOS | **GO** | macos-15, CI run 40119881557 (8f4b4a7): every spike test passed, including `RLIMIT_AS` at +1 GiB |
+| macOS | **GO** | macos-15: every spike test passed in CI run 40119881557 (8f4b4a7) and in run 40154388308 (c8900b7, the shipped code), including `RLIMIT_AS` at +1 GiB |
 | Windows | **IMPOSSIBLE as specified** for "no file other than its input"; GO for network, user files, earlier inputs, memory and processes | windows-2025, runs 40120703752 and 40154388308 (LPAC): 55/56. Network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC still reads `%SystemRoot%\win.ini` (92 bytes); the test prints its SDDL. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
 
 **Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
@@ -103,6 +103,12 @@ O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)
 The read is allowed by the inherited ACE `(A;ID;0x1200a9;;;S-1-15-2-2)`: ALL RESTRICTED APPLICATION
 PACKAGES, read and execute. LPAC honours that grant by design. The CI log lines are kept in
 `.evidence/F-005/windows-ci.log` (not tracked).
+
+Proposed SEC-01 wording for Windows (a spec change for the planning session): "Windows: LPAC
+AppContainer + job object. Besides its input (passed as a handle), the worker can read only files
+whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files;
+only C:\Windows was measured). Files without that grant, including everything under the user
+profile, are denied."
 
 ## Requirements for the parse worker
 
