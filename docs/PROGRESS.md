@@ -4,15 +4,21 @@
 
 ## Current state
 - Runs: `scripts/dev.sh` opens one Lecter window (Tauri 2) on the UI shell with hot reload. `pnpm -C ui run dev` shows the shell in a browser against the mocked core. CI (lint, test on ubuntu/macos/windows, e2e) is green on main (run 40106531943).
-- Milestone: M0 spikes (F-006 left; F-005 blocked), then M0.5 · last done: F-001 Spike: CodeMirror lecture surface · gate: M0 passed
-- Resume point (2026-10-24 23:25): merging F-006 from feat/F-006-pdfium-spike
+- Milestone: M0.5 next (M0 spikes done; F-005 blocked on Q-008) · last done: F-006 Spike: PDFium bundling per OS · gate: M0 passed
+- Resume point (2026-10-24 23:26): F-006 merged; next dispatch F-015 (M0.5)
 - In progress: none
 - Watch out: A blocking std::fs/std::net call in an async crate (core, index, ai, cas, cli, app, fake-provider) now fails clippy; use tokio or allow it at the call site with a reason (D-075). parse/models/harness have their own clippy.toml (guard-protected). `ui/knip.json` has an unknown `classMembers` rule key (harmless warning; frozen, the author fixes it). Dependabot PRs bumping `@types/node` past 24 fail and shouldn't be merged. init.sh/verify.sh set up Node 24 and the pnpm store themselves (D-074); something else (likely the edit-format hook) can still create `.pnpm-store/` in a worktree, and it isn't git-ignored. No GUI inside the Claude sandbox (window checks and F-016 e2e-app need the author). Release builds need `--features custom-protocol` (D-069). Playwright WebKit can't launch on Fedora 44; measure WebKit in the `mcr.microsoft.com/playwright:v1.64.1-noble` container (podman, run by the author outside the sandbox; command in spikes/editor/README.md). WebKit timers are 1 ms and it has no heap API. The editor's WebKit keystroke budget is decided by the real-app trace in F-016 (D-080), and performance presets await the planning session (Q-006). The sandbox can't push; the author pushes, and runs CI on a branch with `gh workflow run ci.yml --ref <branch>` when macOS/Windows results are needed before a merge. nextest fail-fast in verify.sh hides later tests after the first failure. In the sandbox, `gh run view --log` needs `XDG_CACHE_HOME=$TMPDIR/cache`.
-- Next up: F-006 Spike: PDFium bundling per OS. F-005 is blocked on Q-008 (planning).
+- Next up: M0.5 (F-015 Harness binary and test home). F-005 is blocked on Q-008; Q-006 to Q-009 await a planning session.
 
 <!-- LOG -->
 
 ## Log (newest first)
+
+### 2026-10-24 · F-006 · done
+- Built: PDFium spike (`spikes/pdfium`). A script downloads the pinned bblanchon build for 5 targets, checks SHA-256 from memory before extracting, and a test loads it through pdfium-render and reads page-1 text from a generated PDF. Green on all three CI OSes (run 40161530691).
+- Code: spikes/pdfium/ · Tests: spikes/pdfium/tests/{checksum,load}.rs · Evidence: .evidence/F-006/
+- Decisions: D-084 (source), D-085 (pdfium-render), D-086 (network exception in this crate's tests), D-087 (result). Q-009 (CI cache) for planning.
+- Review: 1 FIX round (reviewer: verification proof, Windows replace race, licence, Python stubs; security: same-buffer hash+extract, 2 packaging requirements), then PASS.
 
 ### 2026-10-24 · F-005 · blocked (IMPOSSIBLE on Windows)
 - Built: OS sandbox spike crate (`spikes/os-sandbox`, branch `feat/F-005-os-sandbox` at the builder's last commit), with 11 tests per OS. Linux and macOS GO. Windows meets everything except "no file other than its input" (OS files granted to ALL RESTRICTED APPLICATION PACKAGES stay readable). Lockdown token attempt failed at start-up.
