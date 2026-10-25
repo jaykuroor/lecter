@@ -2,7 +2,10 @@
 //! [`Command`] line in [`COMMANDS`].
 
 mod course;
+mod parse;
 mod version;
+
+pub use parse::WORKER_ARG;
 
 use serde_json::Value;
 
@@ -28,7 +31,7 @@ pub struct Command {
 }
 
 /// Every command, in the order a list shows them.
-pub const COMMANDS: &[Command] = &[course::COMMAND, version::COMMAND];
+pub const COMMANDS: &[Command] = &[course::COMMAND, parse::COMMAND, version::COMMAND];
 
 /// The command called `name`.
 pub fn find(name: &str) -> Option<&'static Command> {

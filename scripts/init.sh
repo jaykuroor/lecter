@@ -91,6 +91,19 @@ if [ -f Cargo.toml ]; then
     cargo build --workspace -q
   fi
 fi
+# The pinned PDFium the parse worker loads (D-084, D-108): downloaded once into target/pdfium/ and
+# SHA-256 checked on every run (CI restores target/pdfium/ from its cache first). Tests only read it.
+# The first launcher that really is Python 3 runs it (Windows may have a python3 that is a Store stub).
+if [ -f spikes/pdfium/fetch_pdfium.py ]; then
+  pdfium_py=""
+  for py in python3 python py; do
+    command -v "$py" >/dev/null 2>&1 || continue
+    [ "$("$py" -I -c 'import sys; print(sys.version_info[0])' 2>/dev/null | tr -d '\r')" = 3 ] && { pdfium_py=$py; break; }
+  done
+  [ -n "$pdfium_py" ] || { echo "No working Python 3 to fetch PDFium (spikes/pdfium/fetch_pdfium.py)."; exit 1; }
+  "$pdfium_py" -I spikes/pdfium/fetch_pdfium.py >/dev/null \
+    || { echo "Fetching the pinned PDFium failed (spikes/pdfium/fetch_pdfium.py; exit 3 means a checksum mismatch)."; exit 1; }
+fi
 if [ -f ui/package.json ]; then
   if [ -n "${CI:-}" ]; then
     pnpm -C ui install --frozen-lockfile --reporter=append-only \
