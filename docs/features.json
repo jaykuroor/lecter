@@ -656,9 +656,10 @@
     "perf"
    ],
    "try": "Open a lecture; move with j/k, type with i, leave with Esc",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2016
+   "priority": 2016,
+   "base": "5ff7b19bfb34579520b4a743bbca114c5afc063c"
   },
   {
    "id": "F-021",
