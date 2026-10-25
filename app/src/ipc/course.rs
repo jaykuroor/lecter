@@ -23,8 +23,8 @@ pub enum Trust {
     Trusted,
 }
 
-/// `course_open`'s result: the folder the user picked, its listing (the same JSON
-/// `lecter-harness course open` prints) and whether trust is still to be asked.
+/// `course_open`'s result: the folder the user picked, its listing (the same JSON the
+/// command-line harness prints for `course open`) and whether trust is still to be asked.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct CourseOpened {
     #[serde(flatten)]
