@@ -23,6 +23,12 @@ const PNPM: &str = r#"echo "pnpm $*" >> "$CALLS"
 case " $* " in *" install "*"--frozen-lockfile "*) [ -z "$FAIL_PNPM" ] || exit 1 ;; esac
 exit 0"#;
 
+/// Stub python3: answers init.sh's Python 3 probe; the PDFium fetch exits 3 (a checksum mismatch)
+/// when FAIL_PDFIUM is set.
+const PYTHON: &str = r#"echo "python3 $*" >> "$CALLS"
+case "$*" in *version_info*) echo 3 ;; *fetch_pdfium.py*) [ -z "$FAIL_PDFIUM" ] || exit 3 ;; esac
+exit 0"#;
+
 /// Stub node: reports the version ui/package.json pins (init.sh runs from the repo root).
 const NODE: &str = r#"printf 'v%s\n' "$(sed -n 's/^ *"node": *"\([0-9.]*\)".*/\1/p' ui/package.json | head -n 1)""#;
 
@@ -32,7 +38,7 @@ struct Run {
     calls: Vec<String>,
 }
 
-/// Runs init.sh (no arguments) with stubbed tools; `env` adds CI, FAIL_CARGO and FAIL_PNPM.
+/// Runs init.sh (no arguments) with stubbed tools; `env` adds CI, FAIL_CARGO, FAIL_PNPM and FAIL_PDFIUM.
 fn init(env: &[(&str, &str)]) -> Result<Run, String> {
     let ok = "exit 0";
     let dir = bare_path(&[
@@ -40,7 +46,7 @@ fn init(env: &[(&str, &str)]) -> Result<Run, String> {
         ("pnpm", PNPM),
         ("node", NODE),
         ("git", ok),
-        ("python3", ok),
+        ("python3", PYTHON),
         ("gitleaks", ok),
         ("pkg-config", ok),
         ("bwrap", ok),
@@ -142,6 +148,31 @@ fn locally_a_stale_lockfile_still_falls_back_to_an_unlocked_install() -> Result<
         if !r.calls.iter().any(|c| c.starts_with(unlocked)) {
             return Err(format!("no unlocked {what} fallback:\n{}", r.calls.join("\n")));
         }
+    }
+    Ok(())
+}
+
+/// D-108: init.sh fetches the pinned PDFium through the SHA-256-checking script, so tests only read it.
+#[test]
+fn init_fetches_the_pinned_pdfium_through_the_checked_script() -> Result<(), String> {
+    let r = init(&[("CI", "true")])?;
+    if r.code != 0 {
+        return Err(format!("init.sh failed ({}):\n{}", r.code, r.out));
+    }
+    if !r.calls.iter().any(|c| c == "python3 -I spikes/pdfium/fetch_pdfium.py") {
+        return Err(format!("no PDFium fetch:\n{}", r.calls.join("\n")));
+    }
+    Ok(())
+}
+
+#[test]
+fn a_pdfium_checksum_mismatch_fails_init() -> Result<(), String> {
+    let r = init(&[("CI", "true"), ("FAIL_PDFIUM", "1")])?;
+    if r.code == 0 || r.out.contains("INIT OK") {
+        return Err(format!("init.sh passed with a PDFium checksum mismatch:\n{}", r.out));
+    }
+    if !r.out.contains("Fetching the pinned PDFium failed") {
+        return Err(format!("the failure doesn't name PDFium:\n{}", r.out));
     }
     Ok(())
 }

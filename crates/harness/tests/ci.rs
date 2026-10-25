@@ -214,6 +214,26 @@ fn ci_setup_caches_rust_and_pnpm_and_installs_the_cargo_tools() -> Result<(), St
     Ok(())
 }
 
+/// D-108: CI caches the verified PDFium under target/pdfium, keyed on the pins file, before
+/// init.sh (which fetches and SHA-256-checks it) runs.
+#[test]
+fn ci_caches_the_pinned_pdfium_keyed_on_the_pins_before_init() -> Result<(), String> {
+    let setup = read(".github/actions/setup/action.yml")?;
+    let cache = setup.find("PDFium cache").ok_or("the setup action has no PDFium cache step")?;
+    let step = &setup[cache..];
+    let step = &step[..step[1..].find("\n    - ").map_or(step.len(), |i| i + 1)];
+    for needle in ["actions/cache@", "path: target/pdfium", "hashFiles('spikes/pdfium/pins.json')"] {
+        if !step.contains(needle) {
+            return Err(format!("the PDFium cache step lacks `{needle}`:\n{step}"));
+        }
+    }
+    let init = setup.find("run: scripts/init.sh").ok_or("the setup action doesn't run init.sh")?;
+    if init < cache {
+        return Err("the PDFium cache must be restored before init.sh fetches PDFium".into());
+    }
+    Ok(())
+}
+
 #[test]
 fn ci_installs_a_pinned_checksum_verified_gitleaks() -> Result<(), String> {
     let all = ci_with_local_actions()?;
