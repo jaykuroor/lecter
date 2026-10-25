@@ -174,7 +174,9 @@ fn sandboxed_child_cannot_read_a_system_file() {
     let control = unsandboxed(&["read", path(&file)]);
     assert_eq!(control.code, Some(OK), "control: {control:?}");
     let out = sandboxed(&f, &["read", path(&file)]);
-    assert_eq!(out.code, Some(DENIED), "{out:?}");
+    // On failure, show which grant allowed the read.
+    let acl = lecter_spike_os_sandbox::file_sddl(&file).unwrap_or_else(|e| format!("(ACL unavailable: {e})"));
+    assert_eq!(out.code, Some(DENIED), "{out:?}\n{} SDDL: {acl}", file.display());
 }
 
 #[cfg(target_os = "linux")]

@@ -1,5 +1,8 @@
-//! Windows: the parent starts the child suspended in an AppContainer with no capabilities, puts it in
-//! a job object (1 GiB process memory, one active process, killed when the job closes), then resumes it.
+//! Windows: the parent starts the child suspended in a Less Privileged AppContainer with no
+//! capabilities and a lockdown restricted token (`token.rs`). It puts the child in a job object (1 GiB
+//! process memory, one active process, killed when the job closes), lets the main thread impersonate
+//! a less restricted startup token while the loader runs, then resumes it. The child's `enter()`
+//! reverts to the lockdown token before it reads anything.
 //!
 //! An AppContainer has no network without the `internetClient` / `privateNetworkClientServer`
 //! capabilities (loopback included). It is a Less Privileged AppContainer (LPAC): it opens a file
@@ -20,12 +23,15 @@ use windows_sys::Win32::Foundation::{
     WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows_sys::Win32::Security::Authorization::{
-    EXPLICIT_ACCESS_W, GRANT_ACCESS, GetNamedSecurityInfoW, NO_MULTIPLE_TRUSTEE, SE_FILE_OBJECT, SetEntriesInAclW,
-    SetNamedSecurityInfoW, TRUSTEE_IS_SID, TRUSTEE_IS_WELL_KNOWN_GROUP, TRUSTEE_W,
+    ConvertSecurityDescriptorToStringSecurityDescriptorW, EXPLICIT_ACCESS_W, GRANT_ACCESS, GetNamedSecurityInfoW,
+    NO_MULTIPLE_TRUSTEE, SDDL_REVISION_1, SE_FILE_OBJECT, SetEntriesInAclW, SetNamedSecurityInfoW, TRUSTEE_IS_SID,
+    TRUSTEE_IS_WELL_KNOWN_GROUP, TRUSTEE_W,
 };
 use windows_sys::Win32::Security::Isolation::{CreateAppContainerProfile, DeriveAppContainerSidFromAppContainerName};
 use windows_sys::Win32::Security::{
-    ACL, DACL_SECURITY_INFORMATION, FreeSid, NO_INHERITANCE, PSECURITY_DESCRIPTOR, PSID, SECURITY_CAPABILITIES,
+    ACL, DACL_SECURITY_INFORMATION, DuplicateTokenEx, FreeSid, GROUP_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION,
+    NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SecurityImpersonation, TOKEN_DUPLICATE,
+    TOKEN_IMPERSONATE, TOKEN_QUERY, TokenImpersonation,
 };
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_ACTIVE_PROCESS, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
@@ -33,11 +39,11 @@ use windows_sys::Win32::System::JobObjects::{
     SetInformationJobObject,
 };
 use windows_sys::Win32::System::Threading::{
-    CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-    GetExitCodeProcess, InitializeProcThreadAttributeList, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-    PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ResumeThread,
-    STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+    GetExitCodeProcess, OpenProcessToken, ResumeThread, SetThreadToken, TerminateProcess, WaitForSingleObject,
 };
+
+mod spawn;
+mod token;
 
 use crate::launch::{Outcome, sandboxed_args};
 use crate::probe::INPUT_HANDLE_FLAG;
@@ -49,10 +55,6 @@ const CONTAINER_NAME: &str = "lecter.spike.os-sandbox";
 const HRESULT_ALREADY_EXISTS: i32 = 0x8007_00B7_u32 as i32;
 /// How long a probe may run before the parent kills it.
 const WAIT_MS: u32 = 120_000;
-/// Attributes on the child: security capabilities, the LPAC policy, the inherited handle list.
-const ATTRIBUTES: u32 = 3;
-/// `PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT` (winbase.h).
-const PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT: u32 = 1;
 
 fn wide(s: &OsStr) -> Vec<u16> {
     s.encode_wide().chain(std::iter::once(0)).collect()
@@ -93,51 +95,13 @@ impl Drop for Sid {
     }
 }
 
-struct Handle(HANDLE);
+pub(crate) struct Handle(pub(crate) HANDLE);
 impl Drop for Handle {
     fn drop(&mut self) {
         if !self.0.is_null() {
             // SAFETY: the handle is owned by this guard and closed once.
             unsafe { CloseHandle(self.0) };
         }
-    }
-}
-
-/// A PROC_THREAD_ATTRIBUTE_LIST in a usize-aligned buffer.
-struct AttrList(Vec<usize>);
-impl AttrList {
-    fn ptr(&mut self) -> *mut core::ffi::c_void {
-        self.0.as_mut_ptr().cast()
-    }
-}
-impl AttrList {
-    /// Adds one attribute.
-    ///
-    /// # Safety
-    /// `value` must point at `size` readable bytes that outlive the process creation.
-    unsafe fn set(&mut self, attribute: u32, value: *const core::ffi::c_void, size: usize) -> Result<(), Error> {
-        // SAFETY: the list is initialised; the caller guarantees `value`.
-        let ok = unsafe {
-            UpdateProcThreadAttribute(
-                self.ptr(),
-                0,
-                attribute as usize,
-                value,
-                size,
-                std::ptr::null_mut(),
-                std::ptr::null(),
-            )
-        };
-        if ok == 0 {
-            return Err(Error::last_os("UpdateProcThreadAttribute"));
-        }
-        Ok(())
-    }
-}
-impl Drop for AttrList {
-    fn drop(&mut self) {
-        // SAFETY: the list was initialised by InitializeProcThreadAttributeList.
-        unsafe { DeleteProcThreadAttributeList(self.ptr()) };
     }
 }
 
@@ -251,7 +215,101 @@ fn job() -> Result<Handle, Error> {
     Ok(job)
 }
 
-/// Runs `exe --sandbox <input> <args>` in the AppContainer and job; waits up to two minutes.
+fn command_line(exe: &Path, args: &[&OsStr]) -> Vec<u16> {
+    let mut cmdline = Vec::new();
+    quote(exe.as_os_str(), &mut cmdline);
+    for a in args {
+        cmdline.push(b' ' as u16);
+        quote(a, &mut cmdline);
+    }
+    cmdline.push(0);
+    cmdline
+}
+
+/// The startup impersonation token must be an AppContainer (lowbox) token of the same container, or
+/// the kernel downgrades the impersonation. A documented way to get one: start a never-resumed
+/// placeholder with the `initial` token in the same LPAC container and duplicate its token.
+fn startup_token(initial: &Handle, sid: PSID, app: &[u16]) -> Result<Handle, Error> {
+    let mut cmdline = app.to_vec();
+    let pi = spawn::suspended(initial.0, sid, app, &mut cmdline, &[], std::ptr::null_mut())?;
+    let (process, _thread) = (Handle(pi.hProcess), Handle(pi.hThread));
+    let mut raw: HANDLE = std::ptr::null_mut();
+    // SAFETY: valid process handle; `raw` receives its primary token.
+    let opened = unsafe { OpenProcessToken(process.0, TOKEN_DUPLICATE | TOKEN_QUERY, &mut raw) };
+    let result = if opened == 0 {
+        Err(Error::last_os("OpenProcessToken (placeholder)"))
+    } else {
+        let primary = Handle(raw);
+        let mut imp: HANDLE = std::ptr::null_mut();
+        // SAFETY: valid token handle; `imp` receives an impersonation duplicate.
+        let ok = unsafe {
+            DuplicateTokenEx(
+                primary.0,
+                TOKEN_IMPERSONATE | TOKEN_QUERY,
+                std::ptr::null(),
+                SecurityImpersonation,
+                TokenImpersonation,
+                &mut imp,
+            )
+        };
+        if ok == 0 { Err(Error::last_os("DuplicateTokenEx (startup)")) } else { Ok(Handle(imp)) }
+    };
+    // SAFETY: valid process handle; the placeholder never ran.
+    unsafe { TerminateProcess(process.0, 0) };
+    result
+}
+
+/// Child side: see [`token::drop_startup_token`].
+pub fn drop_startup_token() -> Result<(), Error> {
+    token::drop_startup_token()
+}
+
+/// The file's owner, group, DACL and mandatory label as SDDL (diagnostics for denial tests).
+pub fn file_sddl(path: &Path) -> Result<String, Error> {
+    let name = wide(path.as_os_str());
+    let info = OWNER_SECURITY_INFORMATION
+        | GROUP_SECURITY_INFORMATION
+        | DACL_SECURITY_INFORMATION
+        | LABEL_SECURITY_INFORMATION;
+    let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+    // SAFETY: `name` is NUL-terminated; `sd` is freed with LocalFree.
+    let rc = unsafe {
+        GetNamedSecurityInfoW(
+            name.as_ptr(),
+            SE_FILE_OBJECT,
+            info,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut sd,
+        )
+    };
+    if rc != 0 {
+        return Err(Error::new("GetNamedSecurityInfoW", std::io::Error::from_raw_os_error(rc as i32)));
+    }
+    let mut text: *mut u16 = std::ptr::null_mut();
+    let mut len = 0u32;
+    // SAFETY: `sd` is a valid descriptor; `text` is freed with LocalFree.
+    let ok =
+        unsafe { ConvertSecurityDescriptorToStringSecurityDescriptorW(sd, SDDL_REVISION_1, info, &mut text, &mut len) };
+    let result = if ok == 0 {
+        Err(Error::last_os("ConvertSecurityDescriptorToStringSecurityDescriptorW"))
+    } else {
+        // SAFETY: `text` holds `len` UTF-16 units.
+        let units = unsafe { std::slice::from_raw_parts(text, len as usize) };
+        Ok(String::from_utf16_lossy(units).trim_end_matches('\0').to_owned())
+    };
+    // SAFETY: both were allocated with LocalAlloc by the system; null is allowed.
+    unsafe {
+        LocalFree(text.cast());
+        LocalFree(sd);
+    }
+    result
+}
+
+/// Runs `exe --sandbox <input> <args>` in the LPAC AppContainer with a lockdown token inside the
+/// job; waits up to two minutes.
 pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> {
     let sid = container_sid()?;
     grant(exe, &sid, GENERIC_READ | GENERIC_EXECUTE)?;
@@ -275,72 +333,17 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
     }
     let inherited: [HANDLE; 2] = [input_handle, err_handle];
 
-    let mut size = 0usize;
-    // SAFETY: size query with a null list; it fails with ERROR_INSUFFICIENT_BUFFER and sets `size`.
-    unsafe { InitializeProcThreadAttributeList(std::ptr::null_mut(), ATTRIBUTES, 0, &mut size) };
-    let mut buf = vec![0usize; size.div_ceil(size_of::<usize>())];
-    // SAFETY: `buf` holds at least `size` bytes.
-    if unsafe { InitializeProcThreadAttributeList(buf.as_mut_ptr().cast(), ATTRIBUTES, 0, &mut size) } == 0 {
-        return Err(Error::last_os("InitializeProcThreadAttributeList"));
-    }
-    let mut attrs = AttrList(buf);
-    let caps = SECURITY_CAPABILITIES {
-        AppContainerSid: sid.0,
-        Capabilities: std::ptr::null_mut(),
-        CapabilityCount: 0,
-        Reserved: 0,
-    };
-    // Less Privileged AppContainer: ALL APPLICATION PACKAGES grants no longer apply.
-    let lpac: u32 = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
-    // SAFETY (all three): each value outlives CreateProcessW below; the list has room for three.
-    unsafe {
-        attrs.set(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, (&raw const caps).cast(), size_of_val(&caps))?;
-        attrs.set(
-            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-            (&raw const lpac).cast(),
-            size_of_val(&lpac),
-        )?;
-        attrs.set(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherited.as_ptr().cast(), size_of_val(&inherited))?;
-    }
+    let (lockdown, initial) = token::lockdown_and_initial()?;
+    let app = wide(exe.as_os_str());
+    let startup = startup_token(&initial, sid.0, &app)?;
 
     let handle_arg = (input_handle as usize).to_string();
     let mut child_args = sandboxed_args(input, &[]);
     child_args.push(OsStr::new(INPUT_HANDLE_FLAG));
     child_args.push(OsStr::new(&handle_arg));
     child_args.extend_from_slice(args);
-    let mut cmdline = Vec::new();
-    quote(exe.as_os_str(), &mut cmdline);
-    for a in child_args {
-        cmdline.push(b' ' as u16);
-        quote(a, &mut cmdline);
-    }
-    cmdline.push(0);
-    let app = wide(exe.as_os_str());
-    let mut si = STARTUPINFOEXW::default();
-    si.StartupInfo.cb = size_of::<STARTUPINFOEXW>() as u32;
-    si.lpAttributeList = attrs.ptr();
-    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-    si.StartupInfo.hStdError = err_handle;
-    let mut pi = PROCESS_INFORMATION::default();
-    // SAFETY: every pointer is valid for the call. bInheritHandles is TRUE, but HANDLE_LIST limits
-    // inheritance to the input handle.
-    let ok = unsafe {
-        CreateProcessW(
-            app.as_ptr(),
-            cmdline.as_mut_ptr(),
-            std::ptr::null(),
-            std::ptr::null(),
-            1,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED | CREATE_NO_WINDOW,
-            std::ptr::null(),
-            std::ptr::null(),
-            &si.StartupInfo,
-            &mut pi,
-        )
-    };
-    if ok == 0 {
-        return Err(Error::last_os("CreateProcessW (AppContainer)"));
-    }
+    let mut cmdline = command_line(exe, &child_args);
+    let pi = spawn::suspended(lockdown.0, sid.0, &app, &mut cmdline, &inherited, err_handle)?;
     let process = Handle(pi.hProcess);
     // Only the child holds the write end now, so the reader sees EOF when the child exits.
     drop(err_writer);
@@ -354,6 +357,14 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
     // SAFETY: both handles are valid; the child is still suspended.
     if unsafe { AssignProcessToJobObject(job.0, process.0) } == 0 {
         let err = Error::last_os("AssignProcessToJobObject");
+        // SAFETY: valid process handle.
+        unsafe { TerminateProcess(process.0, 1) };
+        return Err(err);
+    }
+    // The loader needs the startup token; enter() drops it before the first untrusted read.
+    // SAFETY: valid thread and token handles; the thread is still suspended.
+    if unsafe { SetThreadToken(&thread.0, startup.0) } == 0 {
+        let err = Error::last_os("SetThreadToken (startup)");
         // SAFETY: valid process handle.
         unsafe { TerminateProcess(process.0, 1) };
         return Err(err);
