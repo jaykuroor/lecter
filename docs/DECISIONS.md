@@ -458,3 +458,40 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: GO on all three CI OSes (CI run 40161530691: ubuntu-24.04, macos-15, windows-2025 green). Source: bblanchon/pdfium-binaries tag `chromium/7881` (PDFium 151.0.7881.0, 2026-06-08), the tag matching pdfium-render 0.9.4's newest API feature `pdfium_7881`. Licence: PDFium BSD-3-Clause AND Apache-2.0, plus bundled third-party notices in `licenses/` (FreeType, ICU, libjpeg-turbo, OpenJPEG, libtiff, libpng, lcms, zlib, abseil, AGG, fast_float, simdutf, llvm-libc); build scripts MIT. Sizes (archive / library): linux-x64 3.6/7.6 MB, linux-arm64 3.6/7.8 MB, macos-universal 7.0/15.2 MB, windows-x64 3.7/7.2 MB, windows-arm64 3.5/6.7 MB. SHA-256 pins: `spikes/pdfium/pins.json`. Placement: Linux `.so` via Tauri `bundle.resources`; macOS universal dylib in `Contents/Frameworks`; Windows dll next to `lecter.exe`. The worker loads it with `bind_to_library(<absolute resource path>)`, never the system library. LICENSE and `licenses/*` ship for SEC-52 (the About → Licences generator adds them explicitly). The spike README lists the requirements for real packaging.
 - Why: the spike's measured result (criterion 3).
 - Instead of: `chromium/8086` (newest release ≥ 2 weeks old), which risks symbol mismatches with the 0.9.4 bindings.
+
+## D-088 · Harness call convention and JSON error shape
+2026-10-24 · session F-015 · active
+- Decision: `lecter-harness <cmd> [args] [--json]`, with `--json` allowed anywhere. With `--json`, stdout gets exactly one JSON line; without it, text on stdout and errors as `lecter-harness: E_X: msg` on stderr. Errors are `{"error":{"code","message","retryable"}}`, mirroring IpcError. Exit 2 for E_INVALID_ARGUMENT, 1 for other codes.
+- Why: one result per call is easy for agents to read, and the same shape as the app's IPC errors.
+- Instead of: JSON-only output; code-only error objects.
+
+## D-089 · Harness owns ErrorCode until IpcError exists
+2026-10-24 · session F-015 · active
+- Decision: `crates/harness/src/error.rs` holds all 15 codes; a test parses 18-contracts.md#error-codes and pins the list to it in order.
+- Why: core has no IPC error type yet.
+- Instead of: adding it to core now (outside F-015's paths).
+- Revisit if: F-017 adds IpcError; harness should then reuse it.
+
+## D-090 · Test-home layout and refusal of relative paths
+2026-10-24 · session F-015 · active
+- Decision: with LECTER_TEST_HOME set, folders are `<home>/config`, `<home>/data`, `<home>/cache`. An empty or relative value is refused with `Error::TestHomeNotAbsolute`. Without it, base folders come from `directories` per the spec's table (macOS config `~/.config/lecter` or absolute `$XDG_CONFIG_HOME`; Windows data/cache `%LOCALAPPDATA%\lecter\{data,cache}`).
+- Why: a relative path resolves against the cwd and could land anywhere.
+- Instead of: treating an empty or relative value as unset.
+
+## D-091 · Test hooks gated by debug or the test-hooks feature
+2026-10-24 · session F-015 · active
+- Decision: hook code uses `cfg(any(debug_assertions, feature = "test-hooks"))`. Core has a `test-hooks` feature that harness enables only as a dev-dependency, so feature unification can't reach the app's release build. Hook names (LECTER_TEST_*) appear only in gated docs, because doc comments end up in release rlib metadata.
+- Why: 01-architecture.md#debug-only-test-hooks. Checked: a release core rlib has 0 `LECTER_TEST` bytes.
+- Instead of: debug_assertions only (would stop harness tests from running in `--release`).
+
+## D-092 · Env-reading paths test runs in a child process
+2026-10-24 · session F-015 · active
+- Decision: `paths::tests::resolve_reads_the_test_home_from_the_environment` re-runs the test binary (`--exact paths::tests::resolve_in_child_process`, marked by LECTER_PATHS_RESOLVE_CHILD) through `TestEnv::apply` and checks the real `AppDirs::resolve()`.
+- Why: `set_var` is unsafe in edition 2024, and cargo test runs tests on parallel threads.
+- Instead of: `set_var` under nextest's process-per-test.
+
+## D-093 · directories, thiserror and serde_json added
+2026-10-24 · session F-015 · active
+- Decision: `directories` (core; 1 new crate, MIT/Apache) for the per-OS base folders; `thiserror` (core; already in tree) for the crate `Error`; `serde_json` (harness; already in tree) moved to root `[workspace.dependencies]` and shared with app.
+- Why: Dep-Added trailers on F-015 commits b6aab39 and ab9757a; check_deps OK.
+- Instead of: hand-rolled folder lookup.

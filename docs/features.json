@@ -442,7 +442,7 @@
    "evidence": [
     "harness:version"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2011,
    "base": "d4b069bd0b2130710abff8d72f2cc1749696d230"
