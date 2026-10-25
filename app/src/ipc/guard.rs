@@ -33,6 +33,13 @@ mod tests {
 
     use super::*;
 
+    /// The origin the app's own pages are served from, which the ACL treats as local: wry serves the
+    /// `tauri` protocol as `http://tauri.localhost` on Windows (and Android), `tauri://localhost`
+    /// elsewhere. Any other origin is remote and gets no capability, so `echo` would be refused by
+    /// the ACL before the guard ever saw it.
+    const LOCAL_ORIGIN: &str =
+        if cfg!(any(windows, target_os = "android")) { "http://tauri.localhost" } else { "tauri://localhost" };
+
     /// Calls `echo` on a mock app whose dispatcher counts its runs, with the guard in front of it.
     fn call(body: Value, runs: &Arc<AtomicUsize>) -> Result<Value, Value> {
         let counter = Arc::clone(runs);
@@ -52,7 +59,7 @@ mod tests {
             cmd: "echo".into(),
             callback: CallbackFn(0),
             error: CallbackFn(1),
-            url: "tauri://localhost".parse().unwrap_or_else(|e| panic!("{e}")),
+            url: LOCAL_ORIGIN.parse().unwrap_or_else(|e| panic!("{e}")),
             body: InvokeBody::Json(body),
             headers: Default::default(),
             invoke_key: INVOKE_KEY.to_string(),
