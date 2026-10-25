@@ -1,0 +1,34 @@
+{
+  "source": "https://github.com/bblanchon/pdfium-binaries",
+  "tag": "chromium/7881",
+  "published": "2026-06-08",
+  "pdfium_version": "151.0.7881.0",
+  "licence": "PDFium BSD-3-Clause (licenses/pdfium.txt); bundled third-party code under its own notices in licenses/ (FreeType, ICU, libjpeg-turbo, OpenJPEG, libtiff, libpng, lcms, zlib, abseil, AGG, fast_float, simdutf, llvm-libc); build scripts MIT (LICENSE)",
+  "targets": {
+    "linux-x64": {
+      "asset": "pdfium-linux-x64.tgz",
+      "sha256": "1470e21b8b4a3b4ad7f85684e2da11d94f3b69a86d81dee11b9b6709d927ac1d",
+      "library": "lib/libpdfium.so"
+    },
+    "linux-arm64": {
+      "asset": "pdfium-linux-arm64.tgz",
+      "sha256": "ee7f7b7d5468958336a818c1cd580bdd20972846b7377b13f9a923d92d1d4674",
+      "library": "lib/libpdfium.so"
+    },
+    "macos-universal": {
+      "asset": "pdfium-mac-univ.tgz",
+      "sha256": "df451a413c3609585e84a4a91110a9bc889cff05fe3b2db0ed817c9e90c3f7d3",
+      "library": "lib/libpdfium.dylib"
+    },
+    "windows-x64": {
+      "asset": "pdfium-win-x64.tgz",
+      "sha256": "73cc0de638ac2095e7445bf56a38200a5b7c7ca0e9f4ba144598f2457377ac08",
+      "library": "bin/pdfium.dll"
+    },
+    "windows-arm64": {
+      "asset": "pdfium-win-arm64.tgz",
+      "sha256": "d3035d4d2cacac6ecd1a2ece197a3d702a1b2a58466276b9f870b8cb278a9d84",
+      "library": "bin/pdfium.dll"
+    }
+  }
+}
