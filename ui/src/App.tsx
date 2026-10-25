@@ -15,17 +15,17 @@ export function App() {
   const info = createAppInfo();
   const course = createCourse();
   const lecture = createLecture();
-  const openLecture = (path: string) => {
-    const opened = course.course();
-    if (opened) void lecture.open(opened.path, path);
-  };
   return (
     <div class="app-frame">
       <header class="headerbar">
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
       </header>
       <nav class="rail" aria-label="Course rail">
-        <CoursePanel state={course} onOpenLecture={openLecture} openLecture={lecture.lecture()?.path ?? null} />
+        <CoursePanel
+          state={course}
+          onOpenLecture={(path, file) => void lecture.open(path, file)}
+          openLecture={lecture.lecture()?.path ?? null}
+        />
       </nav>
       <div class="document-column">
         <main class="buffer" aria-label="Document">

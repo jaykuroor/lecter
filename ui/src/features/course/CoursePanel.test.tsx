@@ -17,7 +17,7 @@ const stat311: CourseOpened = {
   trust: "ask",
 };
 
-function mount(onOpenLecture: (path: string) => void = () => {}, openLecture: string | null = null) {
+function mount(onOpenLecture: (course: string, path: string) => void = () => {}, openLecture: string | null = null) {
   // One state per mount: a call inside the JSX prop would run again on every read of the prop.
   render(() => {
     const state = createCourse();
@@ -144,7 +144,9 @@ describe("CoursePanel", () => {
   it("opens a lecture on click, Enter or Space, and marks the open one", async () => {
     installMockCore({ ...defaultFixture, courseOpen: stat311 });
     const opened: string[] = [];
-    fireEvent.click(mount((path) => opened.push(path), "lectures/2026-09-09-l02-probability.md"));
+    fireEvent.click(
+      mount((course, path) => opened.push(`${course} ${path}`), "lectures/2026-09-09-l02-probability.md"),
+    );
     const lectures = await screen.findByRole("region", { name: "Lectures" });
     const [first, second] = within(lectures).getAllByRole("button");
     if (!first || !second) throw new Error("no lecture buttons");
@@ -158,9 +160,9 @@ describe("CoursePanel", () => {
     expect(fireEvent.keyDown(first, { key: " " })).toBe(false);
     expect(fireEvent.keyDown(first, { key: "a" })).toBe(true);
     expect(opened).toEqual([
-      "lectures/2026-09-02-l01-introduction.md",
-      "lectures/2026-09-09-l02-probability.md",
-      "lectures/2026-09-02-l01-introduction.md",
+      "/courses/STAT311 lectures/2026-09-02-l01-introduction.md",
+      "/courses/STAT311 lectures/2026-09-09-l02-probability.md",
+      "/courses/STAT311 lectures/2026-09-02-l01-introduction.md",
     ]);
     const slides = screen.getByRole("region", { name: "Slides" });
     expect(within(slides).queryAllByRole("button")).toHaveLength(0);

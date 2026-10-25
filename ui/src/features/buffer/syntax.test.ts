@@ -44,6 +44,12 @@ describe("lecture line structure (03-lecture-files.md#body)", () => {
     expect(slideFence(":::")).toBeNull();
     expect(slideFence("::: {.slide #s1} trailing")).toBeNull();
     expect(slideFence("text ::: {.slide #s1}")).toBeNull();
+    expect(slideFence("::: {.slide #s1 n=1}")?.n).toBe(1);
+    expect(slideFence("::: {.slide #s1 n=0}")?.n).toBe(0);
+    // Pandoc fences may be longer than three colons, with or without a space, and trailing blanks.
+    expect(slideFence(":::: {.slide #s6 n=6}")?.id).toBe("s6");
+    expect(slideFence(":::{.slide #s7 n=7}")?.id).toBe("s7");
+    expect(slideFence("::: {.slide #s8 n=8}   ")?.id).toBe("s8");
   });
 
   it("finds a block span's text between its hidden brackets and attributes", () => {
@@ -59,6 +65,7 @@ describe("lecture line structure (03-lecture-files.md#body)", () => {
       "[Text]{#s1b1",
       " [Text]{#s1b1}",
       "[Text]",
+      "[Text]{#s1b1} trailing",
     ]) {
       expect(blockSpan(notBlock), notBlock).toBeNull();
     }
@@ -74,6 +81,20 @@ describe("lecture line structure (03-lecture-files.md#body)", () => {
     const quoted = doc('---\nslides:\n  - "slides/a b.pdf"\n- slides/c.pdf\ndate: 1\n  - not/a/slide.pdf\n---');
     expect(frontMatterSlides(quoted, 7)).toEqual(["slides/a b.pdf", "slides/c.pdf"]);
     expect(frontMatterSlides(doc("---\nslides: []\n---"), 3)).toEqual([]);
+    expect(frontMatterEnd(doc("---\n---"))).toBe(2);
+    expect(frontMatterEnd(doc("---\ntitle: x\n---"))).toBe(3);
+  });
+
+  it("reads only the slides: list, with YAML's spacing and quoting", () => {
+    const slides = (lines: string[]) => frontMatterSlides(doc(["---", ...lines, "---"].join("\n")), lines.length + 2);
+    expect(slides(["- stray.pdf", "slides:", "- a.pdf"])).toEqual(["a.pdf"]);
+    expect(slides(["myslides:", "  - x.pdf"])).toEqual([]);
+    expect(slides(["slides: []", "  - x.pdf"])).toEqual([]);
+    expect(slides(["slides:   ", "  -   spaced.pdf  "])).toEqual(["spaced.pdf"]);
+    expect(slides(["slides:", "  - a.pdf", "date - x", "  - b.pdf"])).toEqual(["a.pdf"]);
+    expect(slides(["slides:", "  - a.pdf", "  # a comment", "  - b.pdf"])).toEqual(["a.pdf", "b.pdf"]);
+    expect(slides(["slides:", '  - a"b"', '  - "a"b', '  - "q.pdf"'])).toEqual(['a"b"', '"a"b', "q.pdf"]);
+    expect(frontMatterSlides(doc("one line"), 0)).toEqual([]);
   });
 
   it("gives every line of a lecture its role", () => {
@@ -146,6 +167,7 @@ describe("lecture line structure (03-lecture-files.md#body)", () => {
     expect(sourceLabel("board", files)).toBe("board");
     expect(sourceLabel("a3", files)).toBe("a3");
     expect(sourceLabel("A3x", files)).toBe("A3x");
+    expect(sourceLabel("xA3", files)).toBe("xA3");
     expect(sourceLabel("", [])).toBe("");
   });
 });

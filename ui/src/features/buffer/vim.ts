@@ -56,31 +56,48 @@ interface MotionCm {
   cm6: { state: EditorState };
 }
 
-let registered = false;
+type Motion = Parameters<typeof Vim.defineMotion>[1];
 
-/** Maps `j k gg G` to the element motions, once per page. */
-export function registerElementMotions(): void {
-  if (registered) return;
-  registered = true;
-  Vim.defineMotion("lecterElement", (cm, head, args, _vim, input) => {
-    const state = (cm as unknown as MotionCm).cm6.state;
-    const forward = args.forward === true;
-    if (!state.facet(lectureBuffer) || input.operator)
-      return lineMove(state, head, forward ? args.repeat : -args.repeat);
-    return elementMove(state, head, forward, args.repeat) ?? head;
-  });
-  Vim.defineMotion("lecterEdge", (cm, head, args) => {
-    const state = (cm as unknown as MotionCm).cm6.state;
-    const count = args.repeatIsExplicit ? args.repeat : null;
-    if (!state.facet(lectureBuffer)) {
-      const line = count !== null ? count - 1 : args.forward ? state.doc.lines - 1 : 0;
-      return lineMove(state, { line: 0, ch: 0 }, line);
-    }
-    return elementEdge(state, args.forward === true, count) ?? head;
-  });
-  Vim.mapCommand("j", "motion", "lecterElement", { forward: true, linewise: true }, {});
-  Vim.mapCommand("k", "motion", "lecterElement", { forward: false, linewise: true }, {});
-  const edge = { explicitRepeat: true, linewise: true, toJumplist: true };
-  Vim.mapCommand("gg", "motion", "lecterEdge", { ...edge, forward: false }, {});
-  Vim.mapCommand("G", "motion", "lecterEdge", { ...edge, forward: true }, {});
+/** `j` and `k`: by element in a lecture; by plain lines elsewhere and with an operator pending. */
+export const elementMotion: Motion = (cm, head, args, _vim, input) => {
+  const state = (cm as unknown as MotionCm).cm6.state;
+  const forward = args.forward === true;
+  if (!state.facet(lectureBuffer) || input.operator) return lineMove(state, head, forward ? args.repeat : -args.repeat);
+  return elementMove(state, head, forward, args.repeat) ?? head;
+};
+
+/** `gg` and `G`: the first, last or `{count}`th element in a lecture; plain lines elsewhere. */
+export const edgeMotion: Motion = (cm, head, args) => {
+  const state = (cm as unknown as MotionCm).cm6.state;
+  const count = args.repeatIsExplicit ? args.repeat : null;
+  if (!state.facet(lectureBuffer)) {
+    const line = count !== null ? count - 1 : args.forward ? state.doc.lines - 1 : 0;
+    return lineMove(state, { line: 0, ch: 0 }, line);
+  }
+  return elementEdge(state, args.forward === true, count) ?? head;
+};
+
+/** The keys of 10-keymap.md#move-everywhere these motions take over: keys, motion, its args. */
+export const ELEMENT_KEYS: readonly (readonly [string, string, Record<string, boolean>])[] = [
+  ["j", "lecterElement", { forward: true, linewise: true }],
+  ["k", "lecterElement", { forward: false, linewise: true }],
+  ["gg", "lecterEdge", { forward: false, explicitRepeat: true, linewise: true, toJumplist: true }],
+  ["G", "lecterEdge", { forward: true, explicitRepeat: true, linewise: true, toJumplist: true }],
+];
+
+/** The parts of Vim's API registration uses: the real `Vim`, or a recording fake in tests. */
+export interface VimApi {
+  defineMotion(name: string, fn: Motion): void;
+  mapCommand(keys: string, type: string, name: string, args: unknown, extra: Record<string, unknown>): void;
+}
+
+const registered = new WeakSet<VimApi>();
+
+/** Maps `j k gg G` to the element motions, once per Vim API (once per page for the real one). */
+export function registerElementMotions(api: VimApi = Vim): void {
+  if (registered.has(api)) return;
+  registered.add(api);
+  api.defineMotion("lecterElement", elementMotion);
+  api.defineMotion("lecterEdge", edgeMotion);
+  for (const [keys, motion, args] of ELEMENT_KEYS) api.mapCommand(keys, "motion", motion, args, {});
 }

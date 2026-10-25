@@ -35,7 +35,8 @@ export function parseAttrs(inner: string): Attrs {
   for (const m of inner.matchAll(ATTR)) {
     if (m[1] !== undefined) attrs.id = m[1];
     else if (m[2] !== undefined) attrs.classes.push(m[2]);
-    else if (m[3] !== undefined) attrs.values[m[3]] = m[4] ?? m[5] ?? "";
+    // Otherwise the third alternative matched: a key, and a quoted or a bare value.
+    else attrs.values[`${m[3]}`] = `${m[4] ?? m[5]}`;
   }
   return attrs;
 }
@@ -61,7 +62,7 @@ export function slideFence(text: string): SlideFence | null {
   const n = Number(attrs.values.n);
   return {
     id: attrs.id,
-    n: Number.isInteger(n) && n > 0 ? n : 0,
+    n: Number.isInteger(n) && n >= 1 ? n : 0,
     title: attrs.values.title ?? "",
     src: attrs.values.src ?? "",
     flagged: attrs.classes.includes("flag"),
@@ -83,9 +84,9 @@ const BLOCK = /^\[(.*)\]\{(#s\d+b\d+(?:\s[^}]*)?)\}\s*$/;
 /** The block span on this line, or `null` if the line isn't one. */
 export function blockSpan(text: string): BlockSpan | null {
   const m = BLOCK.exec(text);
-  if (m?.[1] === undefined || m[2] === undefined) return null;
-  const attrs = parseAttrs(m[2]);
-  return { id: attrs.id, flagged: attrs.classes.includes("flag"), from: 1, to: 1 + m[1].length };
+  if (!m) return null;
+  const attrs = parseAttrs(`${m[2]}`);
+  return { id: attrs.id, flagged: attrs.classes.includes("flag"), from: 1, to: 1 + `${m[1]}`.length };
 }
 
 /** The most lines front matter may take; a `---` line with no end in reach isn't front matter. */
@@ -93,7 +94,7 @@ const FRONT_MATTER_MAX_LINES = 1000;
 
 /** The number of the line that closes the front matter, or 0 when the file has none. */
 export function frontMatterEnd(doc: Text): number {
-  if (doc.lines < 2 || doc.line(1).text !== "---") return 0;
+  if (doc.line(1).text !== "---") return 0;
   const last = Math.min(doc.lines, FRONT_MATTER_MAX_LINES);
   for (let n = 2; n <= last; n++) {
     const t = doc.line(n).text;
@@ -106,8 +107,9 @@ export function frontMatterEnd(doc: Text): number {
 export function frontMatterSlides(doc: Text, end: number): string[] {
   const out: string[] = [];
   let inList = false;
-  for (let n = 2; n < end; n++) {
-    const t = doc.line(n).text;
+  if (end === 0) return out;
+  // Lines 2 up to (not including) the closing line `end`.
+  for (const t of doc.iterLines(2, end)) {
     if (/^slides:\s*$/.test(t)) {
       inList = true;
       continue;

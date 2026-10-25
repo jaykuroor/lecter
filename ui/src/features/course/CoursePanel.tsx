@@ -10,8 +10,8 @@ import "./CoursePanel.css";
  */
 export function CoursePanel(props: {
   state: CourseState;
-  /** Opens a lecture (course-relative path) in the buffer. */
-  onOpenLecture: (path: string) => void;
+  /** Opens a lecture (its course-relative path) of the course (its path) in the buffer. */
+  onOpenLecture: (course: string, path: string) => void;
   /** The lecture in the buffer, highlighted in the list. */
   openLecture: string | null;
 }): JSX.Element {
@@ -48,7 +48,7 @@ export function CoursePanel(props: {
               label="Lectures"
               empty="No lectures yet"
               files={course().lectures}
-              onOpen={props.onOpenLecture}
+              onOpen={(path) => props.onOpenLecture(course().path, path)}
               current={props.openLecture}
             />
             <FileList label="Slides" empty="No slides yet" files={course().slides} />

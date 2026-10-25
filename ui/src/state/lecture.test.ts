@@ -76,4 +76,19 @@ describe("the open lecture", () => {
     expect(state.error()).toBeNull();
     expect(state.lecture()).toEqual(l08);
   });
+
+  it("drops an older lost connection that arrives after a newer answer", async () => {
+    installMockCore(defaultFixture);
+    const settle: { ok: (v: unknown) => void; fail: (e: unknown) => void }[] = [];
+    internals().invoke = () => new Promise((ok, fail) => settle.push({ ok, fail }));
+    const state = createLecture();
+    const first = state.open("/c", l07.path);
+    const second = state.open("/c", l08.path);
+    settle[1]?.ok(l08);
+    await second;
+    settle[0]?.fail(new Error("IPC closed"));
+    await first;
+    expect(state.error()).toBeNull();
+    expect(state.lecture()).toEqual(l08);
+  });
 });

@@ -15,10 +15,11 @@ export function createLecture(): LectureState {
   const [lecture, setLecture] = createSignal<Lecture | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   // Only the newest request may fill the buffer: an older answer arriving late is dropped.
-  let latest = 0;
+  let latest: object = {};
 
   async function open(course: string, path: string): Promise<void> {
-    const request = ++latest;
+    const request = {};
+    latest = request;
     try {
       const result = await openLecture(course, path);
       if (request !== latest) return;

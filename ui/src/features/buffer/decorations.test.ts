@@ -16,8 +16,10 @@ function dump(set: DecorationSet, d: Text): Entry[] {
   set.between(0, d.length, (from, to, value) => {
     const spec = value.spec as { class?: string; widget?: unknown; block?: boolean };
     const where = `${d.lineAt(from).number}-${d.lineAt(to).number}`;
-    if (spec.widget instanceof SlideHeading) out.push(`${where} heading ${JSON.stringify(spec.widget.heading)}`);
-    else if (spec.class) out.push(`${where} line ${spec.class}`);
+    if (spec.widget instanceof SlideHeading) {
+      // A heading replaces whole lines: a block widget.
+      out.push(`${where} ${spec.block ? "heading" : "INLINE heading"} ${JSON.stringify(spec.widget.heading)}`);
+    } else if (spec.class) out.push(`${where} line ${spec.class}`);
     else if (spec.block) out.push(`${where} hide lines`);
     else out.push(`${where} hide ${d.sliceString(from, to)}`);
   });
@@ -75,12 +77,28 @@ describe("lecture decorations (components.md#slide-heading, #block)", () => {
   });
 
   it("takes a heading's title from the `## ` line and its number from the order when the fence has none", () => {
-    const d = doc("::: {.slide #s1}\n## From the line\n[A]{#s1b1}\n:::\n::: {.slide #s2}\n[B]{#s2b1}\n:::");
-    const headings = dump(buildDecorations(d), d).filter((e) => e.includes("heading"));
-    expect(headings).toEqual([
+    const d = doc("::: {.slide #s1}\n## From the line  \n[A]{#s1b1}\n:::\n::: {.slide #s2}\n[B]{#s2b1}\n:::");
+    expect(dump(buildDecorations(d), d)).toEqual([
       `1-2 heading ${heading({ n: 1, total: 2, title: "From the line", source: "", flagged: false })}`,
+      "3-3 line cm-block",
+      "3-3 hide [",
+      "3-3 hide ]{#s1b1}",
+      "4-4 hide lines",
       `5-5 heading ${heading({ n: 2, total: 2, title: "", source: "", flagged: false })}`,
+      "6-6 line cm-block",
+      "6-6 hide [",
+      "6-6 hide ]{#s2b1}",
+      "7-7 hide lines",
     ]);
+  });
+
+  it("counts a slide fence on the last line, and decorates a one-line text", () => {
+    const d = doc("[A]{#s1b1}\n::: {.slide #s2 n=2}");
+    expect(dump(buildDecorations(d), d).at(-1)).toBe(
+      `2-2 heading ${heading({ n: 2, total: 1, title: "", source: "", flagged: false })}`,
+    );
+    const one = doc("Just a line");
+    expect(dump(buildDecorations(one), one)).toEqual(["1-1 line cm-text"]);
   });
 
   it("renders a heading as gutter label, title and source", () => {

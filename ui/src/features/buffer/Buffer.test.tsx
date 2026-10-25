@@ -42,6 +42,7 @@ describe("the lecture buffer", () => {
     expect(root.querySelector(".buffer-empty")?.textContent).toBe("Open a lecture from the rail.");
     expect(root.querySelector(".cm-editor")).toBeNull();
     expect(root.dataset.lecture).toBe("");
+    expect(root.dataset.vimMode).toBe("normal");
   });
 
   it("shows the core's error for a lecture that failed to open", () => {
@@ -70,6 +71,15 @@ describe("the lecture buffer", () => {
     expect(root.querySelector(".cm-focused-line")?.textContent).toBe(
       "Covariance measures how two variables move together.",
     );
+  });
+
+  it("keeps the focus on the cursor's block when lines are added above it", () => {
+    const { root, view } = mount();
+    const v = view();
+    v.dispatch({ changes: { from: v.state.doc.line(13).from, insert: "[A new block]{#s1b9}\n\n" } });
+    expect(line(v)).toBe(16);
+    const focused = root.querySelectorAll(".cm-focused-line");
+    expect([...focused].map((e) => e.textContent)).toEqual(["Covariance measures how two variables move together."]);
   });
 
   it("moves between blocks with j, k, gg and G, and counts work", () => {

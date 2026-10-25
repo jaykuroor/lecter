@@ -140,17 +140,20 @@ fn a_lecture_linked_inside_the_course_opens() {
 
 #[test]
 fn reads_up_to_the_limit_and_refuses_one_byte_more() {
+    // The limit is 16 MiB (lecture/mod.rs); spelled out so a changed constant fails here.
+    const SIXTEEN_MIB: u64 = 16 * 1024 * 1024;
+    assert_eq!(MAX_LECTURE_BYTES, SIXTEEN_MIB);
     let env = env();
     let course = course_with(&env, "lectures/at.md", b"");
     let at = course.join("lectures/at.md");
     let file = std::fs::OpenOptions::new().write(true).open(&at).unwrap_or_else(|e| panic!("{e}"));
-    file.set_len(MAX_LECTURE_BYTES).unwrap_or_else(|e| panic!("{e}"));
+    file.set_len(SIXTEEN_MIB).unwrap_or_else(|e| panic!("{e}"));
     let text = open(&course, "lectures/at.md").map(|l| l.text.len() as u64);
-    assert_eq!(text, Ok(MAX_LECTURE_BYTES));
-    file.set_len(MAX_LECTURE_BYTES + 1).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(text, Ok(SIXTEEN_MIB));
+    file.set_len(SIXTEEN_MIB + 1).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(
         refused(&course, "lectures/at.md"),
-        Error::LectureTooLarge { path: "lectures/at.md".into(), limit: MAX_LECTURE_BYTES }
+        Error::LectureTooLarge { path: "lectures/at.md".into(), limit: SIXTEEN_MIB }
     );
 }
 

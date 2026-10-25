@@ -41,8 +41,9 @@ const focus = ViewPlugin.fromClass(
     constructor(view: EditorView) {
       this.decorations = focusDecorations(view);
     }
+    // One line lookup per update: cheaper than telling which updates can move the cursor's line.
     update(u: ViewUpdate): void {
-      if (u.selectionSet || u.docChanged) this.decorations = focusDecorations(u.view);
+      this.decorations = focusDecorations(u.view);
     }
   },
   { decorations: (p) => p.decorations },

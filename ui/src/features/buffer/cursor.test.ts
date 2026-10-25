@@ -28,6 +28,24 @@ describe("cursor rules", () => {
     expect(up.selection.main.head).toBe(l16.from + l16.text.indexOf("]{#s1b2"));
   });
 
+  it("moves a cursor that stays put on a hidden line forward", () => {
+    // A state can start on a hidden line (filters don't run on create); re-setting it there moves down.
+    const fence = state(state().doc.line(18).from);
+    const again = fence.update({ selection: { anchor: fence.doc.line(18).from } }).state;
+    expect(again.selection.main.head).toBe(l23.from + 1);
+  });
+
+  it("places the moved cursor in the edited document's positions", () => {
+    const s = state(l14.from + 3);
+    // Two characters typed into line 14 and the cursor sent to the closing fence (line 18), in the
+    // same transaction: the cursor ends on line 23's text, two characters further on.
+    const tr = s.update({
+      changes: { from: l14.from + 1, insert: "XY" },
+      selection: { anchor: s.doc.line(18).from + 2 },
+    });
+    expect(tr.state.selection.main.head).toBe(l23.from + 1 + 2);
+  });
+
   it("keeps a cursor inside a block's text, so typing lands in the span", () => {
     const s = state(l14.from + 5);
     const atStart = s.update({ selection: { anchor: l14.from } }).state;

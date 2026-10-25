@@ -39,6 +39,7 @@ describe("moving between elements (10-keymap.md#move-everywhere)", () => {
     expect(lastElement(sample)).toBe(39);
     expect(lastElement(doc(":::"))).toBeNull();
     expect(nthElement(doc("one line"), 1)).toBe(1);
+    expect(lastElement(doc("a\nb"))).toBe(2);
   });
 });
 

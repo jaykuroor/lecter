@@ -79,11 +79,10 @@ const flaggedBlock = Decoration.line({ class: "cm-block cm-block-flagged" });
 /** The decorations of one element or blank line (`text` and `blank` and `block` kinds). */
 function lineDecorations(doc: Text, n: number, kind: LineKind, out: Range<Decoration>[]): void {
   const line = doc.line(n);
+  const span = blockSpan(line.text);
   if (kind === "blank") out.push(gap.range(line.from));
-  else if (kind === "text") out.push(textLine.range(line.from));
-  else if (kind === "block") {
-    const span = blockSpan(line.text);
-    if (!span) return;
+  else if (!span) out.push(textLine.range(line.from));
+  else {
     out.push((span.flagged ? flaggedBlock : block).range(line.from));
     out.push(inlineHidden.range(line.from, line.from + span.from));
     out.push(inlineHidden.range(line.from + span.to, line.to));
@@ -95,13 +94,14 @@ export function buildDecorations(doc: Text): DecorationSet {
   const fm = frontMatterEnd(doc);
   const slides = frontMatterSlides(doc, fm);
   let total = 0;
-  for (let n = fm + 1; n <= doc.lines; n++) if (lineKind(doc, n, fm) === "slide") total++;
+  for (let n = 1; n <= doc.lines; n++) if (lineKind(doc, n, fm) === "slide") total++;
   const out: Range<Decoration>[] = [];
   if (fm > 0) out.push(hidden.range(0, doc.line(fm).to));
   let slide = 0;
   for (let n = fm + 1; n <= doc.lines; n++) {
+    // After the front matter, a line is a slide fence exactly when `slideFence` reads one.
+    const fence = slideFence(doc.line(n).text);
     const kind = lineKind(doc, n, fm);
-    const fence = kind === "slide" ? slideFence(doc.line(n).text) : null;
     if (fence) {
       slide++;
       const next = n < doc.lines ? doc.line(n + 1) : null;
@@ -124,7 +124,8 @@ export function buildDecorations(doc: Text): DecorationSet {
       lineDecorations(doc, n, kind, out);
     }
   }
-  return Decoration.set(out, true);
+  // Pushed in document order (a line's line decoration before its inline ones), so no sort.
+  return Decoration.set(out);
 }
 
 /** Whether lines `from`–`to` of `doc` hold any structure (front matter, a fence or a title). */
@@ -138,7 +139,7 @@ function touchesStructure(doc: Text, from: number, to: number): boolean {
 
 /** The decorations after `tr`: mapped, with the changed lines rescanned or, for structure, rebuilt. */
 function update(deco: DecorationSet, tr: Transaction): DecorationSet {
-  if (!tr.docChanged) return deco;
+  // Without changes nothing below runs: there are no changed ranges, and mapping returns `deco`.
   const before = tr.startState.doc;
   const doc = tr.state.doc;
   let structural = false;
@@ -149,13 +150,13 @@ function update(deco: DecorationSet, tr: Transaction): DecorationSet {
   });
   if (structural) return buildDecorations(doc);
   let next = deco.map(tr.changes);
-  const fm = frontMatterEnd(doc);
   tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    const fm = frontMatterEnd(doc);
     const first = doc.lineAt(fromB);
     const last = doc.lineAt(toB);
     const add: Range<Decoration>[] = [];
     for (let n = first.number; n <= last.number; n++) lineDecorations(doc, n, lineKind(doc, n, fm), add);
-    next = next.update({ filterFrom: first.from, filterTo: last.to, filter: () => false, add, sort: true });
+    next = next.update({ filterFrom: first.from, filterTo: last.to, filter: () => false, add });
   });
   return next;
 }
