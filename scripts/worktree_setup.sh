@@ -20,11 +20,18 @@ if [ -d "$MAIN/tests/corpus/private" ] && [ ! -e tests/corpus/private ]; then
   mkdir -p tests/corpus && ln -s "$MAIN/tests/corpus/private" tests/corpus/private
   echo "linked the private corpus (git-ignored; read only)"
 fi
+# Warm start: clone main's Rust build output when the filesystem shares blocks (btrfs, XFS): instant, no extra
+# space. Anywhere else the copy fails at once and the build starts cold, as before. Cargo rebuilds what changed.
+if [ -d "$MAIN/target" ] && [ ! -e target ] && [ "$(uname -s)" = Linux ]; then
+  if cp -a --reflink=always "$MAIN/target" target 2>/dev/null; then echo "warm start: cloned main's target/"
+  else rm -rf ./target; fi
+fi
 scripts/init.sh >/dev/null 2>.verify-init.err || { cat .verify-init.err; rm -f .verify-init.err; echo "init.sh failed"; exit 1; }
 rm -f .verify-init.err
-if scripts/verify.sh --quick > /dev/null 2>&1; then echo "baseline: VERIFY OK"
+# Usually a cache hit: the orchestrator verified this code tree when it merged it (scripts/verify.sh green cache).
+if BASE_OUT=$(scripts/verify.sh --quick 2>&1); then echo "baseline: VERIFY OK"
 else
-  scripts/verify.sh --quick | grep -E '^(FAIL|VERIFY)' 
+  printf '%s\n' "$BASE_OUT" | grep -E '^(FAIL|VERIFY)'
   [ "${1:-}" = --resume ] && { echo "baseline red on a resumed branch: fix your own branch first"; exit 1; }
   echo "baseline red: main itself fails. Report STATUS: BLOCKED with these lines; don't build on it."; exit 3
 fi

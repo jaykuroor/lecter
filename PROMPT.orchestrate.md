@@ -31,10 +31,12 @@ Repeat until `next.py` exits 3 (all done), 4 (all blocked), 5 (gate), or Jay say
 
 ## When a builder reports (format: `.claude/agents/builder.md`)
 
-- **`DONE`**
-  1. Spawn the `reviewer` with the feature id, the worktree path and `main..<branch>`. If the card lists `reviews: security`, spawn the `security-reviewer` the same way (in parallel).
-  2. **Any `VERDICT: FIX`:** send all defects to that builder with `SendMessage` and wait for its next report. After 2 FIX rounds: merge if only minor issues remain (note them in PROGRESS "Watch out"); otherwise `feature.py block` with the reason and tell Jay.
-  3. **All `PASS`:** merge (below).
+- **`DONE`** (one review per feature; the re-check resumes the same reviewer, so it doesn't re-read the spec)
+  1. **Spike** (`kind: spike`): no reviewer. Open the measurement log in `.evidence/F-0NN/` (`tail -n 40`) and check the numbers in the builder's decision line match it and the script is under `spikes/`. Mismatch: send it back. Otherwise merge.
+  2. **CI fix under 40 changed lines** (`git diff --shortstat main..<branch>`): no reviewer; CI on the next push is the judge. Larger CI fixes get the reviewer.
+  3. **Everything else:** spawn one `reviewer` with the feature id, the worktree path, `main..<branch>`, and `SECURITY` if the card lists `reviews: security`. Note its agent id and the branch head. **Deep-security cards** (F-017, F-052, F-053, F-054, F-055, F-063, F-084, F-085, F-086, F-109, F-141, F-166, F-167, F-171, F-172) also get the `security-reviewer` the same way, in parallel; its re-check resumes it the same way.
+  4. **`VERDICT: FIX`** (a blocker or major): send the defects to the builder with `SendMessage` and wait. When it reports `DONE` again, resume the same reviewer with `SendMessage`: `Re-check: fixes are in <old head>..<new head>.` After 2 FIX rounds with a blocker or major left: `feature.py block` with the reason and tell Jay.
+  5. **`VERDICT: PASS`** (minor findings may be listed): put the minors in PROGRESS "Watch out" and merge (below).
 - **`NEEDS_JAY`:** ask Jay right away with the question tool, the builder's recommendation first. Keep other builders running. Record his answer as a D-entry (`Who: Jay`), commit it, and send it to the builder with `SendMessage`. Dependency approvals: the builder re-runs `add_dep.py --approved D-0NN`.
 - **`IMPOSSIBLE`:** run the `reviewer` on the claim. If it agrees, `feature.py block F-0NN "IMPOSSIBLE: <criterion> - <smallest spec change>"`, add a Q-entry with the evidence, and tell Jay in one line. A spec change goes through `PROMPT.plan.md`.
 - **`WIP`** (out of room): `feature.py note F-0NN "<stopping point>"`, commit (`chore: F-0NN wip`), `git worktree remove <path>`, dispatch `Resume branch <branch>`.
@@ -47,7 +49,7 @@ Repeat until `next.py` exits 3 (all done), 4 (all blocked), 5 (gate), or Jay say
    - Lockfile conflicts (`Cargo.lock`, `ui/pnpm-lock.yaml`): `scripts/merge_lockfiles.sh`. Never hand-merge a lockfile.
    - Trivial conflicts (appended Learned lines): resolve them yourself.
    - Code conflicts: `git merge --abort`; tell the builder (`SendMessage`) to `git merge main`, resolve, re-verify and report again.
-3. `scripts/verify.sh` on the merged tree. It runs the test-weakening, dependency and secret lints against the merge.
+3. `scripts/verify.sh` on the merged tree. It runs the test-weakening, dependency and secret lints against the merge. When the branch already contained `main` (the usual case with one builder), the code tree is the one the builder verified, so the heavy checks print `CACHED` and only the cheap lints run again.
    - Fails: `git merge --abort`, send the output to the builder.
    - Passes: `git commit -m "F-0NN: <title>"` (keep the builder's trailers out of it; they stay on the branch commits), then `LECTER_SKIP_VERIFY=1 python3 scripts/feature.py done F-0NN` (verify just passed on this tree).
 4. Handoff into the shared files, the only files you edit by hand: `docs/PROGRESS.md` (Current state and one log entry), `docs/DECISIONS.md` (number the builder's decisions and `Dep-Added` lines), `docs/QUESTIONS.md` ("later" questions only), `CHANGELOG.md` (its line), and the README roadmap status when a milestone completes. Commit: `docs: handoff F-0NN`. Never leave `main` dirty between steps.
@@ -55,11 +57,21 @@ Repeat until `next.py` exits 3 (all done), 4 (all blocked), 5 (gate), or Jay say
 6. If pushing is on: `git pull --no-rebase origin main` (if it brought commits, `scripts/verify.sh --quick` first), `git push origin main`, note the SHA for the CI watch.
 7. Tell Jay one line: `Merged F-0NN <title> (n/total). Running: … Usage: …`.
 
+## Features that must pass on macOS and Windows
+
+Some cards can only be proven on all three OSes: their criteria or `verify` name the `e2e-app` job on Linux, macOS and Windows, or say `UNVERIFIED-ON` until CI runs (F-013, F-026, F-027, F-028 and later cards like them). Merging those blind turns `main` red and starts fix loops that can't be reproduced on Linux. With pushing on, prove the branch first:
+
+1. After the review passes: `git push -u origin <branch>`, then `gh workflow run ci.yml --ref <branch>`; get the id with `gh run list --workflow ci.yml --branch <branch> --limit 1 --json databaseId`.
+2. Wait in a background shell, with no output: `gh run watch <id> --exit-status >/dev/null 2>&1; echo "exit $?"`. Don't poll.
+3. Red: `gh run view <id> --log-failed | tail -n 80` goes to the builder with `SendMessage`; this is a FIX round. Green: merge, then `git push origin --delete <branch>`.
+
+Without pushing, merge as usual and leave the card's `UNVERIFIED-ON` line in PROGRESS "Watch out".
+
 ## Milestone gates
 
 When `next.py` exits 5, a milestone is complete. Stop dispatching, then:
 
-1. Let running builders finish and merge them.
+1. Let running builders finish and merge them, then run the gardener (see "Gardening").
 2. Spawn the `security-reviewer` with `milestone M<n>` and the range from the milestone's first `chore: start` commit to `HEAD`. Turn confirmed defects into a Q-entry for the planning session.
 3. Show Jay the checklist from `python3 scripts/feature.py gate` (5–10 minutes in `scripts/dev.sh`), and ask: "Go to the next milestone, or notes first?"
 4. **Notes:** append them verbatim under `## Gate notes (M<n>)` in `docs/QUESTIONS.md`, commit, and tell Jay to run `scripts/loop.sh plan` (they become features). Then wait for his go.
@@ -71,11 +83,11 @@ Jay has two Claude Pro accounts: A (default config) and B (`claude-b`, its own `
 
 - **Usage line** in every status update: `Usage: <h:mm> on this account since start, <n> merged. /usage shows the limits.`
 - **When a limit hits,** this session and its builders stop where they are. Their work up to the last green step is committed on their branches, and the resume point says what was happening. Jay quits, starts `claude-b` in the same folder and types `Follow PROMPT.orchestrate.md`; "Start and resume" picks up, including dead builders.
-- **Context:** finish in-flight merges first, then tell Jay it's a good moment to `/clear` and say `Follow PROMPT.orchestrate.md`.
+- **Context:** every builder report, review and verify output stays in this session and is re-read on every later turn. After every 4 merges, when no builder is running, write the resume point, commit, and tell Jay it's a good moment to `/clear` and say `Follow PROMPT.orchestrate.md`. Do the same after any compaction.
 
 ## CI watch (pushing on)
 
-Only `ci.yml` counts; nightly failures are fixed as normal CI fixes but don't stop merges.
+Only `ci.yml` counts. Nightly failures don't stop merges and aren't dispatched one by one: at the next gardening pass, read `gh run list --workflow nightly.yml --limit 3 --json databaseId,conclusion,headSha` and dispatch one `Fix nightly` CI fix covering what is still red.
 
 - Before each merge and before telling Jay it's safe to close: `gh run list --workflow ci.yml --branch main --commit <last pushed sha> --json databaseId,status,conclusion`.
 - Queued, in progress or `success`: fine. `cancelled`: `gh run rerun <id>`.
@@ -83,7 +95,7 @@ Only `ci.yml` counts; nightly failures are fixed as normal CI fixes but don't st
 
 ## Gardening
 
-After every 6 merged features, when no builder is running, spawn the `gardener` (`PROMPT.garden.md`, on `main`). Merge nothing while it runs. If pushing is on, also list Dependabot PRs (`gh pr list --author app/dependabot --json number,title,statusCheckRollup`) and tell Jay which are green; he merges them on GitHub.
+At each milestone gate, and after every 10 merged features within a long milestone, when no builder is running, spawn the `gardener` (`PROMPT.garden.md`, on `main`). Merge nothing while it runs. If pushing is on, also list Dependabot PRs (`gh pr list --author app/dependabot --json number,title,statusCheckRollup`) and tell Jay which are green; he merges them on GitHub.
 
 ## Talking to Jay
 

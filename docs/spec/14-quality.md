@@ -21,12 +21,12 @@ These are CI gates from the walking skeleton on (milestone M0.5). Every feature 
 
 Rules:
 - A budget is born with the feature that makes it measurable, and its entry lists the milestone it starts gating (`"from"`). Entries without a measurement yet print `PENDING` and fail once their milestone is done.
-- `kind: timing` budgets get a ×1.5 allowance on shared CI runners; memory, size and token budgets are exact.
+- `kind: timing` budgets: shared CI runners are noisy, so with `--ci` a timing value gets a ×1.5 allowance, and a value over it is measured once more: the budget fails only if both runs are over ×1.5 (the report keeps both values). Locally (`--quick`, `--only`) they gate at ×1. Memory, size and token budgets are exact everywhere. The gardener tracks values between ×1 and ×1.5.
 - Never loosen a budget to pass. Measure, record a D-entry, and ask Jay. `tests/perf/budgets.json` is a protected file (`#protected-checks`), and the test-weakening lint fails on any loosened value.
 
 ## Perf harness
 
-Built in the walking skeleton (F-025). `tests/perf/budgets.sh [--ci] [--only <id>]` runs each measurement script listed in `budgets.json`, prints one line per budget (`PASS keystroke_p99_ms 5.1 / 8`), writes `tests/perf/report.json`, and exits non-zero on a breach. It runs in the `perf` job on every push (Linux) and nightly on all three OSes (`16-ci-cd.md`). Builders run `--only` for the budgets their change can affect and attach the output as evidence.
+Built in the walking skeleton (F-025). `tests/perf/budgets.sh [--ci] [--only <id>]` runs each measurement script listed in `budgets.json`, prints one line per budget (`PASS keystroke_p99_ms 5.1 / 8`), writes `tests/perf/report.json`, and exits non-zero on a breach. It runs in the `perf` job on every code push (Linux) and nightly on all three OSes (`16-ci-cd.md`). Builders run `--only` for the budgets their change can affect and attach the output as evidence.
 
 ## Test layers
 
@@ -50,7 +50,7 @@ How to add each kind: `docs/TESTING.md`. How CI runs them: `16-ci-cd.md`. Tests 
 
 ## Evidence
 
-Each feature lists the evidence it needs in `features.json` → `evidence`. The builder saves it under `.evidence/<F-id>/` (git-ignored) and `python3 scripts/evidence.py check F-0NN` confirms it exists. The reviewer opens it and compares it with the criteria.
+Each feature lists the evidence it needs in `features.json` → `evidence`. The builder saves it under `.evidence/<F-id>/` (git-ignored) and `python3 scripts/evidence.py check F-0NN` confirms it exists. The reviewer reads the log tails, opens screenshots for the criteria about what the user sees, and compares them with the criteria. For a spike, the orchestrator checks the measurement log instead.
 
 | Item | File | What it shows |
 |---|---|---|
@@ -83,7 +83,7 @@ This is the one definition; every other file links here.
 2. `scripts/verify.sh` prints `VERIFY OK` (format, lint, types, tests, the e2e smoke set, the kit checks, secret scan, private-corpus check, test-weakening lint, and the budgets the change touches).
 3. The evidence listed for the feature exists and matches the criteria (`python3 scripts/evidence.py check F-0NN`).
 4. No placeholder code: no `todo!()`, `unimplemented!()`, `TODO` without an issue reference, or mock data in production paths.
-5. A fresh-context `reviewer` found no unresolved defect; for features with `reviews: ["security"]`, the `security-reviewer` too.
+5. A fresh-context `reviewer` left no unresolved blocker or major (with `SECURITY` for features with `reviews: ["security"]`; minors go to PROGRESS "Watch out"). Spikes: the orchestrator checked the measurement log and the D-entry instead. The `security-reviewer` runs once per milestone gate, and on the deep-security cards listed in `PROMPT.orchestrate.md`.
 6. The handoff is written: PROGRESS, D-entries, CHANGELOG line, Learned notes (`handoff` skill).
 
 ### When the criteria can't be met

@@ -1,6 +1,7 @@
 ---
 name: gardener
-description: Runs a Lecter gardening pass (PROMPT.garden.md) on main when no builders are running. Spawned by the orchestrator every 6 merged features.
+description: Runs a Lecter gardening pass (PROMPT.garden.md) on main when no builders are running. Spawned by the orchestrator at each milestone gate and after every 10 merged features.
+model: sonnet
 ---
 
 Follow `PROMPT.garden.md` exactly, on `main` in the main checkout. Commit in small `chore:` steps; keep `scripts/verify.sh` green after each.

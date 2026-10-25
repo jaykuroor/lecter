@@ -24,13 +24,15 @@ Repository: `github.com/jaykuroor/lecter`, default branch `main`.
 
 `concurrency: { group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}, cancel-in-progress: ${{ github.event_name == 'pull_request' }} }`. Each pushed commit is its own group, so every push to `main` gets a complete run, and only superseded PR runs are cancelled.
 
+**Docs-only pushes.** A first `changes` job lists the files changed since the previous run (`git diff --name-only ${{ github.event.before }} ${{ github.sha }}`). A manual dispatch, a new branch or first push (`before` is all zeros), a force push (`before` is not an ancestor) or any `git diff` error counts as code. When every file is Markdown or under `docs/` (except `docs/features.json`), only `lint` runs; the other jobs are skipped (a skipped job counts as passing). Handoff commits then cost one short job.
+
 | Job | Runner | Steps | Required |
 |---|---|---|---|
 | `lint` | ubuntu-24.04 | Setup → `scripts/verify.sh --stage lint`: kit tests, spec refs, features file, placeholder scan, private-corpus check, secret scan (gitleaks), test-weakening lint, architecture check, dependency check, file-length limit, stale IPC bindings, rustfmt, clippy `-D warnings`, cargo-deny (licences, bans, sources), tsc, Biome, jscpd (duplication), knip (unused code) | yes |
 | `test` | matrix: ubuntu-24.04, macos-15, windows-2025 | Setup → `scripts/verify.sh --stage test`: Rust tests via nextest, Vitest, `cargo build -p lecter-app --locked` | yes |
 | `e2e` | ubuntu-24.04 | Setup → Playwright browsers (chromium, webkit) → `scripts/verify.sh --stage e2e`: the full Playwright suite against the mocked core, in Chromium (stands in for WebView2) and WebKit. On failure, upload the traces | yes |
-| `e2e-app` | matrix: ubuntu-24.04 (under `xvfb-run`), macos-15, windows-2025 | Setup → `scripts/verify.sh --stage e2e-app`: debug build with the embedded WebDriver plugin, then the WebdriverIO flows in `tests/e2e/` against the real app. Upload screenshots and logs on failure | yes, from the walking skeleton |
-| `perf` | ubuntu-24.04 | Setup → `scripts/verify.sh --stage perf` (`tests/perf/budgets.sh --ci`). Upload `tests/perf/report.json` | yes, from the walking skeleton |
+| `e2e-app` | ubuntu-24.04 (under `xvfb-run`) on every run; macos-15 and windows-2025 only on `workflow_dispatch` (the orchestrator runs it on a branch whose card needs all three OSes, `PROMPT.orchestrate.md#features-that-must-pass-on-macos-and-windows`) and nightly | Setup → `scripts/verify.sh --stage e2e-app`: debug build with the embedded WebDriver plugin, then the WebdriverIO flows in `tests/e2e/` against the real app. Upload screenshots and logs on failure | Linux yes, from the walking skeleton |
+| `perf` | ubuntu-24.04 | Setup → `scripts/verify.sh --stage perf` (`tests/perf/budgets.sh --ci`). Upload `tests/perf/report.json`. Memory, size and token budgets gate exactly; a timing budget over ×1.5 is re-measured once and fails only if both runs are over (`14-quality.md#performance-budgets`) | yes, from the walking skeleton |
 | `release-check` | ubuntu-24.04 | Release-profile build, then `scripts/check_release_binary.sh`: fails if the binary contains the WebDriver plugin, test hooks or devtools symbols, or any file from `tests/` | yes, from the walking skeleton |
 
 The `Setup` steps:
@@ -47,11 +49,15 @@ The `Setup` steps:
 
 | Job | What | On failure |
 |---|---|---|
+| `skip-check` | First job: if the newest successful nightly ran on this same commit, every other job is skipped (needs `actions: read`) | — |
 | `full` | `scripts/verify.sh --full` (adds advisories, `cargo audit`, `pnpm audit`) | Job fails |
+| `e2e-app-matrix` | `scripts/verify.sh --stage e2e-app` on macos-15 and windows-2025 | Job fails; upload screenshots and logs |
 | `perf-matrix` | `tests/perf/budgets.sh --ci` on ubuntu-24.04, macos-15 and windows-2025, including `installer_mb` from a release-profile bundle | Job fails; upload the reports |
 | `fuzz` | Every target from `cargo fuzz list`, for each fuzzed crate, 10 minutes each on nightly Rust | Upload the crash inputs. A crash becomes a regression test plus a fix (`docs/TESTING.md#a-fuzz-target`) |
 | `chaos` | Fake-provider chaos scenarios against the real AI layer | Job fails |
 | `soak` | 30-minute simulated session (3 hours on Sundays). Memory must stay flat (±10%) and keystroke p99 within budget | Upload the report |
+
+Nightly failures don't stop merges. The orchestrator collects them at its next gardening pass and dispatches one CI fix for whatever is still red.
 
 ### `release.yml`: push of a tag `v*.*.*`
 
@@ -82,8 +88,9 @@ Weekly updates, grouped per ecosystem (github-actions, cargo, npm in `ui/`), wit
 - Feature work happens on `feat/F-0NN-<slug>` (a git worktree per builder in orchestrated runs) or directly on `main` in single-session runs.
 - **Merging** into `main` takes three things:
   1. local `scripts/verify.sh` green on the branch;
-  2. a reviewer `PASS`, plus a `security-reviewer` `PASS` when the feature has `reviews: ["security"]`;
-  3. a fresh `scripts/verify.sh` on `main` after the merge (`git merge --no-ff`).
+  2. a reviewer `PASS` (given `SECURITY` when the feature has `reviews: ["security"]`, plus a `security-reviewer` `PASS` on the deep-security cards; spikes and small CI fixes are checked by the orchestrator instead, `PROMPT.orchestrate.md`);
+  3. a fresh `scripts/verify.sh` on `main` after the merge (`git merge --no-ff`); its heavy checks are reused when the merged code tree is one that already passed;
+  4. for a card that must pass on all three OSes, a green `workflow_dispatch` run of `ci.yml` on the branch before the merge.
 - **Lockfiles** (`Cargo.lock`, `ui/pnpm-lock.yaml`) are never hand-merged. On a conflict, take `main`'s version and regenerate (`scripts/merge_lockfiles.sh`), then verify.
 - **Pushing** `main` is allowed only when the session runs with `LECTER_ALLOW_PUSH=1`. After each push, check the run:
   - Find the run for the pushed commit: `gh run list --workflow ci.yml --branch main --commit <sha> --json databaseId,status,conclusion`.

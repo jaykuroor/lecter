@@ -11,7 +11,7 @@ Blocks, for file edits:
   anything outside the project, secret files (.env, *.pem, *.key) and Jay's live keys file
 Blocks, for shell commands:
   git push (unless LECTER_ALLOW_PUSH=1), any force push, history rewrites, mass deletes, find -delete,
-  --no-verify, writes to features.json, the spec or protected files through the shell, cargo/pnpm/npm add
+  --no-verify, the verify green cache (.git/lecter-verify-cache), writes to features.json, the spec or protected files through the shell, cargo/pnpm/npm add
   (use scripts/add_dep.py), reading the live keys file (only scripts/live.sh may), publishing packages.
 """
 import json, os, re, sys, tempfile
@@ -65,6 +65,8 @@ def check_path(raw, cwd=None):
             return
         block(f"{raw} is outside the project.")
     rel = p.relative_to(root).as_posix()  # same rules in the main tree and in every worktree
+    if "lecter-verify-cache" in str(p) and not KIT_EDIT:
+        block("the verify cache is written only by scripts/verify.sh. Run it; use --no-cache for a full run.")
     if KEYS.search(str(p)):
         block("Jay's live keys are never read or written by agents. Live commands run through scripts/live.sh.")
     if re.search(r"(^|/)\.env(\.|$)|\.(pem|key|p12)$", rel):
@@ -119,6 +121,8 @@ def check_bash(cmd, cwd=None):
     cmd = normalise(cmd)
     if re.search(r"\bgit\s+push\b", cmd) and os.environ.get("LECTER_ALLOW_PUSH") != "1":
         block("pushing is off until Jay sets LECTER_ALLOW_PUSH=1. Commit locally.")
+    if "lecter-verify-cache" in cmd and not KIT_EDIT:
+        block("the verify cache is written only by scripts/verify.sh. Run it; use --no-cache for a full run.")
     for pat, msg in BASH_RULES:
         if re.search(pat, cmd):
             block(msg)

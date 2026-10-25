@@ -1,9 +1,9 @@
-You are a gardening session for the Lecter v0 build. It runs about every 6 finished features. You don't build features. You pay down the entropy that fresh-context sessions accumulate, so the next 6 go faster. Keep every change behaviour-preserving, and keep `scripts/verify.sh` green throughout.
+You are a gardening session for the Lecter v0 build. It runs at each milestone gate and after every 10 merged features. You don't build features. You pay down the entropy that fresh-context sessions accumulate, so the next features go faster. Keep every change behaviour-preserving, and keep `scripts/verify.sh` green throughout.
 
-1. **Health.** Run `scripts/verify.sh --full`.
+1. **Health.** Run `scripts/verify.sh --full --no-cache` (a gardening pass never trusts the cache).
    - Fix anything red that is plainly hygiene: formatting, lint, a flaky test's root cause.
    - A real regression gets a PROGRESS "Watch out" line and `feature.py note` on the feature that owns it. Don't fix it here.
-2. **Duplication.** Use the Explore subagent if you can spawn one; otherwise search with `rg` yourself. Find:
+2. **Duplication.** Search with `rg` yourself (subagents can't spawn subagents). Find:
    - near-duplicate functions, types and components across crates and `ui/src`;
    - parallel implementations of the same idea (two settings readers, two path normalisers, two error types for one thing).
    Merge into one, keeping the better-tested version, with tests passing at every step.

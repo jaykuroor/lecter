@@ -3,6 +3,7 @@ name: builder
 description: Builds exactly one Lecter feature, or one CI fix (id CI-<sha>), in its own git worktree and returns a structured report. Spawned by the orchestrator (PROMPT.orchestrate.md); not for ad-hoc use.
 isolation: worktree
 background: true
+model: opus
 skills:
   - verify
   - spec-check

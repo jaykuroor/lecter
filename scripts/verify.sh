@@ -5,10 +5,19 @@
 #   scripts/verify.sh --quick    lint + test                               (while iterating; first thing a builder runs)
 #   scripts/verify.sh --full     everything, including e2e-app, full perf and supply chain
 #   scripts/verify.sh --stage lint|test|e2e|e2e-app|perf|full              (CI jobs)
+#   -v / LECTER_VERIFY_VERBOSE=1   print every PASS line (default: one summary line; FAIL lines always print)
+#   --no-cache / LECTER_VERIFY_NOCACHE=1   ignore the green cache below (the gardener always does)
+# Green cache (local only, never in CI): when the staged code tree, the done state of the features that switch
+# checks on and the toolchain versions match a run that already passed, the heavy checks (Rust, UI, e2e, perf) are
+# reused and only the cheap lint checks run again. Needs no unstaged or untracked changes (a staged merge is fine).
+# --no-cache forces a full run. Agents never touch the cache folder (scripts/hooks/guard.py).
 # A check whose tool or file doesn't exist yet is skipped until the feature that adds it is done; after
 # that, a missing tool or file is a failure. Ends with VERIFY OK or VERIFY FAILED.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+VERBOSE="${LECTER_VERIFY_VERBOSE:-0}"
+ARGS=(); for a in "$@"; do case "$a" in -v) VERBOSE=1 ;; --no-cache) LECTER_VERIFY_NOCACHE=1 ;; *) ARGS+=("$a") ;; esac; done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
 STAGES="lint test e2e-smoke perf-quick"
 case "${1:-}" in
   --quick) STAGES="lint test" ;;
@@ -56,10 +65,11 @@ PY=$(command -v python3 || command -v python)
 FAIL=0
 DONE=" $("$PY" -c 'import json;print(" ".join(f["id"] for f in json.load(open("docs/features.json"))["features"] if f["status"]=="done"))' 2>/dev/null) "
 
+NPASS=0; PASSED=""; SKIPPED=""
 run() { # name, command...
   local name="$1"; shift
   local log=".verify/$name.log"
-  if "$@" >"$log" 2>&1; then echo "PASS  $name"
+  if "$@" >"$log" 2>&1; then NPASS=$((NPASS+1)); PASSED="$PASSED $name"; [ "$VERBOSE" = 1 ] && echo "PASS  $name"
   else
     echo "FAIL  $name   (full log: $log)"
     tail -n 40 "$log" | sed 's/^/      /'
@@ -72,9 +82,39 @@ need() {
   local name="$1" owner="$2"; shift 2
   if "$@" >/dev/null 2>&1; then return 0; fi
   if [[ "$DONE" == *" $owner "* ]]; then echo "FAIL  $name   ($owner is done but '$*' is not true)"; FAIL=1
-  else echo "SKIP  $name   (arrives with $owner)"; fi
+  else SKIPPED="$SKIPPED $name($owner)"; [ "$VERBOSE" = 1 ] && echo "SKIP  $name   (arrives with $owner)"; fi
   return 1
 }
+
+# Green cache. Key = staged tree minus the handoff docs + done state of the features named in `need` lines
+# (they turn SKIP into FAIL) + toolchain versions. The cheap lint checks (private corpus, secrets, tests-guard,
+# deps, spec refs, features) always run.
+CACHE_DIR=""; CACHE_KEY=""; HEAVY=1
+if [ -z "${CI:-}" ] && [ "${LECTER_VERIFY_NOCACHE:-0}" != 1 ] && [ -e .git ] \
+   && git diff --quiet 2>/dev/null \
+   && [ -z "$(git ls-files --others --exclude-standard 2>/dev/null | grep -vE '^(\.verify|\.evidence|\.loop)/')" ]; then
+  OWNERS_DONE=""
+  for o in $(grep -oE '\bneed [a-z-]+ F-[0-9]+' "$0" | awk '{print $3}' | sort -u); do
+    [[ "$DONE" == *" $o "* ]] && OWNERS_DONE="$OWNERS_DONE $o"
+  done
+  CACHE_DIR="$(git rev-parse --git-common-dir)/lecter-verify-cache"
+  CACHE_KEY=$( { git ls-files -s | grep -vE $'\t(docs/(PROGRESS|DECISIONS|QUESTIONS)\.md|CHANGELOG\.md|README\.md|docs/features\.json)$'
+                 echo "done:$OWNERS_DONE"; rustc -V 2>/dev/null; node -v 2>/dev/null; } | git hash-object --stdin )
+fi
+cache_has() { # a run covering these stages already passed on this key
+  [ -n "$CACHE_KEY" ] || return 1
+  local want="$1" f
+  for f in "$CACHE_DIR/$CACHE_KEY".*; do
+    [ -e "$f" ] || continue
+    local have; have=" $(cat "$f") "
+    local ok=1 st
+    for st in $want; do [[ "$have" == *" $st "* ]] || ok=0; done
+    [ "$ok" = 1 ] && return 0
+  done
+  return 1
+}
+if cache_has "$STAGES"; then HEAVY=0; echo "CACHED  heavy checks (this code tree already passed: $STAGES)"; fi
+heavy() { [ "$HEAVY" = 1 ]; }
 exists() { [ -e "$1" ]; }
 ui_script() { [ -f ui/package.json ] && grep -q "\"$1\"" ui/package.json; }
 
@@ -109,24 +149,24 @@ if on lint; then
     if have gitleaks; then run secrets scripts/secret_scan.sh
     else echo "FAIL  secrets   (gitleaks is not installed: Fedora 'sudo dnf install gitleaks'; see the build guide)"; FAIL=1; fi
   fi
-  if need rust-lint F-010 exists Cargo.toml; then
+  if heavy && need rust-lint F-010 exists Cargo.toml; then
     run fmt cargo fmt --all -- --check
     run clippy cargo clippy --workspace --all-targets --locked -q -- -D warnings
     if need deny F-010 have cargo-deny; then run deny cargo deny check licenses bans sources; fi
   fi
   if [ -f Cargo.toml ] && [ -f ui/package.json ] && [ -f app/tauri.conf.json ]; then run versions versions_match; fi
-  if need bindings-stale F-017 exists app/src/bin/export-bindings.rs; then
+  if heavy && need bindings-stale F-017 exists app/src/bin/export-bindings.rs; then
     run bindings-stale cargo run -q --locked -p lecter-app --bin export-bindings -- --check
   fi
-  if need ui-lint F-011 exists ui/package.json; then
+  if heavy && need ui-lint F-011 exists ui/package.json; then
     run tsc pnpm -C ui exec tsc --noEmit
     run biome pnpm -C ui exec biome ci --colors=off .
   fi
-  if need jscpd F-014 exists ui/.jscpd.json; then run jscpd pnpm -C ui exec jscpd --config .jscpd.json; fi
-  if need knip F-014 exists ui/knip.json; then run knip pnpm -C ui exec knip; fi
+  if heavy && need jscpd F-014 exists ui/.jscpd.json; then run jscpd pnpm -C ui exec jscpd --config .jscpd.json; fi
+  if heavy && need knip F-014 exists ui/knip.json; then run knip pnpm -C ui exec knip; fi
 fi
 
-if on test; then
+if on test && heavy; then
   if need rust-tests F-010 exists Cargo.toml; then
     if have cargo-nextest; then run rust-tests cargo nextest run --workspace --locked --status-level fail --final-status-level fail
     else run rust-tests cargo test --workspace --locked -q; fi
@@ -135,11 +175,11 @@ if on test; then
   if need ui-tests F-011 exists ui/package.json; then run ui-tests pnpm -C ui exec vitest run --reporter=dot; fi
 fi
 
-if on e2e-smoke && need e2e-smoke F-011 ui_script test:e2e:smoke; then run e2e-smoke pnpm -C ui run test:e2e:smoke; fi
-if on e2e-full && need e2e F-011 ui_script test:e2e; then run e2e pnpm -C ui run test:e2e; fi
-if on e2e-app && need e2e-app F-016 exists scripts/e2e-app.sh; then run e2e-app headless bash scripts/e2e-app.sh; fi
-if on perf-quick && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh --quick; fi
-if on perf && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh; fi
+if on e2e-smoke && heavy && need e2e-smoke F-011 ui_script test:e2e:smoke; then run e2e-smoke pnpm -C ui run test:e2e:smoke; fi
+if on e2e-full && heavy && need e2e F-011 ui_script test:e2e; then run e2e pnpm -C ui run test:e2e; fi
+if on e2e-app && heavy && need e2e-app F-016 exists scripts/e2e-app.sh; then run e2e-app headless bash scripts/e2e-app.sh; fi
+if on perf-quick && heavy && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh --quick; fi
+if on perf && heavy && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh; fi
 
 if on full; then
   if [ -f Cargo.toml ] && have cargo-deny; then run deny-advisories cargo deny check advisories; fi
@@ -147,4 +187,9 @@ if on full; then
   [ -e .git ] && have gitleaks && run secrets-history scripts/secret_scan.sh --all
 fi
 
-if [ "$FAIL" = 0 ]; then echo "VERIFY OK"; else echo "VERIFY FAILED"; exit 1; fi
+[ "$VERBOSE" = 1 ] || echo "PASS  $NPASS checks:$PASSED"
+[ -n "$SKIPPED" ] && [ "$VERBOSE" != 1 ] && echo "SKIP  not built yet:$SKIPPED"
+if [ "$FAIL" = 0 ]; then
+  if [ -n "$CACHE_KEY" ] && [ "$HEAVY" = 1 ]; then mkdir -p "$CACHE_DIR" && echo "$STAGES" > "$CACHE_DIR/$CACHE_KEY.$(echo "$STAGES" | tr ' ' '-')"; fi
+  echo "VERIFY OK"
+else echo "VERIFY FAILED"; exit 1; fi

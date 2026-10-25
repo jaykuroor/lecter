@@ -5,11 +5,14 @@ description: How to run Lecter's checks fast and narrow a failure. Use while ite
 
 # Verify
 
-`scripts/verify.sh` prints one line per check and only the tail of failing logs. The full logs are in `.verify/<check>.log`; read them with `tail` or `grep`, not `cat`.
+`scripts/verify.sh` prints one summary line for the checks that passed, one line per failure with the tail of its log, and `VERIFY OK` or `VERIFY FAILED`. `-v` prints every check. The full logs are in `.verify/<check>.log`; read them with `tail` or `grep`, not `cat`.
+
+On a clean, committed tree whose code already passed (same files apart from the handoff docs, same done features, same toolchain), the heavy checks print `CACHED` and only the cheap lints run again. So commit before you verify. `LECTER_VERIFY_NOCACHE=1` forces a full run; CI never uses the cache.
 
 | Mode | When |
 |---|---|
-| `scripts/verify.sh --quick` | Before you start (is `main` green?) and after each step: lint + tests |
+| The narrow command (table below) | After each step: just the crate, test file or check you touched |
+| `scripts/verify.sh --quick` | Before you start (is `main` green?, usually cached) and once before the full run: lint + tests |
 | `scripts/verify.sh` | Before `feature.py done` (it runs this itself too): adds the e2e smoke set and quick perf budgets |
 | `scripts/verify.sh --full` | Gardening: adds the real-app e2e, all budgets, advisories and the full secret history |
 | `scripts/verify.sh --stage <name>` | One CI stage: `lint`, `test`, `e2e`, `e2e-app`, `perf`, `full` |

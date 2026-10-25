@@ -62,7 +62,7 @@ When the spec is silent or ambiguous:
 ## Context economy
 
 - Read spec sections through `scripts/spec.py`, not whole files.
-- Wide searches go to the Explore subagent; keep only its answer.
+- Search with `rg`/Grep/Glob yourself. Use the Explore subagent only for a question that spans several crates and would take many searches; keep only its answer.
 - Pipe long output (`| tail -n 40`, `-q`). `verify.sh` already prints only failures.
 - `## Learned` lists hold facts that prevent a repeat mistake. One line each.
 

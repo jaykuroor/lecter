@@ -13,7 +13,7 @@ You are one session in a long build of Lecter v0. Earlier sessions left their st
 
 1. `python3 scripts/spec.py F-0NN` gives the cited spec sections. Follow a cross-reference only if a criterion depends on it.
 2. `grep -n "F-0NN\|<key terms>" docs/DECISIONS.md` finds earlier choices that constrain you.
-3. Find what already exists before planning. Use the Explore subagent for anything wider than one folder ("is there already a parser for X", "where are settings read"). Never assume code is missing.
+3. Find what already exists before planning: `rg` for the key names and terms ("is there already a parser for X", "where are settings read"). Use the Explore subagent only when the question spans several crates and a few searches didn't answer it. Never assume code is missing.
 4. Write a short task list: criteria → tests → implementation steps.
 
 ## 3 · Tests first
@@ -31,7 +31,7 @@ Run them and watch them fail for the right reason; save that failing run as evid
 
 - Make the smallest complete change that satisfies the criteria and the cited spec. Match existing patterns in the folder. Its `CLAUDE.md` loads automatically and lists the invariants.
 - No placeholders, no "for now" shortcuts, no commented-out code. If something can't be finished, stop and go to step 7 with the feature left `in_progress`.
-- Run `scripts/verify.sh --quick` (or the narrower command from the `verify` skill) after each meaningful step. Commit each green step: `F-0NN: <step>`.
+- After each step, run the narrow command for what you changed (the `verify` skill's table: one crate's tests, one spec file). Run `scripts/verify.sh --quick` once before step 5, not after every edit. Commit each green step: `F-0NN: <step>`.
 - Hit a gap in the spec? Use the rule in AGENTS.md: decide if it's reversible, ask if it isn't.
 - A criterion that can't be met as written: stop and report `IMPOSSIBLE` (`docs/spec/14-quality.md#when-the-criteria-cant-be-met`). Never bend a test or a protected check.
 - Stuck (two identical failures, or ~30 minutes without progress): commit, `feature.py block` with the evidence, stop.
@@ -41,8 +41,8 @@ Run them and watch them fail for the right reason; save that failing run as evid
 1. Run `scripts/verify.sh` (the full default set) until it prints `VERIFY OK`.
 2. Collect the evidence the card lists (`drive-app` skill for screenshots; `tests/perf/budgets.sh --only …` for `perf`), then `python3 scripts/evidence.py check F-0NN`.
 3. Load the `spec-check` skill: map every criterion to its test.
-4. Spawn the `reviewer` subagent with the feature id and the range `<base>..HEAD` (`base` is on the feature card). If the card lists `Reviews: … security-reviewer`, spawn that too. Fix every defect they confirm, then re-verify.
-5. Run each reviewer at most twice. If a defect remains that you can't resolve, record it with `feature.py note` and in PROGRESS "Watch out".
+4. Spikes skip the reviewer. Otherwise spawn one `reviewer` subagent with the feature id, the range `<base>..HEAD` (`base` is on the feature card), and `SECURITY` if the card lists security. Deep-security cards (listed in `PROMPT.orchestrate.md`, step 3 of "When a builder reports") also get the `security-reviewer`. Fix every blocker and major it confirms, re-verify, then resume the same reviewer with `SendMessage` for the re-check (don't spawn a new one). Minors go in PROGRESS "Watch out".
+5. At most 2 re-checks. If a blocker or major remains that you can't resolve, record it with `feature.py note` and in PROGRESS "Watch out".
 
 ## 6 · Hand off (load the `handoff` skill for the exact formats)
 
@@ -54,7 +54,7 @@ Run them and watch them fail for the right reason; save that failing run as evid
 
 ## 7 · Finish
 
-- **Done:** run `python3 scripts/feature.py done F-0NN`. It re-runs verify. Then `git add -A && git commit -m "F-0NN: <summary>"`.
+- **Done:** run `python3 scripts/feature.py done F-0NN`. It re-runs verify (a cache hit if you committed everything after step 5). Then `git add -A && git commit -m "F-0NN: <summary>"`.
 - **Not done:** run `python3 scripts/feature.py note F-0NN "<exactly where you stopped and what's next>"`, update PROGRESS, then commit `F-0NN: WIP <state>`.
 - **Blocked:** run `python3 scripts/feature.py block F-0NN "needs Q-0NN: <why>"`, update PROGRESS, then commit.
 
