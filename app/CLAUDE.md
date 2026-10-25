@@ -17,4 +17,4 @@ Spec: `01-architecture.md#processes`, `#packaging`; `13-security.md`; `08-figure
 ## Learned
 - Inside the Claude Code sandbox no window can open: AF_UNIX `socket()` is denied (GTK can't reach X/Wayland) and Xvfb can't write `/tmp/.X<n>-lock`, so it never listens; `cargo run -p lecter-app` stops at "Failed to initialize GTK" (F-012)
 - Without `tauri/custom-protocol` a build loads `build.devUrl`; main.rs's `compile_error!` stops such release builds, so build releases with `--features custom-protocol` (F-012)
-
+- Cargo ignores `cfg(debug_assertions)` in `[target.'cfg(..)'.dependencies]` (warns, then compiles the crate into release builds too); gate test-only deps behind the `test-hooks` feature instead (F-016)

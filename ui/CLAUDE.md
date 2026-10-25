@@ -33,3 +33,4 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - Vitest runs without globals, so component tests call `afterEach(cleanup)` themselves.
 - Biome's `noInvalidGridAreas` misfires on valid multi-row `grid-template-areas`; place grid items by line numbers instead.
 - `ui/knip.json` and `ui/.jscpd.json` are protected: the guard freezes them after their first write unless the card lists them under `protected` (F-014).
+- `add_dep.py ui` rewrites `pnpm-lock.yaml` in pnpm's own style; the committed one is Biome-formatted, so run `pnpm -C ui exec biome format --write pnpm-lock.yaml` after it or biome ci fails (F-016)

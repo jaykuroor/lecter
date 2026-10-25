@@ -17,3 +17,5 @@ Spec: `14-quality.md`, `16-ci-cd.md`. **How to add any kind of test: `docs/TESTI
 
 ## Learned
 
+- `tests/e2e/` has no node_modules: flows use the wdio globals (no package imports), packages are named as strings in wdio.conf.ts and resolve from ui/, where `scripts/e2e-app.sh` runs wdio; typecheck with `pnpm -C ui exec tsc -p ../tests/e2e/tsconfig.json` (F-016)
+- Biome crashes on files outside ui/ ("path is expected to be under the root"); format them with `pnpm -C ui exec biome check --write --stdin-file-path=x.ts < file` (F-016)
