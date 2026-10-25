@@ -238,7 +238,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: ts-rs plus hand-written invoke wrappers (two sources of truth), TauRPC (smaller community).
 
 ## D-049 · Real-app e2e with the embedded WebDriver plugin
-2026-10-24 · Claude (kit) · active
+2026-10-24 · Claude (kit) · active; partly superseded by D-094
 - Decision: Debug builds embed `tauri-plugin-wdio-webdriver`, and WebdriverIO drives the real app on Linux, Windows and macOS (`tauri-driver` can't drive macOS). Native dialogs are answered by debug-only `LECTER_TEST_PICK` / `LECTER_TEST_TRUST`. `lecter-harness` exposes the core as JSON for GUI-free checks. Playwright on the mocked core stays the fast loop. `release-check` proves release binaries contain none of it.
 - Instead of: D-028's nightly-only tauri-driver.
 
@@ -495,3 +495,28 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `directories` (core; 1 new crate, MIT/Apache) for the per-OS base folders; `thiserror` (core; already in tree) for the crate `Error`; `serde_json` (harness; already in tree) moved to root `[workspace.dependencies]` and shared with app.
 - Why: Dep-Added trailers on F-015 commits b6aab39 and ab9757a; check_deps OK.
 - Instead of: hand-rolled folder lookup.
+
+## D-094 · WebDriver only in test-hooks builds
+2026-10-25 · session F-016 · active
+- Decision: `tauri-plugin-wdio-webdriver` is an optional dependency that only the `test-hooks` feature enables, and it is registered under `cfg(feature = "test-hooks")`. Plain debug builds (`dev.sh`, `cargo build`) don't embed it. `scripts/e2e-app.sh` builds with `--features custom-protocol,test-hooks`. The LECTER_TEST_PICK/TRUST hooks keep the D-091 gate (debug or test-hooks). This supersedes part of D-049 ("Debug builds embed tauri-plugin-wdio-webdriver").
+- Why: measured: Cargo ignores `cfg(debug_assertions)` in target dependency tables and compiles the crate into release builds anyway. F-016 criterion 1 allows "or the test-hooks feature".
+- Instead of: the plugin README's `[target.'cfg(debug_assertions)']` table.
+
+## D-095 · All dialogs go through one hookable wrapper; minimal course_open
+2026-10-25 · session F-016 · active
+- Decision: every native dialog goes through `app/src/dialog.rs`, and `app/src/test_hooks.rs` holds the only test-hook names. `course_open` takes no arguments (the path never comes from the UI). It returns `{path,name,trust}`, canonicalises the folder and accepts only a directory (symlinks resolved; a link to a file is refused). Trust is "ask" unless the debug hook answers. `app/src/ipc/error.rs` has only the 4 codes used so far.
+- Why: F-016 criterion 4 needs a folder to open, and a separate pick command isn't in 18-contracts.
+- Instead of: a new pick command.
+- Revisit if: F-017 replaces `ipc/error.rs` with IpcError; F-018 extends `course_open`.
+
+## D-096 · WDIO tooling lives in ui/ and is pinned to 1.4.0
+2026-10-25 · session F-016 · active
+- Decision: the WebdriverIO packages are `ui/` devDependencies (tests/e2e has no package.json). `ui/test/e2e-app-config.test.ts` resolves each one, so knip counts them as used. `ui/pnpm-workspace.yaml` sets `allowBuilds: false` for edgedriver, geckodriver and esbuild, because pnpm 12 won't install while an install script is undecided and the embedded provider needs no driver downloads. `tauri-plugin-wdio-webdriver` and `@wdio/tauri-service` are pinned to 1.4.0.
+- Why: check_deps only watches `ui/package.json`. 1.5.1 was one day old (the two-week rule).
+- Instead of: a separate package in tests/e2e; 1.5.1.
+
+## D-097 · tauri-plugin-wdio-webdriver, tauri-plugin-dialog and @wdio/* added
+2026-10-25 · session F-016 · active
+- Decision: `tauri-plugin-wdio-webdriver` (MIT, 19 crates, optional, test-hooks only), `tauri-plugin-dialog` (Apache-2.0 OR MIT, 4 crates; called from Rust only, no `dialog:*` capability granted), and dev-only `@wdio/cli`, `@wdio/local-runner`, `@wdio/mocha-framework`, `@wdio/spec-reporter`, `@wdio/globals` (9.x) and `@wdio/tauri-service` 1.4.0 (all MIT, 0 KB gz in the shipped UI).
+- Why: Dep-Added trailers on F-016 commit 4bf0bf7. check_deps OK (23 new crates, under 30).
+- Instead of: tauri-driver (no macOS); rfd directly.

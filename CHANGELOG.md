@@ -10,3 +10,4 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - Lecter opens as a desktop window (Tauri 2), locked down to the one command it uses; `scripts/dev.sh` runs it with hot reload (F-012)
 - CI checks every push and pull request on Linux, macOS and Windows; Dependabot proposes weekly grouped updates (F-013)
 - `lecter-harness`, a debug-only command-line tool that prints core results as JSON for tests and agents (F-015)
+- Developers can drive the real Lecter app end to end with WebdriverIO (`scripts/e2e-app.sh`); CI checks that release builds carry none of the test tooling (F-016)

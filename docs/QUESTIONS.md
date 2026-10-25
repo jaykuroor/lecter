@@ -68,5 +68,17 @@ Add a pinned PDFium CI setup step, so tests stop downloading (D-086).
 - Context: F-006's spike tests download PDFium (~25 MB, SHA-256-checked) on every fresh CI runner, as an exception to the no-network rule (D-086).
 - Recommendation: a CI step (and an init.sh step locally) that runs `fetch_pdfium.py` with an `actions/cache` keyed on `pins.json`. Tests then only read the verified local file, and are offline. Make it part of the parse crate's feature or a small CI feature.
 
+## Q-010 · planning · blocks: editor work in M1 (D-080)
+Which card runs the real-app WebKitGTK keystroke p99 trace and memory check that D-080 calls its deciding check?
+- Context: D-080 gave the trace to F-016, but F-016's criteria never included it, and F-016 shipped without it. The WebDriver setup it needs now exists (`scripts/e2e-app.sh`). It can't run in the Claude sandbox, so the author runs it.
+- Recommended: a small M0.5 card. It adds an `editor-keystroke` e2e-app flow that types into CodeMirror in the real app, records keystroke p99 and the webview process RSS, and the author runs it outside the sandbox before any M1 editor feature starts. (applied as default: no)
+- Answer:
+
+## Q-011 · planning · blocks: nothing
+Change F-016's verify line `scripts/check_release_binary.sh` to `tests/e2e/release-check.sh`?
+- Context: check_release_binary.sh needs the release binary's path and exits with an error without one. release-check.sh builds release and debug, then asserts pass and fail (criterion 6). `feature.py set` only works on todo/blocked cards.
+- Recommended: yes, in the planning session. (applied as default: no)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends Jay's notes from each milestone gate here, as "### M<n> (date)" plus his words. PROMPT.plan.md turns them into features. -->
