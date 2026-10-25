@@ -53,7 +53,7 @@ on ubuntu-24.04, macos-15 and windows-2025.
 |---|---|---|
 | Linux | **GO** | 11/11 pass locally (below) |
 | macOS | **GO** | macos-15, CI run 40119881557 (8f4b4a7): every spike test passed, including `RLIMIT_AS` at +1 GiB |
-| Windows | **IMPOSSIBLE as specified** for "no file other than its input"; GO for network, user files, earlier inputs, memory and processes | windows-2025, run 40120703752 (LPAC): 55/56. Network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC still reads `%SystemRoot%\win.ini` (92 bytes); the test prints its SDDL. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
+| Windows | **IMPOSSIBLE as specified** for "no file other than its input"; GO for network, user files, earlier inputs, memory and processes | windows-2025, runs 40120703752 and 40154388308 (LPAC): 55/56. Network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC still reads `%SystemRoot%\win.ini` (92 bytes); the test prints its SDDL. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
 
 **Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
 sandbox, which already sets `no_new_privs` and its own seccomp filter; ours stacks on top. Sandboxed
@@ -92,6 +92,17 @@ impersonating a startup token while the loader ran. In run 40153640323 the child
 with 0xC0000135 (STATUS_DLL_NOT_FOUND). Per Jay's decision there was no second attempt, and the
 active code is LPAC only. User files (the sibling, the other folder, an earlier run's input) are
 denied.
+
+The final LPAC run, 40154388308 (c8900b7), passed 55/56. The test printed this SDDL for
+`C:\Windows\win.ini`:
+
+```
+O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)(A;ID;0x1200a9;;;S-1-15-2-2)S:AINO_ACCESS_CONTROL
+```
+
+The read is allowed by the inherited ACE `(A;ID;0x1200a9;;;S-1-15-2-2)`: ALL RESTRICTED APPLICATION
+PACKAGES, read and execute. LPAC honours that grant by design. The CI log lines are kept in
+`.evidence/F-005/windows-ci.log` (not tracked).
 
 ## Requirements for the parse worker
 
