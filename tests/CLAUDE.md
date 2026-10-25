@@ -20,4 +20,5 @@ Spec: `14-quality.md`, `16-ci-cd.md`. **How to add any kind of test: `docs/TESTI
 
 - `tests/e2e/` has no node_modules: flows use the wdio globals (no package imports), packages are named as strings in wdio.conf.ts and resolve from ui/, where `scripts/e2e-app.sh` runs wdio; typecheck with `pnpm -C ui exec tsc -p ../tests/e2e/tsconfig.json` (F-016)
 - The embedded WebDriver sends `browser.keys` as synthetic (untrusted) `KeyboardEvent`s to `document.activeElement`, so native default actions never run (Enter/Space don't click a focused button); the app must handle its keys itself (F-018)
+- Keep `@wdio/tauri-service` (ui/package.json) and `tauri-plugin-wdio-webdriver` (app/Cargo.toml) on the same release: plugin 1.4 didn't build against tauri 2.12's webview2-com, and service 1.4 ran a msedgedriver check on Windows even when embedded, so no session got a hostname/port (CI-17ae5e6)
 - Biome crashes on files outside ui/ ("path is expected to be under the root"); format them with `pnpm -C ui exec biome check --write --stdin-file-path=x.ts < file` (F-016)

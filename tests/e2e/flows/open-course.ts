@@ -62,7 +62,9 @@ describe("open course", () => {
       };
       return w.__TAURI_INTERNALS__.invoke("course_open", { path: "/", dir: "/" });
     })) as CourseOpened | null;
-    expect(opened?.path).toBe(realpathSync(picked()));
+    // `.native` resolves the way the app's canonicalize does (GetFinalPathNameByHandle on Windows,
+    // realpath(3) elsewhere): the JS version keeps 8.3 short names such as RUNNER~1 from TEMP.
+    expect(opened?.path).toBe(realpathSync.native(picked()));
     expect(opened?.lectures.map((f) => f.path)).toEqual([
       "lectures/2026-09-02-l01-introduction.md",
       "lectures/2026-09-09-l02-probability.md",
