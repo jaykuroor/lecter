@@ -490,8 +490,8 @@
     ".github/workflows/ci.yml",
     "tests/e2e/wdio.conf.ts"
    ],
-   "status": "in_progress",
-   "notes": "",
+   "status": "blocked",
+   "notes": "BLOCKED: BLOCKED: sandbox denies AF_UNIX sockets and /tmp is read-only, so Xvfb/GTK can't start; flows shell.ts and open-folder.ts never ran. Code on feat/F-016-webdriver (2 commits, verify OK). Next: author runs scripts/e2e-app.sh shell --evidence F-016 and scripts/e2e-app.sh open-folder in the worktree outside the sandbox.",
    "priority": 2012,
    "base": "a3ef1d0b0a43c2874a785b73c1319807ddbb2ac8"
   },
