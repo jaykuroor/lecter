@@ -1,0 +1,97 @@
+/* The opened course in the rail (docs/design/components.md#rail): padding 10px 8px, sections
+   12px apart with an .rlab label (11.5px 700 --dim), rows 12.5px 600 with ellipsis, radius 7px,
+   padding 6px 8px. Colours are theme tokens only; hover is mix.hover. */
+.course-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 8px;
+}
+
+.course-open {
+  padding: 6px 8px;
+  border: 1px solid var(--borders);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--window-fg);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-open:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+}
+
+.course-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.course-open:disabled {
+  color: var(--dim);
+  cursor: progress;
+}
+
+.course-error {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--window-fg);
+}
+
+.course {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.course-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rlab {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--dim);
+}
+
+.course-count {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.course-empty {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.course-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.course-file {
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-file:hover {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+}

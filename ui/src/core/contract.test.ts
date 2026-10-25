@@ -7,7 +7,7 @@ import type { CommandName, Commands, IpcError } from "./bindings";
 
 const matching: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
-  course_open: () => ({ path: "/courses/Algebra", name: "Algebra", trust: "ask" }),
+  course_open: () => ({ path: "/courses/Algebra", name: "Algebra", lectures: [], slides: [], trust: "ask" }),
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -22,7 +22,7 @@ const wrongResult: MockHandlers = {
 const wrongEnum: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
   // @ts-expect-error a trust value the contract doesn't have
-  course_open: () => ({ path: "/c", name: "c", trust: "maybe" }),
+  course_open: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "maybe" }),
 };
 
 const extra: MockHandlers = {
