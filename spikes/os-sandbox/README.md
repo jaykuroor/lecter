@@ -32,7 +32,7 @@ so the test fails instead of passing by accident.
 |---|---|---|---|---|
 | Linux (`src/linux/`) | the child, first thing | seccomp: `socket`, `socketpair`, `connect`, `bind`, `listen`, `accept*` → `EPERM`. Landlock handles TCP bind/connect (ABI ≥ 4) and UDP (ABI ≥ 10) too | Landlock handles every fs right defined up to ABI 10 that the kernel supports (incl. RESOLVE_UNIX at ABI 9). The one rule is `READ_FILE` on the input. `close_range(3, ~0)` closes inherited fds first | `RLIMIT_AS` = 1 GiB. seccomp: `clone` only with `CLONE_THREAD`, `clone3` → `ENOSYS` (libc falls back to `clone`), `fork`/`vfork` → `EPERM`. `PR_SET_PDEATHSIG` = `SIGKILL` |
 | macOS (`src/macos.rs`) | the child, first thing | Seatbelt `(deny default)` | `enter` opens the input before `sandbox_init`, and the worker reads through that fd. The profile also allows `file-read*` on the input literal. Every fd above 2 (from `/dev/fd`) is closed first | `RLIMIT_AS` = map size at entry + 1 GiB, because the dyld shared region already exceeds 1 GiB. `(deny default)` also denies `process-fork` and `process-exec` |
-| Windows (`src/windows/`) | the parent, at creation | AppContainer with no capabilities (no loopback either) | Less Privileged AppContainer (ALL APPLICATION PACKAGES grants don't apply), plus a lockdown restricted token (`token.rs`): user and groups deny-only, privileges removed, restricting SID = NULL, so no file grant passes the second access check. While the loader runs, the main thread impersonates a startup token (restricted to the user's own groups, same container, taken from a never-resumed placeholder process). `enter()` drops it with `RevertToSelf` and checks that no thread token is left. The only ACE is read/execute on the probe exe. The input is opened by the parent and inherited as one handle via `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`; the file's ACL is never touched. A stderr pipe is the only other inherited handle | Job object: `ProcessMemoryLimit` 1 GiB, 1 active process, kill on job close |
+| Windows (`src/windows.rs`) | the parent, at creation | AppContainer with no capabilities (no loopback either) | Less Privileged AppContainer (ALL APPLICATION PACKAGES grants don't apply; ALL RESTRICTED APPLICATION PACKAGES grants still do). The only ACE is read/execute on the probe exe. The input is opened by the parent and inherited as one handle via `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`; the file's ACL is never touched. A stderr pipe is the only other inherited handle | Job object: `ProcessMemoryLimit` 1 GiB, 1 active process, kill on job close |
 
 Other seccomp hardening: a foreign syscall ABI (i386 on x86_64, x32) kills the process, and io_uring,
 `ptrace` and `process_vm_*` return `EPERM`.
@@ -53,7 +53,7 @@ on ubuntu-24.04, macos-15 and windows-2025.
 |---|---|---|
 | Linux | **GO** | 11/11 pass locally (below) |
 | macOS | **GO** | macos-15, CI run 40119881557 (8f4b4a7): every spike test passed, including `RLIMIT_AS` at +1 GiB |
-| Windows | **UNVERIFIED-ON windows**: the restricted-token attempt hasn't run in CI yet | windows-2025, run 40120703752 (LPAC only): 55/56. Network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass; LPAC still read `%SystemRoot%\win.ini` (92 bytes). Run 40119881557: under LPAC, Winsock can't initialise (`WSAStartup` → 10107). The lockdown token is the one attempt at the system-file denial, and the test prints the file's SDDL if it still fails |
+| Windows | **IMPOSSIBLE as specified** for "no file other than its input"; GO for network, user files, earlier inputs, memory and processes | windows-2025, run 40120703752 (LPAC): 55/56. Network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC still reads `%SystemRoot%\win.ini` (92 bytes); the test prints its SDDL. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
 
 **Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
 sandbox, which already sets `no_new_privs` and its own seccomp filter; ours stacks on top. Sandboxed
@@ -85,12 +85,13 @@ CI run 40119212625 (e4b5dcf) found two spike bugs; nextest's fail-fast then skip
 `std::net` call in such a child panics. The parse worker must not use `std::net`, and anything that
 might touch Winsock must call `WSAStartup` itself and treat failure as "no network".
 
-Risks the next CI run decides:
-- **Windows:** `C:\Windows` usually grants ALL *RESTRICTED* APPLICATION PACKAGES as well, which LPAC
-  still honours. If the system-file test fails, "input only" on Windows needs a restricted token as
-  well (Chromium's lockdown token).
-- **Windows:** if LPAC can't start the probe on the runner, every Windows sandboxed test fails with a
-  `CreateProcessW` error. That is a measured result, not a flaky test.
+**Windows system files:** LPAC still honours ALL RESTRICTED APPLICATION PACKAGES grants, which
+`C:\Windows` carries so that sandboxed processes can load system DLLs. One stricter attempt was made
+at 30934ba: a lockdown restricted token (restricting SID NULL) under LPAC, with the main thread
+impersonating a startup token while the loader ran. In run 40153640323 the child failed to start
+with 0xC0000135 (STATUS_DLL_NOT_FOUND). Per Jay's decision there was no second attempt, and the
+active code is LPAC only. User files (the sibling, the other folder, an earlier run's input) are
+denied.
 
 ## Requirements for the parse worker
 
@@ -126,9 +127,11 @@ Rules the worker must keep:
    non-inheritable and `DuplicateHandle` it into the suspended child, or hold std's spawn lock and
    clear the flag right after `CreateProcessW`. The spike uses the simple flag because its tests
    start nothing else concurrently.
-9. **CI caveat for `cannot_read_a_system_file`.** If it fails on Windows, check whether
-   `icacls %SystemRoot%\win.ini` lists ALL RESTRICTED APPLICATION PACKAGES. If it does, LPAC is
-   behaving as designed and the test's expectation is wrong, not the sandbox.
+9. **Windows system files stay readable under LPAC.** The `cannot_read_a_system_file` test fails
+   there by design of LPAC; its assert prints the file's SDDL. If the parse worker must close this
+   gap, it should attempt the Chromium-style lockdown token (restricted token, startup
+   impersonation; preserved at commit 30934ba) in a feature of its own. That attempt also has to
+   solve start-up DLL loading, which failed with 0xC0000135.
 10. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
    become an allow list once the worker's syscalls are known. macOS `sandbox_init` is deprecated but
    still shipped (Chromium uses it).

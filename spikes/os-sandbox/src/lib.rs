@@ -9,9 +9,9 @@
 //! - **macOS:** the child restricts itself ([`enter`]): `RLIMIT_AS` at its current size + 1 GiB, then a
 //!   Seatbelt profile (`deny default`, read the input literal).
 //! - **Windows:** the parent launches the child ([`run_sandboxed`]) in a Less Privileged AppContainer
-//!   with no capabilities and a lockdown restricted token (restricting SID: NULL), inside a job object
-//!   with a 1 GiB process memory limit and one active process. The child's [`enter`] drops the startup
-//!   impersonation token.
+//!   with no capabilities (no network; files readable where the ACL names the container or ALL
+//!   RESTRICTED APPLICATION PACKAGES) inside a job object with a 1 GiB process memory limit and one
+//!   active process.
 //!
 //! Spike code (`spikes/CLAUDE.md`): never a dependency of `crates/`. The parse worker ports it.
 #![allow(
@@ -68,11 +68,7 @@ pub fn enter(input: &Path) -> Result<Entered, Error> {
     #[cfg(windows)]
     {
         let _ = input;
-        windows::drop_startup_token()?;
-        Ok(Entered {
-            input: None,
-            applied: "LPAC AppContainer + lockdown restricted token + job object (startup token dropped)".to_owned(),
-        })
+        Ok(Entered { input: None, applied: "LPAC AppContainer + job object (applied by the parent)".to_owned() })
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     {
