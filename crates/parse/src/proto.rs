@@ -16,6 +16,10 @@ pub const PROTO_VERSION: u32 = 1;
 /// worker (as a limit), so a hostile file can't make the core buffer gigabytes.
 pub const MAX_FRAME_BYTES: usize = 128 * 1024 * 1024;
 
+/// The worker's one command-line flag: `lecter-parse --pdfium-dir <absolute folder>`, the folder
+/// holding the PDFium library it loads (never one from the system search path).
+pub const PDFIUM_DIR_FLAG: &str = "--pdfium-dir";
+
 /// Core → worker.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ToWorker {

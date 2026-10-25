@@ -7,6 +7,7 @@ pub mod identity;
 pub mod paths;
 #[cfg(any(debug_assertions, feature = "test-hooks"))]
 pub mod testenv;
+pub mod worker;
 
 pub use error::{Error, Result};
 pub use error_code::ErrorCode;

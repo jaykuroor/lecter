@@ -19,7 +19,7 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 specta = { workspace = true, optional = true }
 thiserror = "2.0.21"
 # Worker processes: spawn, pipe I/O and the per-file time limit, on the app's runtime.
-tokio = { workspace = true, features = ["process", "time", "io-util"] }
+tokio = { workspace = true, features = ["process", "time", "io-util", "macros"] }
 
 [features]
 # The debug-only test hooks (01-architecture.md#debug-only-test-hooks) in a release-profile build.

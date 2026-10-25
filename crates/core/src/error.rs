@@ -43,6 +43,10 @@ pub enum Error {
     /// The file system refused (permissions, a broken disk, …).
     #[error("Lecter could not read that folder.")]
     Io(std::io::ErrorKind),
+    /// The parse worker failed, crashed, timed out or hit a limit (SEC-04). The message is one
+    /// sentence for the user and never quotes the file's text.
+    #[error("{0}")]
+    ParseFailed(String),
 }
 
 impl Error {
@@ -56,6 +60,7 @@ impl Error {
                 ErrorCode::InvalidArgument
             }
             Self::NoHome => ErrorCode::Internal,
+            Self::ParseFailed(_) => ErrorCode::ParseFailed,
             #[cfg(any(debug_assertions, feature = "test-hooks"))]
             Self::TestHomeNotAbsolute => ErrorCode::InvalidArgument,
         }
@@ -82,6 +87,7 @@ mod tests {
             (Error::NotUnicode, ErrorCode::InvalidArgument),
             (Error::TooManyEntries { folder: "slides", limit: 10_000 }, ErrorCode::InvalidArgument),
             (Error::NoHome, ErrorCode::Internal),
+            (Error::ParseFailed("The parse worker crashed.".into()), ErrorCode::ParseFailed),
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");

@@ -18,21 +18,21 @@ fn spawn() -> Child {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .unwrap()
+        .unwrap_or_else(|e| panic!("lecter-parse did not start: {e}"))
 }
 
 /// Sends `frames`, closes stdin, and returns every frame the worker wrote, its exit code and stderr.
 fn talk(frames: &[ToWorker]) -> (Vec<FromWorker>, Option<i32>, String) {
     let mut child = spawn();
-    let mut stdin = child.stdin.take().unwrap();
+    let mut stdin = child.stdin.take().unwrap_or_else(|| panic!("no stdin pipe"));
     for f in frames {
-        write_frame(&mut stdin, Codec::BUILD, f).unwrap();
+        write_frame(&mut stdin, Codec::BUILD, f).unwrap_or_else(|e| panic!("{e}"));
     }
     drop(stdin);
-    let out = child.wait_with_output().unwrap();
+    let out = child.wait_with_output().unwrap_or_else(|e| panic!("{e}"));
     let mut got = Vec::new();
     let mut rest = out.stdout.as_slice();
-    while let Some(f) = read_frame(&mut rest, Codec::BUILD).unwrap() {
+    while let Some(f) = read_frame(&mut rest, Codec::BUILD).unwrap_or_else(|e| panic!("{e}")) {
         got.push(f);
     }
     (got, out.status.code(), String::from_utf8_lossy(&out.stderr).into_owned())

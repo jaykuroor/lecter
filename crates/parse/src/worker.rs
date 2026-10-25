@@ -10,11 +10,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::error::Error;
+pub use crate::proto::PDFIUM_DIR_FLAG;
 use crate::proto::{Codec, FrameError, FromWorker, Limits, PROTO_VERSION, ToWorker, read_frame, write_frame};
 use crate::{pdf, pdfium};
-
-/// The flag naming the folder that holds the PDFium library.
-pub const PDFIUM_DIR_FLAG: &str = "--pdfium-dir";
 
 /// Exit status for a bad command line.
 pub const EXIT_USAGE: u8 = 2;
