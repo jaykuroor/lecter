@@ -1,6 +1,12 @@
 //! `lecter-core`: Course and lecture files, document model, journal, jobs, settings and keychain.
 
+pub mod error;
 pub mod identity;
+pub mod paths;
+#[cfg(any(debug_assertions, feature = "test-hooks"))]
+pub mod testenv;
+
+pub use error::{Error, Result};
 
 /// This crate's package name.
 pub const NAME: &str = env!("CARGO_PKG_NAME");

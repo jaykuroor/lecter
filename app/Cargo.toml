@@ -15,7 +15,7 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 tauri = "2"
 
 [dev-dependencies]
-serde_json = "1"
+serde_json.workspace = true
 lecter-core = { path = "../crates/core" }
 
 [features]

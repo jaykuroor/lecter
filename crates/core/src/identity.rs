@@ -4,6 +4,10 @@
 /// Nothing the user owns may depend on it: it can change once.
 pub const APP_ID: &str = env!("LECTER_APP_ID");
 
+/// The folder name every config, data and cache path derives from (`crate::paths`), never the
+/// bundle identifier, so a rename of [`APP_ID`] moves nothing the user owns.
+pub const APP_DIR_NAME: &str = "lecter";
+
 #[cfg(test)]
 #[allow(clippy::disallowed_methods, reason = "tests read repo files on plain test threads")]
 mod tests {

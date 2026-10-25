@@ -9,3 +9,13 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+directories = "6.0.0"
+thiserror = "2.0.21"
+
+[features]
+# The debug-only test hooks (01-architecture.md#debug-only-test-hooks) in a release-profile build.
+# Debug builds have them anyway; the app's release build never enables this
+# (scripts/check_release_binary.sh).
+test-hooks = []
