@@ -55,7 +55,7 @@ Every gloss is a short agent run, like Claude Cowork or ChatGPT. The model reads
 
 Levels, most specific wins: **per prompt** (globe toggle in the prompt row, or `@web` / `@noweb`) → **role** (`web_search` in the role file) → **course** (`settings.ai.webSearch`) → **global**.
 
-Values: `native` (the provider's own tool: OpenAI `web_search`, Anthropic `web_search` + `web_fetch`, Gemini Google Search grounding), `service` (Brave, Tavily, Exa or SearXNG with the user's key or URL; used automatically for providers with no native search), or `off`. Also: allowed and blocked domains, max searches per answer (default 3). Citations are always shown and clickable.
+Values: `native` (the provider's own tool: OpenAI `web_search`, Anthropic `web_search`, plus `web_fetch` only when `ai.search.allowFetch` is on (SEC-24), Gemini Google Search grounding), `service` (Brave, Tavily, Exa or SearXNG with the user's key or URL; used automatically for providers with no native search), or `off`. Also: allowed and blocked domains, max searches per answer (default 3). Citations are always shown and clickable.
 
 ## Steps checking (`s`)
 

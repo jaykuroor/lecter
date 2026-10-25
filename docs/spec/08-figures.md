@@ -29,7 +29,7 @@ Setting `figures.mode`: `auto`, `ask`, `off`, settable globally, per course, per
 ## Sandbox (pages)
 
 - Rendered in an `<iframe sandbox="allow-scripts">` (no `allow-same-origin`), with CSP `default-src 'none'; script-src 'self' lecter-lib:; style-src 'unsafe-inline'; img-src data:`. No network, no parent access, no storage, no keys.
-- Libraries come from a bundled `lecter-lib://` scheme, version-pinned.
+- Libraries come from a bundled `lecter-lib://` scheme, version-pinned. `lecter-lib:` and `lecter-fig:` serve only bundled or hash-named files and return 404 for anything else (SEC-33).
 - Watchdog: if the frame's main thread is busy for more than 2 s, or memory exceeds 150 MB, the frame is killed and replaced by its static image.
 - In a read-only (untrusted) course, only static images show.
 

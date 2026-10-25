@@ -12,7 +12,7 @@ The policy (licences, what agents may add, what needs the maintainer) is `docs/s
 3. **Add it with the script**, which measures and enforces the policy:
    - Rust: `python3 scripts/add_dep.py rust <crate>[@<ver>] -p lecter-<crate> [--features a,b] [--dev]`
    - UI: `python3 scripts/add_dep.py ui <package>[@<ver>] [--dev]`
-   It prints new crates, native crates, licences, or the gzipped bundle growth.
+   It first checks the registry and stops with `NEEDS_MAINTAINER` for a package under 90 days old or with few downloads, or one it can't find (SEC-54): agents sometimes invent package names, and attackers register them. Double-check the exact name on crates.io or npmjs.com before you run it. Then it prints new crates, native crates, licences, or the gzipped bundle growth.
 4. **Within policy:** it prints a `Dep-Added:` trailer. Put it in your commit message with the reason and the alternative you rejected, and list the dependency under DECISIONS in your report (the orchestrator writes the D-entry).
 5. **Outside policy** (native, > 30 crates, > 100 KB gz, licence): it undoes the change and prints `NEEDS_MAINTAINER` with numbers. Report `NEEDS_MAINTAINER` with them. Once the maintainer's D-entry exists, re-run with `--approved D-0NN` and add `Deps-Approved: D-0NN` to the commit.
 6. Shared versions go in root `[workspace.dependencies]`. `scripts/check_deps.py` (lint stage) fails any dependency added without its trailer.

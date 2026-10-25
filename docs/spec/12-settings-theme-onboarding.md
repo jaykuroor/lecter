@@ -10,9 +10,9 @@ One schema (`settings.schema.json`, generated from Rust types), three ways in, a
 
 Global folder: `~/.config/lecter/` on Linux and macOS (`$XDG_CONFIG_HOME/lecter` if set); `%APPDATA%\lecter\` on Windows. It holds `config.jsonc`, `keymaps.jsonc`, `trusted.jsonc`, `AGENTS.md`, `memory.md`, `agents/`, `skills/`. Data and caches go to the OS data and cache folders (`directories` crate).
 
-Precedence: per prompt > role file > course > global > built-in default. Unknown keys are kept and reported, never deleted.
+Precedence: per prompt > role file > course > global > built-in default. Unknown keys are kept and reported, never deleted. Exception: global-only keys (`13-security.md` SEC-25) are ignored with a notice when a course or course role sets them.
 
-Key settings (non-exhaustive): `ai.defaultFast`, `ai.defaultStrong`, `ai.backupProvider`, `ai.hedgeAfterMs`, `ai.webSearch`, `ai.search.service`, `ai.search.maxPerAnswer`, `ai.search.allowDomains`, `ai.search.blockDomains`, `ai.budget.perLecture`, `ai.budget.monthly`, `ai.maxPrefixTokens`, `figures.mode.described`, `figures.mode.page`, `figures.maxLiveFrames`, `parsing.vision` (`provider` default | `local` | `auto` | `off`), `index.embeddings` (`local-small` default | `local-quality` | `provider` | `off`), `index.contextLines` (off), `lectures.namePattern`, `ui.hintBar` (`full` | `compact` | `off`), `ui.keystrokes`, `ui.theme`, `ui.accent`, `ui.docFont`, `privacy.shareFeedback`, `privacy.shareFeedbackText`, `feedback.endpoint`.
+Key settings (non-exhaustive): `ai.defaultFast`, `ai.defaultStrong`, `ai.backupProvider`, `ai.hedgeAfterMs`, `ai.webSearch`, `ai.search.service`, `ai.search.maxPerAnswer`, `ai.search.allowDomains`, `ai.search.blockDomains`, `ai.budget.perLecture`, `ai.budget.daily`, `ai.budget.monthly`, `ai.budget.monthlyTokens`, `ai.search.allowFetch`, `ai.maxPrefixTokens`, `figures.mode.described`, `figures.mode.page`, `figures.maxLiveFrames`, `parsing.vision` (`provider` default | `local` | `auto` | `off`), `index.embeddings` (`local-small` default | `local-quality` | `provider` | `off`), `index.contextLines` (off), `lectures.namePattern`, `ui.hintBar` (`full` | `compact` | `off`), `ui.keystrokes`, `ui.theme`, `ui.accent`, `ui.docFont`, `privacy.shareFeedback`, `privacy.shareFeedbackText`, `feedback.endpoint`.
 
 ## Keys page
 

@@ -5,12 +5,14 @@ never `cargo add` or `pnpm add` directly (the guard blocks those).
   python3 scripts/add_dep.py rust <crate>[@<ver>] -p lecter-<crate> [--features a,b] [--dev] [--approved D-0NN]
   python3 scripts/add_dep.py ui <package>[@<ver>] [--dev] [--approved D-0NN]
 
-Adds it, then measures: new crates in Cargo.lock, native ones, licences (Rust); licence and gzipped
-bundle growth (UI). Within policy: keeps it and prints the commit trailer to use. Outside policy (native,
+First checks the registry: a package under 90 days old or with few downloads (crates: under 10,000 in
+total; npm: under 1,000 a week) stops here, because AI agents sometimes invent package names and attackers
+register them (SEC-54). Then adds it and measures: new crates in Cargo.lock, native ones, licences (Rust);
+licence and gzipped bundle growth (UI). Within policy: keeps it and prints the commit trailer to use. Outside policy (native,
 > 30 crates, > 100 KB gz, or a licence not on the list): undoes the change and prints NEEDS_MAINTAINER with the
 numbers for the builder's report. --approved D-0NN (the maintainer's decision) keeps it anyway.
 """
-import argparse, gzip, json, re, subprocess, sys
+import argparse, datetime, gzip, json, re, subprocess, sys, urllib.parse, urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -20,6 +22,52 @@ import fnmatch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 LICENCES = re.compile(r"^(MIT|Apache-2\.0|BSD-2-Clause|BSD-3-Clause|ISC|Zlib|MPL-2\.0|Unicode-3\.0|Unicode-DFS-2016|CC0-1\.0|0BSD|BSL-1\.0)$")
+
+
+MIN_AGE_DAYS, MIN_CRATE_DOWNLOADS, MIN_NPM_WEEKLY = 90, 10_000, 1_000
+
+
+def fetch_json(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "lecter-add-dep (https://github.com/jaykuroor/lecter)"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.load(r)
+
+
+def registry_facts(kind, name):
+    """(created datetime, downloads) from crates.io or npm; downloads are total (crates) or last week (npm)."""
+    if kind == "rust":
+        c = fetch_json(f"https://crates.io/api/v1/crates/{urllib.parse.quote(name)}")["crate"]
+        return c["created_at"], int(c["downloads"])
+    meta = fetch_json(f"https://registry.npmjs.org/{urllib.parse.quote(name, safe='@')}")  # @scope%2Fname
+    week = fetch_json(f"https://api.npmjs.org/downloads/point/last-week/{name}")
+    return meta["time"]["created"], int(week.get("downloads", 0))
+
+
+def freshness_reasons(kind, created, downloads, now=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    born = datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))
+    age = (now - born).days
+    floor = MIN_CRATE_DOWNLOADS if kind == "rust" else MIN_NPM_WEEKLY
+    unit = "downloads in total" if kind == "rust" else "downloads last week"
+    return ([f"published {age} days ago (under {MIN_AGE_DAYS})"] if age < MIN_AGE_DAYS else []) + \
+           ([f"{downloads:,} {unit} (under {floor:,})"] if downloads < floor else [])
+
+
+def check_fresh(kind, name, approved):
+    """SEC-54: stop before adding a package that is new or barely used, unless the maintainer approved it."""
+    if approved and maintainer_decision(ROOT, approved):
+        return 0
+    try:
+        created, downloads = registry_facts(kind, name)
+    except Exception as e:  # unknown name, offline or blocked: never add what we couldn't check
+        print(f"NEEDS_MAINTAINER: couldn't check {name} on the registry ({e}). A name that doesn't exist may be invented.")
+        return 4
+    reasons = freshness_reasons(kind, created, downloads)
+    if reasons:
+        print(f"NEEDS_MAINTAINER: {name} looks new or barely used ({'; '.join(reasons)}). Check it's the package you "
+              "meant (not an invented or look-alike name); once the maintainer's D-entry exists, re-run with --approved D-0NN.")
+        return 4
+    return 0
 
 
 def run(*cmd, cwd=ROOT):
@@ -114,6 +162,9 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.kind == "rust" and not a.package:
         ap.error("rust needs -p lecter-<crate>")
+    bare = a.name.split("@")[0] if a.kind == "rust" else re.sub(r"(?<!^)@[^/]*$", "", a.name)
+    if check_fresh(a.kind, bare, a.approved):
+        return 4
     return rust(a) if a.kind == "rust" else ui(a)
 
 

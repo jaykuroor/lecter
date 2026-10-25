@@ -138,6 +138,7 @@ headless() { if [ "$(uname)" = Linux ] && [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}
 if on lint; then
   run kit-tests "$PY" -m unittest discover -s scripts/tests -q
   run spec-refs "$PY" scripts/spec.py --check
+  run sec-coverage "$PY" scripts/check_sec_ids.py
   run features "$PY" scripts/feature.py validate
   run placeholders placeholders
   run size "$PY" scripts/check_size.py

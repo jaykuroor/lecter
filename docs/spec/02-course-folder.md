@@ -29,6 +29,7 @@ Subfolder names are defaults. `course.jsonc` can point `slides`, `sources`, `lec
 - The first open of a folder shows a trust screen: counts of what is inside (for example "3 textbooks, 12 slide decks, 6 lectures"), what the AI may read (everything not in `.lecterignore`), which provider will receive excerpts, and whether web search is on.
 - **Trust**: full features. **Open read-only**: notes and slides only; no AI, no figures with scripts, no indexing.
 - Trust is stored per absolute path and device in the global config (`trusted.jsonc`). Moving the folder asks again.
+- The trust screen also lists the course's own `AGENTS.md`, role files, skills and settings overrides. When any of them changes, trust is asked again. A course can't loosen global settings (`13-security.md` SEC-25), and the core enforces read-only (SEC-27).
 - Files outside the course folder are never read by the AI.
 
 ## Course details (`course.jsonc`)

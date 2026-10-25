@@ -64,7 +64,7 @@ Each feature lists the evidence it needs in `features.json` → `evidence`. The 
 Builders can add tests, snapshots, fixtures and budget entries, but they can't weaken the checks that judge them. The guard hook (`scripts/hooks/guard.py`, lists `PROTECTED` and `KIT_FILES`, the single source) blocks edits, including shell writes, to existing:
 
 - **checks:** `scripts/verify.sh`, `tests/perf/budgets.json`, `tests/corpus/thresholds.json`, `.github/workflows/**`, `deny.toml`, `clippy.toml`, `rustfmt.toml`, `rust-toolchain.toml`, `ui/biome.json`, `ui/tsconfig.json`, `ui/playwright.config.ts`, `tests/e2e/wdio.conf.ts`, `ui/knip.json`, `ui/.jscpd.json`, snapshot files and visual baselines. A feature may edit one only when it lists it under `protected` (for example F-025 creates the budgets).
-- **kit files** (the maintainer only): `.claude/settings*.json`, `.claude/agents/**`, `scripts/hooks/**`, the lint scripts, `scripts/live.sh`, `scripts/deps_preapproved.txt`, `.gitleaks.toml`, `scripts/tests/**`.
+- **kit files** (the maintainer only): `.claude/settings*.json`, `.claude/agents/**`, `scripts/hooks/**`, the lint scripts, `scripts/add_dep.py`, `scripts/live.sh`, `scripts/deps_preapproved.txt`, `.gitleaks.toml`, `scripts/tests/**`.
 
 `scripts/check_tests.py` (lint stage) compares the change with its base and fails when it:
 
@@ -74,6 +74,8 @@ Builders can add tests, snapshots, fixtures and budget entries, but they can't w
 - changes an existing snapshot.
 
 A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a decision by the maintainer).
+
+`scripts/check_sec_ids.py` (lint stage) fails when a SEC-xx or ROB-xx requirement (`13-security.md`, `17-robustness.md`) is cited by no feature card and isn't listed in the script as kit-only or covered by a named card. A requirement no card names is one no builder reads.
 
 ## Definition of done
 

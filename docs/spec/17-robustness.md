@@ -38,6 +38,7 @@ What keeps notes safe and the app responsive when the world misbehaves: other pr
 
 - **ROB-50** Logs rotate daily and at 10 MB, keeping 5 files.
 - **ROB-51** Logs are redacted (SEC-62) and local only. A crash report is written locally and sent nowhere; the user can attach it to an issue by hand.
+- **ROB-52** File names, paths and error bodies enter logs only as escaped structured fields (`tracing` fields, never interpolated into the message), so a name containing a newline or a terminal escape code can't forge a log line.
 
 ## Provider drift
 

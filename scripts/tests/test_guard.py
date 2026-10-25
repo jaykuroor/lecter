@@ -65,6 +65,7 @@ class Guard(unittest.TestCase):
     def test_kit_files_blocked(self):
         self.assertEqual(self.edit("scripts/check_tests.py"), 2)
         self.assertEqual(self.bash("echo pass > scripts/check_private.py"), 2)
+        self.assertEqual(self.edit("scripts/add_dep.py"), 2)  # its package age check is a security control
 
     def test_dependency_adds_blocked(self):
         for cmd in ("cargo add serde -p lecter-core", "pnpm -C ui add lodash", "npm install left-pad"):

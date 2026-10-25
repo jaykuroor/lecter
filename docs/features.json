@@ -946,19 +946,22 @@
    "kind": "feature",
    "title": "Settings core: schema, JSONC, precedence",
    "spec": [
-    "12-settings-theme-onboarding.md#settings"
+    "12-settings-theme-onboarding.md#settings",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-026"
    ],
    "paths": [
-    "crates/core/src/settings/**"
+    "crates/core/src/settings/**",
+    "tests/fixtures/courses/hostile/**"
    ],
    "acceptance": [
     "Settings types SHALL be defined in Rust and SHALL generate settings.schema.json (a test fails if the committed schema is stale).",
     "The resolved value of a key SHALL follow prompt > role > course > global > default and report its source (property test).",
     "WHEN a config file contains unknown keys THEN they SHALL be preserved on write and reported once.",
-    "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart."
+    "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart.",
+    "Global-only keys (13-security.md SEC-25: provider hosts and base URLs, feedback.endpoint, search service URLs, privacy.*, log.*, limits.*, budgets above the global value) SHALL be ignored with one notice when course.jsonc sets them, tested with the hostile course fixture tests/fixtures/courses/hostile/ (SEC-25)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core settings"
@@ -968,7 +971,10 @@
    ],
    "status": "todo",
    "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006.",
-   "priority": 3025
+   "priority": 3025,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-031",
@@ -1050,7 +1056,9 @@
     "WHEN a folder is opened for the first time THEN a trust screen SHALL show counts of slides, sources and lectures, the provider that receives excerpts, and web search state.",
     "WHEN the user picks Open read-only THEN AI, indexing and scripted figures SHALL be disabled for that course.",
     "Trust SHALL be stored per absolute path in trusted.jsonc; WHEN the path changes THEN trust SHALL be asked again.",
-    "Every file API used by the AI SHALL reject paths outside the course root after canonicalisation (property test with .., symlinks, UNC and Windows separators)."
+    "Every file API used by the AI SHALL reject paths outside the course root after canonicalisation (property test with .., symlinks, UNC and Windows separators).",
+    "The trust screen SHALL list the course's AGENTS.md, role files, skills and settings overrides, and WHEN any of them changes THEN trust SHALL be asked again (SEC-25).",
+    "AI, indexing and scripted-figure commands on a read-only course SHALL return E_NOT_TRUSTED from the Rust core, tested through lecter-harness without the UI (SEC-27)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core trust",
@@ -1867,7 +1875,8 @@
    "spec": [
     "09-ui.md",
     "04-parsing.md#reading-ladder",
-    "09-ui.md#design-reference"
+    "09-ui.md#design-reference",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-050",
@@ -1875,12 +1884,14 @@
     "F-063"
    ],
    "paths": [
-    "ui/src/features/buffer/**"
+    "ui/src/features/buffer/**",
+    "tests/fixtures/xss/**"
    ],
    "acceptance": [
     "Slide blocks SHALL render KaTeX math (MathML output, trust false) and figures via lecter://.",
     "Blocks SHALL show confidence borders by tier, with a text badge on low confidence, per docs/design/components.md#block.",
-    "Only visible blocks SHALL be rendered; the keystroke_p99_ms and rss_300_slides_mb budgets SHALL hold."
+    "Only visible blocks SHALL be rendered; the keystroke_p99_ms and rss_300_slides_mb budgets SHALL hold.",
+    "The XSS fixture set tests/fixtures/xss/ (SVG onload, javascript: link, KaTeX \\href, Mermaid click handler, raw HTML in slide text) SHALL render inert in slide blocks: no script runs, no request leaves and a CSP-violation listener stays silent (SEC-22, SEC-30)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- buffer",
@@ -1893,7 +1904,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 4054
+   "priority": 4054,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-063",
@@ -2234,7 +2248,8 @@
    "acceptance": [
     "Logs SHALL rotate daily and at 10 MB, keeping 5 files (ROB-50).",
     "With log.content = false, no prompt, answer, note or key text SHALL appear in logs (a test greps the logs after a scripted session).",
-    "Crash reports SHALL be written locally only (ROB-51)."
+    "Crash reports SHALL be written locally only (ROB-51).",
+    "File names, paths and error bodies SHALL enter logs only as escaped structured fields; a test logs a file name containing a newline and a terminal escape code and asserts no forged line and no raw escape in the log (ROB-52)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core log"
@@ -2253,7 +2268,9 @@
    "title": "Provider trait, OpenAI-compatible adapter, fake provider scenarios",
    "spec": [
     "07-providers.md#adapters-one-rust-trait",
-    "14-quality.md#test-layers"
+    "14-quality.md#test-layers",
+    "13-security.md#secrets",
+    "13-security.md#unbounded-consumption-outbound-requests"
    ],
    "depends_on": [
     "F-026"
@@ -2266,7 +2283,9 @@
    "acceptance": [
     "The Provider trait SHALL stream text, tool calls, usage and errors, and honour a cancel token.",
     "The OpenAI-compatible adapter SHALL work against Ollama, LM Studio and OpenRouter request formats (recorded fixtures).",
-    "tests/fake-provider SHALL simulate latency, 429 with retry-after, 5xx, dropped streams, malformed SSE and unknown event types, each as a named scenario."
+    "tests/fake-provider SHALL simulate latency, 429 with retry-after, 5xx, dropped streams, malformed SSE and unknown event types, each as a named scenario.",
+    "Tests SHALL prove a key is dropped on a redirect to another host, a bad TLS certificate fails with no override, and plain http is refused except for localhost and 127.0.0.1 (SEC-43).",
+    "One SSE line or JSON event over 1 MB, or a response over 16 MB, SHALL end the stream with E_PROVIDER_TOO_LARGE, with fake-provider scenarios at the limit and at limit+1 (SEC-14)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai provider"
@@ -2425,7 +2444,8 @@
    "kind": "feature",
    "title": "ChatGPT sign-in",
    "spec": [
-    "07-providers.md#sign-in"
+    "07-providers.md#sign-in",
+    "13-security.md#secrets"
    ],
    "depends_on": [
     "F-084"
@@ -2436,7 +2456,8 @@
    "acceptance": [
     "Before implementing, the provider's current terms SHALL be re-checked and noted in a D-entry.",
     "ChatGPT Plus/Pro browser sign-in SHALL be offered behind a build-time flag, storing tokens in the keychain.",
-    "Anthropic SHALL offer API key only, with an explanation."
+    "Anthropic SHALL offer API key only, with an explanation.",
+    "Browser sign-in SHALL use PKCE (S256) and a random state checked on return, with a one-time redirect listener on 127.0.0.1 at a random port that closes after 5 minutes, tested against a fake sign-in server (SEC-44)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai oauth"
@@ -2599,7 +2620,8 @@
     "Caps per gloss (output tokens, tool calls, steps), per lecture, per day and per month SHALL be enforced (SEC-12).",
     "Background jobs SHALL have their own daily cap and SHALL pause at it.",
     "A hedged request SHALL count against the budget, and hedging SHALL be skipped when it would exceed it.",
-    "WHEN a foreground request would exceed a cap THEN the UI SHALL ask first (E_BUDGET card), and the status line SHALL show the lecture's running cost."
+    "WHEN a foreground request would exceed a cap THEN the UI SHALL ask first (E_BUDGET card), and the status line SHALL show the lecture's running cost.",
+    "A new install SHALL have default caps of $5 per month and $1 per day (ai.budget.monthly, ai.budget.daily), and a model with no catalog price SHALL count against ai.budget.monthlyTokens (default 2,000,000); all three SHALL be changeable in Settings → AI and with :set, and the cap prompt SHALL offer to raise the cap in one step (SEC-12)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai budget",
@@ -2657,7 +2679,8 @@
    "title": "Roles and the AI harness settings page",
    "spec": [
     "02-course-folder.md#agentsmd-roles-and-skills",
-    "06-ai-harness.md#ai-harness-settings-page"
+    "06-ai-harness.md#ai-harness-settings-page",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-088",
@@ -2669,7 +2692,8 @@
    ],
    "acceptance": [
     "Built-in role files SHALL load, overridable by global then course files.",
-    "Settings → AI SHALL edit per-role model, tools, web search, max steps, output cap, top-k, detail and prompt, writing an override file."
+    "Settings → AI SHALL edit per-role model, tools, web search, max steps, output cap, top-k, detail and prompt, writing an override file.",
+    "A course role file SHALL NOT set global-only keys or enable a tool or web search that the global settings turn off; the hostile course fixture proves it (SEC-25)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai roles",
@@ -2680,7 +2704,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 5078
+   "priority": 5078,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-093",
@@ -2696,13 +2723,15 @@
     "F-088"
    ],
    "paths": [
-    "crates/ai/src/prompt/**"
+    "crates/ai/src/prompt/**",
+    "tests/fixtures/injection/**"
    ],
    "acceptance": [
     "Tier 0 SHALL be assembled in the fixed order with cache breakpoints, and untrusted text SHALL be wrapped in <untrusted_source> (SEC-20).",
     "Two identical requests SHALL produce byte-identical prefixes (test).",
     "A 1-token warm-up request SHALL be sent when a lecture opens, if caching is enabled.",
-    "insta snapshots SHALL pin the exact prompt layout per provider."
+    "insta snapshots SHALL pin the exact prompt layout per provider.",
+    "A prompt-injection suite (hostile slide, source and web fixtures in tests/fixtures/injection/, and a fake-provider scenario that obeys their instructions) SHALL show the model receives only the role's allowed tools and that no file outside the course root is read (SEC-20, SEC-21)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai prompt"
@@ -2725,7 +2754,8 @@
    "spec": [
     "03-lecture-files.md#body",
     "06-ai-harness.md#roles-built-in-defaults",
-    "09-ui.md#design-reference"
+    "09-ui.md#design-reference",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-088",
@@ -2737,7 +2767,8 @@
    "acceptance": [
     "Answers SHALL stream into a gloss rendered at most once per animation frame, styled per docs/design/components.md#gloss in its streaming, done and focused states.",
     "Glosses SHALL be saved as fenced divs with the prompt as the first line.",
-    "Each gloss kind SHALL use its colour token (k-*) from docs/design/tokens.json."
+    "Each gloss kind SHALL use its colour token (k-*) from docs/design/tokens.json.",
+    "The XSS fixture set (tests/fixtures/xss/) streamed as an answer SHALL render inert in a gloss in every state: no script runs, no request leaves and the CSP-violation listener stays silent (SEC-22)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- gloss",
@@ -2750,7 +2781,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 5080
+   "priority": 5080,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-095",
@@ -3032,7 +3066,8 @@
    "kind": "feature",
    "title": "Web search configuration",
    "spec": [
-    "06-ai-harness.md#web-search-configuration"
+    "06-ai-harness.md#web-search-configuration",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-081",
@@ -3044,7 +3079,8 @@
    ],
    "acceptance": [
     "Web search SHALL resolve per prompt > role > course > global with the values native, service and off.",
-    "Domain allow and block lists and max searches per answer SHALL be enforced."
+    "Domain allow and block lists and max searches per answer SHALL be enforced.",
+    "Anthropic's native web_fetch SHALL be off unless ai.search.allowFetch is true (default false), and WHEN it is on THEN the allow and block lists SHALL apply to every fetched URL (SEC-24)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai search"
@@ -3158,7 +3194,8 @@
    "kind": "feature",
    "title": "Note actions with undo",
    "spec": [
-    "06-ai-harness.md#tools"
+    "06-ai-harness.md#tools",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-088",
@@ -3170,7 +3207,8 @@
    ],
    "acceptance": [
     "add_flag, add_doubt, add_later, add_office_hours and add_revise SHALL create visible items shown in the gloss.",
-    "Each SHALL be undoable with one key."
+    "Each SHALL be undoable with one key.",
+    "Under the prompt-injection suite (tests/fixtures/injection/), every note action SHALL be visible in the gloss and undoable, and memory.md SHALL stay byte-identical (SEC-21)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai actions",
@@ -3181,7 +3219,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 5094
+   "priority": 5094,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-109",
@@ -3200,7 +3241,8 @@
    "acceptance": [
     "Glosses and notes SHALL render no raw HTML, KaTeX SHALL use trust false and Mermaid strict mode (SEC-22).",
     "A remote image URL in an answer SHALL render as a link chip and no request SHALL leave the webview, asserted in a WebDriver flow (SEC-23).",
-    "Links SHALL show their host and open only http(s) after confirmation (SEC-24)."
+    "Links SHALL show their host and open only http(s) after confirmation (SEC-24).",
+    "Under the prompt-injection suite and the XSS fixture set (tests/fixtures/xss/), no request SHALL leave the webview, no script SHALL run and no CSP violation SHALL be reported in glosses, notes and figure captions, asserted in a WebDriver flow (SEC-21, SEC-22, SEC-30)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- safe-render",
@@ -3770,7 +3812,8 @@
    "acceptance": [
     "Pages SHALL render in an iframe with sandbox allow-scripts only and the CSP of 08-figures.md#sandbox-pages.",
     "Libraries SHALL load only from lecter-lib://, version-pinned.",
-    "A WebDriver flow SHALL prove a page cannot fetch, read the parent or call IPC on the CI OSes."
+    "A WebDriver flow SHALL prove a page cannot fetch, read the parent or call IPC on the CI OSes.",
+    "lecter-fig: and lecter-lib: SHALL serve only hash-named or bundled files and return 404 for anything else, tested with ../, encoded ../ and absolute paths (SEC-33)."
    ],
    "verify": [
     "scripts/e2e-app.sh figure-page --evidence F-141"
@@ -3914,7 +3957,8 @@
    "kind": "feature",
    "title": "Dashboard panels",
    "spec": [
-    "11-dashboard.md#panels"
+    "11-dashboard.md#panels",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-066",
@@ -3925,7 +3969,8 @@
    ],
    "acceptance": [
     "The dashboard SHALL show every panel in 11-dashboard.md#panels with live data from lectures and course.md.",
-    "The dashboard SHALL be lazy-loaded (not in the main chunk)."
+    "The dashboard SHALL be lazy-loaded (not in the main chunk).",
+    "Dashboard rows SHALL render text through the safe renderer; the XSS fixture set (tests/fixtures/xss/) renders inert there (SEC-22)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- dashboard"
@@ -4223,7 +4268,8 @@
    "kind": "feature",
    "title": "Export to PDF and LaTeX via Pandoc",
    "spec": [
-    "10-keymap.md#commands"
+    "10-keymap.md#commands",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-164"
@@ -4233,7 +4279,8 @@
    ],
    "acceptance": [
     ":export pdf and :export tex SHALL run the installed Pandoc with a fixed argument list (no shell, no user-controlled flags).",
-    "WHEN Pandoc is missing THEN the command SHALL explain how to install it."
+    "WHEN Pandoc is missing THEN the command SHALL explain how to install it.",
+    "Pandoc SHALL run with --sandbox and read AI-written text without raw_tex and raw_html; a test exports a gloss containing \\input{} and a local image path and asserts neither file is embedded (SEC-26)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core export_pandoc"
@@ -4288,7 +4335,8 @@
    "kind": "feature",
    "title": "Tauri lockdown audit",
    "spec": [
-    "13-security.md#tauri-and-ipc"
+    "13-security.md#tauri-and-ipc",
+    "13-security.md#privacy"
    ],
    "depends_on": [
     "F-109",
@@ -4302,7 +4350,8 @@
    "acceptance": [
     "Each window SHALL have its own capability file listing only commands it calls (a test diffs capabilities against the bindings usage).",
     "A test SHALL load the release config and assert the CSP of SEC-30 and devtools off.",
-    "Dropped paths SHALL be canonicalised and checked (SEC-35), tested with symlink and traversal fixtures."
+    "Dropped paths SHALL be canonicalised and checked (SEC-35), tested with symlink and traversal fixtures.",
+    "With no provider configured, a scripted session SHALL open no outbound connection except the update check, asserted with a connection-recording test (SEC-60)."
    ],
    "verify": [
     "cargo nextest run -p lecter-app security"
@@ -4323,7 +4372,8 @@
    "kind": "feature",
    "title": "Nightly fuzzing and regression flow",
    "spec": [
-    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch"
+    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch",
+    "13-security.md#unbounded-consumption-outbound-requests"
    ],
    "depends_on": [
     "F-055"
@@ -4334,7 +4384,8 @@
    ],
    "acceptance": [
     "nightly.yml SHALL run every fuzz target for 10 minutes and upload crash inputs.",
-    "A seeded crash input SHALL become a regression test in tests/fixtures/fuzz-regressions/ (documented flow, proven once)."
+    "A seeded crash input SHALL become a regression test in tests/fixtures/fuzz-regressions/ (documented flow, proven once).",
+    "The provider SSE and JSON stream parsers SHALL be fuzz targets with seed corpora (SEC-14)."
    ],
    "verify": [
     "nightly.yml via workflow_dispatch"
@@ -4460,7 +4511,8 @@
    "title": "Signed in-app updates",
    "spec": [
     "01-architecture.md#packaging",
-    "13-security.md#supply-chain"
+    "13-security.md#supply-chain",
+    "13-security.md#privacy"
    ],
    "depends_on": [
     "F-170"
@@ -4470,7 +4522,8 @@
    ],
    "acceptance": [
     "WHEN an installed build sees a newer signed latest.json THEN the app SHALL offer the update.",
-    "The updater SHALL verify the signature before installing and reject a tampered manifest (test)."
+    "The updater SHALL verify the signature before installing and reject a tampered manifest (test).",
+    "The update check SHALL be listed in Settings → Privacy and SHALL be possible to turn off (SEC-60)."
    ],
    "verify": [
     "cargo nextest run -p lecter-app updater"

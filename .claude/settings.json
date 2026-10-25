@@ -188,7 +188,7 @@
         "index.crates.io",
         "static.crates.io",
         "static.rust-lang.org",
-        "registry.npmjs.org",
+        "registry.npmjs.org", "api.npmjs.org",
         "github.com",
         "api.github.com",
         "codeload.github.com",

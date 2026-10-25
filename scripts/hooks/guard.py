@@ -26,7 +26,7 @@ PROTECTED = (  # existing files only; creating new tests and snapshots is always
     "ui/playwright.config.ts", "tests/e2e/wdio.conf.ts", "ui/knip.json", "ui/.jscpd.json", "ui/tsconfig.json",
     "*.snap", "*/__snapshots__/*", "tests/visual/baselines/*",
 )
-KIT_FILES = (".claude/settings*", "scripts/hooks/*", "scripts/check_*.py", "scripts/lib_git.py", "scripts/secret_scan.sh",
+KIT_FILES = (".claude/settings*", "scripts/hooks/*", "scripts/check_*.py", "scripts/add_dep.py", "scripts/lib_git.py", "scripts/secret_scan.sh",
              "scripts/deps_preapproved.txt", ".gitleaks.toml", "scripts/tests/*", "scripts/live.sh", ".claude/agents/*")
 KEYS = re.compile(r"lecter-dev|keys\.env|LECTER_KEYS_FILE")
 

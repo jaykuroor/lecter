@@ -26,7 +26,7 @@ v0 adapters: Anthropic Messages API, OpenAI Responses API, Google Gemini API, Op
 | OpenRouter, Groq, others | API key |
 | Local servers | Base URL (no key) |
 
-Before each release, re-check each provider's terms. Each sign-in method sits behind a build-time flag so it can be switched off in an update (there is no remote kill switch). Tokens and keys live in the OS keychain. Subscription sign-in must not be used for features the provider doesn't offer to it (for example embeddings), unless the provider documents it.
+Before each release, re-check each provider's terms. Each sign-in method sits behind a build-time flag so it can be switched off in an update (there is no remote kill switch). Tokens and keys live in the OS keychain. Browser sign-in follows SEC-44 (PKCE, checked state, one-time loopback listener). Subscription sign-in must not be used for features the provider doesn't offer to it (for example embeddings), unless the provider documents it.
 
 ## Models
 
