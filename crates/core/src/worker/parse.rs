@@ -150,9 +150,27 @@ fn describe(status: Option<ExitStatus>) -> String {
     match status {
         Some(s) if s.success() => "it exited without an error".into(),
         Some(s) => match s.code() {
-            Some(code) => format!("exit code {code}"),
+            Some(code) => exit_code(code, cfg!(windows)),
             None => "it crashed".into(),
         },
         None => "it was killed".into(),
     }
+}
+
+/// A non-zero exit code for the message. On Windows a process killed by an exception exits with its
+/// NTSTATUS (0xC0000000 and up, e.g. 0xC0000409 for a fail-fast abort), written in hex as it is
+/// documented and searched for; anything else is the plain exit code.
+fn exit_code(code: i32, windows: bool) -> String {
+    let status = code as u32;
+    if windows && status >= 0xC000_0000 { format!("it crashed (0x{status:08X})") } else { format!("exit code {code}") }
+}
+
+#[cfg(test)]
+#[test]
+fn windows_exception_codes_read_as_crashes_in_hex() {
+    assert_eq!(exit_code(-1_073_740_791, true), "it crashed (0xC0000409)");
+    assert_eq!(exit_code(i32::MIN + 0x4000_0000, true), "it crashed (0xC0000000)");
+    assert_eq!(exit_code(i32::MIN + 0x3FFF_FFFF, true), "exit code -1073741825");
+    assert_eq!(exit_code(-1_073_740_791, false), "exit code -1073740791");
+    assert_eq!(exit_code(7, true), "exit code 7");
 }

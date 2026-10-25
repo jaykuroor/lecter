@@ -40,7 +40,9 @@ if mode == "exit-0":
     sys.exit(0)
 if mode == "crash":
     send({"Progress": {"page": 1, "pages": 3}})
-    os.abort()
+    out.write(struct.pack("<I", 100) + b'{"Progress"')
+    out.flush()
+    os._exit(70)
 if mode == "hang":
     send({"Progress": {"page": 1, "pages": 3}})
     time.sleep(3600)
@@ -132,9 +134,8 @@ async fn worker_done_returns_the_blocks_and_relays_progress() {
 async fn worker_crash_mid_parse_is_parse_failed() {
     let (r, seen) = run("crash", PARSE_TIMEOUT).await;
     let msg = parse_failed(r);
-    // Python's abort() is SIGABRT on Unix and exit code 3 on Windows.
-    let how = if cfg!(unix) { "it crashed" } else { "exit code 3" };
-    assert_eq!(msg, format!("The parse worker stopped unexpectedly (its output ended; {how})."));
+    // It dies in the middle of its second frame with exit code 70.
+    assert_eq!(msg, "The parse worker stopped unexpectedly (its output ended mid-frame; exit code 70).");
     assert_eq!(seen, [(1, 3)]);
 }
 
@@ -149,7 +150,10 @@ async fn worker_exiting_without_an_answer_is_parse_failed_with_its_status() {
 #[tokio::test]
 async fn worker_crash_before_hello_is_parse_failed() {
     let msg = parse_failed(run("crash-at-start", PARSE_TIMEOUT).await.0);
-    assert!(msg.contains("its output ended"), "{msg}");
+    // A real abort(): SIGABRT on Unix; on Windows the C runtime fails fast with
+    // STATUS_STACK_BUFFER_OVERRUN (0xC0000409), seen on windows-2025 in CI run 40230309165.
+    let how = if cfg!(windows) { "it crashed (0xC0000409)" } else { "it crashed" };
+    assert_eq!(msg, format!("The parse worker stopped unexpectedly (its output ended; {how})."));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -163,14 +167,15 @@ async fn worker_past_its_time_limit_is_killed_and_the_core_stays_responsive() {
     };
     let start = Instant::now();
     let r = tokio::select! {
-        r = run("hang", Duration::from_millis(1500)) => r,
+        // 3 s leaves a cold Python on a CI runner time to start and report page 1.
+        r = run("hang", Duration::from_secs(3)) => r,
         () = ticker => unreachable!("the ticker never ends"),
     };
     let elapsed = start.elapsed();
     let msg = parse_failed(r.0);
-    assert_eq!(msg, "Parsing took longer than 1.5 s, so the parse worker was stopped.");
+    assert_eq!(msg, "Parsing took longer than 3 s, so the parse worker was stopped.");
     assert_eq!(r.1, [(1, 3)]);
-    assert!(elapsed >= Duration::from_millis(1500) && elapsed < Duration::from_secs(10), "{elapsed:?}");
+    assert!(elapsed >= Duration::from_secs(3) && elapsed < Duration::from_secs(12), "{elapsed:?}");
     // On one thread, the ticker only advanced because waiting on the worker never blocked it.
     assert!(ticks.load(Ordering::Relaxed) >= 50, "{} ticks in {elapsed:?}", ticks.load(Ordering::Relaxed));
 }
