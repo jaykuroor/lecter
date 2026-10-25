@@ -544,3 +544,23 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the default `scripts/verify.sh` set runs mutation testing on the changed lines (`scripts/mutants.py`: cargo-mutants for Rust, Stryker with the Vitest runner for `ui/src`; about a 10-minute cap; local only; skipped during a merge). A surviving mutant fails the check unless a `Mutant-Equivalent: <file> - <mutation> - <why>` trailer has a reason the reviewer accepts. `check_tests.py` also fails a new test that asserts nothing, asserts a constant, compares a value with itself, or only checks `is_ok`/`is_some`/`toBeDefined`/`toBeTruthy`/`not.toBeNull` (exception: a `Test-Smell-Ok` trailer the reviewer accepts), and warns at more than 3 mocks per test file. `docs/TESTING.md` "Tests that catch bugs": mock only at process, network and OS edges; expected values from the spec; an edge case per criterion; behaviour, not wiring; read every new snapshot; red for the right reason (an assertion failure, not a compile error). spec-check gets an edge-case column, the reviewer a test-quality step (weak tests are `major`), the builder report MUTANTS and SNAPSHOTS lines; gardening reads the nightly mutation score. A new M1 card (F-178) adds the full-tree mutation score to `nightly.yml`. `mutants.py` becomes a protected kit file; `init.sh` installs cargo-mutants. `ui/stryker.config.json` names the Vitest runner (so knip sees both Stryker packages) and a `tsconfigFile` that doesn't exist: Stryker's tsconfig rewrite needs TypeScript's JS API, which TypeScript 7 dropped. Mutation testing reruns the same hermetic tests and never calls a real AI provider.
 - Why: agent-written tests often pass for wrong code (over-mocking, self-computed expected values, assert-nothing tests). Mutation testing of changed lines finds them while the builder still has the code in context, at CPU cost rather than Claude usage.
 - Instead of: line coverage, a mutation score threshold, or nightly-only mutation runs.
+
+## D-102 · IPC bindings by tauri-specta rc.25; ErrorCode in core
+2026-10-25 · session F-017 · active
+- Decision: commands and IPC types are declared in Rust (`app/src/ipc/mod.rs` `contract()`) and exported by `app/src/bin/export-bindings.rs` to `ui/src/core/bindings.ts` with tauri-specta + specta-typescript pinned at 2.0.0-rc.25 (fills D-048's pin). `--check` exits 0 current, 1 stale/missing, 2 bad flag; verify runs it. `ErrorCode` moves to `crates/core/src/error_code.rs` (specta optional) and the harness reuses it, closing D-089. A guard in `app/src/ipc/guard.rs` applies `validate::payload` limits before tauri-specta dispatches, answering `E_INVALID_ARGUMENT`.
+- Why: one source of truth for the contract (18-contracts.md#ipc) and for error codes; rc.26 was 4 days old (two-week rule).
+- Instead of: ts-rs plus hand-written wrappers; a mirror enum in app; the harness keeping its own copy.
+- Revisit if: tauri-specta 2.0 ships stable.
+
+## D-103 · tauri-specta, specta, specta-typescript and app deps added
+2026-10-25 · session F-017 · active
+- Decision: `tauri-specta` (MIT, 9 crates), `specta-typescript` (MIT), `specta` (MIT; optional in core), and already-in-tree `tracing`, `serde`, `serde_json`, `lecter-core` (app, harness), plus dev-only `tauri` `test` feature for a MockRuntime test of the guard.
+- Why: Dep-Added trailers on F-017 commits ca883eb and bb66b88.
+- Instead of: see D-102.
+
+## D-104 · Tauri isolation pattern stays off in v0 (SEC-36)
+2026-10-25 · session F-017 · active
+- Decision: the main window keeps Tauri's default (brownfield) pattern, not `app.security.pattern = isolation`.
+- Why: spikes/isolation measured (Chromium, i7-14700KF) 0.12 ms p99 added per 1 B call but 6.3 ms at 16 KB and 22.5 ms at 64 KB, all main-thread JS, which breaks the 8 ms keystroke budget for prompts and large edits. The threat (a compromised front-end dependency forging IPC) is already limited by the SEC-30 CSP, one least-privilege capability per window (SEC-31), Rust-side validation of every command (SEC-32) and a figure frame with no IPC.
+- Instead of: isolation on for every call.
+- Revisit if: the main webview ever runs third-party or remote code, or a WebKitGTK measurement shows under 1 ms per call at 64 KB.

@@ -11,3 +11,4 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - CI checks every push and pull request on Linux, macOS and Windows; Dependabot proposes weekly grouped updates (F-013)
 - `lecter-harness`, a debug-only command-line tool that prints core results as JSON for tests and agents (F-015)
 - Developers can drive the real Lecter app end to end with WebdriverIO (`scripts/e2e-app.sh`); CI checks that release builds carry none of the test tooling (F-016)
+- The UI's types for talking to the core are generated from the Rust code, and oversized requests are refused before they reach a command (F-017)
