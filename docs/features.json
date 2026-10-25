@@ -575,9 +575,10 @@
     "security"
    ],
    "try": "Open a course folder (any folder with a slides/ subfolder)",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2014
+   "priority": 2014,
+   "base": "c707fea7bba32452cd0a208647357db51ad49173"
   },
   {
    "id": "F-019",
