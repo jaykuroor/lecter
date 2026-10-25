@@ -17,6 +17,36 @@ How to add tests to Lecter so they run locally and in CI without anyone touching
 - **Fast.** A unit test should take under 100 ms. The whole Rust suite should take under 3 minutes on CI. Slow checks belong in nightly.
 - **Strict.** No retries hide flakiness (Playwright `retries: 0`, no nextest retries). A flaky test is a bug in the test or the code: fix it. Never skip, `#[ignore]`, `.skip`, `.only` or loosen a threshold to get green: `scripts/check_tests.py` fails the lint stage on all of these (`14-quality.md#protected-checks`).
 
+## Tests that catch bugs
+
+A test earns its place only if a wrong implementation would make it fail. Agent-written tests often don't: they mock the code they claim to test, compare the code's output with itself, or only check that nothing crashed. These rules apply to every new test; the reviewer applies them and counts a breach as `major`.
+
+- **Ask of every test: would a wrong implementation still pass?** If an off-by-one, a flipped condition or an early `return Default::default()` would still pass, the test is too weak. Mutation testing (below) asks this mechanically.
+- **Expected values come from outside the code under test:** the spec, a literal you worked out by hand, or a gold file. Never compute the expected value by calling the function under test, its helpers, or a copy of its logic.
+- **Assert the value, not that there is one.** `is_ok()`, `is_some()`, `toBeDefined()`, `toBeTruthy()` and `not.toBeNull()` alone prove almost nothing: assert what the value is. A test that asserts nothing, asserts a constant (`assert!(true)`, `expect(1).toBe(1)`) or compares a value with itself fails the lint (`scripts/check_tests.py`). A rare deliberate exception needs a `Test-Smell-Ok: <path>::<name> - <reason>` trailer the reviewer accepts.
+- **Edge cases for every criterion.** A criterion with an input, a limit or an error path gets at least one bad-input or limit+1 test, not only the happy path. Put similar cases in one table-driven test (`rstest` cases, `test.each`) instead of near-copies.
+- **Test behaviour, not wiring.** Go through the public interface. Don't assert private fields, call order, exact log text or a constant's value unless the spec states it. Such tests break on every refactor and catch no bugs.
+- **New snapshots are read, not rubber-stamped.** Check each new snapshot against the spec or a gold file before committing it, and list it in your report. A snapshot over 200 lines gets split, or replaced by targeted asserts on the parts the criterion is about.
+- **Red for the right reason.** The failing run you save as evidence must fail on an assertion, not on a compile error or a missing function. For a new function, first stub it to return a wrong value (`Default::default()`, an empty list), watch the test fail on the assertion, then implement.
+
+### Mocking
+
+Prefer, in order: the real code, a fake (an in-memory implementation that behaves correctly), a spy, a mock.
+
+- **Mock only at the edges:** the network (the fake provider), the OS keychain, the clock (`Clock`), the file system (temp dirs through `TestEnv`) and child processes.
+- **Never mock** the module under test, pure functions, value types or data structures. Build real values instead.
+- A criterion about core behaviour needs a Rust, harness or real-app test. A Playwright test against the mocked core proves the UI only.
+- The lint warns when a changed test file has more than 3 mocks; the reviewer reads the warning (`.verify/test-smells.txt`).
+
+### Mutation testing
+
+`scripts/verify.sh` (the default set, before `feature.py done`) runs `scripts/mutants.py`: cargo-mutants on the Rust lines the feature changed and Stryker on the changed `ui/src` lines, capped at about 10 minutes (`LECTER_MUTANTS_MINUTES`). Each mutant is a small deliberate bug, such as `>` turned into `>=` or a function returning a default. A mutant that survives means no test noticed that bug.
+
+- For each `SURVIVED` line in `.verify/mutants.log`, add or sharpen a test so it fails on that mutant, then re-run `python3 scripts/mutants.py`.
+- Only when no test could ever tell the mutant from the original (an equivalent mutant, for example `>` vs `>=` where the two values can never be equal), add a commit trailer `Mutant-Equivalent: <file> - <mutation as printed> - <why>`. The reviewer checks every one. "Hard to test" is not a reason.
+- A run cut off by the cap says `CAPPED` and passes; the nightly full run covers the rest and reports the score.
+- Diffs that only touch tests produce no mutants. Mutation testing never calls a real provider; it reruns the same hermetic tests.
+
 ## Where each kind of test goes
 
 | Kind | Location | Runner (auto-discovered) | CI stage |

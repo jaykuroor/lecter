@@ -2,6 +2,9 @@ target/
 node_modules/
 dist/
 ui/dist/
+ui/reports/
+ui/.stryker-tmp/
+mutants.out*/
 .verify/
 .loop/
 STOP

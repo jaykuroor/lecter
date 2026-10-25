@@ -55,6 +55,7 @@ The `Setup` steps:
 | `perf-matrix` | `tests/perf/budgets.sh --ci` on ubuntu-24.04, macos-15 and windows-2025, including `installer_mb` from a release-profile bundle | Job fails; upload the reports |
 | `fuzz` | Every target from `cargo fuzz list`, for each fuzzed crate, 10 minutes each on nightly Rust | Upload the crash inputs. A crash becomes a regression test plus a fix (`docs/TESTING.md#a-fuzz-target`) |
 | `chaos` | Fake-provider chaos scenarios against the real AI layer | Job fails |
+| `mutants` | `python3 scripts/mutants.py --full --minutes 120` on ubuntu-24.04 (cargo-mutants from `taiki-e/install-action`, Stryker from the UI lockfile), `timeout-minutes: 150` | Never fails. Uploads `.verify/mutants/score.json` and `survivors.txt`; the gardener reads them and turns survivors in risky code into test chores |
 | `soak` | 30-minute simulated session (3 hours on Sundays). Memory must stay flat (±10%) and keystroke p99 within budget | Upload the report |
 
 Nightly failures don't stop merges. The orchestrator collects them at its next gardening pass and dispatches one CI fix for whatever is still red.

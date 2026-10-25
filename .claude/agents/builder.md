@@ -52,7 +52,9 @@ CRITERIA:
   1 → <test path::name> (failing run: .evidence/F-0NN/<file>)
   2 → …
 EVIDENCE: <files in .evidence/F-0NN/> | evidence.py check: OK
-TRAILERS: <Dep-Added / Test-Removed / Snapshot-Changed lines in your commits, with reasons> | none
+MUTANTS: <last line of .verify/mutants.log> | equivalents: <Mutant-Equivalent trailers> | none
+SNAPSHOTS: <new snapshot files, each checked against spec/gold> | none
+TRAILERS: <Dep-Added / Test-Removed / Snapshot-Changed / Test-Smell-Ok lines in your commits, with reasons> | none
 DECISIONS:
   - <≤8-word title>: <decision>. Why: <reason/numbers>. Instead of: <rejected>.
 QUESTION FOR MAINTAINER (NEEDS_MAINTAINER only): <one-line question> | Recommended: <answer> | Why it matters: <one line>

@@ -25,7 +25,7 @@ For each acceptance criterion, write the test that proves it, in the layer the c
 - Playwright (mocked core) for anything the user sees or presses, and WebdriverIO on the real app where the criterion needs the real core (`drive-app` skill);
 - `lecter-harness` for core behaviour you can check without a GUI.
 
-Run them and watch them fail for the right reason; save that failing run as evidence (`.evidence/F-0NN/`). For a spike (`kind: spike`), the "test" is a reproducible measurement script under `spikes/<name>/`, and the result goes in `docs/DECISIONS.md`.
+Run them and watch them fail for the right reason: a failed assertion, not a compile error or a missing function (stub a new function to return a wrong value first). Save that failing run as evidence (`.evidence/F-0NN/`). Follow `docs/TESTING.md#tests-that-catch-bugs`: expected values from the spec, edge cases for each criterion, mocks only at the edges. For a spike (`kind: spike`), the "test" is a reproducible measurement script under `spikes/<name>/`, and the result goes in `docs/DECISIONS.md`.
 
 ## 4 · Implement
 
@@ -38,7 +38,7 @@ Run them and watch them fail for the right reason; save that failing run as evid
 
 ## 5 · Prove it
 
-1. Run `scripts/verify.sh` (the full default set) until it prints `VERIFY OK`.
+1. Run `scripts/verify.sh` (the full default set) until it prints `VERIFY OK`. It includes mutation testing of your changed lines: kill each `SURVIVED` mutant with a test (`docs/TESTING.md#mutation-testing`).
 2. Collect the evidence the card lists (`drive-app` skill for screenshots; `tests/perf/budgets.sh --only …` for `perf`), then `python3 scripts/evidence.py check F-0NN`.
 3. Load the `spec-check` skill: map every criterion to its test.
 4. Spikes skip the reviewer. Otherwise spawn one `reviewer` subagent with the feature id, the range `<base>..HEAD` (`base` is on the feature card), and `SECURITY` if the card lists security. Deep-security cards (listed in `PROMPT.orchestrate.md`, step 3 of "When a builder reports") also get the `security-reviewer`. Fix every blocker and major it confirms, re-verify, then resume the same reviewer with `SendMessage` for the re-check (don't spawn a new one). Minors go in PROGRESS "Watch out".

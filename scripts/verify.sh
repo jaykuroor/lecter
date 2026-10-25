@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # The one entry point for checks, locally and in CI (docs/spec/16-ci-cd.md). Protected: only the maintainer edits it.
 # One line per check; on failure, the tail of its log. Full logs: .verify/<check>.log.
-#   scripts/verify.sh            lint + test + e2e smoke + quick perf      (before feature.py done)
+#   scripts/verify.sh            lint + test + e2e smoke + quick perf + mutation testing of changed lines  (before feature.py done)
 #   scripts/verify.sh --quick    lint + test                               (while iterating; first thing a builder runs)
 #   scripts/verify.sh --full     everything, including e2e-app, full perf and supply chain
-#   scripts/verify.sh --stage lint|test|e2e|e2e-app|perf|full              (CI jobs)
+#   scripts/verify.sh --stage lint|test|e2e|e2e-app|perf|full|mutants      (CI jobs; mutants runs only locally)
 #   -v / LECTER_VERIFY_VERBOSE=1   print every PASS line (default: one summary line; FAIL lines always print)
 #   --no-cache / LECTER_VERIFY_NOCACHE=1   ignore the green cache below (the gardener always does)
 # Green cache (local only, never in CI): when the staged code tree, the done state of the features that switch
@@ -18,16 +18,16 @@ cd "$(dirname "$0")/.."
 VERBOSE="${LECTER_VERIFY_VERBOSE:-0}"
 ARGS=(); for a in "$@"; do case "$a" in -v) VERBOSE=1 ;; --no-cache) LECTER_VERIFY_NOCACHE=1 ;; *) ARGS+=("$a") ;; esac; done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
-STAGES="lint test e2e-smoke perf-quick"
+STAGES="lint test e2e-smoke perf-quick mutants"
 case "${1:-}" in
   --quick) STAGES="lint test" ;;
-  --full) STAGES="lint test e2e-smoke e2e-full e2e-app perf full" ;;
+  --full) STAGES="lint test e2e-smoke e2e-full e2e-app perf full mutants" ;;
   --stage) STAGES="${2:?stage name}"; [ "$STAGES" = e2e ] && STAGES="e2e-full" ;;
   "") ;;
-  *) echo "usage: scripts/verify.sh [--quick | --full | --stage lint|test|e2e|e2e-app|perf|full]"; exit 2 ;;
+  *) echo "usage: scripts/verify.sh [--quick | --full | --stage lint|test|e2e|e2e-app|perf|full|mutants]"; exit 2 ;;
 esac
 for st in $STAGES; do
-  case "$st" in lint|test|e2e-smoke|e2e-full|e2e-app|perf|perf-quick|full) ;; *) echo "unknown stage: $st"; exit 2 ;; esac
+  case "$st" in lint|test|e2e-smoke|e2e-full|e2e-app|perf|perf-quick|full|mutants) ;; *) echo "unknown stage: $st"; exit 2 ;; esac
 done
 on() { [[ " $STAGES " == *" $1 "* ]]; }
 mkdir -p .verify
@@ -181,6 +181,13 @@ if on e2e-full && heavy && need e2e F-011 ui_script test:e2e; then run e2e pnpm 
 if on e2e-app && heavy && need e2e-app F-016 exists scripts/e2e-app.sh; then run e2e-app headless bash scripts/e2e-app.sh; fi
 if on perf-quick && heavy && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh --quick; fi
 if on perf && heavy && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh; fi
+# Mutation testing of the lines this change touched (14-quality.md#mutation-testing). Not in CI: nightly runs the full tree.
+if on mutants && heavy && [ -z "${CI:-}" ]; then
+  M_OK=1
+  need mutants-rust F-010 have cargo-mutants || M_OK=0
+  if [ -f ui/package.json ]; then need mutants-ui F-011 exists ui/node_modules/@stryker-mutator/vitest-runner/package.json || M_OK=0; fi
+  [ "$M_OK" = 1 ] && run mutants "$PY" scripts/mutants.py
+fi
 
 if on full; then
   if [ -f Cargo.toml ] && have cargo-deny; then run deny-advisories cargo deny check advisories; fi

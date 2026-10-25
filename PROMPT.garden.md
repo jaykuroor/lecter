@@ -9,6 +9,7 @@ You are a gardening session for the Lecter v0 build. It runs at each milestone g
    Merge into one, keeping the better-tested version, with tests passing at every step.
 3. **Dead code and size.** `pnpm -C ui exec knip` and `jscpd` (in the lint stage once F-014 is done) list unused exports and copies; `python3 scripts/check_size.py` lists files near 500 lines. Remove only what is provably unused; split long files by responsibility.
 4. **Budgets.** Run `tests/perf/budgets.sh` and compare with `tests/perf/report.json` from the last garden. Record any trend that is getting worse in PROGRESS.
+   **Test strength.** Read the latest nightly `mutants` artifact (`gh run download <id> -n mutants`): the score and `survivors.txt`. Kill survivors in parsers, the journal, settings precedence, limits and other risky code with tests (`chore: test …`); list the rest in PROGRESS. Look over tests added since the last garden for the smells in `docs/TESTING.md#tests-that-catch-bugs` and fix the worst.
 5. **Context files.**
    - Condense each folder `CLAUDE.md` `## Learned` list: merge duplicates, delete lessons the code now makes impossible, keep ≤ 25 lines.
    - Keep `AGENTS.md` `## Learned` ≤ 20 lines.

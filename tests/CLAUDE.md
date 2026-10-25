@@ -14,6 +14,7 @@ Spec: `14-quality.md`, `16-ci-cd.md`. **How to add any kind of test: `docs/TESTI
 - Tests never touch the user's real config folders: use `LECTER_TEST_HOME` / the `TestEnv` helper.
 - Existing tests, snapshots, budgets and thresholds are protected (`14-quality.md#protected-checks`). Add; don't weaken.
 - No sleeps for synchronisation. Wait on events or poll with a deadline helper.
+- Every new test must fail for a wrong implementation: expected values from the spec, mocks only at process, network and OS edges, no assert-nothing or is-it-defined tests (`docs/TESTING.md#tests-that-catch-bugs`; the lint and mutation testing check it).
 
 ## Learned
 

@@ -48,6 +48,10 @@ Built in the walking skeleton (F-025). `tests/perf/budgets.sh [--ci] [--only <id
 
 How to add each kind: `docs/TESTING.md`. How CI runs them: `16-ci-cd.md`. Tests never call real providers; live runs go only through `scripts/live.sh`.
 
+## Mutation testing
+
+Coverage shows a line ran, not that a test would notice it being wrong. `scripts/mutants.py` (cargo-mutants for Rust, Stryker with the Vitest runner for `ui/src`) mutates only the lines a change touched and reruns their tests, capped at about 10 minutes. It runs in the default `scripts/verify.sh` set, locally only (CI never runs it; it is skipped during a merge). A surviving mutant fails the check unless a commit carries `Mutant-Equivalent: <file> - <mutation> - <reason>` and the reviewer accepts the reason. `nightly.yml` runs the whole tree and reports the score; there is no score threshold, because the gate is the changed lines. Rules for tests that catch bugs: `docs/TESTING.md#tests-that-catch-bugs`.
+
 ## Evidence
 
 Each feature lists the evidence it needs in `features.json` → `evidence`. The builder saves it under `.evidence/<F-id>/` (git-ignored) and `python3 scripts/evidence.py check F-0NN` confirms it exists. The reviewer reads the log tails, opens screenshots for the criteria about what the user sees, and compares them with the criteria. For a spike, the orchestrator checks the measurement log instead.
@@ -71,9 +75,10 @@ Builders can add tests, snapshots, fixtures and budget entries, but they can't w
 - deletes a test file or a test function, or a `proptest!` block;
 - adds `#[ignore]`, `.skip`, `.only`, `.fixme`, `xit`, `xdescribe`, or Playwright/WebdriverIO retries;
 - loosens a value in `budgets.json` or `thresholds.json`;
-- changes an existing snapshot.
+- changes an existing snapshot;
+- adds a test that asserts nothing, asserts a constant, compares a value with itself, or only checks `is_ok`/`is_some`/`toBeDefined`/`toBeTruthy`/`not.toBeNull` (and warns when a changed test file has more than 3 mocks).
 
-A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a decision by the maintainer).
+A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, `Test-Smell-Ok: <path::name> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a decision by the maintainer).
 
 `scripts/check_sec_ids.py` (lint stage) fails when a SEC-xx or ROB-xx requirement (`13-security.md`, `17-robustness.md`) is cited by no feature card and isn't listed in the script as kit-only or covered by a named card. A requirement no card names is one no builder reads.
 
@@ -81,8 +86,8 @@ A deliberate exception needs a commit trailer the reviewer must accept: `Test-Re
 
 This is the one definition; every other file links here.
 
-1. Every acceptance criterion has an automated test that failed before the change and passes after it (spikes: a reproducible measurement script and a D-entry).
-2. `scripts/verify.sh` prints `VERIFY OK` (format, lint, types, tests, the e2e smoke set, the kit checks, secret scan, private-corpus check, test-weakening lint, and the budgets the change touches).
+1. Every acceptance criterion has an automated test that failed on an assertion before the change and passes after it, with an edge-case test where the criterion has an input, a limit or an error path (spikes: a reproducible measurement script and a D-entry).
+2. `scripts/verify.sh` prints `VERIFY OK` (format, lint, types, tests, the e2e smoke set, the kit checks, secret scan, private-corpus check, test-weakening and test-smell lint, mutation testing of the changed lines, and the budgets the change touches).
 3. The evidence listed for the feature exists and matches the criteria (`python3 scripts/evidence.py check F-0NN`).
 4. No placeholder code: no `todo!()`, `unimplemented!()`, `TODO` without an issue reference, or mock data in production paths.
 5. A fresh-context `reviewer` left no unresolved blocker or major (with `SECURITY` for features with `reviews: ["security"]`; minors go to PROGRESS "Watch out"). Spikes: the orchestrator checked the measurement log and the D-entry instead. The `security-reviewer` runs once per milestone gate, and on the deep-security cards listed in `PROMPT.orchestrate.md`.

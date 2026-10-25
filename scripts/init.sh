@@ -55,7 +55,7 @@ fi
 [ -z "$NODE_NOTE" ] || echo "$NODE_NOTE"
 command -v pdftotext >/dev/null 2>&1 || echo "optional: pdftotext (poppler-utils) lets check_private.py fingerprint private PDFs"
 if [ "${1:-}" = "--check" ]; then
-  for t in cargo-nextest cargo-deny; do command -v "$t" >/dev/null 2>&1 || missing+=("$t (cargo install $t --locked)"); done
+  for t in cargo-nextest cargo-deny cargo-mutants; do command -v "$t" >/dev/null 2>&1 || missing+=("$t (cargo install $t --locked)"); done
 fi
 if [ ${#missing[@]} -gt 0 ]; then
   echo "Missing tools:"; printf '  - %s\n' "${missing[@]}"
@@ -74,7 +74,7 @@ fi
 [ "${1:-}" = "--check" ] && { echo "TOOLS OK"; exit 0; }
 
 # Required cargo tools (CI installs prebuilt ones first with taiki-e/install-action, so this is a no-op there).
-for t in cargo-nextest cargo-deny; do
+for t in cargo-nextest cargo-deny cargo-mutants; do
   command -v "$t" >/dev/null 2>&1 || cargo install "$t" --locked -q
 done
 command -v cargo-audit >/dev/null 2>&1 || echo "optional (used by --full): cargo install cargo-audit --locked"

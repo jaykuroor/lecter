@@ -30,6 +30,7 @@ Status files: `docs/PROGRESS.md` (what is built), `docs/DECISIONS.md` (why), `do
 - **Done means** `docs/spec/14-quality.md#definition-of-done`. Nothing less, and `feature.py done` checks it.
 - **Search before you write.** Grep before assuming something is missing. Duplicates are the most common failure in this kind of build.
 - **No placeholders** in shipped code: no `todo!()`, `unimplemented!()`, stub returns, fake data, or `TODO` without an issue number.
+- **Tests must catch bugs.** A test passes only for a correct implementation: expected values from the spec, not from the code; real code or fakes, mocks only at process, network and OS edges; no tests that assert nothing or only that a value exists. Surviving mutants on your lines get a test (`docs/TESTING.md#tests-that-catch-bugs`).
 - **Tests are the proof, and the checks are protected.** Never delete, skip or weaken a test, a budget or a threshold to get green (`14-quality.md#protected-checks`; the guard and the lint enforce it). If a criterion can't be met as written, report `IMPOSSIBLE` with evidence (`14-quality.md#when-the-criteria-cant-be-met`).
 - **Stuck rule.** Two identical failures in a row, or about 30 minutes without progress: stop, commit, and report `BLOCKED` with the evidence.
 - **Stay in scope.** The feature's criteria, cited spec and owned `paths` only. Nothing from `15-later.md`. Bugs elsewhere go into PROGRESS "Watch out".

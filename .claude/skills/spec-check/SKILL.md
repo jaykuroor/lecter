@@ -8,11 +8,13 @@ description: Audit that every acceptance criterion of the current feature is cov
 1. Print the criteria and spec: `python3 scripts/feature.py show F-0NN` and `python3 scripts/spec.py F-0NN`.
 2. Build this table in your reply (not in a file):
 
-   | # | Criterion (short) | Test (path::name) | Failing run (evidence file) | Passes now? |
-   |---|---|---|---|---|
+   | # | Criterion (short) | Test (path::name) | Edge case test (bad input, limit+1, error path) | Failing run (evidence file) | Passes now? |
+   |---|---|---|---|---|---|
 
    - **Failing run:** the saved output from step 3 of PROMPT.md in `.evidence/F-0NN/`, or a run with the key line temporarily reverted. Say which.
    - One test may cover several criteria only if it asserts each of them explicitly.
+   - **Edge case test:** required when the criterion has an input, a limit or an error path; write `n/a` only when it has none.
+   - The failing run must fail on an assertion, not a compile error.
 3. Read the cited spec sections once more against your diff (`git diff --stat <start>..HEAD`, then the files that matter). Look for:
    - behaviour the spec states that the criteria don't (an exact key, a file name, a default value, an error message);
    - things you built that the spec doesn't ask for (remove them);
@@ -24,4 +26,5 @@ description: Audit that every acceptance criterion of the current feature is cov
    - **mouse and key:** every new action is reachable both ways and shows in the hint bar or keycaps (`09-ui.md`);
    - **design:** UI matches `docs/design/components.md` and uses only tokens from `docs/design/tokens.json`.
 5. `python3 scripts/evidence.py check F-0NN`: every evidence item on the card exists.
-6. Any empty cell or "no" is a gap. Close it before calling the reviewer. Definition of done: `docs/spec/14-quality.md#definition-of-done`.
+6. Tests that catch bugs (`docs/TESTING.md#tests-that-catch-bugs`): `.verify/mutants.log` ends in `MUTANTS OK` (every survivor killed or marked `Mutant-Equivalent` with a real reason), `.verify/test-smells.txt` has no warning you can't justify, and every new snapshot matches the spec.
+7. Any empty cell or "no" is a gap. Close it before calling the reviewer. Definition of done: `docs/spec/14-quality.md#definition-of-done`.

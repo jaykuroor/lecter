@@ -4698,6 +4698,37 @@
    "status": "todo",
    "notes": "",
    "priority": 8140
+  },
+  {
+   "milestone": "M1",
+   "kind": "feature",
+   "priority": 3042,
+   "title": "Nightly workflow: mutation score",
+   "spec": [
+    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch",
+    "14-quality.md#mutation-testing"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    ".github/workflows/nightly.yml"
+   ],
+   "acceptance": [
+    ".github/workflows/nightly.yml SHALL run at 03:00 UTC and on workflow_dispatch, start with `permissions: contents: read` (plus `actions: read` for skip-check), and pin third-party actions by commit SHA with the version in a comment.",
+    "The `skip-check` job SHALL skip every other job when the newest successful nightly ran on the same commit.",
+    "The `mutants` job SHALL run `python3 scripts/mutants.py --full --minutes 120` on ubuntu-24.04 with cargo-mutants from a pinned taiki-e/install-action, SHALL NOT fail on surviving mutants, and SHALL upload `.verify/mutants/score.json` and `.verify/mutants/survivors.txt` as the `mutants` artifact."
+   ],
+   "verify": [
+    "actionlint .github/workflows/nightly.yml",
+    "nightly.yml via workflow_dispatch"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "id": "F-178",
+   "status": "todo",
+   "notes": ""
   }
  ]
 }

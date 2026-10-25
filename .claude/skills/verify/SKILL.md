@@ -13,7 +13,7 @@ On a clean, committed tree whose code already passed (same files apart from the 
 |---|---|
 | The narrow command (table below) | After each step: just the crate, test file or check you touched |
 | `scripts/verify.sh --quick` | Before you start (is `main` green?, usually cached) and once before the full run: lint + tests |
-| `scripts/verify.sh` | Before `feature.py done` (it runs this itself too): adds the e2e smoke set and quick perf budgets |
+| `scripts/verify.sh` | Before `feature.py done` (it runs this itself too): adds the e2e smoke set, quick perf budgets and mutation testing of your changed lines |
 | `scripts/verify.sh --full` | Gardening: adds the real-app e2e, all budgets, advisories and the full secret history |
 | `scripts/verify.sh --stage <name>` | One CI stage: `lint`, `test`, `e2e`, `e2e-app`, `perf`, `full` |
 
@@ -32,7 +32,8 @@ On a clean, committed tree whose code already passed (same files apart from the 
 | e2e-smoke | `pnpm -C ui exec playwright test <spec> --reporter=line` |
 | placeholders | The listed lines contain `todo!`, `unimplemented!`, `TODO` or `FIXME`: finish the code, or write `TODO(#123)` with an issue number only if the maintainer asked to defer it |
 | spec-refs | A feature cites a spec anchor that doesn't exist: tell the maintainer in QUESTIONS (you can't edit the spec or features) |
-| tests-guard | `python3 scripts/check_tests.py`: you removed or weakened a test, budget, threshold or snapshot. Undo it (`14-quality.md#protected-checks`) |
+| tests-guard | `python3 scripts/check_tests.py`: you removed or weakened a test, budget, threshold or snapshot (undo it, `14-quality.md#protected-checks`), or a new test asserts nothing real (fix the test, `docs/TESTING.md#tests-that-catch-bugs`) |
+| mutants | `python3 scripts/mutants.py`: each `SURVIVED` line is a bug no test noticed. Add a test that fails on it (`docs/TESTING.md#mutation-testing`); `.verify/mutants/` has the tool output |
 | deps | `python3 scripts/check_deps.py`: a dependency lacks its trailer or needs the maintainer (`add-dependency` skill) |
 | arch | `python3 scripts/check_arch.py`: a forbidden crate edge or missing lint config (`01-architecture.md#repository-layout`) |
 | size | `python3 scripts/check_size.py`: split the file by responsibility |

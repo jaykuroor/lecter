@@ -13,9 +13,10 @@ Inputs from the caller: feature id `F-0NN`, a commit range (`main..<branch>` or 
 2. `git diff --stat <base>..HEAD`, then read the changed files that matter, plus their tests.
 3. Check, in this order:
    1. **Criteria:** each one is implemented and has a test that would fail without it. Read the assertions. Is the test asserting the actual behaviour, or something weaker?
-   2. **Spec fidelity:** names, keys, defaults, file formats, error behaviour and precedence are exactly as the cited sections say.
-   3. **Correctness:** edge cases (empty, huge, unicode, Windows paths, CRLF, concurrent edits, cancellation mid-stream), error paths and resource cleanup.
-   4. **Rules (AGENTS.md):**
+   2. **Test quality** (`docs/TESTING.md#tests-that-catch-bugs`): for each new test ask "would a wrong implementation still pass?". Read `.verify/mutants.log` and `.verify/test-smells.txt` in the worktree. A weak, tautological or over-mocked test, an expected value computed by the code under test, a missing edge case for an input/limit/error criterion, a test of private wiring, or a new snapshot that doesn't match the spec is `major`. Check every `Mutant-Equivalent:` and `Test-Smell-Ok:` trailer: "hard to test" is not a reason (`blocker`).
+   3. **Spec fidelity:** names, keys, defaults, file formats, error behaviour and precedence are exactly as the cited sections say.
+   4. **Correctness:** edge cases (empty, huge, unicode, Windows paths, CRLF, concurrent edits, cancellation mid-stream), error paths and resource cleanup.
+   5. **Rules (AGENTS.md):**
       - no placeholders;
       - no `unwrap` in non-test code without an invariant comment;
       - no blocking in async;
@@ -23,12 +24,12 @@ Inputs from the caller: feature id `F-0NN`, a commit range (`main..<branch>` or 
       - no network in tests;
       - licences OK;
       - nothing from 15-later.md.
-   5. **Performance:** no polling, no unbounded growth, no work on the UI thread that belongs in the core, no per-keystroke allocation storms or full re-renders.
-   6. **Security:** with `SECURITY`, read the table in `.claude/agents/security-reviewer.md` once and apply the rows for the areas this change touches, citing SEC-xx / ROB-xx ids (that agent itself runs only at milestone gates and on the deep-security cards). Without it, only check that `13-security.md` mitigations are present if the change touches untrusted input or the AI.
-   7. **Duplication:** does this re-implement something that already exists elsewhere? (`grep` for similar names.)
-   8. **Evidence:** `python3 scripts/evidence.py list F-0NN`. Read logs with `tail -n 30`, not whole. Open a screenshot only when a criterion is about what the user sees; it must show the state the criterion describes; for UI, compare with the matching crop in `docs/design/reference/` and the component's entry in `docs/design/components.md` (tokens, spacing, states). Logs must show the test failing before and passing after. Missing or unconvincing evidence is a `major` defect.
-   9. **Trailers and protected checks:** `git log --format=%B <range> | grep -E "^(Test-Removed|Snapshot-Changed|Budget-Changed|Dep-Added|Deps-Approved):"`. Each needs a reason that holds up; a changed snapshot must match the spec's new output. Reject weak reasons as `blocker`.
-   10. **IMPOSSIBLE reports:** if the builder reported a criterion impossible, check the measurements are real and the alternative was tried. Say `VERDICT: PASS` only if you agree; otherwise list what to try.
+   6. **Performance:** no polling, no unbounded growth, no work on the UI thread that belongs in the core, no per-keystroke allocation storms or full re-renders.
+   7. **Security:** with `SECURITY`, read the table in `.claude/agents/security-reviewer.md` once and apply the rows for the areas this change touches, citing SEC-xx / ROB-xx ids (that agent itself runs only at milestone gates and on the deep-security cards). Without it, only check that `13-security.md` mitigations are present if the change touches untrusted input or the AI.
+   8. **Duplication:** does this re-implement something that already exists elsewhere? (`grep` for similar names.)
+   9. **Evidence:** `python3 scripts/evidence.py list F-0NN`. Read logs with `tail -n 30`, not whole. Open a screenshot only when a criterion is about what the user sees; it must show the state the criterion describes; for UI, compare with the matching crop in `docs/design/reference/` and the component's entry in `docs/design/components.md` (tokens, spacing, states). Logs must show the test failing before and passing after. Missing or unconvincing evidence is a `major` defect.
+   10. **Trailers and protected checks:** `git log --format=%B <range> | grep -E "^(Test-Removed|Snapshot-Changed|Test-Smell-Ok|Mutant-Equivalent|Budget-Changed|Dep-Added|Deps-Approved):"`. Each needs a reason that holds up; a changed snapshot must match the spec's new output. Reject weak reasons as `blocker`.
+   11. **IMPOSSIBLE reports:** if the builder reported a criterion impossible, check the measurements are real and the alternative was tried. Say `VERDICT: PASS` only if you agree; otherwise list what to try.
 4. Don't re-run the suite: the builder's `VERIFY OK` and the orchestrator's verify on the merged tree prove the tests pass. Run a test yourself only when you doubt what it asserts (at most two, narrow commands from `.claude/skills/verify/SKILL.md`).
 
 **Re-check (you were resumed with a fix range):** check only that each defect you listed is fixed, with a test where it was a behaviour bug, and that the fix broke no criterion. Don't re-review the rest of the feature.
