@@ -22,7 +22,7 @@ tauri-plugin-dialog = "2.8.3"
 # The embedded WebDriver server, for real-app e2e only (01-architecture.md#debug-only-test-hooks).
 # Optional: Cargo can't pick dependencies on cfg(debug_assertions) (such a table compiles into
 # release builds too), so it comes with the `test-hooks` feature that scripts/e2e-app.sh turns on.
-tauri-plugin-wdio-webdriver = { version = "=1.4.0", optional = true }
+tauri-plugin-wdio-webdriver = { version = "=1.5.0", optional = true }
 tauri-specta = { version = "=2.0.0-rc.25", default-features = false, features = ["derive", "typescript"] }
 tracing = "0.1.44"
 serde_json.workspace = true

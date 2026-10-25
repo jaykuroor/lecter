@@ -169,7 +169,9 @@ fn a_subfolder_at_the_entry_limit_lists_and_one_more_is_refused() {
     assert_eq!(err.code(), ErrorCode::InvalidArgument);
 }
 
-#[cfg(unix)]
+// Apple file systems (APFS, HFS+) refuse names that are not UTF-8 (`EILSEQ`, "Illegal byte
+// sequence"), so on macOS the fixture can't exist and no listing can ever meet such a name.
+#[cfg(all(unix, not(target_vendor = "apple")))]
 #[test]
 fn names_that_are_not_unicode_are_left_out() {
     use std::os::unix::ffi::OsStrExt;
