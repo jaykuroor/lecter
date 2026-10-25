@@ -13,15 +13,23 @@ workspace = true
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
 tauri = "2"
+tauri-plugin-dialog = "2.8.3"
+# The embedded WebDriver server, for real-app e2e only (01-architecture.md#debug-only-test-hooks).
+# Optional: Cargo can't pick dependencies on cfg(debug_assertions) (such a table compiles into
+# release builds too), so it comes with the `test-hooks` feature that scripts/e2e-app.sh turns on.
+tauri-plugin-wdio-webdriver = { version = "=1.4.0", optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
-lecter-core = { path = "../crates/core" }
+lecter-core = { path = "../crates/core", features = ["test-hooks"] }
 
 [features]
 # Embeds ui/dist and serves it over Tauri's custom protocol. Release builds need it (main.rs
 # refuses to compile without it); debug builds leave it off and load build.devUrl.
 custom-protocol = ["tauri/custom-protocol"]
+# The test hooks in any profile, plus the embedded WebDriver server (D-091). Never on in a release
+# or packaging build: scripts/check_release_binary.sh fails a binary that has them.
+test-hooks = ["dep:tauri-plugin-wdio-webdriver"]
 
 [build-dependencies]
 tauri-build = "2"
