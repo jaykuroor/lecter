@@ -321,6 +321,35 @@ fn a_hidden_link_out_of_the_course_is_never_followed() {
     assert!(open_ok(&course).slides.is_empty());
 }
 
+/// A link is judged by what it points at, so a link to a file is not a course folder.
+#[test]
+fn a_linked_file_is_not_a_course_folder() {
+    let env = env();
+    let notes = touch(env.home(), "notes.md");
+    let looks_like_a_course = env.home().join("Looks Like A Course");
+    link(&notes, &looks_like_a_course);
+    assert_eq!(open_err(&looks_like_a_course), Error::NotAFolder);
+}
+
+/// A subfolder or entry that can't be resolved for any reason but "missing" (here a link loop) is
+/// a file-system error, not an empty folder or a skipped file.
+#[cfg(unix)]
+#[test]
+fn a_link_loop_is_an_io_error_not_an_empty_listing() {
+    let env = env();
+    let course = mkdir(env.home(), "c");
+    link(&course.join("slides"), &course.join("slides"));
+    let err = open_err(&course);
+    assert!(matches!(err, Error::Io(_)), "{err:?}");
+    assert_eq!(err.code(), ErrorCode::Io);
+
+    let other = mkdir(env.home(), "d");
+    let lectures = mkdir(&other, "lectures");
+    link(&lectures.join("loop.md"), &lectures.join("loop.md"));
+    let err = open_err(&other);
+    assert!(matches!(err, Error::Io(_)), "{err:?}");
+}
+
 /// The course root itself may be a link (the user picked it); it opens as its target.
 #[test]
 fn a_linked_course_root_opens_as_its_target() {
