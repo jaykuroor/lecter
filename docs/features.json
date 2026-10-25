@@ -575,7 +575,7 @@
     "security"
    ],
    "try": "Open a course folder (any folder with a slides/ subfolder)",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2014,
    "base": "c707fea7bba32452cd0a208647357db51ad49173"

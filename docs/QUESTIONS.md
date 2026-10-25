@@ -80,5 +80,11 @@ Change F-016's verify line `scripts/check_release_binary.sh` to `tests/e2e/relea
 - Recommended: yes, in the planning session. (applied as default: no)
 - Answer:
 
+## Q-012 · planning · blocks: nothing
+Should a course whose slides/ links to files outside it (e.g. ~/Downloads) open with those files skipped, instead of failing with E_NOT_TRUSTED?
+- Context: F-018 fails the whole open (D-106). Students may keep slides elsewhere and link them in; the failure names the entry but gives no way forward.
+- Recommended: keep the failure until F-033's trust screen can explain it and offer to include them. (applied as default: yes)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

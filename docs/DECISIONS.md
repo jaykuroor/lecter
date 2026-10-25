@@ -564,3 +564,21 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: spikes/isolation measured (Chromium, i7-14700KF) 0.12 ms p99 added per 1 B call but 6.3 ms at 16 KB and 22.5 ms at 64 KB, all main-thread JS, which breaks the 8 ms keystroke budget for prompts and large edits. The threat (a compromised front-end dependency forging IPC) is already limited by the SEC-30 CSP, one least-privilege capability per window (SEC-31), Rust-side validation of every command (SEC-32) and a figure frame with no IPC.
 - Instead of: isolation on for every call.
 - Revisit if: the main webview ever runs third-party or remote code, or a WebKitGTK measurement shows under 1 ms per call at 64 KB.
+
+## D-105 · Course listing lives in lecter-core
+2026-10-25 · session F-018 · active
+- Decision: `lecter_core::course::open(&Path) -> CourseListing` is shared by `course_open` and `lecter-harness course open`. Shape `{path,name,lectures:[{name,path}],slides:[{name,path}]}` with course-relative `/` paths; IPC adds `trust` beside it (serde flatten), keeping F-016's `{path,name,trust}`. Only the top level of lectures/ and slides/ is listed: lectures are `*.md` (case-insensitive), slides any regular file; hidden files, folders, dangling links and non-Unicode names are left out; sorted by name. Windows `\\?\` prefixes are stripped from the shown path. Core `Error` gained the course variants and `code()`.
+- Why: one source, identical JSON for IPC and harness (criterion 4); 02/03 specs.
+- Instead of: canonicalising in the app; nesting the listing under `course`; a recursive listing.
+
+## D-106 · Any entry escaping the course fails the open
+2026-10-25 · session F-018 · active
+- Decision: every entry (not only symlinks) is canonicalised and checked with `within()`, which also refuses `..`; an entry outside the course root fails the whole open with E_NOT_TRUSTED naming the course-relative entry. A link loop is an I/O error. More than 10,000 entries in a subfolder (hidden ones count) is E_INVALID_ARGUMENT.
+- Why: criterion 2 and SEC-35; Windows junctions; `Path::starts_with` accepts `/c/slides/../../etc`. The cap is the contract's list limit and bounds the work.
+- Instead of: silently skipping escaping entries (Q-012); truncating at the cap.
+
+## D-107 · Buttons handle Enter/Space in the app
+2026-10-25 · session F-018 · active
+- Decision: the Open course button handles Enter and Space in a keydown handler (preventDefault, so a real key press doesn't also click). Keyboard paths in e2e flows rely on app key handlers, not native default actions.
+- Why: tauri-plugin-wdio-webdriver 1.4.0 sends keys as synthetic `KeyboardEvent`s, which never trigger a button's native activation; the author's first run failed on it. Key reachability shouldn't depend on browser activation, and the future keymap works the same way.
+- Instead of: replacing the Enter step with a click; a new global shortcut (a keybinding is the maintainer's call; `:open` comes with the Vim layer).
