@@ -582,3 +582,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the Open course button handles Enter and Space in a keydown handler (preventDefault, so a real key press doesn't also click). Keyboard paths in e2e flows rely on app key handlers, not native default actions.
 - Why: tauri-plugin-wdio-webdriver 1.4.0 sends keys as synthetic `KeyboardEvent`s, which never trigger a button's native activation; the author's first run failed on it. Key reachability shouldn't depend on browser activation, and the future keymap works the same way.
 - Instead of: replacing the Enter step with a click; a new global shortcut (a keybinding is the maintainer's call; `:open` comes with the Vim layer).
+
+## D-108 · F-019 adds the pinned PDFium CI cache (Q-009)
+2026-10-25 · maintainer · active
+- Decision: F-019 (the first shipping crate that loads PDFium) adds a CI step that runs the pinned, SHA-256-checked PDFium fetch with `actions/cache` keyed on the pins file, and an `init.sh` step that does the same locally. Tests only read the verified local library and stay offline; D-086's network exception does not extend to lecter-parse.
+- Why: tests must not hit the network (AGENTS.md); downloading ~25 MB on every fresh runner is slow and flaky.
+- Instead of: leaving Q-009 to a planning session; per-test downloads.

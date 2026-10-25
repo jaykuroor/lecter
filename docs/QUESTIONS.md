@@ -72,7 +72,7 @@ Add a pinned PDFium CI setup step, so tests stop downloading (D-086).
 Which card runs the real-app WebKitGTK keystroke p99 trace and memory check that D-080 calls its deciding check?
 - Context: D-080 gave the trace to F-016, but F-016's criteria never included it, and F-016 shipped without it. The WebDriver setup it needs now exists (`scripts/e2e-app.sh`). It can't run in the Claude sandbox, so the author runs it.
 - Recommended: a small M0.5 card. It adds an `editor-keystroke` e2e-app flow that types into CodeMirror in the real app, records keystroke p99 and the webview process RSS, and the author runs it outside the sandbox before any M1 editor feature starts. (applied as default: no)
-- Answer:
+- Answer: yes, as part of F-019 (D-108, maintainer 2026-10-25).
 
 ## Q-011 · planning · blocks: nothing
 Change F-016's verify line `scripts/check_release_binary.sh` to `tests/e2e/release-check.sh`?
