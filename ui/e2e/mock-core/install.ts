@@ -1,8 +1,8 @@
-import type { CommandName, Commands, IpcError } from "../../src/core/commands";
+import type { CommandName, Commands, IpcError } from "../../src/core/bindings";
 import type { MockFixture } from "./fixture";
 
-/** One handler per command; a mock that drifts from `Commands` fails `tsc`. */
-type MockHandlers = {
+/** One handler per command of the generated `Commands`; a mock that drifts from the contract fails `tsc`. */
+export type MockHandlers = {
   [K in CommandName]: (args: Commands[K]["args"]) => Commands[K]["result"];
 };
 
@@ -26,6 +26,7 @@ interface MockInternals {
 export function installMockCore(fixture: MockFixture): void {
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
+    course_open: () => fixture.courseOpen,
   };
   const isCommand = (cmd: string): cmd is CommandName => Object.hasOwn(handlers, cmd);
   const callbacks = new Map<number, (response: unknown) => void>();

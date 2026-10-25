@@ -1,10 +1,13 @@
-import type { AppInfo } from "../../src/core/commands";
+import type { Commands } from "../../src/core/bindings";
 
-/** The data the mocked core serves. Tests override parts of it per flow. */
+/** The data the mocked core serves, typed by the generated contract. Tests override parts of it per flow. */
 export interface MockFixture {
-  appInfo: AppInfo;
+  appInfo: Commands["app_info"]["result"];
+  /** What the folder dialog answers; `null` is a cancelled dialog. */
+  courseOpen: Commands["course_open"]["result"];
 }
 
 export const defaultFixture: MockFixture = {
   appInfo: { name: "Lecter", version: "0.0.1" },
+  courseOpen: null,
 };

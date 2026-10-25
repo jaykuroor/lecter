@@ -4,13 +4,14 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use specta::Type;
 use tauri::AppHandle;
 
 use super::error::{ErrorCode, IpcError};
 use crate::dialog;
 
 /// Whether the folder-trust question (02-course-folder.md#trust) still has to be asked.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum Trust {
     Ask,
@@ -24,7 +25,7 @@ pub enum Trust {
 }
 
 /// `course_open`'s result: the folder the user picked.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct CourseOpened {
     /// Canonical absolute path.
     pub path: String,
@@ -36,6 +37,7 @@ pub struct CourseOpened {
 /// Opens the native folder dialog and returns the folder, or `None` if the user cancels. Takes
 /// no arguments: the path comes from the dialog, never from the UI (SEC-32, SEC-35).
 #[tauri::command]
+#[specta::specta]
 pub async fn course_open(app: AppHandle) -> Result<Option<CourseOpened>, IpcError> {
     let Some(picked) = dialog::pick_folder(&app).await else {
         return Ok(None);
