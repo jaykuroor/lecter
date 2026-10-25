@@ -71,7 +71,8 @@ export const edgeMotion: Motion = (cm, head, args) => {
   const state = (cm as unknown as MotionCm).cm6.state;
   const count = args.repeatIsExplicit ? args.repeat : null;
   if (!state.facet(lectureBuffer)) {
-    const line = count !== null ? count - 1 : args.forward ? state.doc.lines - 1 : 0;
+    // lineMove clamps to the last line.
+    const line = count !== null ? count - 1 : args.forward ? state.doc.lines : 0;
     return lineMove(state, { line: 0, ch: 0 }, line);
   }
   return elementEdge(state, args.forward === true, count) ?? head;

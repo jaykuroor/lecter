@@ -62,6 +62,15 @@ describe("gg and G in a lecture", () => {
   });
 });
 
+describe("a lecture with nothing to move to", () => {
+  it("leaves the cursor where it is", () => {
+    const empty = EditorState.create({ doc: "---\nlecter: 1\n---\n:::", extensions: lectureBuffer.of(true) });
+    expect(run(edgeMotion, empty, 3, 2)).toEqual({ line: 3, ch: 2 });
+    expect(run(edgeMotion, empty, 3, 2, { forward: false })).toEqual({ line: 3, ch: 2 });
+    expect(run(elementMotion, empty, 3, 2)).toEqual({ line: 3, ch: 2 });
+  });
+});
+
 describe("the motions in an editor that isn't a lecture", () => {
   it("move by plain lines, clamped to the document and the line's length", () => {
     expect(run(elementMotion, plain, 0, 3)).toEqual({ line: 1, ch: 1 });
