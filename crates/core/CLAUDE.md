@@ -20,4 +20,5 @@ Spec: `01-architecture.md#document-model`, `#job-scheduler`; `02-course-folder.m
 `cargo nextest run -p lecter-core` · journal crash test: `cargo test -p lecter-core --test journal_crash -q`
 
 ## Learned
+- Doc comments land in the rlib's metadata even in release: spell `LECTER_TEST_*` only in docs of items gated by `cfg(any(debug_assertions, feature = "test-hooks"))` (F-015)
 
