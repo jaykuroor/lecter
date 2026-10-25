@@ -246,6 +246,32 @@ mod tests {
         assert_eq!(code(payload("c", &InvokeBody::Json(ok), &L)), None);
     }
 
+    /// `{"p":["aa…",…]}` whose compact JSON is exactly `size` bytes, every string under 64 KB.
+    fn json_of_size(size: usize) -> Value {
+        let chunk = 60 * KB;
+        let mut parts: Vec<String> = Vec::new();
+        let mut value = json!({ "p": parts });
+        while serde_json::to_vec(&value).map_or(0, |v| v.len()) < size {
+            let now = serde_json::to_vec(&value).map_or(0, |v| v.len());
+            // A new string costs its length + 2 quotes (+ 1 comma after the first).
+            let overhead = if parts.is_empty() { 2 } else { 3 };
+            parts.push("a".repeat(chunk.min(size - now).saturating_sub(overhead)));
+            value = json!({ "p": parts });
+        }
+        value
+    }
+
+    /// SEC-32 at the exact boundary: 1,048,576 bytes of compact JSON pass, one byte more doesn't.
+    #[test]
+    fn a_payload_of_exactly_1_mb_passes_and_one_byte_more_is_rejected() {
+        let at = json_of_size(L.payload_bytes);
+        assert_eq!(serde_json::to_vec(&at).map(|v| v.len()).ok(), Some(1_048_576));
+        assert_eq!(code(payload("c", &InvokeBody::Json(at), &L)), None);
+        let over = json_of_size(L.payload_bytes + 1);
+        assert_eq!(serde_json::to_vec(&over).map(|v| v.len()).ok(), Some(1_048_577));
+        assert_eq!(code(payload("c", &InvokeBody::Json(over), &L)), Some(ErrorCode::InvalidArgument));
+    }
+
     #[test]
     fn a_raw_payload_over_1_mb_is_rejected() {
         assert_eq!(code(payload("c", &InvokeBody::Raw(vec![0; L.payload_bytes]), &L)), None);
