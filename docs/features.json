@@ -280,7 +280,7 @@
     "log:tests"
    ],
    "status": "blocked",
-   "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox.",
+   "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox. | Builder's final commit a8e5aa5 on feat/F-005-os-sandbox (pushed up to c8900b7; push again before merging).",
    "priority": 1006,
    "base": "d51d35fc12ca12a273acde87f9d2026a071d0439"
   },
@@ -312,9 +312,10 @@
     "log:tests"
    ],
    "ask_jay_first": "PDFium is a native binary. Approve the source (for example bblanchon/pdfium-binaries, BSD/Apache) and pinning by SHA-256 per OS?",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 1007
+   "priority": 1007,
+   "base": "7de29dd67035e535f742e81cbcf18dfe2abcbdce"
   },
   {
    "id": "F-002",

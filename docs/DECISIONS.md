@@ -434,3 +434,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the spike's measured results (criterion 3). The README lists 10 carry-forward requirements for the real worker (fork/clone rule, closing fds, launch from one long-lived thread with a getppid check, private Windows handles, no std::net under LPAC, etc.).
 - Instead of: crates landlock/seccompiler (raw libc), or a restricted token without AppContainer on Windows.
 - Dep-Added: libc, windows-sys 0.61 (both already in Cargo.lock; spike crate only).
+
+## D-084 · PDFium comes from bblanchon/pdfium-binaries, pinned by SHA-256
+2026-10-24 · Who: Jay · active
+- Decision: Lecter's PDFium is the prebuilt release from github.com/bblanchon/pdfium-binaries at one fixed release tag. PDFium itself is BSD-3-Clause/Apache-2.0; the build scripts are MIT. The download script pins a SHA-256 for each of linux-x64, linux-arm64, macos-universal, windows-x64 and windows-arm64, and refuses any file that doesn't match before it is used (SEC-51).
+- Why: it is the source pdfium-render documents. Prebuilt binaries for all five targets avoid a depot_tools/gn build per OS.
+- Instead of: building PDFium from Google's source in CI.
