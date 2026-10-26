@@ -25,6 +25,10 @@ import { limitOf, passes, readBudget, remeasure } from "./perf/timing-budget";
 // of the measurement (CI-a0174c9): the Playwright trace recorder, which snapshots the page on each
 // of the ~1,100 actions, and the other project's copy of this check running at the same time
 // (perf/exclusive.ts).
+//
+// Tagged @perf, it runs alone (D-120): `test:e2e` leaves it out (--grep-invert @perf) and
+// `test:perf` runs only it, once, in the chromium project with one worker; CI runs that in its own
+// `perf` job, which F-025 switches to `scripts/verify.sh --stage perf`.
 
 /** The spec value of keystroke_p99_ms, used until tests/perf/budgets.json has the entry (F-025). */
 const SPEC_BUDGET_MS = 8;
@@ -137,10 +141,13 @@ async function measure(browser: Browser, baseURL: string | undefined): Promise<R
   return { p99, line };
 }
 
+/** Selects this check for `test:perf` and keeps it out of `test:e2e` (D-120). */
+const perfTag = { tag: "@perf" };
+
 // The trace recorder snapshots the page on every action, which is not the editor's time.
 test.use({ trace: "off" });
 
-test("the 200-slide lecture keeps keystroke-to-paint p99 under 8 ms", async ({ baseURL }, testInfo) => {
+test("the 200-slide lecture keeps keystroke-to-paint p99 under 8 ms", perfTag, async ({ baseURL }, testInfo) => {
   test.setTimeout(240_000);
   const lock = join(testInfo.project.outputDir, ".keystroke-perf.lock");
   const runs = await exclusive(lock, 150_000, async () => {
