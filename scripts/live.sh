@@ -10,6 +10,7 @@
 #   with retry-after and jitter, and save partial results when the daily cap is reached.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. scripts/node_env.sh   # the pinned Node for a live command run through pnpm or node
 fid="${1:-}"; shift || true
 [ "${1:-}" = "--" ] && shift
 [ -n "$fid" ] && [ $# -gt 0 ] || { echo "usage: scripts/live.sh F-0NN -- <command...>"; exit 2; }

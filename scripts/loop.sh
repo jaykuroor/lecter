@@ -9,6 +9,7 @@
 # Sessions push main after each feature only if LECTER_ALLOW_PUSH=1. Questions go to docs/QUESTIONS.md.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+. scripts/node_env.sh   # the pinned Node for the sessions' pnpm commands, even when started without a login shell
 MODE="${1:-build}"; MAX="${2:-30}"
 case "$MODE" in
   build) PROMPT=PROMPT.md ;; init) PROMPT=PROMPT.init.md; MAX=1 ;;

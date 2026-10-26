@@ -14,14 +14,32 @@ LIMITS = {  # file → (max lines in the part that is always read, what to do)
 }
 
 
+def node_env(root: Path):
+    """Environment for biome (`#!/usr/bin/env node`): this one when node is on PATH, else one with fnm's install
+    of the pinned Node (ui/package.json engines.node) first on PATH, as scripts/node_env.sh does (D-130).
+    None when neither exists: formatting is skipped, like any other missing tool."""
+    if shutil.which("node"):
+        return os.environ
+    try:
+        want = json.loads((root / "ui" / "package.json").read_text(encoding="utf-8"))["engines"]["node"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    data = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    bin_dir = os.path.join(os.environ.get("FNM_DIR") or os.path.join(data, "fnm"), "node-versions", f"v{want}", "installation", "bin")
+    if not os.access(os.path.join(bin_dir, "node"), os.X_OK):
+        return None
+    return {**os.environ, "PATH": bin_dir + os.pathsep + os.environ.get("PATH", "")}
+
+
 def fmt(p: Path, root: Path):
     s = p.suffix
     if s == ".rs" and shutil.which("rustfmt"):
         subprocess.run(["rustfmt", "--edition", "2024", "--quiet", str(p)], capture_output=True)
     elif s in (".ts", ".tsx", ".js", ".jsx", ".json", ".css") and "node_modules" not in p.parts:
         biome = root / "ui" / "node_modules" / ".bin" / ("biome.cmd" if os.name == "nt" else "biome")
-        if biome.exists():
-            subprocess.run([str(biome), "format", "--write", str(p)], capture_output=True, cwd=root / "ui")
+        env = node_env(root) if biome.exists() else None
+        if env is not None:
+            subprocess.run([str(biome), "format", "--write", str(p)], capture_output=True, cwd=root / "ui", env=env)
 
 
 def warn(msg):

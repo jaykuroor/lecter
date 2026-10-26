@@ -15,6 +15,7 @@ case "${1:-}" in
   *) echo "usage: scripts/worktree_setup.sh F-0NN <slug> | --resume <branch> | --ci <sha>"; exit 2 ;;
 esac
 echo "branch $BR at $(git rev-parse --short HEAD)"
+[ ! -f scripts/node_env.sh ] || . scripts/node_env.sh   # the pinned Node for init.sh, verify.sh and pnpm
 MAIN=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 if [ -d "$MAIN/tests/corpus/private" ] && [ ! -e tests/corpus/private ]; then
   mkdir -p tests/corpus && ln -s "$MAIN/tests/corpus/private" tests/corpus/private
