@@ -151,14 +151,9 @@ impl Journal {
         self.file.sync_data()
     }
 
-    /// The journal's size in bytes.
-    pub const fn len(&self) -> u64 {
+    /// The journal file's size in bytes.
+    pub const fn size(&self) -> u64 {
         self.len
-    }
-
-    /// Whether the journal file is empty (it never is once started).
-    pub const fn is_empty(&self) -> bool {
-        self.len == 0
     }
 
     /// The file this journal appends to.

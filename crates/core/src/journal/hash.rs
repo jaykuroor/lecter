@@ -39,16 +39,17 @@ fn round(s: &mut [u32; 16], m: &[u32; 16]) {
 
 /// The compression function; the first 8 words are the new chaining value.
 fn compress(cv: &[u32; 8], block: &[u32; 16], counter: u64, block_len: u32, flags: u32) -> [u32; 16] {
-    #[allow(clippy::cast_possible_truncation, reason = "the counter is split into its low and high words")]
-    let (lo, hi) = (counter as u32, (counter >> 32) as u32);
+    let c = counter.to_le_bytes();
+    let (lo, hi) = (u32::from_le_bytes([c[0], c[1], c[2], c[3]]), u32::from_le_bytes([c[4], c[5], c[6], c[7]]));
     let mut s =
         [cv[0], cv[1], cv[2], cv[3], cv[4], cv[5], cv[6], cv[7], IV[0], IV[1], IV[2], IV[3], lo, hi, block_len, flags];
     let mut m = *block;
     for r in 0..7 {
-        round(&mut s, &m);
-        if r < 6 {
+        // The message words are permuted between rounds.
+        if r > 0 {
             m = std::array::from_fn(|i| m[MSG_PERMUTATION[i]]);
         }
+        round(&mut s, &m);
     }
     for i in 0..8 {
         s[i] ^= s[i + 8];

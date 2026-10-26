@@ -307,3 +307,41 @@ fn an_atomic_write_does_not_follow_a_link_at_the_temp_path() {
     assert_eq!(std::fs::read_to_string(&victim).unwrap(), "untouched");
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "new");
 }
+
+/// After a save, a journal over 64 KiB starts over from the saved file; a smaller one keeps growing.
+#[test]
+fn a_save_compacts_a_journal_over_64_kib() {
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env, LECTURE);
+    let (session, _) = Session::open(&dir, REL).unwrap();
+    session.apply(vec![edit(0, 0, &"s".repeat(2 * 1024))]).unwrap();
+    session.close().unwrap();
+    let ops: Vec<String> = journal_lines(&dir).iter().map(|r| r["op"].as_str().unwrap().to_owned()).collect();
+    assert_eq!(ops, ["checkpoint", "replace", "checkpoint"]);
+
+    let (session, _) = Session::open(&dir, REL).unwrap();
+    session.apply(vec![edit(0, 0, &"b".repeat(65 * 1024))]).unwrap();
+    session.close().unwrap();
+    let lines = journal_lines(&dir);
+    assert_eq!(lines.len(), 1, "not compacted");
+    assert_eq!(lines[0]["op"], "checkpoint");
+    assert_eq!(lines[0]["base"], journal::blake3_hex(on_disk(&dir).as_bytes()));
+    session.close().unwrap_err();
+}
+
+/// A course folder Lecter may not write to: the journal can't be made, and the error says so
+/// (not a later, misleading "not found").
+#[cfg(unix)]
+#[test]
+fn a_read_only_course_fails_with_permission_denied() {
+    use std::os::unix::fs::PermissionsExt;
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env, LECTURE);
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let got = Session::open(&dir, REL).map(|_| ());
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // Root ignores permissions; nothing to check there.
+    if std::fs::metadata(dir.join(".lecter")).is_err() {
+        assert_eq!(got, Err(Error::Io(io::ErrorKind::PermissionDenied)));
+    }
+}

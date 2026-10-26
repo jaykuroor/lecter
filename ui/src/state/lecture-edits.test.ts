@@ -89,6 +89,22 @@ describe("sending the buffer's edits", () => {
     await state.settled();
   });
 
+  it("sends an edit larger than a batch on its own", async () => {
+    installMockCore({ ...defaultFixture, lectures: { [l07.path]: l07 } });
+    const calls = holdEdits();
+    const state = createLecture();
+    await state.open("/c", l07.path);
+    const huge = "z".repeat(200_000);
+    state.edit([...typed(0, huge), ...typed(0, "after")]);
+    expect(calls.map((c) => c.args.edits)).toEqual([typed(0, huge)]);
+    calls[0]?.answer(null);
+    await tick();
+    expect(calls[1]?.args.edits).toEqual(typed(0, "after"));
+    calls[1]?.answer(null);
+    await state.settled();
+    expect(calls).toHaveLength(2);
+  });
+
   it("sends each edit to the lecture it was made in", async () => {
     installMockCore({ ...defaultFixture, lectures: { [l07.path]: l07, [l08.path]: l08 } });
     const calls = holdEdits();

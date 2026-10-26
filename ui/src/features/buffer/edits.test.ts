@@ -58,6 +58,30 @@ describe("buffer edits for the core", () => {
     expect(replay("wxyz", edits)).toBe(`wx${paste}z`);
   });
 
+  it("keeps the first and last astral characters whole at a piece boundary", () => {
+    // U+10000 starts with 0xD800, U+10FFFF with 0xDBFF: both are the high half of a pair.
+    for (const astral of ["\u{10000}", "\u{10FFFF}"]) {
+      const paste = `${"a".repeat(MAX_EDIT_UNITS - 1)}${astral}b`;
+      const edits = editsOf(ChangeSet.of({ from: 0, insert: paste }, 0));
+      expect(edits.map((e) => e.text.length)).toEqual([MAX_EDIT_UNITS - 1, 3]);
+      expect(edits[1]?.text.startsWith(astral)).toBe(true);
+    }
+    // The low half's code (0xDC00) at the boundary is no reason to cut short.
+    const low = `${"a".repeat(MAX_EDIT_UNITS - 1)}\udc00b`;
+    expect(editsOf(ChangeSet.of({ from: 0, insert: low }, 0)).map((e) => e.text.length)).toEqual([MAX_EDIT_UNITS, 1]);
+  });
+
+  it("ends a paste whose last unit is a lone high surrogate", () => {
+    const paste = `${"a".repeat(MAX_EDIT_UNITS)}\ud800`;
+    const edits = editsOf(ChangeSet.of({ from: 0, insert: paste }, 0));
+    expect(edits.map((e) => e.text)).toEqual(["a".repeat(MAX_EDIT_UNITS), "\ud800"]);
+  });
+
+  it("sends a paste of exactly the piece size as one edit", () => {
+    const paste = "c".repeat(MAX_EDIT_UNITS);
+    expect(editsOf(ChangeSet.of({ from: 1, to: 2, insert: paste }, 2))).toEqual([{ from: 1, to: 2, text: paste }]);
+  });
+
   it("reports every document change of a view and nothing else", () => {
     const sent: Edit[][] = [];
     const view = new EditorView({

@@ -110,7 +110,7 @@ impl Actor {
         let journal = &mut self.journal;
         atomic::write(&self.target, text.as_bytes(), || journal.append_checkpoint(&hash))?;
         journal.saved(&hash);
-        if journal.len() > COMPACT_AT {
+        if journal.size() > COMPACT_AT {
             // The save is done either way; a failed compaction leaves a longer but valid journal.
             let _ = journal.compact();
         }

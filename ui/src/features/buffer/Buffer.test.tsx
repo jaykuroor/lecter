@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
 import { cleanup, render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { sampleLecture } from "../../../e2e/mock-core/lectures";
 import type { Edit, Lecture } from "../../core/lecture";
 import { Buffer } from "./Buffer";
@@ -161,6 +161,15 @@ describe("the element motions outside a lecture", () => {
     expect(line(view)).toBe(1);
     view.destroy();
     parent.remove();
+  });
+
+  it("edits fine without an onEdits listener", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { view } = mount();
+    view().dispatch(view().state.replaceSelection("x"));
+    expect(view().state.doc.toString().includes("x")).toBe(true);
+    expect(logged).not.toHaveBeenCalled();
+    logged.mockRestore();
   });
 
   /** F-021: what is typed in insert mode reaches `onEdits`, in the buffer's positions. */

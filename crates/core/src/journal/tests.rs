@@ -161,7 +161,7 @@ fn start_writes_a_checkpoint_then_the_unsaved_edits_renumbered() {
         (&got[1]["seq"], &got[1]["base"], &got[1]["op"], &got[1]["from"], &got[1]["to"], &got[1]["text"]),
         (&json!(10), &json!("H0"), &json!("replace"), &json!(1), &json!(2), &json!("x"))
     );
-    assert_eq!(j.len(), std::fs::metadata(&path).unwrap().len());
+    assert_eq!(j.size(), std::fs::metadata(&path).unwrap().len());
     assert!(!atomic_temp(&path).exists(), "temp file left behind");
 }
 
@@ -195,8 +195,7 @@ fn appends_carry_the_disk_base_until_a_save_lands() {
             (6, "H1", "replace")
         ]
     );
-    assert_eq!(j.len(), std::fs::metadata(&path).unwrap().len());
-    assert!(!j.is_empty());
+    assert_eq!(j.size(), std::fs::metadata(&path).unwrap().len());
 }
 
 #[test]
@@ -257,4 +256,31 @@ fn now_is_in_unix_milliseconds() {
     let ms = now_ms();
     // 2025-01-01 to 2100-01-01: seconds or microseconds would fall outside.
     assert!((1_735_689_600_000..4_102_444_800_000).contains(&ms), "{ms}");
+}
+
+/// A journal up to 64 MiB is read whole; one byte more is kept aside unread. (Sparse files: no
+/// 64 MiB is written.)
+#[test]
+fn read_takes_journals_up_to_64_mib() {
+    let (_env, dir) = folder();
+    let path = dir.join("l07.log");
+    let sized = |len: u64| std::fs::File::create(&path).unwrap().set_len(len).unwrap();
+    sized(2 * 1024 * 1024);
+    assert!(matches!(read(&path).unwrap(), Existing::Bytes(b) if b.len() == 2 * 1024 * 1024));
+    sized(64 * 1024 * 1024);
+    assert!(matches!(read(&path).unwrap(), Existing::Bytes(b) if b.len() == 64 * 1024 * 1024));
+    sized(64 * 1024 * 1024 + 1);
+    assert_eq!(read(&path).unwrap(), Existing::Unusable);
+}
+
+/// Only a missing journal counts as none; any other failure to look is an error.
+#[cfg(unix)]
+#[test]
+fn read_reports_errors_other_than_missing() {
+    let (_env, dir) = folder();
+    let file = dir.join("plain");
+    std::fs::write(&file, "x").unwrap();
+    // A path through a regular file: ENOTDIR, not ENOENT.
+    let e = read(&file.join("l07.log")).unwrap_err();
+    assert_eq!(e.kind(), ErrorKind::NotADirectory);
 }

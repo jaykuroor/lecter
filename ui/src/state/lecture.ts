@@ -25,35 +25,33 @@ interface Pending {
   edits: Edit[];
 }
 
+/** One edit waiting to be sent, with the lecture it was made in. */
+interface Queued {
+  course: string;
+  path: string;
+  edit: Edit;
+}
+
 /**
  * The most edits and UTF-16 units of text one `lecture_apply_edits` carries: with JSON escaping
  * (at most 6 bytes a unit) that stays under the core's 1 MB payload and 10,000-item list limits
- * (18-contracts.md#validation).
+ * (18-contracts.md#validation). A single edit larger than that goes alone.
  */
 const MAX_BATCH_EDITS = 1_000;
 const MAX_BATCH_UNITS = 131_072;
 
-/** Takes the next batch off `queue`: edits for one lecture, within the limits. */
-function nextBatch(queue: Pending[]): Pending | null {
-  const first = queue[0];
-  if (!first) return null;
-  const batch: Pending = { course: first.course, path: first.path, edits: [] };
+/** Takes the next batch off a non-empty `queue`: at least one edit, all for one lecture, within the limits. */
+function nextBatch(queue: Queued[]): Pending {
+  const first = queue[0] as Queued;
+  let count = 0;
   let units = 0;
-  while (queue.length > 0) {
-    const head = queue[0];
-    if (!head || head.course !== batch.course || head.path !== batch.path) break;
-    const edit = head.edits[0];
-    if (!edit) {
-      queue.shift();
-      continue;
-    }
-    const full = batch.edits.length >= MAX_BATCH_EDITS || units + edit.text.length > MAX_BATCH_UNITS;
-    if (full && batch.edits.length > 0) break;
-    batch.edits.push(edit);
-    units += edit.text.length;
-    head.edits.shift();
+  for (const q of queue) {
+    if (q.course !== first.course || q.path !== first.path) break;
+    if (count === MAX_BATCH_EDITS || (count > 0 && units + q.edit.text.length > MAX_BATCH_UNITS)) break;
+    count += 1;
+    units += q.edit.text.length;
   }
-  return batch;
+  return { course: first.course, path: first.path, edits: queue.splice(0, count).map((q) => q.edit) };
 }
 
 export function createLecture(): LectureState {
@@ -63,8 +61,10 @@ export function createLecture(): LectureState {
   let latest: object = {};
   // Where the buffer's edits go: the lecture on screen, set together with it.
   let target: { course: string; path: string } | null = null;
-  const queue: Pending[] = [];
-  let sending: Promise<void> | null = null;
+  const queue: Queued[] = [];
+  // Whether a send loop runs, and the loop itself (for `settled`).
+  let sending = false;
+  let loop: Promise<void> = Promise.resolve();
 
   async function open(course: string, path: string): Promise<void> {
     const request = {};
@@ -84,9 +84,10 @@ export function createLecture(): LectureState {
     }
   }
 
+  /** Sends batches until the queue is empty. The last check and `sending = false` run together, so an edit queued meanwhile is never left behind. */
   async function pump(): Promise<void> {
-    for (let batch = nextBatch(queue); batch; batch = nextBatch(queue)) {
-      if (batch.edits.length === 0) continue;
+    while (queue.length > 0) {
+      const batch = nextBatch(queue);
       try {
         const result = await applyEdits(batch.course, batch.path, batch.edits);
         if (result.status === "error") setError(result.error.message);
@@ -94,25 +95,20 @@ export function createLecture(): LectureState {
         setError("Lecter could not reach the core to save your edit.");
       }
     }
-  }
-
-  /** Starts sending unless a send is under way; one that ends with edits left starts again. */
-  function kick(): void {
-    if (sending) return;
-    sending = pump().finally(() => {
-      sending = null;
-      if (queue.length > 0) kick();
-    });
+    sending = false;
   }
 
   function edit(edits: Edit[]): void {
-    if (!target || edits.length === 0) return;
-    queue.push({ ...target, edits: [...edits] });
-    kick();
+    const to = target;
+    if (!to) return;
+    for (const e of edits) queue.push({ course: to.course, path: to.path, edit: e });
+    if (sending) return;
+    sending = true;
+    loop = pump();
   }
 
   async function settled(): Promise<void> {
-    while (sending) await sending;
+    while (sending) await loop;
   }
 
   return { lecture, error, open, edit, settled };

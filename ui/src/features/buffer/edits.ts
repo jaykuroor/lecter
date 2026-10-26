@@ -28,14 +28,14 @@ function pieces(text: string): string[] {
 
 /** One change `from..to` → `text` as edits in order: a long text becomes consecutive inserts. */
 function changeEdits(from: number, to: number, text: string): Edit[] {
-  if (text.length <= MAX_EDIT_UNITS) return [{ from, to, text }];
-  const out: Edit[] = [];
+  const parts = pieces(text);
+  if (parts.length === 0) return [{ from, to, text: "" }];
   let at = from;
-  for (const piece of pieces(text)) {
-    out.push(out.length === 0 ? { from, to, text: piece } : { from: at, to: at, text: piece });
+  return parts.map((piece, i) => {
+    const edit = { from: at, to: i === 0 ? to : at, text: piece };
     at += piece.length;
-  }
-  return out;
+    return edit;
+  });
 }
 
 /**
