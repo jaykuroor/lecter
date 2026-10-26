@@ -3,6 +3,7 @@
 //! `ui/src/core/bindings.ts`) use. `names.rs` repeats the names for `build.rs`'s permissions; a
 //! test keeps it equal to `contract()`.
 
+pub mod ai;
 pub mod app;
 pub mod course;
 pub mod error;
@@ -22,6 +23,8 @@ use tauri_specta::{Builder, collect_commands, collect_events};
 pub fn contract() -> Builder<Wry> {
     Builder::<Wry>::new()
         .commands(collect_commands![
+            ai::gloss_request,
+            ai::gloss_cancel,
             app::app_info,
             course::course_open,
             lecture::lecture_open,

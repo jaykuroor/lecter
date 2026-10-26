@@ -31,10 +31,13 @@ fn main() {
     let contract = ipc::contract();
     // The open lectures' save sessions; quitting saves them (F-021).
     let lectures = ipc::session::OpenLectures::default();
+    // The running gloss streams; quitting stops them (F-023).
+    let glosses = ipc::ai::Glosses::default();
     let built = builder
         .manage(ipc::session::OpenedCourses::default())
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
+        .manage(glosses.clone())
         .invoke_handler(ipc::invoke_handler(&contract))
         .setup(move |app| {
             contract.mount_events(app);
@@ -44,6 +47,7 @@ fn main() {
     match built {
         Ok(app) => app.run(move |_, event| {
             if let tauri::RunEvent::Exit = event {
+                glosses.cancel_all();
                 ipc::lecture::close_all(&lectures);
             }
         }),

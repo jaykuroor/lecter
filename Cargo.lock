@@ -2089,6 +2089,7 @@ dependencies = [
 name = "lecter-app"
 version = "0.0.1"
 dependencies = [
+ "lecter-ai",
  "lecter-core",
  "lecter-index",
  "serde",

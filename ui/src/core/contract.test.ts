@@ -11,6 +11,8 @@ const matching: MockHandlers = {
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
+  gloss_request: () => "g-0001",
+  gloss_cancel: () => null,
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -26,6 +28,8 @@ const wrongResult: MockHandlers = {
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
+  gloss_request: () => "g-0001",
+  gloss_cancel: () => null,
 };
 
 const wrongEnum: MockHandlers = {
@@ -35,6 +39,8 @@ const wrongEnum: MockHandlers = {
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
+  gloss_request: () => "g-0001",
+  gloss_cancel: () => null,
 };
 
 const extra: MockHandlers = {
@@ -43,6 +49,8 @@ const extra: MockHandlers = {
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
+  gloss_request: () => "g-0001",
+  gloss_cancel: () => null,
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -50,7 +58,15 @@ const extra: MockHandlers = {
 // @ts-expect-error an error code outside 18-contracts.md#error-codes
 const badCode: IpcError = { code: "E_NOPE", message: "x", retryable: false };
 
-const commandNames: CommandName[] = ["app_info", "course_open", "lecture_open", "lecture_apply_edits", "search_find"];
+const commandNames: CommandName[] = [
+  "gloss_request",
+  "gloss_cancel",
+  "app_info",
+  "course_open",
+  "lecture_open",
+  "lecture_apply_edits",
+  "search_find",
+];
 const noArgs: Commands["course_open"]["args"] = {};
 
 describe("the generated contract", () => {
