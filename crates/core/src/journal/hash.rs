@@ -37,8 +37,9 @@ fn round(s: &mut [u32; 16], m: &[u32; 16]) {
     g(s, (3, 4, 9, 14), m[14], m[15]);
 }
 
-/// The compression function; the first 8 words are the new chaining value.
-fn compress(cv: &[u32; 8], block: &[u32; 16], counter: u64, block_len: u32, flags: u32) -> [u32; 16] {
+/// The compression function, truncated to the 8 words a 32-byte hash uses: the new chaining
+/// value (the other 8 only matter for extended output).
+fn compress(cv: &[u32; 8], block: &[u32; 16], counter: u64, block_len: u32, flags: u32) -> [u32; 8] {
     let c = counter.to_le_bytes();
     let (lo, hi) = (u32::from_le_bytes([c[0], c[1], c[2], c[3]]), u32::from_le_bytes([c[4], c[5], c[6], c[7]]));
     let mut s =
@@ -51,11 +52,7 @@ fn compress(cv: &[u32; 8], block: &[u32; 16], counter: u64, block_len: u32, flag
         }
         round(&mut s, &m);
     }
-    for i in 0..8 {
-        s[i] ^= s[i + 8];
-        s[i + 8] ^= cv[i];
-    }
-    s
+    std::array::from_fn(|i| s[i] ^ s[i + 8])
 }
 
 /// Up to 64 bytes as 16 little-endian words, zero-padded.
@@ -65,10 +62,6 @@ fn words(bytes: &[u8]) -> [u32; 16] {
     std::array::from_fn(|i| {
         u32::from_le_bytes([padded[4 * i], padded[4 * i + 1], padded[4 * i + 2], padded[4 * i + 3]])
     })
-}
-
-fn first8(w: &[u32; 16]) -> [u32; 8] {
-    std::array::from_fn(|i| w[i])
 }
 
 /// A node's last compression, not yet run: as a chaining value, or with `ROOT` as the hash.
@@ -82,11 +75,11 @@ struct Output {
 
 impl Output {
     fn chaining_value(&self) -> [u32; 8] {
-        first8(&compress(&self.cv, &self.block, self.counter, self.block_len, self.flags))
+        compress(&self.cv, &self.block, self.counter, self.block_len, self.flags)
     }
 
     fn root(&self) -> [u32; 8] {
-        first8(&compress(&self.cv, &self.block, self.counter, self.block_len, self.flags | ROOT))
+        compress(&self.cv, &self.block, self.counter, self.block_len, self.flags | ROOT)
     }
 }
 
@@ -102,7 +95,7 @@ fn chunk_output(chunk: &[u8], index: u64) -> Output {
             let block_len = block.len() as u32;
             return Output { cv, block: words(block), counter: index, block_len, flags: flags | CHUNK_END };
         }
-        cv = first8(&compress(&cv, &words(block), index, BLOCK_LEN as u32, flags));
+        cv = compress(&cv, &words(block), index, BLOCK_LEN as u32, flags);
         flags = 0;
     }
 }

@@ -105,6 +105,47 @@ describe("sending the buffer's edits", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("fills a batch up to exactly the unit limit", async () => {
+    installMockCore({ ...defaultFixture, lectures: { [l07.path]: l07 } });
+    const calls = holdEdits();
+    const state = createLecture();
+    await state.open("/c", l07.path);
+    state.edit(typed(0, "first"));
+    state.edit([...typed(0, "q".repeat(131_071)), ...typed(0, "r"), ...typed(0, "s")]);
+    calls[0]?.answer(null);
+    await tick();
+    expect(calls[1]?.args.edits?.map((e) => e.text.length)).toEqual([131_071, 1]);
+    calls[1]?.answer(null);
+    await tick();
+    expect(calls[2]?.args.edits).toEqual(typed(0, "s"));
+    calls[2]?.answer(null);
+    await state.settled();
+  });
+
+  it("never mixes lectures in one batch, by path or by course", async () => {
+    installMockCore({ ...defaultFixture, lectures: { [l07.path]: l07, [l08.path]: l08 } });
+    const calls = holdEdits();
+    const state = createLecture();
+    await state.open("/c/A", l07.path);
+    state.edit(typed(0, "held"));
+    state.edit(typed(0, "a7"));
+    await state.open("/c/A", l08.path);
+    state.edit(typed(0, "a8"));
+    await state.open("/c/B", l08.path);
+    state.edit(typed(0, "b8"));
+    for (let i = 0; i < 4; i++) {
+      calls[i]?.answer(null);
+      await tick();
+    }
+    await state.settled();
+    expect(calls.map((c) => [c.args.course, c.args.path, c.args.edits?.map((e) => e.text)])).toEqual([
+      ["/c/A", l07.path, ["held"]],
+      ["/c/A", l07.path, ["a7"]],
+      ["/c/A", l08.path, ["a8"]],
+      ["/c/B", l08.path, ["b8"]],
+    ]);
+  });
+
   it("sends each edit to the lecture it was made in", async () => {
     installMockCore({ ...defaultFixture, lectures: { [l07.path]: l07, [l08.path]: l08 } });
     const calls = holdEdits();
