@@ -92,7 +92,7 @@ Lecter has no release yet. Once there is one, signed builds will be on the [Rele
 
 ## Build from source
 
-**Requirements:** Rust (stable, via [rustup](https://rustup.rs)), Node.js LTS with pnpm (`corepack enable`), Python 3.10+, and the [Tauri 2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS.
+**Requirements:** Rust (stable, via [rustup](https://rustup.rs)), Node.js at the exact version in `ui/package.json` `engines.node`, from a version manager such as [fnm](https://github.com/Schniz/fnm) (`fnm install <version>`; distro `nodejs` packages tend to lag security fixes), with pnpm through `corepack enable` (no sudo), Python 3.10+, and the [Tauri 2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```bash
 git clone https://github.com/jaykuroor/lecter.git

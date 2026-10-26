@@ -40,10 +40,10 @@ if [ -n "${HTTPS_PROXY:-}" ]; then
   export npm_config_https_proxy="$HTTPS_PROXY" npm_config_proxy="${HTTP_PROXY:-$HTTPS_PROXY}" npm_config_noproxy="${NO_PROXY:-}"
 fi
 # ui/package.json pins engines.node (D-058). When plain `node` is another version, put a `node` link to the
-# fallback first on PATH (D-061), in a dir the user owns (the user cache, else the sandbox's per-user TMPDIR);
-# a link that points anywhere else is replaced.
+# fallback (fnm's install of that version, D-130) first on PATH, in a dir the user owns (the user cache, else
+# the sandbox's per-user TMPDIR); a link that points anywhere else is replaced.
 NODE_WANT=$(sed -n 's/^ *"node": *"\([0-9.]*\)".*/\1/p' ui/package.json 2>/dev/null | head -n 1)
-NODE_FALLBACK="${LECTER_NODE_FALLBACK:-/usr/bin/node-24}" NODE_NOTE=""
+NODE_FALLBACK="${LECTER_NODE_FALLBACK:-${FNM_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fnm}/node-versions/v$NODE_WANT/installation/bin/node}" NODE_NOTE=""
 if [ -n "$NODE_WANT" ] && [ "$(node --version 2>/dev/null)" != "v$NODE_WANT" ] && [ -x "$NODE_FALLBACK" ] \
   && [ "$("$NODE_FALLBACK" --version 2>/dev/null)" = "v$NODE_WANT" ]; then
   for _shim in "${XDG_CACHE_HOME:-$HOME/.cache}/lecter/node-v$NODE_WANT" "${TMPDIR:+$TMPDIR/lecter-node-v$NODE_WANT}"; do

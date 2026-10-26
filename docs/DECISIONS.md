@@ -276,7 +276,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Changes from running the kit in a real sandboxed Claude Code session. `init.sh` creates the sandbox's write folders and, if it can't, prints the `mkdir -p` line to run outside, because the sandbox only grants writes to folders that already exist. `.gitignore` ignores the placeholders the sandbox mounts over root dotfiles and Claude Code's own `.claude/` folders (only `settings.json`, `agents/` and `skills/` are tracked there), because they break `git add -A` mid-session. The allowlist accepts each script both as `scripts/x.py` and as `python3 scripts/x.py`. `init.sh` and `verify.sh` point pnpm at `HTTPS_PROXY`, because pnpm prefers inherited `npm_config_*` proxy settings that the sandbox doesn't replace. `init.sh` passes `--silent` to pnpm rather than to the build script, installs Playwright's Chromium (unless `PLAYWRIGHT_BROWSERS_PATH` is set), and `verify.sh` runs biome with `--colors=off` so failure lines stay readable.
 
 ## D-058 · Toolchain pins: Rust 1.99.1, Node 24.18.0, pnpm 12.15.0
-2026-10-23 · maintainer (Node) + session F-010 · active
+2026-10-23 · maintainer (Node) + session F-010 · active; Node pin superseded by D-130 (24.22.1)
 - Decision: `rust-toolchain.toml` pins `channel = "1.99.1"` (current stable, with rustfmt and clippy, minimal profile). Node is pinned to the 24 LTS line, exactly 24.18.0 (the version the build machine's `nodejs24` package ships, so local runs match CI), and pnpm to 12.15.0. F-011 writes them into `ui/package.json` (`packageManager: "pnpm@12.15.0"`, `engines.node`) and F-013 into CI. The maintainer chose Node 24 over the installed 22.23.1.
 - Why: Exact pins make local runs, CI and every session build the same way (D-019). Node 24 is the active LTS line, and 22 is in maintenance.
 - Instead of: `channel = "stable"` (it moves under us); Node 22.23.1 (installed on the maintainer's machine, but older LTS).
@@ -296,7 +296,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: printing only `0.0.1`; adding a `toml` dev-dependency for the shape tests (std string parsing is enough).
 
 ## D-061 · Use `node-24` explicitly; system `node` stays on 22
-2026-10-23 · maintainer · active
+2026-10-23 · maintainer · superseded by D-130
 - Decision: the maintainer's system `node` keeps pointing at 22.23.1. Sessions run the UI toolchain on Node 24.18.0 through `/usr/bin/node-24` (for example a `node` link to it at the front of `PATH` for pnpm commands), without changing the system `node`.
 - Why: the maintainer asked to use `node-24` and leave `node` alone.
 - Instead of: repointing the system `node` at 24.
@@ -717,3 +717,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `tantivy` 0.27 (MIT, 49 crates, default features off, `mmap,lz4-compression`; Deps-Approved: D-126); `thiserror`, `serde` added to lecter-index (already in the tree).
 - Why: Dep-Added trailers on F-022 commits; check_deps OK; Cargo.lock has no zstd or stemmer crates.
 - Instead of: see D-126.
+
+## D-130 · Node comes from fnm, pinned to 24.22.1 (supersedes D-061)
+2026-10-26 · maintainer · active
+- Decision: Node comes from a version manager (fnm) honoring `ui/package.json` `engines.node`, now exactly 24.22.1; the distro `nodejs` packages are not used, and pnpm comes from `corepack enable` (it reads `packageManager`). init.sh and verify.sh fall back to fnm's install of the pinned version (`${FNM_DIR:-$XDG_DATA_HOME/fnm}/node-versions/v<pin>/installation/bin/node`, still overridable with `LECTER_NODE_FALLBACK`); loop.sh, live.sh and worktree_setup.sh source `scripts/node_env.sh`, which puts that dir first on PATH when `node` isn't the pin; the edit-format hook finds Node the same way. They read fnm's folder instead of running `fnm env`/`fnm use`, so nothing depends on an interactive rc file or writes under XDG_RUNTIME_DIR. `fnm install`, `corepack enable` and corepack's pnpm download run outside the sandbox.
+- Why: the distro packages lagged security fixes; 24.18.0 has known vulnerabilities. Hooks and loop runs start without a login shell, so they can't rely on `fnm env`.
+- Instead of: `/usr/bin/node-24` from the distro (D-061); a sandbox write rule for fnm's multishell dir; making verify.sh source the helper (D-074 keeps it self-contained).

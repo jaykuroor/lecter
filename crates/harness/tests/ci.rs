@@ -376,8 +376,8 @@ fn init_check_wants_the_pinned_node_and_falls_back_to_node_24() -> Result<(), St
     let old = bare_path(&[("node", "echo v22.23.1")])?;
     let (_, out) = init_check(old.path(), &old.path().join("no-node-24"))?;
     let node = out.lines().find(|l| l.starts_with("  - node ")).ok_or(format!("node 22 not reported:\n{out}"))?;
-    if !node.contains(&want) || !node.contains("package nodejs24") {
-        return Err(format!("node line should name {want} and the nodejs24 package: {node}"));
+    if !node.contains(&want) || !node.contains(&format!("fnm install {want}")) {
+        return Err(format!("node line should name {want} and `fnm install {want}`: {node}"));
     }
     let with_fb = bare_path(&[("node", "echo v22.23.1"), ("node-24", &format!("echo v{want}"))])?;
     let (_, out) = init_check(with_fb.path(), &with_fb.path().join("node-24"))?;
