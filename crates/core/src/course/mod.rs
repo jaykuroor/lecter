@@ -85,6 +85,33 @@ pub(crate) fn canonical_folder(picked: &Path) -> Result<PathBuf> {
     Ok(root)
 }
 
+/// `<root>/<rel>` (`rel` uses `/` separators, e.g. `.lecter/journal`), created if needed, with
+/// symlinks resolved. `root` is a canonical course root. Each level is checked before anything is
+/// created inside it, so a `.lecter` link out of the course is refused with
+/// [`Error::OutsideCourse`], not written through (SEC-35).
+#[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
+pub fn ensure_dir(root: &Path, rel: &str) -> Result<PathBuf> {
+    let io = |e: std::io::Error| Error::Io(e.kind());
+    let mut dir = root.to_path_buf();
+    for part in rel.split('/') {
+        dir.push(part);
+        match std::fs::create_dir(&dir) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(io(e)),
+        }
+        let real = std::fs::canonicalize(&dir).map_err(io)?;
+        if !within(root, &real) {
+            return Err(Error::OutsideCourse(rel.to_owned()));
+        }
+        if !std::fs::metadata(&real).map_err(io)?.is_dir() {
+            return Err(Error::Io(std::io::ErrorKind::NotADirectory));
+        }
+        dir = real;
+    }
+    Ok(dir)
+}
+
 // The fixtures live in a TestEnv home, which exists in debug and test-hooks builds only.
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests;
