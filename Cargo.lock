@@ -2125,6 +2125,7 @@ name = "lecter-harness"
 version = "0.0.1"
 dependencies = [
  "lecter-core",
+ "lecter-index",
  "lecter-parse",
  "serde_json",
  "tokio",

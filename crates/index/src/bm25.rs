@@ -31,6 +31,10 @@ pub const INDEX_DIR: &str = ".lecter/cache/index";
 /// The `kind` of a lecture slide block (05-retrieval.md#indexing: "Slides").
 pub const KIND_SLIDES: &str = "slides";
 
+/// The most hits one `:find` lists (`search_find` and `lecter-harness search`): a screenful of
+/// blocks; more words narrow it.
+pub const MAX_HITS: usize = 50;
+
 /// The tag a flagged block carries in `tags`.
 pub const TAG_FLAG: &str = "flag";
 

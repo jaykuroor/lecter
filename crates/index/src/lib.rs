@@ -7,7 +7,7 @@ pub mod blocks;
 pub mod bm25;
 pub mod error;
 
-pub use bm25::{CourseIndex, Hit, INDEX_DIR};
+pub use bm25::{CourseIndex, Hit, INDEX_DIR, MAX_HITS};
 pub use error::{Error, Result};
 
 /// This crate's package name.

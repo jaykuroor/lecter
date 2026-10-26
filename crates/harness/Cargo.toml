@@ -18,6 +18,8 @@ workspace = true
 
 [dependencies]
 lecter-core = { path = "../core" }
+# Search: `lecter-harness search` indexes a course's lectures and queries them (F-022).
+lecter-index = { path = "../index" }
 # The parse worker itself: `lecter-harness parse` runs it as its own child process.
 lecter-parse = { path = "../parse" }
 serde_json.workspace = true
