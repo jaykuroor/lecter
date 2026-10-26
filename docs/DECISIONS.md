@@ -668,3 +668,27 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Lecter uses the `blake3` crate (3 new crates, a `cc` build step for its SIMD code) for every BLAKE3 hash: journal `base`, the content-hash cache and the parse cache. F-021 replaces its in-tree `journal/hash.rs` with the crate before it merges. Commits adding it carry `Deps-Approved: D-121`.
 - Why: add_dep refused the crate as native, and F-021's builder wrote BLAKE3 by hand instead of asking. A widely used, audited and SIMD-fast crate beats a hand-written hash, especially once whole PDFs get hashed.
 - Instead of: keeping the in-tree hash (slow on large files, ours to maintain); the crate's `pure` feature only (no C build step, slower).
+
+## D-122 · Journal and save design
+2026-10-26 · session F-021 · active
+- Decision: one save thread per open lecture (std mpsc, inbox bound 64, recv_timeout to the next deadline; no polling). Journal fsync ≤ 250 ms after the first unsynced write; the .md save is a trailing 1 s debounce after the last edit, retried a debounce later if it fails; every lecture is saved on RunEvent::Exit and opening a lecture closes the others. Save order: temp file (exclusive), fsync, checkpoint record + fsync, rename, dir fsync. After a save, a journal over 64 KiB starts over.
+- Why: a crash at any point still replays correctly (a checkpoint after the rename would look like an outside edit); ROB-11.
+- Instead of: checkpoint after the rename; a tokio task per lecture.
+
+## D-123 · Edits travel as UTF-16 positions
+2026-10-26 · session F-021 · active
+- Decision: `lecture_apply_edits(course, path, edits: [{from, to, text}])` takes CodeMirror's UTF-16 positions; the core converts them to UTF-8 byte offsets with ropey. A batch that doesn't fit is refused whole. The UI sends batches in order, one call at a time, ≤ 1000 edits / 131072 units each, splitting pastes into 16384-unit pieces without breaking surrogate pairs.
+- Why: the journal's offsets are UTF-8 bytes (18-contracts); the UI shouldn't compute them.
+- Instead of: byte offsets computed in the UI.
+
+## D-124 · Replay rules and limits
+2026-10-26 · session F-021 · active
+- Decision: replay applies records after the last checkpoint whose base matches the .md; a truncated last line is ignored; a damaged middle line, an unmatched base or a result over MAX_LECTURE_BYTES (16 MB) is a Mismatch, and the journal is renamed to `<stem>.log.kept-<ms>` and not applied. Journals over 64 MiB, and links, are never read. CRLF lectures are read as LF and saved as LF only after an edit (03 says LF).
+- Why: a journal must never produce a lecture the app then refuses to open; F-051/F-070 build on the kept files.
+- Instead of: rewriting CRLF files on open; applying partial journals.
+
+## D-125 · F-021 dependencies
+2026-10-26 · session F-021 · active
+- Decision: `ropey` (MIT, 2 crates; the rope 01-architecture names), `serde_json` (already in tree; the journal is JSON lines), `blake3` (3 crates, Deps-Approved: D-121).
+- Why: Dep-Added trailers on F-021 commits; check_deps OK.
+- Instead of: an in-tree BLAKE3 (removed, see D-121).

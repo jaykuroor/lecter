@@ -695,7 +695,7 @@
     "security"
    ],
    "try": "Type a note, quit Lecter, reopen: the note is still there",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2017,
    "base": "ed054ffd9708b4ea3665c0468adfa15ad35213a1"
