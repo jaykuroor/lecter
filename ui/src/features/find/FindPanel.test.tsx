@@ -62,11 +62,22 @@ describe("FindPanel", () => {
     render(() => <FindPanel state={state} onFind={(w) => asked.push(w)} />);
     const field = screen.getByRole("searchbox", { name: "Find in lectures" }) as HTMLInputElement;
     field.value = "covariance";
-    fireEvent.keyDown(field, { key: "Enter" });
+    // Handled here, so the key's default (an implicit form submission) is stopped: one search.
+    expect(fireEvent.keyDown(field, { key: "Enter" })).toBe(false);
     field.value = "zero sum";
     fireEvent.click(screen.getByRole("button", { name: "Find" }));
-    fireEvent.keyDown(field, { key: "a" });
+    // Other keys type as usual.
+    expect(fireEvent.keyDown(field, { key: "a" })).toBe(true);
     expect(asked).toEqual(["covariance", "zero sum"]);
+  });
+
+  it("a form submission searches once and never navigates", () => {
+    const asked: string[] = [];
+    const { state } = fixedState({});
+    const { container } = render(() => <FindPanel state={state} onFind={(w) => asked.push(w)} />);
+    (screen.getByRole("searchbox") as HTMLInputElement).value = "bilinear";
+    expect(fireEvent.submit(container.querySelector("form") as HTMLFormElement)).toBe(false);
+    expect(asked).toEqual(["bilinear"]);
   });
 
   it("shows the words of a :find in the field", () => {

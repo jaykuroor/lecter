@@ -167,7 +167,7 @@ fn slide_of(id: &str) -> Option<&str> {
 }
 
 /// Parses the inside of `{…}`: `#id`, `.class`, `key=value` and `key="value"`. Anything else is
-/// skipped, as the buffer's `parseAttrs` does.
+/// skipped, as the buffer's `parseAttrs` does. Unlike it, a second `#id` doesn't replace the first.
 fn parse_attrs(inner: &str) -> Attrs {
     let mut attrs = Attrs::default();
     let mut rest = inner;
@@ -177,7 +177,8 @@ fn parse_attrs(inner: &str) -> Attrs {
             rest = &rest[c.len_utf8()..];
         } else if let Some(r) = rest.strip_prefix('#') {
             let n = word_end(r, &['}']);
-            if n > 0 {
+            // The first id counts: a block span's is the one `block_span` checked.
+            if n > 0 && attrs.id.is_empty() {
                 attrs.id = r[..n].to_owned();
             }
             rest = &r[n..];

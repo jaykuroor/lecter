@@ -93,4 +93,54 @@ describe("createFind", () => {
     expect(find.hits()).toEqual([]);
     expect(find.busy()).toBe(false);
   });
+
+  it("starts empty and idle, and is busy while the core answers", async () => {
+    const find = createFind();
+    expect([find.query(), find.hits(), find.error(), find.busy()]).toEqual(["", [], null, false]);
+    const pending = find.run("/c/STAT311", "variables");
+    expect(find.busy()).toBe(true);
+    await pending;
+    expect(find.busy()).toBe(false);
+  });
+
+  it("an older search finishing doesn't end the newer one's wait", async () => {
+    const find = createFind();
+    const invoke = w().__TAURI_INTERNALS__.invoke;
+    const gates: (() => void)[] = [];
+    w().__TAURI_INTERNALS__.invoke = async (cmd, args) => {
+      await new Promise<void>((resolve) => gates.push(resolve));
+      return invoke(cmd, args);
+    };
+    const first = find.run("/c/STAT311", "eigenvalue");
+    const second = find.run("/c/STAT311", "variables");
+    gates[0]?.();
+    await first;
+    expect(find.busy()).toBe(true);
+    gates[1]?.();
+    await second;
+    expect(find.busy()).toBe(false);
+    expect(find.hits()).toEqual(hits);
+  });
+
+  it("a core that can't be reached says so, unless a newer search took over", async () => {
+    const find = createFind();
+    const invoke = w().__TAURI_INTERNALS__.invoke;
+    w().__TAURI_INTERNALS__.invoke = () => Promise.reject(new Error("IPC is down"));
+    await find.run("/c/STAT311", "variables");
+    expect(find.error()).toBe("Lecter could not reach the core to search.");
+
+    let failFirst: () => void = () => undefined;
+    let calls = 0;
+    w().__TAURI_INTERNALS__.invoke = (cmd, args) => {
+      calls += 1;
+      if (calls === 1) return new Promise((_, reject) => (failFirst = () => reject(new Error("IPC is down"))));
+      return invoke(cmd, args);
+    };
+    const first = find.run("/c/STAT311", "eigenvalue");
+    await find.run("/c/STAT311", "variables");
+    failFirst();
+    await first;
+    expect(find.error()).toBeNull();
+    expect(find.hits()).toEqual(hits);
+  });
 });

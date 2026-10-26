@@ -123,6 +123,8 @@ fn a_lecture_is_indexed_block_by_block_with_lecture_slide_and_block_ids() {
     let dir = std::fs::canonicalize(env.home().join("STAT311/.lecter/cache/index")).unwrap();
     assert_eq!(index.dir(), dir);
     assert!(dir.join("meta.json").is_file(), "the index is on disk");
+    // Debug shows where the index is, and nothing indexed.
+    assert_eq!(format!("{index:?}"), format!("CourseIndex {{ dir: {dir:?}, .. }}"));
 }
 
 #[test]

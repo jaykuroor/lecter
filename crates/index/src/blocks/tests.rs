@@ -147,3 +147,24 @@ fn slide_ids_come_from_block_ids() {
         assert_eq!(slide_of(bad), None, "{bad}");
     }
 }
+
+/// Where the text ends is the buffer's regex `^\[(.*)\]\{(#s\d+b\d+(?:\s[^}]*)?)\}\s*$`: the
+/// attributes hold no `}` and start with a block id, so an earlier `]{` can be the one.
+#[test]
+fn the_text_ends_at_the_last_bracket_brace_whose_attributes_fit() {
+    let spans = |line: &str| block_span(line).map(|(text, attrs)| (text.to_owned(), attrs.id));
+    // The last `]{` has no block id: the one before it does, and its attributes run to the end.
+    assert_eq!(spans("[a]{#s1b1 ]{b}"), Some(("a".to_owned(), "s1b1".to_owned())));
+    assert_eq!(spans("[a]{#s1b1 ]{#bad}"), Some(("a".to_owned(), "s1b1".to_owned())));
+    // Attributes that start with a block id but hold a `}` don't fit.
+    assert_eq!(spans("[a]{#s1b1 x}y}"), None);
+}
+
+#[test]
+fn attribute_tokens_need_a_name() {
+    // A bare `#` or `.` names nothing and changes nothing; neither does a value without a key.
+    let attrs = parse_attrs("#s3 # . .flag =x data-n=1 my_key=2");
+    assert_eq!(attrs.id, "s3");
+    assert_eq!(attrs.classes, ["flag"]);
+    assert_eq!(attrs.values, [("data-n".to_owned(), "1".to_owned()), ("my_key".to_owned(), "2".to_owned())]);
+}

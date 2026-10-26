@@ -78,6 +78,14 @@ describe("App shell", () => {
     expect(w.__mockFinds?.at(-1)).toEqual({ course: "/c/STAT311", query: "variables" });
   });
 
+  it("searching before a course is open explains instead of failing", () => {
+    render(() => <App />);
+    const panel = screen.getByRole("region", { name: "Find" });
+    (within(panel).getByRole("searchbox") as HTMLInputElement).value = "variables";
+    fireEvent.click(within(panel).getByRole("button", { name: "Find" }));
+    expect(within(panel).getByRole("alert").textContent).toBe("Open a course to search its lectures.");
+  });
+
   it("shows the version the core reports in the status line", async () => {
     render(() => <App />);
     const status = screen.getByRole("status", { name: "Status line" });

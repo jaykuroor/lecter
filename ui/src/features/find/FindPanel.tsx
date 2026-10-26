@@ -13,8 +13,8 @@ export function FindPanel(props: {
   /** Runs a search for the words typed in the field. */
   onFind: (words: string) => void;
 }): JSX.Element {
-  let input: HTMLInputElement | undefined;
-  const submit = () => props.onFind(input?.value ?? "");
+  let input!: HTMLInputElement;
+  const submit = () => props.onFind(input.value);
   // Enter is handled here, not left to the form's implicit submission: that runs only for trusted
   // key events, so a synthetic key (the embedded WebDriver, assistive tools) would never search.
   const onKeyDown = (e: KeyboardEvent) => {

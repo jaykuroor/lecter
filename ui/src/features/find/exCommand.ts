@@ -18,7 +18,7 @@ let handler: FindHandler | null = null;
 const registered = new WeakSet<ExApi>();
 
 /** The Ex command's body: the words after `:find`, to the current handler. */
-export const findEx: ExFn = (_cm, params) => handler?.((params.argString ?? "").trim());
+const findEx: ExFn = (_cm, params) => handler?.((params.argString ?? "").trim());
 
 /**
  * Defines `:find` (shortest form `:fin`) once per Vim API and points it at `onFind`. Returns a
