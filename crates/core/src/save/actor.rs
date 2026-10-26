@@ -73,7 +73,7 @@ impl Actor {
     }
 
     /// Applies `edits` and writes their records to the journal.
-    fn edit(&mut self, edits: &[Edit]) -> Result<()> {
+    pub(super) fn edit(&mut self, edits: &[Edit]) -> Result<()> {
         if edits.is_empty() {
             return Ok(());
         }
@@ -87,7 +87,7 @@ impl Actor {
     }
 
     /// Does what is due at `now`.
-    fn tick(&mut self, now: Instant) {
+    pub(super) fn tick(&mut self, now: Instant) {
         if self.schedule.save_due(now) {
             match self.save() {
                 Ok(()) => self.schedule.saved(),

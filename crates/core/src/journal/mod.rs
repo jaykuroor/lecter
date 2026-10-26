@@ -8,7 +8,6 @@
 //!
 //! Everything here blocks on the file system: it runs on the session's own thread.
 
-mod hash;
 mod record;
 mod replay;
 
@@ -17,11 +16,15 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub use hash::blake3_hex;
 pub use record::{Op, Record, VERSION};
 pub use replay::{Replay, replay};
 
 use crate::save::atomic;
+
+/// The BLAKE3 hash of `bytes` as 64 lower-case hex digits: a journal record's `base` (D-121).
+pub fn blake3_hex(bytes: &[u8]) -> String {
+    blake3::hash(bytes).to_hex().to_string()
+}
 
 /// The journal folder, relative to the course root.
 pub const DIR: &str = ".lecter/journal";
@@ -92,6 +95,8 @@ pub struct Journal {
     base: String,
     /// Bytes in the file.
     len: u64,
+    /// Bytes known to be on the disk (`fsync`'d).
+    synced: u64,
 }
 
 impl Journal {
@@ -110,7 +115,14 @@ impl Journal {
             push(r.op.clone());
         }
         let file = atomic::write(path, text.as_bytes(), || Ok(()))?;
-        Ok(Self { path: path.to_owned(), file, next_seq: seq, base: base.to_owned(), len: text.len() as u64 })
+        Ok(Self {
+            path: path.to_owned(),
+            file,
+            next_seq: seq,
+            base: base.to_owned(),
+            len: text.len() as u64,
+            synced: text.len() as u64,
+        })
     }
 
     /// Appends one `replace` record per `(from, to, text)`, in order, with one write. The records
@@ -148,7 +160,14 @@ impl Journal {
     /// Flushes everything written to the disk.
     #[allow(clippy::disallowed_methods, reason = "runs on the session thread, never on the runtime")]
     pub fn sync(&mut self) -> io::Result<()> {
-        self.file.sync_data()
+        self.file.sync_data()?;
+        self.synced = self.len;
+        Ok(())
+    }
+
+    /// Bytes written but not yet `fsync`'d.
+    pub const fn unsynced(&self) -> u64 {
+        self.len - self.synced
     }
 
     /// The journal file's size in bytes.

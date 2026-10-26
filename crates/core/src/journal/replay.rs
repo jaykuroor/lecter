@@ -2,9 +2,11 @@
 //! checkpoint whose `base` matches the file on disk. A checkpoint doesn't change the document, so
 //! later checkpoints in between are passed over. A truncated last line (a crash mid-write) is
 //! ignored. Records that can't be applied to the file on disk are left for the caller to keep
-//! aside (ROB-11); they are never applied to a file they weren't written against.
+//! aside (ROB-11); they are never applied to a file they weren't written against, nor when they
+//! would grow the document past what an open reads back (`MAX_LECTURE_BYTES`).
 
 use super::record::{Op, Record};
+use crate::lecture::MAX_LECTURE_BYTES;
 
 /// What the journal holds for the file on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,7 +85,7 @@ pub fn replay(log: &[u8], disk_hash: &str, text: &str) -> Replay {
     let mut out = text.to_owned();
     for r in &edits {
         if let Op::Replace { from, to, text } = &r.op
-            && apply(&mut out, *from, *to, text).is_none()
+            && (apply(&mut out, *from, *to, text).is_none() || out.len() as u64 > MAX_LECTURE_BYTES)
         {
             return Replay::Mismatch { last_seq };
         }

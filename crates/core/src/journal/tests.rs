@@ -58,6 +58,13 @@ fn records_parse_back_and_other_versions_or_ops_do_not() {
     assert_eq!(Record::parse(b"not json"), None);
 }
 
+/// `base` is BLAKE3 (default mode, 32 bytes, lower-case hex): the reference vectors for "" and "abc".
+#[test]
+fn base_hashes_are_blake3_hex() {
+    assert_eq!(blake3_hex(b""), "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262");
+    assert_eq!(blake3_hex(b"abc"), "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85");
+}
+
 #[test]
 fn journal_file_is_named_after_the_lecture_stem() {
     assert_eq!(file_name("2026-10-23-l07-covariance.md"), "2026-10-23-l07-covariance.log");
@@ -115,6 +122,22 @@ fn unsaved_edits_against_another_file_are_a_mismatch() {
 fn a_changed_file_with_no_unsaved_edits_is_clean() {
     let records = [checkpoint(1, "H0"), replace(2, "H0", 0, 0, "a"), checkpoint(3, "H1")];
     assert_eq!(replay(&log(&records), "OTHER", "x"), Replay::Clean { last_seq: 3 });
+}
+
+/// A replay may not build a document larger than an open reads back (16 MB): the next save
+/// would write a lecture that no longer opens. Such records are kept aside, not applied.
+#[test]
+fn a_replay_past_the_lecture_size_limit_is_a_mismatch() {
+    let limit = usize::try_from(crate::lecture::MAX_LECTURE_BYTES).unwrap();
+    let fill = "a".repeat(limit - 1);
+    let records = [checkpoint(1, "H0"), replace(2, "H0", 1, 1, &fill)];
+    let over = replay(&log(&records), "H0", "xy");
+    assert!(matches!(over, Replay::Mismatch { last_seq: 2 }), "{:?}", std::mem::discriminant(&over));
+    // Exactly the limit still replays.
+    match replay(&log(&records), "H0", "x") {
+        Replay::Recovered { text, .. } => assert_eq!(text.len(), limit),
+        other => panic!("{:?}", std::mem::discriminant(&other)),
+    }
 }
 
 #[test]
@@ -196,6 +219,23 @@ fn appends_carry_the_disk_base_until_a_save_lands() {
         ]
     );
     assert_eq!(j.size(), std::fs::metadata(&path).unwrap().len());
+}
+
+#[test]
+fn unsynced_counts_bytes_written_since_the_last_sync() {
+    let (_env, dir) = folder();
+    let path = dir.join("l07.log");
+    let mut j = Journal::start(&path, "H0", &[], 1).unwrap();
+    assert_eq!(j.unsynced(), 0);
+    let before = j.size();
+    j.append_edits(&[(0, 0, "a".into())]).unwrap();
+    assert_eq!(j.unsynced(), j.size() - before);
+    assert!(j.unsynced() > 0);
+    j.sync().unwrap();
+    assert_eq!(j.unsynced(), 0);
+    j.append_edits(&[(1, 1, "b".into())]).unwrap();
+    j.append_checkpoint("H1").unwrap();
+    assert_eq!(j.unsynced(), 0, "a checkpoint syncs");
 }
 
 #[test]

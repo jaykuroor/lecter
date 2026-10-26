@@ -346,3 +346,29 @@ fn a_read_only_course_fails_with_permission_denied() {
         assert_eq!(got, Err(Error::Io(io::ErrorKind::PermissionDenied)));
     }
 }
+
+/// F-021.1: the session thread `fsync`s the journal 250 ms after an edit, not before, and the
+/// `.md` still waits for its 1 s debounce.
+#[test]
+fn tick_syncs_the_journal_250_ms_after_an_edit() {
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env, LECTURE);
+    let (_, _, target) = crate::lecture::open_at(&dir, REL).unwrap();
+    let log = env.home().join("l07.log");
+    let journal = Journal::start(&log, &journal::blake3_hex(LECTURE.as_bytes()), &[], 1).unwrap();
+    assert_eq!(journal.unsynced(), 0);
+    let schedule = Schedule::new(Timing::default());
+    let mut actor = Actor { doc: Document::new(LECTURE), journal, target, rel: REL.into(), schedule };
+    let start = std::fs::metadata(&log).unwrap().len();
+    let before = Instant::now();
+    actor.edit(&[edit(0, 0, "x")]).unwrap();
+    let after = Instant::now();
+    let written = actor.journal.unsynced();
+    assert_eq!(written, std::fs::metadata(&log).unwrap().len() - start);
+    assert!(written > 0);
+    actor.tick(before + Duration::from_millis(249));
+    assert_eq!(actor.journal.unsynced(), written, "synced early");
+    actor.tick(after + Duration::from_millis(250));
+    assert_eq!(actor.journal.unsynced(), 0, "not synced at 250 ms");
+    assert_eq!(on_disk(&dir), LECTURE, "saved before the debounce");
+}
