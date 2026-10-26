@@ -9,3 +9,18 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+# The anchored block's text and breadcrumb, read as search reads them (01-architecture.md#repository-layout).
+lecter-index = { path = "../index" }
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_json.workspace = true
+thiserror = "2.0.21"
+# Streams run as tasks on the app's runtime and pace themselves with timers.
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
+# Every job takes a CancellationToken (crates/CLAUDE.md).
+tokio-util = { version = "0.7.20", default-features = false }
+tracing = "0.1.44"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
