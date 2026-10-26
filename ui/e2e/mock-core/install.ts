@@ -40,6 +40,13 @@ export function installMockCore(fixture: MockFixture): void {
       w.__mockEdits.push(args);
       return null;
     },
+    // Records each call for the test to read back (window.__mockFinds).
+    search_find: (args) => {
+      const w = window as unknown as { __mockFinds?: (typeof args)[] };
+      w.__mockFinds ??= [];
+      w.__mockFinds.push(args);
+      return fixture.find[args.query] ?? [];
+    },
   };
   const isCommand = (cmd: string): cmd is CommandName => Object.hasOwn(handlers, cmd);
   const callbacks = new Map<number, (response: unknown) => void>();

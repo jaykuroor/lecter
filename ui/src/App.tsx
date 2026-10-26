@@ -1,8 +1,11 @@
-import { Show } from "solid-js";
+import { onCleanup, Show } from "solid-js";
 import { Buffer } from "./features/buffer/Buffer";
 import { CoursePanel } from "./features/course/CoursePanel";
+import { registerFindCommand } from "./features/find/exCommand";
+import { FindPanel } from "./features/find/FindPanel";
 import { createAppInfo } from "./state/appInfo";
 import { createCourse } from "./state/course";
+import { createFind } from "./state/find";
 import { createLecture } from "./state/lecture";
 import "./App.css";
 
@@ -15,6 +18,10 @@ export function App() {
   const info = createAppInfo();
   const course = createCourse();
   const lecture = createLecture();
+  const find = createFind();
+  // `:find words` in the buffer and the Find field both search the open course (F-022).
+  const runFind = (words: string) => void find.run(course.course()?.path ?? null, words);
+  onCleanup(registerFindCommand(runFind));
   return (
     <div class="app-frame">
       <header class="headerbar">
@@ -37,7 +44,9 @@ export function App() {
           </Show>
         </footer>
       </div>
-      <aside class="side-panel" aria-label="Side panel" />
+      <aside class="side-panel" aria-label="Side panel">
+        <FindPanel state={find} onFind={runFind} />
+      </aside>
     </div>
   );
 }
