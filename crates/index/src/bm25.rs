@@ -185,11 +185,13 @@ impl CourseIndex {
     }
 
     /// Drops the hits of lectures that are no longer files in the course folder `course` (deleted
-    /// or renamed since they were indexed) and forgets those lectures' entries.
+    /// or renamed since they were indexed) and forgets those lectures' entries. The index is a
+    /// file in the course folder, so a lecture path that isn't `lectures/<name>` counts as gone
+    /// and is never looked up outside the course (SEC-35).
     pub fn drop_missing(&self, course: &Path, hits: &mut Vec<Hit>) -> Result<()> {
         let mut gone: Vec<String> = Vec::new();
         for hit in hits.iter() {
-            if !gone.contains(&hit.lecture) && !is_file(&course.join(&hit.lecture)) {
+            if !gone.contains(&hit.lecture) && !(lecture_path(&hit.lecture) && is_file(&course.join(&hit.lecture))) {
                 gone.push(hit.lecture.clone());
             }
         }
@@ -256,6 +258,13 @@ impl CourseIndex {
 
 fn open_dir(dir: &Path) -> Result<MmapDirectory> {
     MmapDirectory::open(dir).map_err(|e| Error::Index(e.to_string()))
+}
+
+/// Whether `rel` has a lecture path's shape: `lectures/` and one name, with no separator, drive or
+/// NUL that could lead out of the folder. (`lectures/`, `lectures/.` and `lectures/..` pass, but
+/// they are folders, which the file check refuses.)
+fn lecture_path(rel: &str) -> bool {
+    rel.strip_prefix("lectures/").is_some_and(|name| !name.contains(['/', '\\', ':', '\0']))
 }
 
 /// Whether `path` is a regular file now.

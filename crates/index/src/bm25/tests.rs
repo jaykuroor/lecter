@@ -333,3 +333,30 @@ fn hits_of_lectures_no_longer_on_disk_are_dropped_and_forgotten() {
     index.drop_missing(&dir, &mut hits).unwrap();
     assert!(hits.is_empty());
 }
+
+/// SEC-35: the index is a file in the course folder, so its lecture paths are untrusted: one that
+/// isn't `lectures/<name>` is dropped even when it names an existing file.
+#[test]
+fn hits_whose_lecture_path_leaves_lectures_are_dropped() {
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env);
+    std::fs::write(dir.join("course.md"), "x").unwrap();
+    std::fs::create_dir_all(dir.join("lectures/sub")).unwrap();
+    std::fs::write(dir.join("lectures/sub/x.md"), "x").unwrap();
+    std::fs::write(dir.join("lectures/ok.md"), "x").unwrap();
+    let outside = env.home().join("outside.md");
+    std::fs::write(&outside, "x").unwrap();
+    let index = CourseIndex::open(&dir).unwrap();
+    let crafted =
+        ["course.md", "lectures/../course.md", "lectures/sub/x.md", "lectures/", "lectures/..", "lectures/ok.md"];
+    let mut paths: Vec<String> = crafted.iter().map(|s| (*s).to_owned()).collect();
+    paths.push(outside.to_string_lossy().into_owned());
+    paths.push(format!("lectures/{}", outside.to_string_lossy()));
+    for p in &paths {
+        index.index_lecture(p, "[zero]{#s1b1}\n").unwrap();
+    }
+    let mut hits = index.search("zero", 50).unwrap();
+    assert_eq!(hits.len(), paths.len());
+    index.drop_missing(&dir, &mut hits).unwrap();
+    assert_eq!(ids(&hits), [("lectures/ok.md", "s1b1")]);
+}
