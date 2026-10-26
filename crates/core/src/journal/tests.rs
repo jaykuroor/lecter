@@ -161,7 +161,8 @@ fn a_damaged_line_before_the_last_is_a_mismatch() {
 
 #[test]
 fn an_edit_that_does_not_fit_the_text_is_a_mismatch() {
-    for (from, to) in [(0, 9), (2, 1), (1, 1)] {
+    // Past the end, from > to, and offset 1 (inside "é") as both ends, as `to` only, as `from` only.
+    for (from, to) in [(0, 9), (2, 1), (1, 1), (0, 1), (1, 2)] {
         // "é" is two bytes: offset 1 is inside it.
         let records = [checkpoint(1, "H0"), replace(2, "H0", from, to, "z")];
         assert_eq!(replay(&log(&records), "H0", "éx"), Replay::Mismatch { last_seq: 2 }, "{from}..{to}");
@@ -185,11 +186,10 @@ fn start_writes_a_checkpoint_then_the_unsaved_edits_renumbered() {
         (&json!(10), &json!("H0"), &json!("replace"), &json!(1), &json!(2), &json!("x"))
     );
     assert_eq!(j.size(), std::fs::metadata(&path).unwrap().len());
-    assert!(!atomic_temp(&path).exists(), "temp file left behind");
-}
-
-fn atomic_temp(path: &Path) -> PathBuf {
-    crate::save::atomic::temp_path(path)
+    // Only the journal is left in the folder: no temp file.
+    let names: Vec<String> =
+        std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+    assert_eq!(names, ["l07.log"]);
 }
 
 #[test]

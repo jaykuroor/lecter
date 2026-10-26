@@ -67,7 +67,8 @@ pub fn replay(log: &[u8], disk_hash: &str, text: &str) -> Replay {
     let last_seq = records.iter().map(|r| r.seq).max().unwrap_or(0);
     let is_checkpoint = |r: &Record| r.op == Op::Checkpoint;
     let start = match records.iter().rposition(|r| is_checkpoint(r) && r.base == disk_hash) {
-        Some(i) => i + 1,
+        // From the matching checkpoint on; checkpoints themselves are skipped below.
+        Some(i) => i,
         None => {
             // No checkpoint matches. Only edits after the last checkpoint were never saved; if
             // there are none, the file on disk holds everything.
