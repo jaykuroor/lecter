@@ -329,7 +329,7 @@ fn a_save_compacts_a_journal_over_64_kib() {
     session.close().unwrap_err();
 }
 
-/// A course folder Lecter may not write to: the journal can't be made, and the error says so
+/// A course whose .lecter folder Lecter may not write to: the journal can't be made, and the error says so
 /// (not a later, misleading "not found").
 #[cfg(unix)]
 #[test]
@@ -337,11 +337,12 @@ fn a_read_only_course_fails_with_permission_denied() {
     use std::os::unix::fs::PermissionsExt;
     let env = TestEnv::new().unwrap();
     let dir = course(&env, LECTURE);
-    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+    // An empty, read-only .lecter: the test home can still remove it, even after a killed run.
+    std::fs::create_dir(dir.join(".lecter")).unwrap();
+    std::fs::set_permissions(dir.join(".lecter"), std::fs::Permissions::from_mode(0o555)).unwrap();
     let got = Session::open(&dir, REL).map(|_| ());
-    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
     // Root ignores permissions; nothing to check there.
-    if std::fs::metadata(dir.join(".lecter")).is_err() {
+    if std::fs::metadata(dir.join(".lecter/journal")).is_err() {
         assert_eq!(got, Err(Error::Io(io::ErrorKind::PermissionDenied)));
     }
 }
