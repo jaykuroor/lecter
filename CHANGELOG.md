@@ -14,3 +14,4 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - The UI's types for talking to the core are generated from the Rust code, and oversized requests are refused before they reach a command (F-017)
 - Open a course folder from the rail (mouse, or Enter/Space on the button) and see its lectures and slides; files linked from outside the course are refused (F-018)
 - `lecter-harness parse <pdf>` turns a text PDF into blocks through a separate parse process; a crash or hang marks the file as failed and the app keeps running (F-019)
+- Open a lecture from the course rail and move through its slides with Vim keys (j, k, gg, G; i and Esc) (F-020)

@@ -625,3 +625,22 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `postcard` (3 crates), `pdfium-render` (D-085), `tokio` (workspace dependency, default features off), plus already-in-tree `serde`, `thiserror`, `serde_json`.
 - Why: Dep-Added trailers on F-019 commits; check_deps OK.
 - Instead of: see D-111 and D-112.
+
+## D-115 · The buffer holds the whole lecture file
+2026-10-25 · session F-020 · active
+- Decision: the CodeMirror document is the lecture .md text. Front matter, `:::` fences and `## title` lines are hidden by block decorations and `[..]{#id}` brackets by inline ones; a transaction filter keeps the cursor on visible text, moving off hidden lines in the direction of travel. The slide source line reads "07-covariance.pdf · slide 3" from the `src` letter and the front-matter `slides:` list. Vim mode is exposed as `data-vim-mode` on the buffer.
+- Why: 18-contracts' journal uses byte offsets into the .md (F-021); `i` must type inside the span.
+- Instead of: a projected document built from parsed blocks.
+- Revisit if: CRLF lectures appear (CodeMirror normalises to LF, breaking byte offsets).
+
+## D-116 · j/k/gg/G move by element
+2026-10-25 · session F-020 · active
+- Decision: j/k move to the next/previous element and gg/G to the first/last, skipping hidden and blank lines, keeping the column within the text; a count picks the nth element. With an operator pending they move by plain lines.
+- Why: 10-keymap.md says "line or element".
+- Instead of: Vim's raw line motions.
+
+## D-117 · lecture_open is session-gated; CodeMirror packages added
+2026-10-25 · session F-020 · active
+- Decision: `lecture_open(course, path)` accepts only a course that `course_open` returned this session (`app/src/ipc/session.rs`) and only `lectures/<name>.md`; canonicalised, within the course root, UTF-8, capped at 16 MiB; new core errors NotALecture, LectureNotFound, LectureTooLarge, NotUtf8, ReadFailed. The capability adds only `allow-lecture-open`. Dependencies: @codemirror/state 6.7.6, @codemirror/view 6.43.14, @codemirror/commands 6.11.1, @replit/codemirror-vim 6.4.0 (MIT; the F-001 spike versions, D-080). Main JS chunk 138 KB gz. The buffer perf test launches its own Chromium with vsync off under every Playwright project (D-080 method).
+- Why: SEC-32/35; Dep-Added trailers on F-020 commits.
+- Instead of: an unrestricted path argument.

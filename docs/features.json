@@ -656,7 +656,7 @@
     "perf"
    ],
    "try": "Open a lecture; move with j/k, type with i, leave with Esc",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2016,
    "base": "5ff7b19bfb34579520b4a743bbca114c5afc063c"

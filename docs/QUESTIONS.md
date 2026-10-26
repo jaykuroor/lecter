@@ -86,5 +86,11 @@ Should a course whose slides/ links to files outside it (e.g. ~/Downloads) open 
 - Recommended: keep the failure until F-033's trust screen can explain it and offer to include them. (applied as default: yes)
 - Answer:
 
+## Q-013 · planning · blocks: nothing
+F-020 criterion 4 compares with `docs/design/reference/buffer-*.png`, which don't exist: add buffer crops, or reword the criterion to the existing crops?
+- Context: the reviewer accepted F-020 against `slide-heading.png` and `block-focused.png`; colours and fonts arrive with F-042, which should re-compare. Also from F-020: 18-contracts lists `lecture_open` without arguments (it takes `course, path`, D-117); nothing writes a lecture from parsed PDF blocks before F-061, but F-026's flow needs that path.
+- Recommended: reword to the existing crops and have F-042 re-compare; add `(course, path)` to 18-contracts. (applied as default: yes)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
