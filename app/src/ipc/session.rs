@@ -58,6 +58,11 @@ impl OpenLectures {
         Ok((session, others))
     }
 
+    /// The open sessions of `course`, in no set order.
+    pub fn in_course(&self, course: &str) -> Vec<Arc<Session>> {
+        self.lock().iter().filter(|((c, _), _)| c == course).map(|(_, s)| Arc::clone(s)).collect()
+    }
+
     /// Removes every session, for the caller to close.
     pub fn take_all(&self) -> Vec<Arc<Session>> {
         self.lock().drain().map(|(_, s)| s).collect()

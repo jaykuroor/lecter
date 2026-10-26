@@ -1,4 +1,14 @@
 //! `lecter-index`: Search: Tantivy BM25, int8 vectors, retrieval tiers, course card and digest.
+//!
+//! v0 skeleton (F-022): lecture slide blocks in a per-course Tantivy BM25 index
+//! ([`CourseIndex`]), searched by words ([`CourseIndex::search`]).
+
+pub mod blocks;
+pub mod bm25;
+pub mod error;
+
+pub use bm25::{CourseIndex, Hit, INDEX_DIR, MAX_HITS};
+pub use error::{Error, Result};
 
 /// This crate's package name.
 pub const NAME: &str = env!("CARGO_PKG_NAME");

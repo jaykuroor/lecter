@@ -10,22 +10,28 @@ use tauri::State;
 
 use super::course::ipc_error;
 use super::error::{ErrorCode, IpcError};
+use super::search::{SearchIndexes, index_in_background};
 use super::session::{OpenLectures, OpenedCourses};
 
 /// Opens `path` (`lectures/<name>.md`, relative to the course) in `course`, which must be a
 /// course `course_open` returned this session, and returns the whole file with any journal
 /// edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
 /// file E_NOT_FOUND and a link out of the course E_NOT_TRUSTED. Opening a lecture saves and
-/// closes the one open before it.
+/// closes the one open before it. The opened lecture's blocks are then indexed for `:find`, in
+/// the background (F-022).
 #[tauri::command]
 #[specta::specta]
 pub async fn lecture_open(
     courses: State<'_, OpenedCourses>,
     lectures: State<'_, OpenLectures>,
+    indexes: State<'_, SearchIndexes>,
     course: String,
     path: String,
 ) -> Result<Lecture, IpcError> {
-    open(&courses, &lectures, course, path).await
+    let lecture = open(&courses, &lectures, course.clone(), path).await?;
+    // Not awaited: search_find indexes the open lectures itself, so nothing depends on it.
+    drop(index_in_background(&indexes, course, lecture.path.clone(), lecture.text.clone()));
+    Ok(lecture)
 }
 
 /// Applies `edits` to the open lecture `path` of `course`, in order, and returns once they are
@@ -44,10 +50,10 @@ pub async fn lecture_apply_edits(
     apply_edits(&courses, &lectures, &course, &path, edits).await
 }
 
-/// The check every lecture command makes before anything touches the disk: only a folder the
+/// The check every lecture and search command makes before anything touches the disk: only a folder the
 /// user picked in a dialog this session may be read or written (SEC-32, SEC-35). Logged without
 /// the path.
-fn check_course(courses: &OpenedCourses, command: &str, course: &str) -> Result<(), IpcError> {
+pub(super) fn check_course(courses: &OpenedCourses, command: &str, course: &str) -> Result<(), IpcError> {
     if courses.contains(course) {
         return Ok(());
     }

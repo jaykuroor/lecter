@@ -34,6 +34,7 @@ fn main() {
     let built = builder
         .manage(ipc::session::OpenedCourses::default())
         .manage(lectures.clone())
+        .manage(ipc::search::SearchIndexes::default())
         .invoke_handler(ipc::invoke_handler(&contract))
         .setup(move |app| {
             contract.mount_events(app);

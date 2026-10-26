@@ -24,7 +24,6 @@ pub use schedule::Timing;
 use self::actor::{Actor, Msg};
 use self::document::Document;
 use self::schedule::Schedule;
-use crate::course::within;
 use crate::error::{Error, Result};
 use crate::journal::{self, Existing, Journal, Replay, blake3_hex};
 use crate::lecture::{self, Lecture};
@@ -68,7 +67,7 @@ impl Session {
         let journal_err = |e: io::Error| Error::JournalFailed { path: rel.to_owned(), kind: e.kind() };
         let disk = blake3_hex(lecture.text.as_bytes());
         let text = normalize(&lecture.text).into_owned();
-        let log = journal_dir(&root)?.join(journal::file_name(&lecture.name));
+        let log = crate::course::ensure_dir(&root, journal::DIR)?.join(journal::file_name(&lecture.name));
         let replay = match journal::read(&log).map_err(journal_err)? {
             Existing::Missing => Replay::Clean { last_seq: 0 },
             Existing::Bytes(bytes) => journal::replay(&bytes, &disk, &text),
@@ -132,31 +131,6 @@ impl Session {
         self.inbox.send(msg(reply)).map_err(|_| gone())?;
         answer.recv().map_err(|_| gone())
     }
-}
-
-/// `<root>/.lecter/journal`, created if needed. Each level is checked before anything is created
-/// inside it, so a `.lecter` link out of the course is refused, not written through (SEC-35).
-#[allow(clippy::disallowed_methods, reason = "runs in spawn_blocking or on the session thread")]
-fn journal_dir(root: &Path) -> Result<PathBuf> {
-    let io = |e: io::Error| Error::Io(e.kind());
-    let mut dir = root.to_path_buf();
-    for part in journal::DIR.split('/') {
-        dir.push(part);
-        match std::fs::create_dir(&dir) {
-            Ok(()) => {}
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(io(e)),
-        }
-        let real = std::fs::canonicalize(&dir).map_err(io)?;
-        if !within(root, &real) {
-            return Err(Error::OutsideCourse(journal::DIR.to_owned()));
-        }
-        if !std::fs::metadata(&real).map_err(io)?.is_dir() {
-            return Err(Error::Io(io::ErrorKind::NotADirectory));
-        }
-        dir = real;
-    }
-    Ok(dir)
 }
 
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]

@@ -7,10 +7,13 @@ export interface MockFixture {
   courseOpen: Commands["course_open"]["result"];
   /** The lecture files `lecture_open` serves, by course-relative path; any other path is E_NOT_FOUND. */
   lectures: Record<string, Commands["lecture_open"]["result"]>;
+  /** The hits `search_find` answers, by query exactly as sent; any other query finds nothing. */
+  find: Record<string, Commands["search_find"]["result"]>;
 }
 
 export const defaultFixture: MockFixture = {
   appInfo: { name: "Lecter", version: "0.0.1" },
   courseOpen: null,
   lectures: {},
+  find: {},
 };

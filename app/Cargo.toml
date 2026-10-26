@@ -15,6 +15,8 @@ workspace = true
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
 lecter-core = { path = "../crates/core", features = ["specta"] }
+# Search: the per-course BM25 index behind search_find (F-022).
+lecter-index = { path = "../crates/index" }
 specta.workspace = true
 specta-typescript = "=0.0.12"
 tauri = "2"
