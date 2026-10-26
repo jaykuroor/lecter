@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 /** The allowance a timing budget gets on CI. */
-export const CI_ALLOWANCE = 1.5;
+const CI_ALLOWANCE = 1.5;
 
 /** A budget value and where it came from, for the report line. */
 export interface Budget {
