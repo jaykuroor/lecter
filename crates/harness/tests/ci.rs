@@ -393,7 +393,14 @@ fn init_check_wants_the_pinned_node_and_falls_back_to_node_24() -> Result<(), St
 #[cfg(unix)]
 #[test]
 fn init_replaces_a_node_link_that_points_somewhere_else() -> Result<(), String> {
-    let want = "24.18.0";
+    // The version ui/package.json pins, as init.sh reads it.
+    let want = read("ui/package.json")?
+        .lines()
+        .find_map(|l| {
+            l.trim().strip_prefix("\"node\": \"").map(|v| v.trim_end_matches(['"', ','].as_ref()).to_string())
+        })
+        .ok_or("ui/package.json has no engines.node")?;
+    let want = want.as_str();
     let dir = bare_path(&[
         ("node", "echo v22.23.1"),
         ("node-24", &format!("echo v{want}")),
