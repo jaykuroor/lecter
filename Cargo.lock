@@ -2081,6 +2081,7 @@ name = "lecter-app"
 version = "0.0.1"
 dependencies = [
  "lecter-core",
+ "lecter-index",
  "serde",
  "serde_json",
  "specta",

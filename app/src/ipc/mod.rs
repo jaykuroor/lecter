@@ -10,6 +10,7 @@ pub mod guard;
 pub mod lecture;
 #[cfg(test)]
 mod names;
+pub mod search;
 pub mod session;
 pub mod validate;
 
@@ -24,7 +25,8 @@ pub fn contract() -> Builder<Wry> {
             app::app_info,
             course::course_open,
             lecture::lecture_open,
-            lecture::lecture_apply_edits
+            lecture::lecture_apply_edits,
+            search::search_find
         ])
         .events(collect_events![])
 }

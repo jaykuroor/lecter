@@ -25,7 +25,8 @@ export const commands = {
 	 *  course `course_open` returned this session, and returns the whole file with any journal
 	 *  edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
 	 *  file E_NOT_FOUND and a link out of the course E_NOT_TRUSTED. Opening a lecture saves and
-	 *  closes the one open before it.
+	 *  closes the one open before it. The opened lecture's blocks are then indexed for `:find`, in
+	 *  the background (F-022).
 	 */
 	lectureOpen: (course: string, path: string) => typedError<Lecture, IpcError_Serialize>(__TAURI_INVOKE("lecture_open", { course, path })),
 	/**
@@ -35,6 +36,12 @@ export const commands = {
 	 *  batch that doesn't fit its text (refused whole); a failed journal write is E_IO.
 	 */
 	lectureApplyEdits: (course: string, path: string, edits: Edit[]) => typedError<null, IpcError_Serialize>(__TAURI_INVOKE("lecture_apply_edits", { course, path, edits })),
+	/**
+	 *  The hits for the words of `query` in the blocks of the lectures opened in `course` (a course
+	 *  `course_open` returned this session), best BM25 score first, at most 50. A query over 1 KB is
+	 *  E_INVALID_ARGUMENT; one with no words finds nothing.
+	 */
+	searchFind: (course: string, query: string) => typedError<FindHit[], IpcError_Serialize>(__TAURI_INVOKE("search_find", { course, query })),
 };
 
 /* Types */
@@ -121,6 +128,23 @@ export type ErrorCode =
 /**  Bug. */
 "E_INTERNAL";
 
+/**
+ *  One `:find` hit: a block of a lecture. Hits come best BM25 score first; the score itself stays
+ *  in the core (specta types an `f32` as `number | null`, and the list's order is what the UI shows).
+ */
+export type FindHit = {
+	/**  The lecture file, course-relative: `lectures/l07.md`. */
+	lecture: string,
+	/**  The slide id, e.g. `s3`. */
+	slide: string,
+	/**  The block id, e.g. `s3b1`. */
+	block: string,
+	/**  The block's text, as written in the lecture. */
+	text: string,
+	/**  Lecture title › slide title. */
+	breadcrumb: string,
+};
+
 export type IpcError = IpcError_Serialize | IpcError_Deserialize;
 
 export type IpcError_Deserialize = {
@@ -182,6 +206,11 @@ export type Commands = {
     args: { course: Parameters<typeof commands.lectureApplyEdits>[0]; path: Parameters<typeof commands.lectureApplyEdits>[1]; edits: Parameters<typeof commands.lectureApplyEdits>[2] };
     result: CommandOk<Awaited<ReturnType<typeof commands.lectureApplyEdits>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.lectureApplyEdits>>>;
+  };
+  search_find: {
+    args: { course: Parameters<typeof commands.searchFind>[0]; query: Parameters<typeof commands.searchFind>[1] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.searchFind>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.searchFind>>>;
   };
 };
 
