@@ -21,6 +21,10 @@ if [ -n "$NODE_WANT" ] && [ "$(node --version 2>/dev/null)" != "v$NODE_WANT" ] &
   for _shim in "${XDG_CACHE_HOME:-$HOME/.cache}/lecter/node-v$NODE_WANT" "${TMPDIR:+$TMPDIR/lecter-node-v$NODE_WANT}"; do
     [ -n "$_shim" ] && mkdir -p -m 700 "$_shim" 2>/dev/null && [ -O "$_shim" ] || continue
     [ "$(readlink "$_shim/node" 2>/dev/null)" = "$NODE_FALLBACK" ] || ln -sfn "$NODE_FALLBACK" "$_shim/node" 2>/dev/null || continue
+    for _t in pnpm corepack; do   # corepack's shims sit beside fnm's node (D-130)
+      _src="$(dirname "$NODE_FALLBACK")/$_t"
+      [ -e "$_src" ] && ln -sfn "$_src" "$_shim/$_t" 2>/dev/null || true
+    done
     export PATH="$_shim:$PATH" NODE_NOTE="node: using $NODE_FALLBACK (v$NODE_WANT)"; break
   done
 fi
