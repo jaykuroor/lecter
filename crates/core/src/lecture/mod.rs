@@ -9,7 +9,7 @@
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
 use std::io::{ErrorKind, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
@@ -38,6 +38,12 @@ pub struct Lecture {
 /// Opens the lecture at `rel` (course-relative, `lectures/<name>.md`) in the course folder
 /// `course` (an absolute path, as `course::open` returned it).
 pub fn open(course: &Path, rel: &str) -> Result<Lecture> {
+    open_at(course, rel).map(|(lecture, _, _)| lecture)
+}
+
+/// [`open`], also returning the canonical course root and the lecture file's canonical path,
+/// which the save session writes back to.
+pub(crate) fn open_at(course: &Path, rel: &str) -> Result<(Lecture, PathBuf, PathBuf)> {
     let name = lecture_name(rel)?;
     let root = course::canonical_folder(course)?;
     let read_failed = |kind| Error::ReadFailed { path: rel.to_owned(), kind };
@@ -74,7 +80,7 @@ pub fn open(course: &Path, rel: &str) -> Result<Lecture> {
         return Err(too_large());
     }
     let text = String::from_utf8(bytes).map_err(|_| Error::NotUtf8(rel.to_owned()))?;
-    Ok(Lecture { path: rel.to_owned(), name: name.to_owned(), text })
+    Ok((Lecture { path: rel.to_owned(), name: name.to_owned(), text }, root, real))
 }
 
 /// The file name in `lectures/<name>.md`, or [`Error::NotALecture`]: one plain, visible name
