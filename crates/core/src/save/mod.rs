@@ -46,11 +46,13 @@ pub struct Opened {
 }
 
 /// An open lecture that saves itself. Dropping the handle saves pending edits on the session's
-/// thread; [`Session::close`] does the same and waits for it.
+/// thread; [`Session::close`] does the same and waits for it. The handle is `Sync`: calls from
+/// several threads are handled one at a time, in the order they arrive.
 #[derive(Debug)]
 pub struct Session {
     inbox: SyncSender<Msg>,
     rel: String,
+    name: String,
 }
 
 impl Session {
@@ -94,7 +96,7 @@ impl Session {
             .name("lecter-save".into())
             .spawn(move || actor.run(&rx))
             .map_err(|e| Error::JournalFailed { path: rel.to_owned(), kind: e.kind() })?;
-        Ok((Self { inbox, rel: rel.to_owned() }, Opened { lecture, recovered, kept_aside }))
+        Ok((Self { inbox, rel: rel.to_owned(), name: lecture.name.clone() }, Opened { lecture, recovered, kept_aside }))
     }
 
     /// Applies `edits` (buffer positions, in order) and returns once they are in the journal.
@@ -108,8 +110,14 @@ impl Session {
         self.ask(Msg::Text)
     }
 
-    /// Saves pending edits and stops the session's thread.
-    pub fn close(self) -> Result<()> {
+    /// The lecture as the buffer shows it now, unsaved edits included.
+    pub fn lecture(&self) -> Result<Lecture> {
+        Ok(Lecture { path: self.rel.clone(), name: self.name.clone(), text: self.text()? })
+    }
+
+    /// Saves pending edits and stops the session's thread; later calls fail with
+    /// [`Error::LectureClosed`].
+    pub fn close(&self) -> Result<()> {
         self.ask(Msg::Close)?
     }
 

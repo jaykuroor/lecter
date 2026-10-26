@@ -22,11 +22,19 @@ export const commands = {
 }) & (CourseListing) | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
 	/**
 	 *  Opens `path` (`lectures/<name>.md`, relative to the course) in `course`, which must be a
-	 *  course `course_open` returned this session, and returns the whole file. A path outside
-	 *  `lectures/` is E_INVALID_ARGUMENT, a missing file E_NOT_FOUND and a link out of the course
-	 *  E_NOT_TRUSTED.
+	 *  course `course_open` returned this session, and returns the whole file with any journal
+	 *  edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
+	 *  file E_NOT_FOUND and a link out of the course E_NOT_TRUSTED. Opening a lecture saves and
+	 *  closes the one open before it.
 	 */
 	lectureOpen: (course: string, path: string) => typedError<Lecture, IpcError_Serialize>(__TAURI_INVOKE("lecture_open", { course, path })),
+	/**
+	 *  Applies `edits` to the open lecture `path` of `course`, in order, and returns once they are
+	 *  in its journal. Positions are UTF-16 code units, as CodeMirror counts them, each into the
+	 *  document as of the edit before. A lecture that isn't open is E_INVALID_ARGUMENT, as is a
+	 *  batch that doesn't fit its text (refused whole); a failed journal write is E_IO.
+	 */
+	lectureApplyEdits: (course: string, path: string, edits: Edit[]) => typedError<null, IpcError_Serialize>(__TAURI_INVOKE("lecture_apply_edits", { course, path, edits })),
 };
 
 /* Types */
@@ -63,6 +71,19 @@ export type CourseListing = {
 export type CourseOpened = {
 	trust: Trust,
 } & CourseListing;
+
+/**
+ *  One edit from the buffer: replace `from..to` with `text`. Positions are UTF-16 code units
+ *  into the document as of the previous edit (CodeMirror's positions).
+ */
+export type Edit = {
+	/**  The first position replaced. */
+	from: number,
+	/**  The position after the last one replaced; `from` for an insert. */
+	to: number,
+	/**  The new text; empty for a delete. */
+	text: string,
+};
 
 /**
  *  What kind of failure an IPC command (or a harness call) reports. On the wire it is the code's
@@ -156,6 +177,11 @@ export type Commands = {
     args: { course: Parameters<typeof commands.lectureOpen>[0]; path: Parameters<typeof commands.lectureOpen>[1] };
     result: CommandOk<Awaited<ReturnType<typeof commands.lectureOpen>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.lectureOpen>>>;
+  };
+  lecture_apply_edits: {
+    args: { course: Parameters<typeof commands.lectureApplyEdits>[0]; path: Parameters<typeof commands.lectureApplyEdits>[1]; edits: Parameters<typeof commands.lectureApplyEdits>[2] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.lectureApplyEdits>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.lectureApplyEdits>>>;
   };
 };
 

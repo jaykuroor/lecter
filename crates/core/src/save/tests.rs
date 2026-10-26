@@ -127,9 +127,12 @@ fn close_saves_pending_edits_at_once() {
     let dir = course(&env, LECTURE);
     let (session, _) = Session::open(&dir, REL).unwrap();
     session.apply(vec![edit(0, 0, "% notes\n")]).unwrap();
-    assert_eq!(session.text().unwrap(), format!("% notes\n{LECTURE}"));
+    let lecture = session.lecture().unwrap();
+    assert_eq!((lecture.path.as_str(), lecture.name.as_str()), (REL, "l07.md"));
+    assert_eq!(lecture.text, format!("% notes\n{LECTURE}"));
     session.close().unwrap();
     assert_eq!(on_disk(&dir), format!("% notes\n{LECTURE}"));
+    assert_eq!(session.apply(vec![edit(0, 0, "late")]).unwrap_err(), Error::LectureClosed(REL.into()));
 }
 
 #[test]
