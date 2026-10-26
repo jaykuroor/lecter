@@ -83,13 +83,35 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # Playwright's image has Chromium, WebKit and their system packages, so this job installs no apt
+    # packages and builds no Rust (it only runs Playwright against the mocked core). Keep the tag on
+    # the Playwright version in ui/pnpm-lock.yaml; the install step below covers a mismatch.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Playwright browsers (chromium, webkit)
-        run: pnpm -C ui exec playwright install --with-deps chromium webkit
+      - name: Trust the checkout (the container runs as root)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Python 3 for verify.sh (only if the image lacks it)
+        run: command -v python3 >/dev/null || { apt-get update -q && apt-get install -y -q --no-install-recommends python3; }
+      - name: pnpm from ui/package.json
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ui/package.json
+      - name: Node from ui/package.json, with the pnpm store cache
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ui/package.json
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - name: UI packages (lockfile only)
+        run: pnpm -C ui install --frozen-lockfile --reporter=append-only
+      # A no-op when the image matches the locked Playwright; downloads only the browsers if a
+      # Dependabot bump moved Playwright ahead of the image tag.
+      - name: Playwright browsers (already in the image)
+        run: pnpm -C ui exec playwright install chromium webkit
       - run: scripts/verify.sh --stage e2e
       - name: Upload Playwright traces
         if: failure()
@@ -102,6 +124,7 @@ jobs:
             .verify/
           retention-days: 14
           if-no-files-found: ignore
+          include-hidden-files: true
 
   e2e-app:
     needs: changes
