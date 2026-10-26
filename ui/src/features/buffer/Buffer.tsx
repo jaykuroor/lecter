@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { createEffect, createSignal, type JSX, onCleanup, Show } from "solid-js";
-import type { Lecture } from "../../core/lecture";
+import type { Edit, Lecture } from "../../core/lecture";
 import { lectureState } from "./editorState";
 import { registerElementMotions } from "./vim";
 import "./Buffer.css";
@@ -12,9 +12,15 @@ type Mode = "normal" | "insert" | "visual" | "replace";
 /**
  * The lecture buffer (09-ui.md#layout, docs/design/components.md#buffer): the open lecture's file
  * in one CodeMirror editor with Vim keys. Slide headings and blocks are decorations over the file's
- * text (decorations.ts). `data-vim-mode` carries the mode for the status line and tests.
+ * text (decorations.ts). `data-vim-mode` carries the mode for the status line and tests. Every
+ * edit goes to `onEdits` (edits.ts), which sends it to the core without waiting.
  */
-export function Buffer(props: { lecture: Lecture | null; error: string | null }): JSX.Element {
+export function Buffer(props: {
+  lecture: Lecture | null;
+  error: string | null;
+  /** Receives every edit, in order (F-021: the core journals and saves them). */
+  onEdits?: (edits: Edit[]) => void;
+}): JSX.Element {
   registerElementMotions();
   const [mode, setMode] = createSignal<Mode>("normal");
   let host: HTMLDivElement | undefined;
@@ -29,7 +35,7 @@ export function Buffer(props: { lecture: Lecture | null; error: string | null })
   createEffect(() => {
     const lecture = props.lecture;
     if (!lecture || !host) return;
-    const state = lectureState(lecture.text, `Lecture ${lecture.name}`);
+    const state = lectureState(lecture.text, `Lecture ${lecture.name}`, (edits) => props.onEdits?.(edits));
     if (view) view.setState(state);
     else view = new EditorView({ state, parent: host });
     followMode(view);
