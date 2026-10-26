@@ -49,8 +49,16 @@ pub fn open(course: &Path, rel: &str) -> Result<Lecture> {
     if !within(&root, &real) {
         return Err(Error::OutsideCourse(rel.to_owned()));
     }
+    // Only a regular file is a lecture, and that is checked before opening: opening a folder
+    // fails on Windows (PermissionDenied), and opening a FIFO blocks until a writer appears.
+    #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
+    let before = std::fs::metadata(&real).map_err(|e| read_failed(e.kind()))?;
+    if !before.is_file() {
+        return Err(Error::NotALecture(rel.to_owned()));
+    }
     #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
     let file = std::fs::File::open(&real).map_err(|e| read_failed(e.kind()))?;
+    // Checked again on the open handle: the path may have been swapped since.
     let meta = file.metadata().map_err(|e| read_failed(e.kind()))?;
     if !meta.is_file() {
         return Err(Error::NotALecture(rel.to_owned()));
