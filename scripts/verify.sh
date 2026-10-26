@@ -181,6 +181,10 @@ if on e2e-full && heavy && need e2e F-011 ui_script test:e2e; then run e2e pnpm 
 if on e2e-app && heavy && need e2e-app F-016 exists scripts/e2e-app.sh; then run e2e-app headless bash scripts/e2e-app.sh; fi
 if on perf-quick && heavy && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh --quick; fi
 if on perf && heavy && need perf F-025 exists tests/perf/budgets.sh; then run perf bash tests/perf/budgets.sh; fi
+# Until F-025 adds tests/perf/budgets.sh, the perf stages run the mocked-core keystroke check alone (D-120).
+if { on perf-quick || on perf; } && heavy && ! exists tests/perf/budgets.sh && need keystroke F-020 ui_script test:perf; then
+  run keystroke pnpm -C ui run test:perf
+fi
 # Mutation testing of the lines this change touched (14-quality.md#mutation-testing). Not in CI: nightly runs the full tree.
 if on mutants && heavy && [ -z "${CI:-}" ]; then
   M_OK=1
