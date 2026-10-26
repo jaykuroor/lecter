@@ -98,14 +98,17 @@ async fn apply_edits(
     edits: Vec<Edit>,
 ) -> Result<(), IpcError> {
     check_course(courses, "lecture_apply_edits", course)?;
-    let Some(session) = lectures.get(course, path) else {
-        tracing::warn!(target: "ipc", command = "lecture_apply_edits", field = "path", "argument rejected: lecture not open");
-        return Err(IpcError::new(ErrorCode::InvalidArgument, "Open the lecture before editing it."));
-    };
-    tauri::async_runtime::spawn_blocking(move || session.apply(edits))
-        .await
-        .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not save that edit."))?
-        .map_err(ipc_error)
+    // The registry lock can be held by an open that reads a file, so it is taken off the runtime too.
+    let (lectures, course, path) = (lectures.clone(), course.to_owned(), path.to_owned());
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(session) = lectures.get(&course, &path) else {
+            tracing::warn!(target: "ipc", command = "lecture_apply_edits", field = "path", "argument rejected: lecture not open");
+            return Err(IpcError::new(ErrorCode::InvalidArgument, "Open the lecture before editing it."));
+        };
+        session.apply(edits).map_err(ipc_error)
+    })
+    .await
+    .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not save that edit."))?
 }
 
 /// Saves and closes every open lecture: on quit, so the next start has nothing to replay.
