@@ -129,7 +129,12 @@ describe("typing survives a restart", function () {
     writeFileSync(join(course(), "lectures", NAME), LECTURE);
   });
 
-  after(() => {
+  after(async () => {
+    // End the session while its app still runs, then stop the app. The runner's endSession
+    // (@wdio/runner) DELETEs the session only while `browser.sessionId` is set; left set, that
+    // DELETE would reach a closed port and fail the spec after its tests passed.
+    await browser.deleteSession().catch(() => undefined);
+    (browser as unknown as { sessionId?: string }).sessionId = undefined;
     relaunched?.kill();
     // Other flows list this course's lectures exactly.
     rmSync(join(course(), "lectures", NAME), { force: true });
