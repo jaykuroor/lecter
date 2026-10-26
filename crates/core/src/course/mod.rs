@@ -85,14 +85,15 @@ pub(crate) fn canonical_folder(picked: &Path) -> Result<PathBuf> {
     Ok(root)
 }
 
-/// `<root>/<rel>` (`rel` uses `/` separators, e.g. `.lecter/journal`), created if needed, with
-/// symlinks resolved. `root` is a canonical course root. Each level is checked before anything is
+/// `<course>/<rel>` (`rel` uses `/` separators, e.g. `.lecter/journal`), created if needed, with
+/// symlinks resolved. `course` is an absolute course folder, canonicalised here. Each level is checked before anything is
 /// created inside it, so a `.lecter` link out of the course is refused with
 /// [`Error::OutsideCourse`], not written through (SEC-35).
 #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
-pub fn ensure_dir(root: &Path, rel: &str) -> Result<PathBuf> {
+pub fn ensure_dir(course: &Path, rel: &str) -> Result<PathBuf> {
     let io = |e: std::io::Error| Error::Io(e.kind());
-    let mut dir = root.to_path_buf();
+    let root = canonical_folder(course)?;
+    let mut dir = root.clone();
     for part in rel.split('/') {
         dir.push(part);
         match std::fs::create_dir(&dir) {
@@ -101,7 +102,7 @@ pub fn ensure_dir(root: &Path, rel: &str) -> Result<PathBuf> {
             Err(e) => return Err(io(e)),
         }
         let real = std::fs::canonicalize(&dir).map_err(io)?;
-        if !within(root, &real) {
+        if !within(&root, &real) {
             return Err(Error::OutsideCourse(rel.to_owned()));
         }
         if !std::fs::metadata(&real).map_err(io)?.is_dir() {
