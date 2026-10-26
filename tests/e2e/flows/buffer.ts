@@ -52,6 +52,27 @@ function course(): string {
 const buffer = () => $(".lecture-buffer");
 const focused = () => $(".cm-focused-line");
 
+/**
+ * The text of every element matching `selector`, read in the page in one call. CodeMirror
+ * re-renders its lines and widgets, so element references held across calls can go stale; and
+ * `textContent` is the DOM text, without CSS `text-transform` (the slide label is uppercase on
+ * screen).
+ */
+function texts(selector: string): Promise<string[]> {
+  return browser.execute((s: string) => Array.from(document.querySelectorAll(s), (e) => e.textContent ?? ""), selector);
+}
+
+/** Waits until the elements matching `selector` hold exactly `expected`, in order. */
+async function expectTexts(selector: string, expected: string[]): Promise<void> {
+  const want = JSON.stringify(expected);
+  await browser
+    .waitUntil(async () => JSON.stringify(await texts(selector)) === want, {
+      timeoutMsg: `${selector} never read ${want}`,
+    })
+    .catch(() => undefined);
+  expect(await texts(selector)).toEqual(expected);
+}
+
 /** Presses keys one at a time, as typed. */
 async function press(...keys: string[]): Promise<void> {
   for (const k of keys) await browser.keys(k);
@@ -83,9 +104,9 @@ describe("lecture buffer", () => {
     await browser.keys("Enter");
 
     await expect(buffer()).toHaveAttribute("data-lecture", `lectures/${NAME}`);
-    await expect($$(".slide-heading-label")).toHaveText(["Slide 1 / 2", "Slide 2 / 2"]);
-    await expect($(".slide-heading-title")).toHaveText("Covariance");
-    await expect($$(".cm-block")).toHaveText([
+    await expectTexts(".slide-heading-label", ["Slide 1 / 2", "Slide 2 / 2"]);
+    await expectTexts(".slide-heading-title", ["Covariance", "Properties"]);
+    await expectTexts(".cm-block", [
       "Covariance measures how two variables move together.",
       "It is zero for independent variables.",
       "Covariance is bilinear in each argument.",
