@@ -692,3 +692,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `ropey` (MIT, 2 crates; the rope 01-architecture names), `serde_json` (already in tree; the journal is JSON lines), `blake3` (3 crates, Deps-Approved: D-121).
 - Why: Dep-Added trailers on F-021 commits; check_deps OK.
 - Instead of: an in-tree BLAKE3 (removed, see D-121).
+
+## D-126 · The `tantivy` crate is approved for search
+2026-10-26 · maintainer · active
+- Decision: `lecter-index` uses `tantivy` 0.27 (MIT, no native crates) with `default-features = false` and features `mmap,lz4-compression`, about 48 new crates. Commits adding it carry `Deps-Approved: D-126`.
+- Why: 05-retrieval.md#search names Tantivy for BM25; `mmap` keeps the index on disk in the course cache, and `lz4-compression` uses the pure-Rust lz4_flex (~1 crate). It is over the 30-crate limit, so the maintainer approves it.
+- Instead of: the default features (zstd, native; the stemmer); `stopwords` only (46 crates, no on-disk index); a hand-written index.
