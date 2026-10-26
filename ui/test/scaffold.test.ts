@@ -14,9 +14,9 @@ interface PackageJson {
 describe("ui scaffold", () => {
   const pkg = read("package.json") as PackageJson;
 
-  it("pins the Node LTS and pnpm versions (D-058)", () => {
+  it("pins the Node LTS and pnpm versions (D-058, D-130)", () => {
     expect(pkg.packageManager).toBe("pnpm@12.15.0");
-    expect(pkg.engines).toEqual({ node: "24.18.0", pnpm: "12.15.0" });
+    expect(pkg.engines).toEqual({ node: "24.22.1", pnpm: "12.15.0" });
   });
 
   it("provides the scripts verify.sh calls", () => {
