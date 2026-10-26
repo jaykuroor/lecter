@@ -644,3 +644,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `lecture_open(course, path)` accepts only a course that `course_open` returned this session (`app/src/ipc/session.rs`) and only `lectures/<name>.md`; canonicalised, within the course root, UTF-8, capped at 16 MiB; new core errors NotALecture, LectureNotFound, LectureTooLarge, NotUtf8, ReadFailed. The capability adds only `allow-lecture-open`. Dependencies: @codemirror/state 6.7.6, @codemirror/view 6.43.14, @codemirror/commands 6.11.1, @replit/codemirror-vim 6.4.0 (MIT; the F-001 spike versions, D-080). Main JS chunk 138 KB gz. The buffer perf test launches its own Chromium with vsync off under every Playwright project (D-080 method).
 - Why: SEC-32/35; Dep-Added trailers on F-020 commits.
 - Instead of: an unrestricted path argument.
+
+## D-118 · Buffer perf on CI: apply the CI rule, then investigate
+2026-10-25 · maintainer · active
+- Decision: main CI run 40254435353 measured `keystroke_p99_ms` 26.7 ms (p50 13.3, p95 21.8; Chromium 156 headless, vsync off, 200-slide fixture) on ubuntu-24.04 against the 8 ms budget (4.2 ms on the author's machine). The CI fix makes `ui/e2e/buffer-perf.spec.ts` follow 14-quality's CI rule (×1.5 allowance under `--ci`, one re-measure, both values reported; ×1 locally) and investigates the 6× gap (GPU/software rasterisation, flags, CPU). The budget itself is not loosened. If CI is still over 12 ms, the numbers go in a new D-entry and the author chooses the next step.
+- Why: 14-quality "Never loosen a budget to pass. Measure, record a D-entry, and ask the maintainer."
+- Instead of: running the check locally only until F-025; reverting F-020.
