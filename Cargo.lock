@@ -2134,6 +2134,7 @@ version = "0.0.1"
 name = "lecter-harness"
 version = "0.0.1"
 dependencies = [
+ "lecter-ai",
  "lecter-core",
  "lecter-index",
  "lecter-parse",

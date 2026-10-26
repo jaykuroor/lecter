@@ -34,7 +34,8 @@ pub struct Answer {
 
 /// Streams the answer to `req` from `provider`, calling `on_delta` with each piece of text as it
 /// arrives. Returns as soon as `cancel` fires or `budget` runs out, with the text so far; the
-/// provider's stream is dropped then, which stops it too.
+/// provider's stream is dropped then, which stops it too. The span names the provider, never any text.
+#[tracing::instrument(name = "ai.stream", skip_all, fields(provider = provider.id()))]
 pub async fn stream_answer(
     provider: &dyn Provider,
     req: ChatRequest,

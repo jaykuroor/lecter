@@ -3,6 +3,7 @@
 
 mod course;
 mod parse;
+mod prompt;
 mod search;
 mod version;
 
@@ -32,7 +33,7 @@ pub struct Command {
 }
 
 /// Every command, in the order a list shows them.
-pub const COMMANDS: &[Command] = &[course::COMMAND, parse::COMMAND, search::COMMAND, version::COMMAND];
+pub const COMMANDS: &[Command] = &[course::COMMAND, parse::COMMAND, prompt::COMMAND, search::COMMAND, version::COMMAND];
 
 /// The command called `name`.
 pub fn find(name: &str) -> Option<&'static Command> {
