@@ -165,3 +165,28 @@ fn a_file_that_is_not_utf8_is_refused() {
     assert_eq!(e, Error::NotUtf8("lectures/latin1.md".into()));
     assert_eq!(e.code(), ErrorCode::InvalidArgument);
 }
+
+/// A FIFO named like a lecture must be refused without opening it: opening a FIFO for reading
+/// blocks until a writer appears, which would hang the `spawn_blocking` thread for good.
+#[cfg(unix)]
+#[test]
+fn a_fifo_named_like_a_lecture_is_refused_without_blocking() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let env = env();
+    let course = course_with(&env, "lectures/l07.md", b"x");
+    let fifo = course.join("lectures/pipe.md");
+    let made = std::process::Command::new("mkfifo").arg(&fifo).status().unwrap_or_else(|e| panic!("mkfifo: {e}"));
+    assert!(made.success(), "mkfifo failed: {made}");
+    let (tx, rx) = mpsc::channel();
+    let c = course.clone();
+    std::thread::spawn(move || {
+        let _ = tx.send(open(&c, "lectures/pipe.md"));
+    });
+    let answer = rx.recv_timeout(Duration::from_secs(5));
+    if answer.is_err() {
+        // Unblock the stuck reader so its thread can end, then fail below.
+        let _ = std::fs::OpenOptions::new().write(true).open(&fifo);
+    }
+    assert_eq!(answer, Ok(Err(Error::NotALecture("lectures/pipe.md".into()))), "open blocked on the FIFO");
+}
