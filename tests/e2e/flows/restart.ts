@@ -119,7 +119,11 @@ async function insertMode(): Promise<void> {
   await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "insert");
 }
 
-describe("typing survives a restart", () => {
+describe("typing survives a restart", function () {
+  // Each test launches the app again, and the service's window-focus check adds up to ~10 s of
+  // "core.invoke not available" waits before every find and click: 120 s isn't enough.
+  this.timeout(300_000);
+
   before(() => {
     mkdirSync(join(course(), "lectures"), { recursive: true });
     writeFileSync(join(course(), "lectures", NAME), LECTURE);
