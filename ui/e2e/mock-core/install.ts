@@ -33,6 +33,13 @@ export function installMockCore(fixture: MockFixture): void {
       const error: IpcError = { code: "E_NOT_FOUND", message: `${path} no longer exists.`, retryable: false };
       throw error;
     },
+    // Records each batch for the test to read back (window.__mockEdits); edits are not applied.
+    lecture_apply_edits: (args) => {
+      const w = window as unknown as { __mockEdits?: (typeof args)[] };
+      w.__mockEdits ??= [];
+      w.__mockEdits.push(args);
+      return null;
+    },
   };
   const isCommand = (cmd: string): cmd is CommandName => Object.hasOwn(handlers, cmd);
   const callbacks = new Map<number, (response: unknown) => void>();

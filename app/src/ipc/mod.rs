@@ -20,7 +20,12 @@ use tauri_specta::{Builder, collect_commands, collect_events};
 /// Every command and event the shell exposes, with their types.
 pub fn contract() -> Builder<Wry> {
     Builder::<Wry>::new()
-        .commands(collect_commands![app::app_info, course::course_open, lecture::lecture_open])
+        .commands(collect_commands![
+            app::app_info,
+            course::course_open,
+            lecture::lecture_open,
+            lecture::lecture_apply_edits
+        ])
         .events(collect_events![])
 }
 

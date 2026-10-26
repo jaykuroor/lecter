@@ -4,14 +4,16 @@ import { history } from "@codemirror/commands";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { drawSelection, EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
+import type { Edit } from "../../core/lecture";
 import { cursorRules } from "./cursor";
 import { lectureDecorations } from "./decorations";
+import { sendEdits } from "./edits";
 import { nthElement } from "./elements";
 import { visibleRange } from "./syntax";
 import { lectureBuffer } from "./vim";
 
-/** The editor extensions of a lecture buffer labelled `label` for assistive tools. */
-function extensions(label: string): Extension {
+/** The editor extensions of a lecture buffer labelled `label` for assistive tools; its edits go to `onEdits`. */
+function extensions(label: string, onEdits: (edits: Edit[]) => void): Extension {
   return [
     // First, so Vim sees keys before any other keymap.
     vim(),
@@ -22,13 +24,14 @@ function extensions(label: string): Extension {
     EditorView.contentAttributes.of({ "aria-label": label }),
     lectureDecorations,
     cursorRules,
+    sendEdits(onEdits),
   ];
 }
 
-/** A buffer state for the lecture file `text`, with the cursor on its first element. */
-export function lectureState(text: string, label: string): EditorState {
+/** A buffer state for the lecture file `text`, with the cursor on its first element; edits go to `onEdits`. */
+export function lectureState(text: string, label: string, onEdits: (edits: Edit[]) => void = () => {}): EditorState {
   const doc = EditorState.create({ doc: text }).doc;
   const first = nthElement(doc, 1);
   const anchor = first === null ? 0 : visibleRange(doc, first).from;
-  return EditorState.create({ doc, selection: EditorSelection.cursor(anchor), extensions: extensions(label) });
+  return EditorState.create({ doc, selection: EditorSelection.cursor(anchor), extensions: extensions(label, onEdits) });
 }

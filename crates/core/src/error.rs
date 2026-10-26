@@ -73,6 +73,29 @@ pub enum Error {
         /// What the OS reported.
         kind: std::io::ErrorKind,
     },
+    /// Edits from the buffer that don't fit the lecture's text (a position past the end, or
+    /// inside a character): the buffer and the core disagree, so the edit is refused.
+    #[error("{0} changed in a way Lecter could not follow; reopen it.")]
+    EditMisfit(String),
+    /// Saving a lecture file failed (permissions, a full disk, …); its edits stay in the journal.
+    #[error("Lecter could not save {path}.")]
+    SaveFailed {
+        /// The course-relative path.
+        path: String,
+        /// What the OS reported.
+        kind: std::io::ErrorKind,
+    },
+    /// Writing a lecture's journal failed (permissions, a full disk, …).
+    #[error("Lecter could not write the journal of {path}.")]
+    JournalFailed {
+        /// The course-relative path of the lecture.
+        path: String,
+        /// What the OS reported.
+        kind: std::io::ErrorKind,
+    },
+    /// An edit or save for a lecture that is no longer open.
+    #[error("{0} is not open.")]
+    LectureClosed(String),
 }
 
 impl Error {
@@ -81,7 +104,11 @@ impl Error {
         match self {
             Self::FolderNotFound | Self::LectureNotFound(_) => ErrorCode::NotFound,
             Self::OutsideCourse(_) => ErrorCode::NotTrusted,
-            Self::Io(_) | Self::ReadFailed { .. } => ErrorCode::Io,
+            Self::Io(_) | Self::ReadFailed { .. } | Self::SaveFailed { .. } | Self::JournalFailed { .. } => {
+                ErrorCode::Io
+            }
+            Self::EditMisfit(_) => ErrorCode::InvalidArgument,
+            Self::LectureClosed(_) => ErrorCode::NotFound,
             Self::NotAbsolute
             | Self::NotAFolder
             | Self::NotUnicode

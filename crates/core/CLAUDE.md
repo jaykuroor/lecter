@@ -21,4 +21,4 @@ Spec: `01-architecture.md#document-model`, `#job-scheduler`; `02-course-folder.m
 
 ## Learned
 - Doc comments land in the rlib's metadata even in release: spell `LECTER_TEST_*` only in docs of items gated by `cfg(any(debug_assertions, feature = "test-hooks"))` (F-015)
-
+- A test that chmods a folder read-only must keep the test home removable even when killed (mutation runs time tests out): lock an empty subfolder, never the course root, or `.verify/mutants-tmp` is left behind and the next run fails (F-021)

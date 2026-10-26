@@ -3,9 +3,9 @@ import { EditorView } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
 import { cleanup, render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { sampleLecture } from "../../../e2e/mock-core/lectures";
-import type { Lecture } from "../../core/lecture";
+import type { Edit, Lecture } from "../../core/lecture";
 import { Buffer } from "./Buffer";
 import { registerElementMotions } from "./vim";
 
@@ -161,5 +161,30 @@ describe("the element motions outside a lecture", () => {
     expect(line(view)).toBe(1);
     view.destroy();
     parent.remove();
+  });
+
+  it("edits fine without an onEdits listener", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { view } = mount();
+    view().dispatch(view().state.replaceSelection("x"));
+    expect(view().state.doc.toString().includes("x")).toBe(true);
+    expect(logged).not.toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
+  /** F-021: what is typed in insert mode reaches `onEdits`, in the buffer's positions. */
+  it("hands every edit to onEdits, and none for moving", () => {
+    const sent: Edit[][] = [];
+    const { container } = render(() => <Buffer lecture={lecture} error={null} onEdits={(e) => sent.push(e)} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    const v = EditorView.findFromDOM(content);
+    if (!v) throw new Error("no editor");
+    const start = v.state.selection.main.head;
+    keys(v, "j", "k");
+    expect(sent).toEqual([]);
+    keys(v, "i");
+    v.dispatch(v.state.replaceSelection("Hi "));
+    expect(sent).toEqual([[{ from: start, to: start, text: "Hi " }]]);
+    expect(v.state.doc.toString()).toBe(`${sampleLecture.slice(0, start)}Hi ${sampleLecture.slice(start)}`);
   });
 });

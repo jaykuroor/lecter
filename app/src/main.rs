@@ -29,16 +29,26 @@ fn main() {
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
     // The commands and events of the IPC contract (ipc/mod.rs), behind the argument limits.
     let contract = ipc::contract();
-    let result = builder
+    // The open lectures' save sessions; quitting saves them (F-021).
+    let lectures = ipc::session::OpenLectures::default();
+    let built = builder
         .manage(ipc::session::OpenedCourses::default())
+        .manage(lectures.clone())
         .invoke_handler(ipc::invoke_handler(&contract))
         .setup(move |app| {
             contract.mount_events(app);
             Ok(())
         })
-        .run(tauri::generate_context!());
-    if let Err(e) = result {
-        eprintln!("Lecter could not start: {e}");
-        std::process::exit(1);
+        .build(tauri::generate_context!());
+    match built {
+        Ok(app) => app.run(move |_, event| {
+            if let tauri::RunEvent::Exit = event {
+                ipc::lecture::close_all(&lectures);
+            }
+        }),
+        Err(e) => {
+            eprintln!("Lecter could not start: {e}");
+            std::process::exit(1);
+        }
     }
 }
