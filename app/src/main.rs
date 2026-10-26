@@ -30,6 +30,7 @@ fn main() {
     // The commands and events of the IPC contract (ipc/mod.rs), behind the argument limits.
     let contract = ipc::contract();
     let result = builder
+        .manage(ipc::session::OpenedCourses::default())
         .invoke_handler(ipc::invoke_handler(&contract))
         .setup(move |app| {
             contract.mount_events(app);

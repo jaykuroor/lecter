@@ -47,18 +47,48 @@ pub enum Error {
     /// sentence for the user and never quotes the file's text.
     #[error("{0}")]
     ParseFailed(String),
+    /// A lecture path (course-relative, as the UI sent it) that isn't a `.md` file directly in
+    /// `lectures/` (03-lecture-files.md).
+    #[error("{0} is not a lecture file in lectures/.")]
+    NotALecture(String),
+    /// The lecture file doesn't exist (any more).
+    #[error("{0} no longer exists.")]
+    LectureNotFound(String),
+    /// The lecture file is larger than one open reads.
+    #[error("{path} is larger than {limit} bytes.")]
+    LectureTooLarge {
+        /// The course-relative path, e.g. `lectures/l07.md`.
+        path: String,
+        /// The most bytes an open reads.
+        limit: u64,
+    },
+    /// The lecture file isn't UTF-8 text (03-lecture-files.md requires UTF-8).
+    #[error("{0} is not UTF-8 text.")]
+    NotUtf8(String),
+    /// The file system refused to read a course file (permissions, a broken disk, …).
+    #[error("Lecter could not read {path}.")]
+    ReadFailed {
+        /// The course-relative path.
+        path: String,
+        /// What the OS reported.
+        kind: std::io::ErrorKind,
+    },
 }
 
 impl Error {
     /// The `18-contracts.md#error-codes` code the app and the harness report for this error.
     pub const fn code(&self) -> ErrorCode {
         match self {
-            Self::FolderNotFound => ErrorCode::NotFound,
+            Self::FolderNotFound | Self::LectureNotFound(_) => ErrorCode::NotFound,
             Self::OutsideCourse(_) => ErrorCode::NotTrusted,
-            Self::Io(_) => ErrorCode::Io,
-            Self::NotAbsolute | Self::NotAFolder | Self::NotUnicode | Self::TooManyEntries { .. } => {
-                ErrorCode::InvalidArgument
-            }
+            Self::Io(_) | Self::ReadFailed { .. } => ErrorCode::Io,
+            Self::NotAbsolute
+            | Self::NotAFolder
+            | Self::NotUnicode
+            | Self::TooManyEntries { .. }
+            | Self::NotALecture(_)
+            | Self::LectureTooLarge { .. }
+            | Self::NotUtf8(_) => ErrorCode::InvalidArgument,
             Self::NoHome => ErrorCode::Internal,
             Self::ParseFailed(_) => ErrorCode::ParseFailed,
             #[cfg(any(debug_assertions, feature = "test-hooks"))]
@@ -91,6 +121,39 @@ mod tests {
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");
+        }
+    }
+
+    /// F-020: a missing lecture is E_NOT_FOUND, a refused read E_IO, a path or file that can't be a
+    /// lecture E_INVALID_ARGUMENT; each message names the course-relative file and nothing of its text.
+    #[test]
+    fn lecture_errors_carry_their_codes_and_name_the_file() {
+        let read = Error::ReadFailed { path: "lectures/l07.md".into(), kind: std::io::ErrorKind::PermissionDenied };
+        let cases = [
+            (
+                Error::LectureNotFound("lectures/l07.md".into()),
+                ErrorCode::NotFound,
+                "lectures/l07.md no longer exists.",
+            ),
+            (read, ErrorCode::Io, "Lecter could not read lectures/l07.md."),
+            (
+                Error::NotALecture("slides/a.pdf".into()),
+                ErrorCode::InvalidArgument,
+                "slides/a.pdf is not a lecture file in lectures/.",
+            ),
+            (
+                Error::LectureTooLarge { path: "lectures/big.md".into(), limit: 16 },
+                ErrorCode::InvalidArgument,
+                "lectures/big.md is larger than 16 bytes.",
+            ),
+            (
+                Error::NotUtf8("lectures/l07.md".into()),
+                ErrorCode::InvalidArgument,
+                "lectures/l07.md is not UTF-8 text.",
+            ),
+        ];
+        for (err, code, msg) in cases {
+            assert_eq!((err.code(), err.to_string().as_str()), (code, msg), "{err:?}");
         }
     }
 

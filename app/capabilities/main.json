@@ -2,5 +2,5 @@
   "identifier": "main",
   "description": "The main window: only the commands its UI calls (SEC-31). No remote URLs, no core plugin permissions.",
   "windows": ["main"],
-  "permissions": ["allow-app-info", "allow-course-open"]
+  "permissions": ["allow-app-info", "allow-course-open", "allow-lecture-open"]
 }

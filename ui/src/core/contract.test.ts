@@ -8,26 +8,33 @@ import type { CommandName, Commands, IpcError } from "./bindings";
 const matching: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
   course_open: () => ({ path: "/courses/Algebra", name: "Algebra", lectures: [], slides: [], trust: "ask" }),
+  lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
-const missing: MockHandlers = { app_info: () => ({ name: "Lecter", version: "0.0.1" }) };
+const missing: MockHandlers = {
+  app_info: () => ({ name: "Lecter", version: "0.0.1" }),
+  lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
+};
 
 const wrongResult: MockHandlers = {
   // @ts-expect-error a handler whose result has the wrong shape
   app_info: () => ({ name: "Lecter", version: 1 }),
   course_open: () => null,
+  lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
 };
 
 const wrongEnum: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
   // @ts-expect-error a trust value the contract doesn't have
   course_open: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "maybe" }),
+  lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
 };
 
 const extra: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
   course_open: () => null,
+  lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -35,7 +42,7 @@ const extra: MockHandlers = {
 // @ts-expect-error an error code outside 18-contracts.md#error-codes
 const badCode: IpcError = { code: "E_NOPE", message: "x", retryable: false };
 
-const commandNames: CommandName[] = ["app_info", "course_open"];
+const commandNames: CommandName[] = ["app_info", "course_open", "lecture_open"];
 const noArgs: Commands["course_open"]["args"] = {};
 
 describe("the generated contract", () => {

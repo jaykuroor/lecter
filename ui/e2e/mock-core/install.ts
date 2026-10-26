@@ -27,6 +27,12 @@ export function installMockCore(fixture: MockFixture): void {
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
     course_open: () => fixture.courseOpen,
+    lecture_open: ({ path }) => {
+      const lecture = fixture.lectures[path];
+      if (lecture) return lecture;
+      const error: IpcError = { code: "E_NOT_FOUND", message: `${path} no longer exists.`, retryable: false };
+      throw error;
+    },
   };
   const isCommand = (cmd: string): cmd is CommandName => Object.hasOwn(handlers, cmd);
   const callbacks = new Map<number, (response: unknown) => void>();
@@ -41,7 +47,14 @@ export function installMockCore(fixture: MockFixture): void {
         };
         return Promise.reject(error);
       }
-      return Promise.resolve(handlers[cmd]((args ?? {}) as Commands[typeof cmd]["args"]));
+      // A handler throws the contract's IpcError for a failing command; the caller sees a rejection.
+      try {
+        // Each handler takes its own command's args; `isCommand` can't narrow which one `cmd` is.
+        const handler = handlers[cmd] as (a: unknown) => unknown;
+        return Promise.resolve(handler(args ?? {}));
+      } catch (error) {
+        return Promise.reject(error);
+      }
     },
     transformCallback(callback, once) {
       const id = nextId++;
