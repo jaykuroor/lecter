@@ -698,3 +698,22 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `lecter-index` uses `tantivy` 0.27 (MIT, no native crates) with `default-features = false` and features `mmap,lz4-compression`, about 48 new crates. Commits adding it carry `Deps-Approved: D-126`.
 - Why: 05-retrieval.md#search names Tantivy for BM25; `mmap` keeps the index on disk in the course cache, and `lz4-compression` uses the pure-Rust lz4_flex (~1 crate). It is over the 30-crate limit, so the maintainer approves it.
 - Instead of: the default features (zstd, native; the stemmer); `stopwords` only (46 crates, no on-disk index); a hand-written index.
+
+## D-127 · The BM25 index holds one document per block
+2026-10-26 · session F-022 · active
+- Decision: each lecture block is one Tantivy document with fields text, breadcrumb ("lecture title › slide title"), tags, kind=slides, source, lecture, slide, block. The index lives at `<course>/.lecter/cache/index` (MmapDirectory), created with `lecter_core::course::ensure_dir`; an unreadable index or one with another schema is erased and rebuilt empty, and lectures are indexed again when opened.
+- Why: F-022's criterion asks for block id fields; 02-course-folder says cache/ holds the index and can be deleted.
+- Instead of: one passage per slide as in 05-retrieval.md#indexing (the AI retrieval tier, later); the app cache dir.
+- Revisit if: the retrieval cards need slide passages; they can sit beside the block documents.
+
+## D-128 · When and how search indexes and queries
+2026-10-26 · session F-022 · active
+- Decision: lecture_open starts a background index after it answers; search_find first re-indexes the open lectures (a text fingerprint skips unchanged ones). Queries go through the field tokenizer into an OR of TermQuery on text plus breadcrumb (boost 0.5), at most 64 terms, never Tantivy's QueryParser. At most 50 hits (MAX_HITS) for search_find and the harness. FindHit carries no score over IPC (specta types f32 as number|null); list order is the rank, the harness JSON has the score. One writer per write (15 MB), dropped after commit; reader ReloadPolicy::Manual; lock contention → E_LOCKED.
+- Why: unsaved edits stay searchable without indexing on every keystroke; no query syntax from untrusted input; no meta.json polling.
+- Instead of: indexing on every edit; QueryParser.
+
+## D-129 · F-022 dependencies
+2026-10-26 · session F-022 · active
+- Decision: `tantivy` 0.27 (MIT, 49 crates, default features off, `mmap,lz4-compression`; Deps-Approved: D-126); `thiserror`, `serde` added to lecter-index (already in the tree).
+- Why: Dep-Added trailers on F-022 commits; check_deps OK; Cargo.lock has no zstd or stemmer crates.
+- Instead of: see D-126.

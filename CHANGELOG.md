@@ -16,3 +16,4 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - `lecter-harness parse <pdf>` turns a text PDF into blocks through a separate parse process; a crash or hang marks the file as failed and the app keeps running (F-019)
 - Open a lecture from the course rail and move through its slides with Vim keys (j, k, gg, G; i and Esc) (F-020)
 - Notes are journaled as you type and saved automatically; reopening after a quit or a crash keeps your typing (F-021)
+- Search your opened lectures with `:find words` or the Find field in the side panel (F-022)

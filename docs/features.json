@@ -731,7 +731,7 @@
     "harness:search"
    ],
    "try": "Type :find and a word from the lecture",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2018,
    "base": "e00cf5fc446571be4cd5b5b73600ca413da71ec9"

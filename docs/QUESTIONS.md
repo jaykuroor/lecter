@@ -92,5 +92,11 @@ F-020 criterion 4 compares with `docs/design/reference/buffer-*.png`, which don'
 - Recommended: reword to the existing crops and have F-042 re-compare; add `(course, path)` to 18-contracts. (applied as default: yes)
 - Answer:
 
+## Q-014 · planning · blocks: nothing
+Should search_find's 50-hit cap (MAX_HITS, F-022) become a setting such as `search.maxHits` once the settings core exists?
+- Context: F-022 hard-codes 50 hits for `:find` and `lecter-harness search` (D-128); there is no settings core yet.
+- Recommended: yes, a setting with default 50, added by the settings card. (applied as default: 50, hard-coded)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
