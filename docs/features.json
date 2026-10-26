@@ -772,9 +772,10 @@
     "harness:prompt"
    ],
    "try": "Press a on a line, ask something: a sample answer streams in under it",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2019
+   "priority": 2019,
+   "base": "81aa149f6d30f085206400527c1835c2798d0cf2"
   },
   {
    "id": "F-024",
