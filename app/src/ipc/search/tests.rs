@@ -133,3 +133,19 @@ fn search_find_takes_the_course_and_the_query() {
     let args = crate::export::command_args(&contract, "search_find");
     assert_eq!(args, Some(vec!["course".to_owned(), "query".to_owned()]));
 }
+
+/// A lecture deleted since it was indexed: its hits are dropped and its entries forgotten.
+#[test]
+fn hits_of_a_deleted_lecture_are_dropped() {
+    let env = TestEnv::new().unwrap();
+    let (path, courses) = course(&env);
+    let (lectures, indexes) = (OpenLectures::default(), SearchIndexes::default());
+    tauri::async_runtime::block_on(index_in_background(&indexes, path.clone(), L08.into(), EIGHT.into())).unwrap();
+    open(&lectures, &path, L07);
+    assert_eq!(call(&courses, &lectures, &indexes, &path, "zero").unwrap().len(), 2);
+    std::fs::remove_file(Path::new(&path).join(L08)).unwrap();
+    assert_eq!(ids(&call(&courses, &lectures, &indexes, &path, "zero").unwrap()), [(L07, "s1b2")]);
+    // Forgotten, not just hidden: the file coming back doesn't bring the old entries back.
+    std::fs::write(Path::new(&path).join(L08), EIGHT).unwrap();
+    assert_eq!(ids(&call(&courses, &lectures, &indexes, &path, "zero").unwrap()), [(L07, "s1b2")]);
+}

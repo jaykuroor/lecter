@@ -90,7 +90,9 @@ async fn find(
             let lecture = session.lecture().map_err(super::course::ipc_error)?;
             index.index_lecture(&lecture.path, &lecture.text).map_err(index_error)?;
         }
-        let hits = index.search(&query, MAX_HITS).map_err(index_error)?;
+        let mut hits = index.search(&query, MAX_HITS).map_err(index_error)?;
+        // A lecture deleted or renamed since it was indexed: its entries go, and so do its hits.
+        index.drop_missing(Path::new(&course), &mut hits).map_err(index_error)?;
         tracing::info!(target: "ipc", command = "search_find", hits = hits.len(), "searched");
         Ok(hits.into_iter().map(FindHit::from).collect())
     })

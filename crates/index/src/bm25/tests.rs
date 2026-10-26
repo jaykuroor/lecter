@@ -295,3 +295,39 @@ fn a_missing_course_folder_is_not_found() {
     let e = CourseIndex::open(&env.home().join("nope")).unwrap_err();
     assert_eq!(e.code(), ErrorCode::NotFound, "{e:?}");
 }
+
+#[test]
+fn a_forgotten_lecture_is_gone_and_can_be_indexed_again() {
+    let env = TestEnv::new().unwrap();
+    let index = CourseIndex::open(&course(&env)).unwrap();
+    index.index_lecture(L07, SEVEN).unwrap();
+    index.index_lecture(L08, EIGHT).unwrap();
+    index.forget_lecture(L08).unwrap();
+    assert!(stored(&index, L08).is_empty());
+    assert_eq!(ids(&index.search("zero", 10).unwrap()), [(L07, "s1b2")]);
+    // Its fingerprint went with it: the same text is written again, not skipped.
+    assert_eq!(index.index_lecture(L08, EIGHT).unwrap(), Some(2));
+    assert_eq!(stored(&index, L07).len(), 4, "other lectures are untouched");
+}
+
+#[test]
+fn hits_of_lectures_no_longer_on_disk_are_dropped_and_forgotten() {
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env);
+    std::fs::write(dir.join(L07), SEVEN).unwrap();
+    let index = CourseIndex::open(&dir).unwrap();
+    index.index_lecture(L07, SEVEN).unwrap();
+    index.index_lecture(L08, EIGHT).unwrap();
+    let mut hits = index.search("zero", 10).unwrap();
+    assert_eq!(hits.len(), 2);
+    index.drop_missing(&dir, &mut hits).unwrap();
+    assert_eq!(ids(&hits), [(L07, "s1b2")]);
+    assert!(stored(&index, L08).is_empty(), "l08 (never written to disk) is forgotten");
+    assert_eq!(stored(&index, L07).len(), 4);
+    // A folder where the lecture file was is not a lecture either.
+    std::fs::remove_file(dir.join(L07)).unwrap();
+    std::fs::create_dir(dir.join(L07)).unwrap();
+    let mut hits = index.search("zero", 10).unwrap();
+    index.drop_missing(&dir, &mut hits).unwrap();
+    assert!(hits.is_empty());
+}

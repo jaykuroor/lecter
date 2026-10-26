@@ -39,7 +39,8 @@ fn search(dir: &Path, query: &str) -> Result<Reply, HarnessError> {
         let Ok(opened) = lecture::open(Path::new(&listing.path), &file.path) else { continue };
         index.index_lecture(&opened.path, &opened.text).map_err(index_error)?;
     }
-    let hits = index.search(query, MAX_HITS).map_err(index_error)?;
+    let mut hits = index.search(query, MAX_HITS).map_err(index_error)?;
+    index.drop_missing(Path::new(&listing.path), &mut hits).map_err(index_error)?;
     let json = serde_json::to_value(&hits)
         .map_err(|_| HarnessError::new(ErrorCode::Internal, "the hits could not be written as JSON"))?;
     Ok(Reply { text: text(&hits), json })

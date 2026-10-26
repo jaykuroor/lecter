@@ -22,7 +22,7 @@ use tantivy::query::{BooleanQuery, BoostQuery, Occur, Query, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexReader, IndexSettings, ReloadPolicy, TantivyDocument, Term, doc};
 
-use crate::blocks::lecture_blocks;
+use crate::blocks::{Block, lecture_blocks};
 use crate::error::{Error, Result};
 
 /// Where a course keeps its BM25 index, relative to the course root.
@@ -144,10 +144,26 @@ impl CourseIndex {
             return Ok(None);
         }
         let blocks = lecture_blocks(text);
+        self.replace(lecture, &blocks)?;
+        written.insert(lecture.to_owned(), print);
+        Ok(Some(blocks.len()))
+    }
+
+    /// Removes everything indexed for `lecture`: a lecture file that no longer exists.
+    pub fn forget_lecture(&self, lecture: &str) -> Result<()> {
+        let mut written = self.written.lock().unwrap_or_else(PoisonError::into_inner);
+        self.replace(lecture, &[])?;
+        written.remove(lecture);
+        Ok(())
+    }
+
+    /// Replaces `lecture`'s documents with `blocks`, commits and reloads the reader. The caller
+    /// holds the `written` lock, so writers take turns in this process.
+    fn replace(&self, lecture: &str, blocks: &[Block]) -> Result<()> {
         let f = self.fields;
         let mut writer = self.index.writer_with_num_threads::<TantivyDocument>(1, WRITER_MEMORY)?;
         writer.delete_term(Term::from_field_text(f.lecture, lecture));
-        for b in &blocks {
+        for b in blocks {
             let mut d = doc!(
                 f.lecture => lecture,
                 f.slide => b.slide.as_str(),
@@ -165,8 +181,23 @@ impl CourseIndex {
         writer.commit()?;
         writer.wait_merging_threads()?;
         self.reader.reload()?;
-        written.insert(lecture.to_owned(), print);
-        Ok(Some(blocks.len()))
+        Ok(())
+    }
+
+    /// Drops the hits of lectures that are no longer files in the course folder `course` (deleted
+    /// or renamed since they were indexed) and forgets those lectures' entries.
+    pub fn drop_missing(&self, course: &Path, hits: &mut Vec<Hit>) -> Result<()> {
+        let mut gone: Vec<String> = Vec::new();
+        for hit in hits.iter() {
+            if !gone.contains(&hit.lecture) && !is_file(&course.join(&hit.lecture)) {
+                gone.push(hit.lecture.clone());
+            }
+        }
+        for lecture in &gone {
+            self.forget_lecture(lecture)?;
+        }
+        hits.retain(|h| !gone.contains(&h.lecture));
+        Ok(())
     }
 
     /// The `limit` best blocks for the words of `query`, highest BM25 score first. Words are
@@ -225,6 +256,12 @@ impl CourseIndex {
 
 fn open_dir(dir: &Path) -> Result<MmapDirectory> {
     MmapDirectory::open(dir).map_err(|e| Error::Index(e.to_string()))
+}
+
+/// Whether `path` is a regular file now.
+#[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
+fn is_file(path: &Path) -> bool {
+    std::fs::metadata(path).is_ok_and(|m| m.is_file())
 }
 
 fn fingerprint(text: &str) -> u64 {
