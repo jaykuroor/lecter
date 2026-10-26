@@ -50,7 +50,8 @@ fn records(log: &[u8]) -> Result<Vec<Record>, u64> {
 
 /// Applies one `replace` to `text`, or `None` if its byte range doesn't fit.
 fn apply(text: &mut String, from: usize, to: usize, insert: &str) -> Option<()> {
-    if from > to || to > text.len() || !text.is_char_boundary(from) || !text.is_char_boundary(to) {
+    // `is_char_boundary` is false past the end too.
+    if from > to || !text.is_char_boundary(from) || !text.is_char_boundary(to) {
         return None;
     }
     text.replace_range(from..to, insert);

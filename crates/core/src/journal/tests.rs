@@ -161,8 +161,9 @@ fn a_damaged_line_before_the_last_is_a_mismatch() {
 
 #[test]
 fn an_edit_that_does_not_fit_the_text_is_a_mismatch() {
-    // Past the end, from > to, and offset 1 (inside "é") as both ends, as `to` only, as `from` only.
-    for (from, to) in [(0, 9), (2, 1), (1, 1), (0, 1), (1, 2)] {
+    // Past the end, from > to (both on character boundaries), and offset 1 (inside "é") as both
+    // ends, as `to` only, as `from` only.
+    for (from, to) in [(0, 9), (3, 2), (1, 1), (0, 1), (1, 2)] {
         // "é" is two bytes: offset 1 is inside it.
         let records = [checkpoint(1, "H0"), replace(2, "H0", from, to, "z")];
         assert_eq!(replay(&log(&records), "H0", "éx"), Replay::Mismatch { last_seq: 2 }, "{from}..{to}");
