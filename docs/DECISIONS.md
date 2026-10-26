@@ -662,3 +662,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the mocked-core keystroke check (`ui/e2e/buffer-perf.spec.ts`) leaves the parallel `e2e` Playwright run and runs alone, once, in its own `perf` CI job on every push (the job name 16-ci-cd.md reserves). The budget and the CI rule (×1.5, one re-measure) are unchanged. F-025 later replaces the job's command with `scripts/verify.sh --stage perf` (`tests/perf/budgets.sh --ci`, real app).
 - Why: main CI run 40263523685 measured p99 13.9/12.7 ms (chromium project, fail) and 23.0/7.5 ms (webkit project, pass) against the 12 ms CI limit, with p50 ~5 ms throughout: the worst 1% on a shared 4-vCPU runner swings with whatever runs beside it. The `e2e` job itself now takes ~1 min in Playwright's image.
 - Instead of: running it once, last, inside `e2e`; a larger paid runner.
+
+## D-121 · The `blake3` crate is approved
+2026-10-26 · maintainer · active
+- Decision: Lecter uses the `blake3` crate (3 new crates, a `cc` build step for its SIMD code) for every BLAKE3 hash: journal `base`, the content-hash cache and the parse cache. F-021 replaces its in-tree `journal/hash.rs` with the crate before it merges. Commits adding it carry `Deps-Approved: D-121`.
+- Why: add_dep refused the crate as native, and F-021's builder wrote BLAKE3 by hand instead of asking. A widely used, audited and SIMD-fast crate beats a hand-written hash, especially once whole PDFs get hashed.
+- Instead of: keeping the in-tree hash (slow on large files, ours to maintain); the crate's `pure` feature only (no C build step, slower).
