@@ -3,7 +3,8 @@
 // own Chromium in either project) ran twice at once next to the other specs; on a 4-vCPU CI
 // runner that roughly doubled p99 (CI-a0174c9). The lock is a file created with `wx` (atomic: one
 // creator wins) in the run's output folder, which Playwright empties at the start of every run, so
-// a lock left by a killed run can't block the next one.
+// a lock left by a killed run can't block the next one. Since D-120 `test:perf` runs the check
+// alone with one worker; the lock still guards a run that selects it in several projects.
 
 import { mkdir, open, rm } from "node:fs/promises";
 import { dirname } from "node:path";

@@ -37,4 +37,5 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - `add_dep.py ui` rewrites `pnpm-lock.yaml` in pnpm's own style; the committed one is Biome-formatted, so run `pnpm -C ui exec biome format --write pnpm-lock.yaml` after it or biome ci fails (F-016)
 - @replit/codemirror-vim's key table is global: `Vim.mapCommand` changes every Vim editor on the page, so lecture motions check the `lectureBuffer` facet and fall back to plain lines (F-020)
 - Vitest (jsdom) can drive Vim: `Vim.handleKey(getCM(view), key, "user")`; CM layout doesn't exist there, so test positions, not pixels (F-020)
+- The keystroke check (`e2e/buffer-perf.spec.ts`) is tagged `@perf`: `test:e2e` skips it; run it alone with `pnpm -C ui run test:perf` (D-120)
 - Run outside init.sh's environment, `add_dep.py ui` leaves a ~400 MB `.pnpm-store/` in the checkout that the secret scan then reads for 20+ minutes: set `pnpm_config_store_dir` to the home store first (F-020)
