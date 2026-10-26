@@ -7,7 +7,7 @@
 //! `CRASH_TYPIST` names a course folder; without it, `typist` types one short session in-process.
 
 #![allow(clippy::disallowed_methods, reason = "test processes build fixtures and pace typing on plain threads")]
-#![allow(clippy::unwrap_used, reason = "integration test")]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "integration test")]
 
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
