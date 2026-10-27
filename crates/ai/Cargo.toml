@@ -14,7 +14,6 @@ workspace = true
 # The anchored block's text and breadcrumb, read as search reads them (01-architecture.md#repository-layout).
 lecter-index = { path = "../index" }
 serde = { version = "1", default-features = false, features = ["derive"] }
-serde_json.workspace = true
 thiserror = "2.0.21"
 # Streams run as tasks on the app's runtime and pace themselves with timers.
 tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
