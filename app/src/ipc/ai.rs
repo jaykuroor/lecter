@@ -136,10 +136,12 @@ async fn request(
     let id = {
         let mut running = glosses.running();
         // An id neither the lecture nor a running stream uses.
-        let id = new_id(&text, || loop {
-            let n = random_u32();
-            if !running.contains_key(&format!("g-{:04x}", n & 0xffff)) {
-                break n;
+        let id = new_id(&text, || {
+            loop {
+                let n = random_u32();
+                if !running.contains_key(&format!("g-{:04x}", n & 0xffff)) {
+                    break n;
+                }
             }
         });
         running.insert(id.clone(), CancellationToken::new());
@@ -207,7 +209,8 @@ async fn stream(
         }
     };
     deliver(GlossStream::Started { gloss: meta.id.clone(), model: meta.model.clone() });
-    let answer = stream_answer(provider, req, cancel, budget, |d| deliver(GlossStream::Delta { text: d.to_owned() })).await;
+    let answer =
+        stream_answer(provider, req, cancel, budget, |d| deliver(GlossStream::Delta { text: d.to_owned() })).await;
     let last = match answer {
         Ok(Answer { text, end: End::Finished }) => GlossStream::Done { markdown: meta.div(&text) },
         Ok(Answer { text, end: End::Cancelled | End::OutOfTime }) => {
