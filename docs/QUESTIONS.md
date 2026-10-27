@@ -98,5 +98,11 @@ Should search_find's 50-hit cap (MAX_HITS, F-022) become a setting such as `sear
 - Recommended: yes, a setting with default 50, added by the settings card. (applied as default: 50, hard-coded)
 - Answer:
 
+## Q-015 · planning · blocks: nothing
+Should a gloss stopped part-way (Esc or the 30 s budget) be marked in the lecture file, e.g. a `stopped` attribute on its fenced div?
+- Context: F-023 saves the partial answer as an ordinary gloss (D-133); the spec says nothing about stopped glosses.
+- Recommended: yes, a `stopped` attribute so a later regenerate can find them; decide with F-094's gloss rendering. (applied as default: no marker)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

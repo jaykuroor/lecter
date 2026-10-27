@@ -723,3 +723,28 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Node comes from a version manager (fnm) honoring `ui/package.json` `engines.node`, now exactly 24.22.1; the distro `nodejs` packages are not used, and pnpm comes from `corepack enable` (it reads `packageManager`). init.sh and verify.sh fall back to fnm's install of the pinned version (`${FNM_DIR:-$XDG_DATA_HOME/fnm}/node-versions/v<pin>/installation/bin/node`, still overridable with `LECTER_NODE_FALLBACK`); loop.sh, live.sh and worktree_setup.sh source `scripts/node_env.sh`, which puts that dir first on PATH when `node` isn't the pin; the edit-format hook finds Node the same way. They read fnm's folder instead of running `fnm env`/`fnm use`, so nothing depends on an interactive rc file or writes under XDG_RUNTIME_DIR. `fnm install`, `corepack enable` and corepack's pnpm download run outside the sandbox.
 - Why: the distro packages lagged security fixes; 24.18.0 has known vulnerabilities. Hooks and loop runs start without a login shell, so they can't rely on `fnm env`.
 - Instead of: `/usr/bin/node-24` from the distro (D-061); a sandbox write rule for fnm's multishell dir; making verify.sh source the helper (D-074 keeps it self-contained).
+
+## D-131 · The app answers with an offline sample provider until real adapters exist
+2026-10-26 · session F-023 · active
+- Decision: `ScriptedProvider` (timed deltas, in-process, in lecter-ai) is both the tests' fake and the app's default "sample" provider (`Glosses::default()`); its text says it is a sample, ~90 ms per word. tests/fake-provider stays for F-080's HTTP/SSE fake.
+- Why: check_arch forbids app→fake-provider; the card asks for one gloss from the fake provider; the reviewer accepted it against the no-fake-data rule because it says it's a sample.
+- Instead of: an SSE server plus an HTTP client now.
+- Revisit if: F-080 / the first real adapter lands: it must replace the sample as the default.
+
+## D-132 · Provider trait and GlossStream events
+2026-10-26 · session F-023 · active
+- Decision: the Provider trait is dyn-compatible (stream() returns a BoxFuture; EventStream is a bounded mpsc of 64). GlossStream events: started{gloss,model}, delta{text}, done{markdown}, stopped{markdown|null}, failed{error}. gloss_request returns the gloss id at once; gloss_cancel is idempotent. Gloss ids are g-xxxx (4 hex, 8 after 32 collisions) from std RandomState, unique within the lecture and the running streams.
+- Why: providers are chosen at run time; ids short enough for the .md.
+- Instead of: async fn in the trait.
+
+## D-133 · The UI saves the gloss; Esc keeps the partial answer
+2026-10-26 · session F-023 · active
+- Decision: the core sends the finished fenced div in done/stopped and the UI inserts it under its block (after that block's earlier glosses) through lecture_apply_edits, so it is journaled and `u` undoes it. Esc (and the 30 s time budget) stop the stream and save what arrived; a stream stopped before any text saves nothing. Esc in the buffer also closes a prompt or a failed card.
+- Why: one write path for the lecture (F-021); no side writes from the core.
+- Instead of: the core writing the gloss to the file.
+
+## D-134 · Untrusted text in prompts and answers
+2026-10-26 · session F-023 · active
+- Decision: breadcrumb and slide text go inside `<untrusted_source>` with &, < and > escaped, and the system prompt says not to follow instructions in it. Answer lines starting with `:::` or `[` (also indented) get a backslash; the question is collapsed to one line; the model name loses ", \, } and newlines. The answer is rendered with textContent only. Dependencies: tokio-util, thiserror, tracing, serde, tokio for lecter-ai (all already in the tree, 0 new crates).
+- Why: 13-security.md (untrusted input; model output never executed or parsed as structure).
+- Instead of: rendering answer markdown before F-094.

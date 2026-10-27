@@ -17,3 +17,4 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - Open a lecture from the course rail and move through its slides with Vim keys (j, k, gg, G; i and Esc) (F-020)
 - Notes are journaled as you type and saved automatically; reopening after a quit or a crash keeps your typing (F-021)
 - Search your opened lectures with `:find words` or the Find field in the side panel (F-022)
+- Press `a` on a slide line to ask about it: an answer streams in under the line, is saved in the lecture, and Esc stops it (a sample answer until a provider is connected) (F-023)
