@@ -29,12 +29,12 @@ export function openPrompt(view: EditorView, n: number): boolean {
   const line = view.state.doc.line(n);
   const span = blockSpan(line.text);
   if (!backend || !span) return false;
-  for (const old of cards(view)) if (old.state === "prompt") remove(view, old);
   const card: GlossCard = new GlossCard(span.id, {
     send: (question) => send(view, backend, card, question),
     escape: () => escapeCard(view, backend, card),
   });
-  view.dispatch({ effects: addCard.of({ card, pos: line.to }) });
+  const prompts = cards(view).filter((old) => old.state === "prompt");
+  view.dispatch({ effects: [...prompts.map((old) => removeCard.of(old)), addCard.of({ card, pos: line.to })] });
   card.focus();
   return true;
 }
@@ -48,7 +48,7 @@ function escapeCard(view: EditorView, backend: GlossBackend, card: GlossCard): v
 
 /** Sends `question` from `card`'s prompt and streams the answer into it. */
 function send(view: EditorView, backend: GlossBackend, card: GlossCard, question: string): void {
-  if (card.state !== "prompt" || question.trim() === "") return;
+  if (question.trim() === "") return;
   card.streaming(question);
   view.focus();
   const onEvent = (event: GlossEvent) => receive(view, card, event);
@@ -96,7 +96,6 @@ function save(view: EditorView, card: GlossCard, markdown: string): void {
   view.dispatch({
     changes: { from: at, insert: `\n\n${markdown}` },
     effects: removeCard.of(card),
-    userEvent: "input.gloss",
   });
 }
 
@@ -108,7 +107,7 @@ function stop(backend: GlossBackend, card: GlossCard): void {
 
 /**
  * `Esc` in the buffer while answers stream stops them all (10-keymap.md#on-a-gloss), and closes
- * cards that ended without a gloss. Vim still gets the key (it leaves insert mode as usual).
+ * every other card (an open prompt, an answer that ended without a gloss). Vim still gets the key.
  */
 function escapeKey(backend: GlossBackend): Extension {
   return Prec.highest(
@@ -117,7 +116,7 @@ function escapeKey(backend: GlossBackend): Extension {
         if (e.key !== "Escape") return false;
         for (const card of cards(view)) {
           if (card.state === "streaming") stop(backend, card);
-          else if (card.state !== "prompt") remove(view, card);
+          else remove(view, card);
         }
         return false;
       },

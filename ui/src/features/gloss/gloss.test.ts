@@ -356,6 +356,40 @@ describe("cards in the buffer", () => {
       "The line was deleted, so the answer was not saved.",
     );
   });
+
+  it("sending hands the keys back to the buffer, where Vim still gets every key", () => {
+    const view = mount(fakeBackend().backend);
+    const start = view.state.selection.main.head;
+    keys(view, "a");
+    prompt(view, "why?");
+    expect(document.activeElement).toBe(view.contentDOM);
+    const key = (k: string) =>
+      view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+    key("x");
+    expect(view.state.doc.toString()).toBe(TEXT.slice(0, start) + TEXT.slice(start + 1));
+    expect(card(view)?.dataset.state).toBe("streaming");
+    keys(view, "i");
+    key("Escape");
+    expect(getCM(view)?.state.vim?.insertMode).toBe(false);
+    expect(card(view)?.dataset.state).toBe("stopped");
+  });
+
+  it("Esc in the buffer closes an open prompt", () => {
+    const view = mount(fakeBackend().backend);
+    keys(view, "a");
+    esc(view);
+    expect(card(view)).toBeNull();
+  });
+
+  it("an edit elsewhere leaves the open prompt as it is, focused", () => {
+    const view = mount(fakeBackend().backend);
+    keys(view, "a");
+    const before = card(view);
+    const input = view.dom.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");
+    view.dispatch({ changes: { from: 0, insert: "% a comment\n" } });
+    expect(card(view)).toBe(before);
+    expect(document.activeElement).toBe(input);
+  });
 });
 
 describe("a in Vim's other modes and with a count", () => {

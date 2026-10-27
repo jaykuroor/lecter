@@ -8,7 +8,7 @@ import { blockSpan, parseAttrs } from "../buffer/syntax";
 export function blockLine(doc: Text, id: string): number | null {
   for (let n = 1; n <= doc.lines; n++) {
     const text = doc.line(n).text;
-    if (text.startsWith("[") && blockSpan(text)?.id === id) return n;
+    if (blockSpan(text)?.id === id) return n;
   }
   return null;
 }
