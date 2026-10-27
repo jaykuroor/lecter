@@ -36,7 +36,12 @@ export function App() {
       </nav>
       <div class="document-column">
         <main class="buffer" aria-label="Document">
-          <Buffer lecture={lecture.lecture()} error={lecture.error()} onEdits={lecture.edit} />
+          <Buffer
+            lecture={lecture.lecture()}
+            course={course.course()?.path ?? null}
+            error={lecture.error()}
+            onEdits={lecture.edit}
+          />
         </main>
         <footer class="status-line" role="status" aria-label="Status line">
           <Show when={info()} fallback={<span>Connecting to core…</span>}>

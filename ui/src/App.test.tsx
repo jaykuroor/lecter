@@ -78,6 +78,42 @@ describe("App shell", () => {
     expect(w.__mockFinds?.at(-1)).toEqual({ course: "/c/STAT311", query: "variables" });
   });
 
+  it("a on a block of the open lecture asks the core about it, for that course and lecture (F-023)", async () => {
+    const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
+    installMockCore({
+      ...defaultFixture,
+      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      lectures: { [lecture.path]: lecture },
+    });
+    const asked: [string, unknown][] = [];
+    const w = window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> } };
+    const invoke = w.__TAURI_INTERNALS__.invoke;
+    w.__TAURI_INTERNALS__.invoke = (cmd, args) => {
+      asked.push([cmd, args ?? null]);
+      return invoke(cmd, args);
+    };
+    const { container } = render(() => <App />);
+    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
+    await waitFor(() => expect(container.querySelector(".cm-block")).not.toBeNull());
+    const editor = container.querySelector(".cm-editor") as HTMLElement;
+    Vim.handleKey(
+      getCM(EditorView.findFromDOM(editor) as EditorView) as Parameters<typeof Vim.handleKey>[0],
+      "a",
+      "user",
+    );
+    const input = container.querySelector(".gloss-prompt-input") as HTMLTextAreaElement;
+    input.value = "why?";
+    fireEvent.keyDown(input, { key: "Enter" });
+    const request = asked.find(([cmd]) => cmd === "gloss_request")?.[1] as Record<string, unknown> | undefined;
+    expect([request?.course, request?.path, request?.block, request?.question]).toEqual([
+      "/c/STAT311",
+      "lectures/l07.md",
+      "s1b1",
+      "why?",
+    ]);
+  });
+
   it("searching before a course is open explains instead of failing", () => {
     render(() => <App />);
     const panel = screen.getByRole("region", { name: "Find" });

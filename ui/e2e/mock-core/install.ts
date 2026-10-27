@@ -24,6 +24,10 @@ interface MockInternals {
  * serialises it, so it must stay self-contained: no references to imported values.
  */
 export function installMockCore(fixture: MockFixture): void {
+  const callbacks = new Map<number, (response: unknown) => void>();
+  // Running mocked gloss streams: id → stop.
+  const streams = new Map<string, () => void>();
+  let glossCount = 0;
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
     course_open: () => fixture.courseOpen,
@@ -47,9 +51,46 @@ export function installMockCore(fixture: MockFixture): void {
       w.__mockFinds.push(args);
       return fixture.find[args.query] ?? [];
     },
+    // Plays fixture.gloss on the channel as the core would (03-lecture-files.md#body for the div).
+    gloss_request: ({ block, question, onEvent }) => {
+      glossCount += 1;
+      const gloss = `g-${glossCount.toString(16).padStart(4, "0")}`;
+      let index = 0;
+      const send = (message: unknown) => callbacks.get(onEvent.id)?.({ index: index++, message });
+      const div = (answer: string) =>
+        `::: {.gloss #${gloss} kind=ask key=a anchor=${block} model="sample" by=ai}\n**you asked:** ${question.trim()}\n${answer ? `\n${answer.trimEnd()}\n` : ""}:::`;
+      let text = "";
+      let next = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const step = () => {
+        const delta = fixture.gloss.deltas[next];
+        if (delta === undefined) {
+          streams.delete(gloss);
+          send({ event: "done", data: { markdown: div(text) } });
+          return;
+        }
+        next += 1;
+        text += delta;
+        send({ event: "delta", data: { text: delta } });
+        timer = setTimeout(step, fixture.gloss.deltaMs);
+      };
+      streams.set(gloss, () => {
+        clearTimeout(timer);
+        streams.delete(gloss);
+        send({ event: "stopped", data: { markdown: text.trim() ? div(text) : null } });
+      });
+      setTimeout(() => {
+        send({ event: "started", data: { gloss, model: "sample" } });
+        step();
+      }, 0);
+      return gloss;
+    },
+    gloss_cancel: ({ gloss }) => {
+      streams.get(gloss)?.();
+      return null;
+    },
   };
   const isCommand = (cmd: string): cmd is CommandName => Object.hasOwn(handlers, cmd);
-  const callbacks = new Map<number, (response: unknown) => void>();
   let nextId = 1;
   const internals: MockInternals = {
     invoke(cmd, args) {

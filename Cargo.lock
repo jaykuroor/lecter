@@ -2075,11 +2075,20 @@ dependencies = [
 [[package]]
 name = "lecter-ai"
 version = "0.0.1"
+dependencies = [
+ "lecter-index",
+ "serde",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
 
 [[package]]
 name = "lecter-app"
 version = "0.0.1"
 dependencies = [
+ "lecter-ai",
  "lecter-core",
  "lecter-index",
  "serde",
@@ -2125,6 +2134,7 @@ version = "0.0.1"
 name = "lecter-harness"
 version = "0.0.1"
 dependencies = [
+ "lecter-ai",
  "lecter-core",
  "lecter-index",
  "lecter-parse",

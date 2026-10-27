@@ -172,6 +172,22 @@ describe("the element motions outside a lecture", () => {
     logged.mockRestore();
   });
 
+  /** F-023: with its course, `a` on a block opens the ask prompt; without one, `a` stays Vim's append. */
+  it("asks with a on a block of a lecture whose course is known", () => {
+    const { container } = render(() => <Buffer lecture={lecture} course="/c/STAT311" error={null} />);
+    const v = EditorView.findFromDOM(container.querySelector(".cm-content") as HTMLElement);
+    if (!v) throw new Error("no editor");
+    keys(v, "a");
+    expect(container.querySelector(".gloss")?.getAttribute("data-state")).toBe("prompt");
+    cleanup();
+    const plain = render(() => <Buffer lecture={lecture} error={null} />);
+    const w = EditorView.findFromDOM(plain.container.querySelector(".cm-content") as HTMLElement);
+    if (!w) throw new Error("no editor");
+    keys(w, "a");
+    expect(plain.container.querySelector(".gloss")).toBeNull();
+    expect(plain.container.querySelector(".lecture-buffer")?.getAttribute("data-vim-mode")).toBe("insert");
+  });
+
   /** F-021: what is typed in insert mode reaches `onEdits`, in the buffer's positions. */
   it("hands every edit to onEdits, and none for moving", () => {
     const sent: Edit[][] = [];

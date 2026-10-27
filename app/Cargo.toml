@@ -14,6 +14,8 @@ workspace = true
 
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
+# Glosses: the provider trait, prompt assembly and the answer stream (F-023).
+lecter-ai = { path = "../crates/ai" }
 lecter-core = { path = "../crates/core", features = ["specta"] }
 # Search: the per-course BM25 index behind search_find (F-022).
 lecter-index = { path = "../crates/index" }

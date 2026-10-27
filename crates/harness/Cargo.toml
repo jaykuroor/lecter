@@ -17,6 +17,8 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+# Prompt assembly: `lecter-harness prompt` prints the request a gloss sends (F-023).
+lecter-ai = { path = "../ai" }
 lecter-core = { path = "../core" }
 # Search: `lecter-harness search` indexes a course's lectures and queries them (F-022).
 lecter-index = { path = "../index" }

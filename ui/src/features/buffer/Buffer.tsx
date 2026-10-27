@@ -1,7 +1,9 @@
 import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { createEffect, createSignal, type JSX, onCleanup, Show } from "solid-js";
+import { glossBackend } from "../../core/gloss";
 import type { Edit, Lecture } from "../../core/lecture";
+import { registerAskKey } from "../gloss/askKey";
 import { lectureState } from "./editorState";
 import { registerElementMotions } from "./vim";
 import "./Buffer.css";
@@ -17,11 +19,14 @@ type Mode = "normal" | "insert" | "visual" | "replace";
  */
 export function Buffer(props: {
   lecture: Lecture | null;
+  /** The course the lecture belongs to; with it, `a` on a slide line asks about it (F-023). */
+  course?: string | null;
   error: string | null;
   /** Receives every edit, in order (F-021: the core journals and saves them). */
   onEdits?: (edits: Edit[]) => void;
 }): JSX.Element {
   registerElementMotions();
+  registerAskKey();
   const [mode, setMode] = createSignal<Mode>("normal");
   let host: HTMLDivElement | undefined;
   let view: EditorView | undefined;
@@ -35,7 +40,9 @@ export function Buffer(props: {
   createEffect(() => {
     const lecture = props.lecture;
     if (!lecture || !host) return;
-    const state = lectureState(lecture.text, `Lecture ${lecture.name}`, (edits) => props.onEdits?.(edits));
+    const course = props.course;
+    const gloss = course ? glossBackend(course, lecture.path) : null;
+    const state = lectureState(lecture.text, `Lecture ${lecture.name}`, (edits) => props.onEdits?.(edits), gloss);
     if (view) view.setState(state);
     else view = new EditorView({ state, parent: host });
     followMode(view);

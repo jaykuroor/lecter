@@ -41,7 +41,6 @@ impl Default for IpcLimits {
 }
 
 /// The id patterns of 18-contracts.md#validation.
-#[cfg_attr(not(test), expect(dead_code, reason = "no v0 command takes an id yet; the lecture and gloss commands will"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdKind {
     /// `s\d+b\d+`, e.g. `s4b2`.
@@ -49,6 +48,7 @@ pub enum IdKind {
     /// `g-[0-9a-f]{4,8}`.
     Gloss,
     /// `n-[0-9a-f]{4,8}`.
+    #[cfg_attr(not(test), expect(dead_code, reason = "no v0 command takes a note id yet"))]
     Note,
 }
 
@@ -69,7 +69,6 @@ pub fn list<T>(command: &str, field: &str, items: &[T], max_items: usize) -> Res
 }
 
 /// Rejects an id that doesn't match its pattern.
-#[cfg_attr(not(test), expect(dead_code, reason = "no v0 command takes an id yet; the lecture and gloss commands will"))]
 pub fn id(command: &str, field: &str, value: &str, kind: IdKind) -> Result<(), IpcError> {
     let ok = match kind {
         IdKind::Block => block_id(value),
@@ -142,7 +141,6 @@ fn json_size(value: &Value, limit: usize) -> usize {
     counter.n
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "no v0 command takes an id yet; the lecture and gloss commands will"))]
 fn block_id(v: &str) -> bool {
     let Some(rest) = v.strip_prefix('s') else { return false };
     let Some((slide, block)) = rest.split_once('b') else { return false };
@@ -150,7 +148,6 @@ fn block_id(v: &str) -> bool {
     digits(slide) && digits(block)
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "no v0 command takes an id yet; the lecture and gloss commands will"))]
 fn hex_id(v: &str, prefix: &str) -> bool {
     v.strip_prefix(prefix).is_some_and(|h| {
         (4..=8).contains(&h.len()) && h.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))

@@ -9,6 +9,11 @@ export interface MockFixture {
   lectures: Record<string, Commands["lecture_open"]["result"]>;
   /** The hits `search_find` answers, by query exactly as sent; any other query finds nothing. */
   find: Record<string, Commands["search_find"]["result"]>;
+  /**
+   * The answer `gloss_request` streams, one delta per entry, `deltaMs` apart (0: all at once);
+   * `gloss_cancel` stops it. Every gloss gets the next id `g-0001`, `g-0002`, ….
+   */
+  gloss: { deltas: string[]; deltaMs: number };
 }
 
 export const defaultFixture: MockFixture = {
@@ -16,4 +21,5 @@ export const defaultFixture: MockFixture = {
   courseOpen: null,
   lectures: {},
   find: {},
+  gloss: { deltas: ["**Sample answer.** ", "This is ", "the mocked core."], deltaMs: 30 },
 };
