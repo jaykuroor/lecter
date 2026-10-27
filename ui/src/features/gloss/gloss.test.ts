@@ -83,9 +83,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(backend: GlossBackend | null, edits: Edit[][] = []) {
+function mount(backend: GlossBackend | null, edits: Edit[][] = [], text = TEXT) {
   const view = new EditorView({
-    state: lectureState(TEXT, "Lecture", (e) => edits.push(e), backend),
+    state: lectureState(text, "Lecture", (e) => edits.push(e), backend),
     parent: document.body,
   });
   views.push(view);
@@ -404,6 +404,29 @@ describe("a in Vim's other modes and with a count", () => {
     keys(view, "a");
     expect(view.state.selection.main.head).toBe(emoji + 2);
     expect(getCM(view)?.state.vim?.insertModeRepeat).toBe(1);
+  });
+
+  it("steps over exactly the characters that take two UTF-16 units", () => {
+    // U+10000 and U+10FC00 start with the first and last high surrogates (D800, DBFF); U+FB01 is
+    // one unit above them.
+    const view = mount(fakeBackend().backend, [], ["\u{10000}x", "\u{10FC00}x", "\uFB01x", ""].join("\n"));
+    const after = (n: number) => {
+      keys(view, "<Esc>");
+      const from = view.state.doc.line(n).from;
+      view.dispatch({ selection: { anchor: from } });
+      keys(view, "a");
+      return view.state.selection.main.head - from;
+    };
+    expect([after(1), after(2), after(3)]).toEqual([2, 2, 1]);
+  });
+
+  it("records a macro as the keys typed: a stays a", () => {
+    const view = mount(fakeBackend().backend);
+    view.dispatch({ selection: { anchor: view.state.doc.line(8).from } });
+    keys(view, "q", "w", "a", "<Esc>", "q");
+    expect(Vim.getRegisterController().getRegister("w").toString()).toBe("a");
+    keys(view, "q", "e", "3", "a", "<Esc>", "q");
+    expect(Vim.getRegisterController().getRegister("e").toString()).toBe("3a");
   });
 
   it("leaves visual mode's a (vaw selects a word)", () => {

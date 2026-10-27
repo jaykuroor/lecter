@@ -72,11 +72,10 @@ function receive(view: EditorView, card: GlossCard, event: GlossEvent): void {
       card.append(event.data.text);
       return;
     case "done":
-      save(view, card, event.data.markdown);
-      return;
     case "stopped":
-      if (event.data.markdown !== null) save(view, card, event.data.markdown);
-      else remove(view, card);
+      // A stream stopped before any text has no gloss to save.
+      if (event.data.markdown === null) remove(view, card);
+      else save(view, card, event.data.markdown);
       return;
     case "failed":
       card.fail(event.data.error.message);
