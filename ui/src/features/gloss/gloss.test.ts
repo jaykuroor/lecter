@@ -1,117 +1,17 @@
 // F-023 criteria 2-4 in the buffer: `a` on a block opens the prompt, Enter streams the answer under
 // the block (drawn once per animation frame), the finished gloss is inserted into the lecture as
 // its fenced div (an edit like any other), and Esc stops the stream at once.
-import { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defaultFixture } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
-import { type GlossBackend, type GlossEvent, glossBackend } from "../../core/gloss";
+import { glossBackend } from "../../core/gloss";
 import type { Edit } from "../../core/lecture";
-import { lectureState } from "../buffer/editorState";
+import { card, DIV, esc, fakeBackend, frame, keys, mount, prompt, shown, TEXT, useBuffer } from "./__tests__/kit";
 import { type AskVimApi, registerAskKey } from "./askKey";
 import { cardsField } from "./field";
 
-const TEXT = [
-  '::: {.slide #s1 n=1 title="Covariance"}',
-  "## Covariance",
-  "",
-  "[Covariance measures co-movement.]{#s1b1}",
-  "",
-  "[It is zero for independent variables.]{#s1b2}",
-  "",
-  "my own note",
-  "😀b",
-  ":::",
-  "",
-].join("\n");
-
-const DIV =
-  '::: {.gloss #g-0001 kind=ask key=a anchor=s1b1 model="sample" by=ai}\n**you asked:** why?\n\nBecause.\n:::';
-
-/** A fake core edge: records asks and cancels; the test emits the stream's events. */
-function fakeBackend() {
-  const asks: { block: string; question: string; emit: (e: GlossEvent) => void }[] = [];
-  const cancels: string[] = [];
-  let answer: (v: { ok: true; gloss: string }) => void = () => undefined;
-  const backend: GlossBackend = {
-    request: (block, question, emit) => {
-      asks.push({ block, question, emit });
-      return new Promise((r) => {
-        answer = r;
-      });
-    },
-    cancel: (gloss) => void cancels.push(gloss),
-  };
-  /** The core names the gloss (`gloss_request` returns). */
-  const named = async (gloss = "g-0001") => {
-    answer({ ok: true, gloss });
-    await Promise.resolve();
-  };
-  return { asks, cancels, backend, named };
-}
-
-/** A fake animation-frame clock in place of the browser's. */
-let frames: (() => void)[] = [];
-const frame = () => {
-  const run = frames;
-  frames = [];
-  for (const cb of run) cb();
-};
-
-// CodeMirror measures text ranges in the frames these tests run; jsdom has no layout, so a range
-// measures as nothing (otherwise CodeMirror logs a TypeError for each).
-if (!("getClientRects" in Range.prototype)) {
-  Object.assign(Range.prototype, {
-    getClientRects: () => [],
-    getBoundingClientRect: () => new DOMRect(),
-  });
-}
-
-let views: EditorView[] = [];
-beforeEach(() => {
-  frames = [];
-  vi.stubGlobal("requestAnimationFrame", (cb: () => void) => frames.push(cb));
-  vi.stubGlobal("cancelAnimationFrame", (h: number) => {
-    frames.splice(h - 1, 1, () => undefined);
-  });
-  registerAskKey();
-});
-afterEach(() => {
-  for (const v of views) v.destroy();
-  views = [];
-  vi.unstubAllGlobals();
-});
-
-function mount(backend: GlossBackend | null, edits: Edit[][] = [], text = TEXT) {
-  const view = new EditorView({
-    state: lectureState(text, "Lecture", (e) => edits.push(e), backend),
-    parent: document.body,
-  });
-  views.push(view);
-  return view;
-}
-
-function keys(view: EditorView, ...pressed: string[]) {
-  const cm = getCM(view);
-  if (!cm) throw new Error("no vim");
-  for (const k of pressed) Vim.handleKey(cm, k, "user");
-}
-
-const card = (view: EditorView) => view.dom.querySelector<HTMLElement>(".gloss");
-const shown = (view: EditorView) => card(view)?.querySelector(".gloss-body")?.textContent ?? null;
-
-/** Types `question` into the open prompt and presses `key` there. */
-function prompt(view: EditorView, question: string, key = "Enter") {
-  const input = view.dom.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");
-  if (!input) throw new Error("no prompt");
-  input.value = question;
-  input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
-}
-
-function esc(view: EditorView) {
-  view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-}
+useBuffer();
 
 describe("asking about a block", () => {
   it("a on a block opens the prompt under it, focused", () => {
@@ -410,14 +310,14 @@ describe("a in Vim's other modes and with a count", () => {
     // U+10000 and U+10FC00 start with the first and last high surrogates (D800, DBFF); U+FB01 is
     // one unit above them.
     const view = mount(fakeBackend().backend, [], ["\u{10000}x", "\u{10FC00}x", "\uFB01x", ""].join("\n"));
-    const after = (n: number) => {
+    const stepFrom = (n: number) => {
       keys(view, "<Esc>");
       const from = view.state.doc.line(n).from;
       view.dispatch({ selection: { anchor: from } });
       keys(view, "a");
       return view.state.selection.main.head - from;
     };
-    expect([after(1), after(2), after(3)]).toEqual([2, 2, 1]);
+    expect([stepFrom(1), stepFrom(2), stepFrom(3)]).toEqual([2, 2, 1]);
   });
 
   it("records a macro as the keys typed: a stays a", () => {
