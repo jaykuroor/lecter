@@ -10,9 +10,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use lecter_ai::ask::{ASK_TIME_BUDGET, Answer, End, stream_answer};
+use lecter_ai::figures::sample::SampleProvider;
 use lecter_ai::gloss::{GlossDiv, fenced_div, new_id, random_u32};
 use lecter_ai::provider::Provider;
-use lecter_ai::provider::scripted::ScriptedProvider;
 use lecter_ai::{CancellationToken, prompt};
 use serde::Serialize;
 use specta::Type;
@@ -52,9 +52,9 @@ pub struct Glosses {
 
 impl Default for Glosses {
     /// Until a real provider can be connected (F-080 onwards), answers come from the offline
-    /// sample provider, which says that it is a sample.
+    /// sample provider, which says that it is a sample (and draws a sample plot when asked for one).
     fn default() -> Self {
-        Self::new(Arc::new(ScriptedProvider::sample()), ASK_TIME_BUDGET)
+        Self::new(Arc::new(SampleProvider), ASK_TIME_BUDGET)
     }
 }
 
