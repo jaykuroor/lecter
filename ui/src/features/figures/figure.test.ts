@@ -71,6 +71,7 @@ describe("a described figure in a gloss", () => {
     const fence = view.state.doc.lineAt(line.from);
     expect(fence.text).toBe("```");
     expect(view.state.doc.line(fence.number + 1).text).toBe(":::");
+    expect(fig.previousElementSibling?.textContent).toBe("```");
     inView(fig, true);
     await vi.waitFor(() => expect(fig.dataset.drawn).toBe("plot"));
     const svg = fig.querySelector("svg.figure-plot");
