@@ -6,6 +6,7 @@ import { drawSelection, EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import type { GlossBackend } from "../../core/gloss";
 import type { Edit } from "../../core/lecture";
+import { figureExtension } from "../figures/extension";
 import { glossExtension } from "../gloss/controller";
 import { cursorRules } from "./cursor";
 import { lectureDecorations } from "./decorations";
@@ -16,7 +17,7 @@ import { lectureBuffer } from "./vim";
 
 /**
  * The editor extensions of a lecture buffer labelled `label` for assistive tools; its edits go to
- * `onEdits` and its asks (`a`) to `gloss` (F-023).
+ * `onEdits` and its asks (`a`) to `gloss` (F-023); function plots in glosses are drawn (F-024).
  */
 function extensions(label: string, onEdits: (edits: Edit[]) => void, gloss: GlossBackend | null): Extension {
   return [
@@ -31,6 +32,7 @@ function extensions(label: string, onEdits: (edits: Edit[]) => void, gloss: Glos
     cursorRules,
     sendEdits(onEdits),
     glossExtension(gloss),
+    figureExtension,
   ];
 }
 
