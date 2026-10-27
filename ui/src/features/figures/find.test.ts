@@ -65,6 +65,27 @@ describe("finding figures", () => {
     expect(findFigures(doc([GLOSS, "```fnplot", "1", "```"])).map((f) => f.source)).toEqual(["1"]);
   });
 
+  it("reads gloss fences as Pandoc writes them, and nothing else", () => {
+    const sources = (lines: string[]) => findFigures(doc(lines)).map((f) => f.source);
+    const fig = ["```fnplot", "1", "```"];
+    expect(sources(["::::: {.gloss #g-1}", ...fig, ":::::"])).toEqual(["1"]);
+    expect(sources([":::{.gloss #g-1}", ...fig, ":::"])).toEqual(["1"]);
+    expect(sources(["::: {.gloss #g-1}  ", ...fig, "::: "])).toEqual(["1"]);
+    // Any line of three or more colons closes a gloss; one with other text after them does not.
+    expect(sources(["::: {.gloss #g-1}", ":::: ", ...fig])).toEqual([]);
+    expect(sources(["::: {.gloss #g-1}", ":::x", ...fig, ":::"])).toEqual(["1"]);
+    // Not a gloss fence: text before the colons or after the attributes.
+    expect(sources(["a::: {.gloss #g-1}", ...fig, ":::"])).toEqual([]);
+    expect(sources(["::: {.gloss #g-1} more", ...fig, ":::"])).toEqual([]);
+  });
+
+  it("opens and closes a spec only on fence lines", () => {
+    const sources = (lines: string[]) => findFigures(doc([GLOSS, ...lines, ":::"])).map((f) => f.source);
+    expect(sources(["x ```fnplot", "1", "```"])).toEqual([]);
+    expect(sources(["```fnplot", "a```", "```js", "```"])).toEqual(["a```\n```js"]);
+    expect(sources(["```fnplot", "x \\[1]", "```"])).toEqual(["x \\[1]"]);
+  });
+
   it("knows the lines that can move figures", () => {
     expect(isFigureFence(":::")).toBe(true);
     expect(isFigureFence(GLOSS)).toBe(true);

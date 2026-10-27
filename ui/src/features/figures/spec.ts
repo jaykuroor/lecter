@@ -65,9 +65,9 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** `v` as a number within ±MAX_MAGNITUDE, or a failure naming `what`. */
+/** `v` as a number within ±MAX_MAGNITUDE (so not NaN or infinite), or a failure naming `what`. */
 function num(v: unknown, what: string): number {
-  if (typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > MAX_MAGNITUDE) {
+  if (typeof v !== "number" || !(Math.abs(v) <= MAX_MAGNITUDE)) {
     throw new Bad(`${what} must be a number within ±${MAX_MAGNITUDE}`);
   }
   return v;

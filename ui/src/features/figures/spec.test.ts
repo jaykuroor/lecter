@@ -132,9 +132,7 @@ describe("the function plot spec", () => {
     expect(s({ sample: "x ~ U(0,1); y = x\n+ 1", n: 3 })).toBe(form);
     expect(s({ sample: "x ~ U (0,1);y=x", n: 3 })).toBe("accepted");
     // A bound that is no number (NaN) is refused like an infinite one.
-    expect(s({ sample: "x ~ U(0,0/0); y = x", n: 3 })).toBe(
-      `U(a, b): b must be a number within ±${MAX_MAGNITUDE}`,
-    );
+    expect(s({ sample: "x ~ U(0,0/0); y = x", n: 3 })).toBe(`U(a, b): b must be a number within ±${MAX_MAGNITUDE}`);
     expect(s({ sample: "x ~ U(x,1); y = x", n: 3 })).toBe('U(a, b): a: unknown name "x"');
     expect(s({ sample: "x ~ U(0,1/0); y = x", n: 3 })).toBe(`U(a, b): b must be a number within ±${MAX_MAGNITUDE}`);
     expect(s({ sample: "x ~ U(0,1); y = q", n: 3 })).toBe('scatter y: unknown name "q"');

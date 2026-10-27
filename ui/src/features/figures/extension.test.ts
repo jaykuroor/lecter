@@ -93,6 +93,9 @@ describe("the figure set", () => {
       { from: (block?.from ?? 0) + 3, to: (block?.to ?? 0) + 3, source: "{}" },
     ]);
     expect(typed.field(figuresField).deco.size).toBe(1);
+    // Mapped, not found again: the same widget, so nothing is redrawn.
+    const widget = (s: EditorState) => s.field(figuresField).deco.iter().value?.spec.widget;
+    expect(widget(typed)).toBe(widget(state));
     // Typing in the note below changes nothing in the set.
     const below = typed.update({ changes: { from: typed.doc.length, insert: "!" } }).state;
     expect(below.field(figuresField).blocks).toEqual(typed.field(figuresField).blocks);

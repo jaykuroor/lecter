@@ -51,6 +51,12 @@ describe("computing a plot", () => {
     expect(range([])).toBe(null);
   });
 
+  it("is mulberry32: the first numbers for seed 7 match the published algorithm", () => {
+    // Computed independently from the reference (bryc's mulberry32), not from this code.
+    const next = random(7);
+    expect([next(), next(), next()]).toEqual([0.011704753153026104, 0.06195825757458806, 0.97690763277933]);
+  });
+
   it("draws the same uniform numbers for the same seed", () => {
     const a = random(7);
     const b = random(7);
