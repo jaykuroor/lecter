@@ -9,7 +9,8 @@ import { installMockCore } from "../../../e2e/mock-core/install";
 import { type GlossBackend, type GlossEvent, glossBackend } from "../../core/gloss";
 import type { Edit } from "../../core/lecture";
 import { lectureState } from "../buffer/editorState";
-import { registerAskKey } from "./askKey";
+import { type AskVimApi, registerAskKey } from "./askKey";
+import { cardsField } from "./field";
 
 const TEXT = [
   '::: {.slide #s1 n=1 title="Covariance"}',
@@ -20,6 +21,7 @@ const TEXT = [
   "[It is zero for independent variables.]{#s1b2}",
   "",
   "my own note",
+  "😀b",
   ":::",
   "",
 ].join("\n");
@@ -273,5 +275,170 @@ describe("through the core's channel", () => {
     prompt(view, "why?");
     await vi.waitFor(() => expect(card(view)).toBeNull());
     expect(view.state.doc.toString()).toContain(`{#s1b1}\n\n${DIV}\n`);
+  });
+});
+
+describe("cards in the buffer", () => {
+  it("a again replaces an open prompt with a fresh one", () => {
+    const view = mount(fakeBackend().backend);
+    keys(view, "a");
+    const first = view.dom.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");
+    if (first) first.value = "old";
+    keys(view, "a");
+    const inputs = view.dom.querySelectorAll<HTMLTextAreaElement>(".gloss-prompt-input");
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]?.value).toBe("");
+    expect(document.activeElement).toBe(inputs[0]);
+  });
+
+  it("keeps a streaming card when a prompt opens above it, and in order", () => {
+    const f = fakeBackend();
+    const view = mount(f.backend);
+    view.dispatch({ selection: { anchor: view.state.doc.line(6).from + 1 } });
+    keys(view, "a");
+    prompt(view, "first?");
+    view.dispatch({ selection: { anchor: view.state.doc.line(4).from + 1 } });
+    keys(view, "a");
+    const anchors = () =>
+      Array.from(view.dom.querySelectorAll<HTMLElement>(".gloss"), (c) => `${c.dataset.anchor}:${c.dataset.state}`);
+    expect(anchors()).toEqual(["s1b1:prompt", "s1b2:streaming"]);
+    prompt(view, "never mind", "Escape");
+    expect(anchors()).toEqual(["s1b2:streaming"]);
+    expect(document.activeElement).toBe(view.contentDOM);
+  });
+
+  it("the Stop keycap stops the stream and tells the core", async () => {
+    const f = fakeBackend();
+    const view = mount(f.backend);
+    keys(view, "a");
+    prompt(view, "why?");
+    await f.named("g-0042");
+    view.dom.querySelector<HTMLButtonElement>(".gloss-stop")?.click();
+    expect(card(view)?.dataset.state).toBe("stopped");
+    expect(f.cancels).toEqual(["g-0042"]);
+  });
+
+  it("shows the card as a block under the line and keeps it under its block while the text above changes", () => {
+    const view = mount(fakeBackend().backend);
+    const empty = view.state.field(cardsField);
+    view.dispatch({ changes: { from: 0, insert: "% a comment\n" } });
+    expect(view.state.field(cardsField)).toBe(empty);
+    view.dispatch({ selection: { anchor: view.state.doc.line(7).from + 1 } });
+    keys(view, "a");
+    expect(card(view)?.parentElement).toBe(view.contentDOM);
+    view.dispatch({ changes: { from: 0, insert: "% another\n" } });
+    expect(view.state.field(cardsField).map((p) => p.pos)).toEqual([view.state.doc.line(8).to]);
+  });
+
+  it("keys typed on the card's buttons never reach Vim", () => {
+    const view = mount(fakeBackend().backend);
+    keys(view, "a");
+    prompt(view, "why?");
+    const stop = view.dom.querySelector<HTMLButtonElement>(".gloss-stop");
+    stop?.dispatchEvent(new KeyboardEvent("keydown", { key: "x", bubbles: true, cancelable: true }));
+    stop?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(view.state.doc.toString()).toBe(TEXT);
+    expect(card(view)?.dataset.state).toBe("streaming");
+  });
+
+  it("an answer whose block was deleted meanwhile isn't saved, and says so", () => {
+    const f = fakeBackend();
+    const view = mount(f.backend);
+    keys(view, "a");
+    prompt(view, "why?");
+    const line = view.state.doc.line(4);
+    view.dispatch({ changes: { from: line.from, to: line.to + 1 } });
+    const after = view.state.doc.toString();
+    f.asks[0]?.emit({ event: "done", data: { markdown: DIV } });
+    expect(view.state.doc.toString()).toBe(after);
+    expect(card(view)?.dataset.state).toBe("failed");
+    expect(card(view)?.querySelector("[role=alert]")?.textContent).toBe(
+      "The line was deleted, so the answer was not saved.",
+    );
+  });
+});
+
+describe("a in Vim's other modes and with a count", () => {
+  it("passes a count on to the insert, and steps over a two-unit character", () => {
+    const view = mount(fakeBackend().backend);
+    view.dispatch({ selection: { anchor: view.state.doc.line(8).from } });
+    keys(view, "3", "a");
+    expect(getCM(view)?.state.vim?.insertModeRepeat).toBe(3);
+    keys(view, "<Esc>");
+    const emoji = view.state.doc.line(9).from;
+    view.dispatch({ selection: { anchor: emoji } });
+    keys(view, "a");
+    expect(view.state.selection.main.head).toBe(emoji + 2);
+    expect(getCM(view)?.state.vim?.insertModeRepeat).toBe(1);
+  });
+
+  it("leaves visual mode's a (vaw selects a word)", () => {
+    const view = mount(fakeBackend().backend);
+    const from = view.state.doc.line(8).from;
+    view.dispatch({ selection: { anchor: from } });
+    keys(view, "v", "a", "w");
+    const vim = getCM(view)?.state.vim;
+    expect([vim?.visualMode, vim?.insertMode]).toEqual([true, false]);
+    expect(card(view)).toBeNull();
+    const sel = view.state.selection.main;
+    expect(view.state.sliceDoc(sel.from, sel.to)).toBe("my ");
+  });
+
+  it("is registered once per Vim, as a normal-mode action", () => {
+    const calls: unknown[][] = [];
+    const api: AskVimApi = {
+      defineAction: (name) => void calls.push(["defineAction", name]),
+      mapCommand: (...args) => void calls.push(["mapCommand", ...args]),
+      handleKey: () => undefined,
+    };
+    registerAskKey(api);
+    registerAskKey(api);
+    expect(calls).toEqual([
+      ["defineAction", "lecterAsk"],
+      ["mapCommand", "a", "action", "lecterAsk", {}, { context: "normal" }],
+    ]);
+  });
+});
+
+describe("the core's answers to gloss_request", () => {
+  type Invoke = (cmd: string, args?: unknown) => Promise<unknown>;
+  const internals = () => (window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } }).__TAURI_INTERNALS__;
+
+  function failWith(reason: unknown) {
+    installMockCore(defaultFixture);
+    vi.unstubAllGlobals();
+    const real = internals().invoke;
+    internals().invoke = (cmd, args) => (cmd === "gloss_request" ? Promise.reject(reason) : real(cmd, args));
+  }
+
+  it("an error from the core shows its message", async () => {
+    failWith({ code: "E_NOT_FOUND", message: "That line is no longer in the lecture.", retryable: false });
+    const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
+    keys(view, "a");
+    prompt(view, "why?");
+    await vi.waitFor(() => expect(card(view)?.dataset.state).toBe("failed"));
+    expect(card(view)?.querySelector("[role=alert]")?.textContent).toBe("That line is no longer in the lecture.");
+  });
+
+  it("a core that can't be reached says so", async () => {
+    failWith(new Error("gone"));
+    const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
+    keys(view, "a");
+    prompt(view, "why?");
+    await vi.waitFor(() => expect(card(view)?.dataset.state).toBe("failed"));
+    expect(card(view)?.querySelector("[role=alert]")?.textContent).toBe("Lecter could not reach the core to ask.");
+  });
+
+  it("Esc reaches the core, which stops the stream and returns the answer so far", async () => {
+    // The second delta would come a minute later: Esc lands between the two.
+    installMockCore({ ...defaultFixture, gloss: { deltas: ["Be", " never sent."], deltaMs: 60_000 } });
+    vi.unstubAllGlobals();
+    const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
+    keys(view, "a");
+    prompt(view, "why?");
+    await vi.waitFor(() => expect(card(view)?.querySelector(".gloss-body")?.textContent).toBe("Be"));
+    esc(view);
+    await vi.waitFor(() => expect(card(view)).toBeNull());
+    expect(view.state.doc.toString()).toContain(`{#s1b1}\n\n${DIV.replace("Because.", "Be")}\n`);
   });
 });

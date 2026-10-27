@@ -59,6 +59,41 @@ describe("glossInsertPos", () => {
     expect(glossInsertPos(d, 1, "s1b1")).toBe(d.line(1).to);
   });
 
+  it("finds a block on the file's last line, past lines that start with [ but aren't blocks", () => {
+    const d = doc(["[a link](x) first", "[not a block]{.x}", "[Last.]{#s2b1}"]);
+    expect(blockLine(d, "s2b1")).toBe(3);
+  });
+
+  it("skips whitespace-only lines and a div that closes on the file's last line", () => {
+    const d = doc(["[A]{#s1b1}", "   ", "::::{.gloss #g-0001 anchor=s1b1}", "answer", "::::"]);
+    expect(glossInsertPos(d, 1, "s1b1")).toBe(d.line(5).to);
+  });
+
+  it("counts only whole fence lines inside a div", () => {
+    const d = doc([
+      "[A]{#s1b1}",
+      "",
+      "::: {.gloss #g-0001 anchor=s1b1}",
+      ":::x is not a fence",
+      "text ::: is not a fence",
+      "::: {.note #n-0001 anchor=s1b1}",
+      "nested",
+      ":::",
+      ":::",
+      "after",
+    ]);
+    expect(glossInsertPos(d, 1, "s1b1")).toBe(d.line(9).to);
+  });
+
+  it("stops at a div that isn't a gloss or note, or isn't only a fence", () => {
+    const figure = doc(["[A]{#s1b1}", "", "::: {.figure #f-1 anchor=s1b1}", ":::"]);
+    expect(glossInsertPos(figure, 1, "s1b1")).toBe(figure.line(1).to);
+    const trailing = doc(["[A]{#s1b1}", "", "::: {.gloss #g-0001 anchor=s1b1}x", ":::"]);
+    expect(glossInsertPos(trailing, 1, "s1b1")).toBe(trailing.line(1).to);
+    const inline = doc(["[A]{#s1b1}", "x::: {.gloss #g-0001 anchor=s1b1}", "::: {.note}", ":::", ":::"]);
+    expect(glossInsertPos(inline, 1, "s1b1")).toBe(inline.line(1).to);
+  });
+
   it("stops at the end of the file", () => {
     const d = doc(["[A]{#s1b1}", "", ""]);
     expect(glossInsertPos(d, 1, "s1b1")).toBe(d.line(1).to);

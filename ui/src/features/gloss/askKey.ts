@@ -27,7 +27,6 @@ function append(api: AskVimApi, cm: Cm, view: EditorView, repeat: number): void 
   api.handleKey(cm, "i", "mapping");
   const head = view.state.selection.main.head;
   const line = view.state.doc.lineAt(head);
-  if (head >= line.to) return;
   const code = view.state.doc.sliceString(head, head + 1).charCodeAt(0);
   const step = code >= 0xd800 && code <= 0xdbff ? 2 : 1;
   view.dispatch({ selection: { anchor: Math.min(head + step, line.to) } });

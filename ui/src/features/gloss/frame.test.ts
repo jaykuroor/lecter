@@ -4,29 +4,27 @@ import { FrameBatcher } from "./frame";
 
 /** A fake frame clock: scheduled callbacks run when the test calls `frame()`. */
 function clock() {
-  let next = 1;
-  const queued = new Map<number, () => void>();
+  let queued: (() => void)[] = [];
   return {
-    schedule: (cb: () => void) => {
-      const h = next++;
-      queued.set(h, cb);
-      return h;
-    },
-    unschedule: (h: number) => void queued.delete(h),
-    pending: () => queued.size,
+    schedule: (cb: () => void) => queued.push(cb),
+    pending: () => queued.length,
     frame: () => {
-      const run = [...queued.values()];
-      queued.clear();
+      const run = queued;
+      queued = [];
       for (const cb of run) cb();
     },
   };
 }
 
+function batcher() {
+  const c = clock();
+  const writes: string[] = [];
+  return { c, writes, b: new FrameBatcher((t) => writes.push(t), c.schedule) };
+}
+
 describe("FrameBatcher", () => {
   it("joins every delta of a frame into one write", () => {
-    const c = clock();
-    const writes: string[] = [];
-    const b = new FrameBatcher((t) => writes.push(t), c.schedule, c.unschedule);
+    const { c, writes, b } = batcher();
     b.push("Expand ");
     b.push("the ");
     b.push("square.");
@@ -39,43 +37,41 @@ describe("FrameBatcher", () => {
   });
 
   it("writes once per frame while a stream goes on", () => {
-    const c = clock();
-    const writes: string[] = [];
-    const b = new FrameBatcher((t) => writes.push(t), c.schedule, c.unschedule);
+    const { c, writes, b } = batcher();
     for (let f = 0; f < 3; f++) {
       for (let d = 0; d < 10; d++) b.push(`${f}`);
+      expect(c.pending()).toBe(1);
       c.frame();
     }
     expect(writes).toEqual(["0000000000", "1111111111", "2222222222"]);
   });
 
-  it("flush writes what is pending at once and drops the frame", () => {
-    const c = clock();
-    const writes: string[] = [];
-    const b = new FrameBatcher((t) => writes.push(t), c.schedule, c.unschedule);
-    b.push("a");
-    b.flush();
-    expect(writes).toEqual(["a"]);
-    expect(c.pending()).toBe(0);
-    b.flush();
-    expect(writes).toEqual(["a"]);
-  });
-
-  it("discard drops pending text without writing it", () => {
-    const c = clock();
-    const writes: string[] = [];
-    const b = new FrameBatcher((t) => writes.push(t), c.schedule, c.unschedule);
+  it("discard drops pending text: its frame writes nothing, and the next text goes alone", () => {
+    const { c, writes, b } = batcher();
     b.push("late");
     b.discard();
     c.frame();
     expect(writes).toEqual([]);
-    expect(c.pending()).toBe(0);
+    b.push("next");
+    expect(c.pending()).toBe(1);
+    c.frame();
+    expect(writes).toEqual(["next"]);
   });
 
-  it("an empty delta schedules nothing", () => {
-    const c = clock();
-    const b = new FrameBatcher(() => undefined, c.schedule, c.unschedule);
-    b.push("");
-    expect(c.pending()).toBe(0);
+  it("uses the browser's animation frames by default", () => {
+    const writes: string[] = [];
+    const queued: FrameRequestCallback[] = [];
+    const real = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => queued.push(cb);
+    try {
+      const b = new FrameBatcher((t) => writes.push(t));
+      b.push("a");
+      b.push("b");
+      expect(queued).toHaveLength(1);
+      queued[0]?.(0);
+      expect(writes).toEqual(["ab"]);
+    } finally {
+      globalThis.requestAnimationFrame = real;
+    }
   });
 });

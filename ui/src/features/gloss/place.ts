@@ -28,7 +28,6 @@ function closingLine(doc: Text, from: number): number | null {
   let depth = 0;
   for (let n = from; n <= doc.lines; n++) {
     const text = doc.line(n).text;
-    if (!text.startsWith(":::")) continue;
     if (OPEN.test(text)) depth++;
     else if (/^:::+\s*$/.test(text)) depth--;
     if (depth === 0) return n;

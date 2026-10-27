@@ -168,6 +168,14 @@ mod tests {
         assert_eq!(new_id("", || big.next().unwrap_or(0)), "g-abcd");
     }
 
+    /// The low 16 bits make the short id, so they must vary from call to call. (Eight equal draws
+    /// by chance: 2^-112.)
+    #[test]
+    fn random_digits_vary_in_the_bits_short_ids_use() {
+        let draws: std::collections::HashSet<u32> = (0..8).map(|_| random_u32() & 0xffff).collect();
+        assert!(draws.len() > 1, "{draws:?}");
+    }
+
     #[test]
     fn colliding_short_ids_fall_back_to_eight_digits() {
         let mut n = 0u32;

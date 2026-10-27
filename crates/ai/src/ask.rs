@@ -65,8 +65,7 @@ pub async fn stream_answer(
             }
             Some(Ok(StreamEvent::Done)) => return Ok(Answer { text, end: End::Finished }),
             Some(Err(e)) => return Err(e),
-            // The provider stopped without finishing: it was cancelled or broke off.
-            None if cancel.is_cancelled() => return Ok(Answer { text, end: End::Cancelled }),
+            // The provider broke off. (A cancelled one is caught above: `biased` polls `cancel` first.)
             None => return Err(Error::Provider("the stream ended before the answer did".into())),
         }
     }

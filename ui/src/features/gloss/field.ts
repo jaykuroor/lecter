@@ -18,9 +18,7 @@ export interface Placed {
 }
 
 /** Shows `card` under the line ending at `pos`. */
-export const addCard = StateEffect.define<Placed>({
-  map: (p, changes) => ({ card: p.card, pos: changes.mapPos(p.pos, 1) }),
-});
+export const addCard = StateEffect.define<Placed>();
 
 /** Removes `card`. */
 export const removeCard = StateEffect.define<GlossCard>();

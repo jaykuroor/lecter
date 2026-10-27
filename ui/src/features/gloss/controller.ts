@@ -13,11 +13,11 @@ import { blockLine, glossInsertPos } from "./place";
 
 /** The cards in `view`. */
 function cards(view: EditorView): GlossCard[] {
-  return (view.state.field(cardsField, false) ?? []).map((p) => p.card);
+  return view.state.field(cardsField).map((p) => p.card);
 }
 
 function remove(view: EditorView, card: GlossCard): void {
-  if (cards(view).includes(card)) view.dispatch({ effects: removeCard.of(card) });
+  view.dispatch({ effects: removeCard.of(card) });
 }
 
 /**
@@ -28,11 +28,11 @@ export function openPrompt(view: EditorView, n: number): boolean {
   const backend = view.state.facet(glossBackendFacet);
   const line = view.state.doc.line(n);
   const span = blockSpan(line.text);
-  if (!backend || !span || view.state.field(cardsField, false) === undefined) return false;
+  if (!backend || !span) return false;
   for (const old of cards(view)) if (old.state === "prompt") remove(view, old);
   const card: GlossCard = new GlossCard(span.id, {
-    send: (question) => send(view, card, question),
-    escape: () => escapeCard(view, card),
+    send: (question) => send(view, backend, card, question),
+    escape: () => escapeCard(view, backend, card),
   });
   view.dispatch({ effects: addCard.of({ card, pos: line.to }) });
   card.focus();
@@ -40,16 +40,15 @@ export function openPrompt(view: EditorView, n: number): boolean {
 }
 
 /** Esc on a card: a prompt closes, a stream stops, an ended card goes. */
-function escapeCard(view: EditorView, card: GlossCard): void {
-  if (card.state === "streaming") stop(view, card);
+function escapeCard(view: EditorView, backend: GlossBackend, card: GlossCard): void {
+  if (card.state === "streaming") stop(backend, card);
   else remove(view, card);
   view.focus();
 }
 
 /** Sends `question` from `card`'s prompt and streams the answer into it. */
-function send(view: EditorView, card: GlossCard, question: string): void {
-  const backend = view.state.facet(glossBackendFacet);
-  if (!backend || card.state !== "prompt" || question.trim() === "") return;
+function send(view: EditorView, backend: GlossBackend, card: GlossCard, question: string): void {
+  if (card.state !== "prompt" || question.trim() === "") return;
   card.streaming(question);
   view.focus();
   const onEvent = (event: GlossEvent) => receive(view, card, event);
@@ -73,7 +72,6 @@ function receive(view: EditorView, card: GlossCard, event: GlossEvent): void {
       card.append(event.data.text);
       return;
     case "done":
-      card.flush();
       save(view, card, event.data.markdown);
       return;
     case "stopped":
@@ -88,7 +86,6 @@ function receive(view: EditorView, card: GlossCard, event: GlossEvent): void {
 
 /** Inserts the gloss's fenced div under its block (after the block's earlier glosses); the card goes. */
 function save(view: EditorView, card: GlossCard, markdown: string): void {
-  if (!cards(view).includes(card)) return;
   const doc = view.state.doc;
   const n = blockLine(doc, card.anchor);
   if (n === null) {
@@ -104,30 +101,31 @@ function save(view: EditorView, card: GlossCard, markdown: string): void {
 }
 
 /** Stops `card`'s stream: the screen stops changing at once, and the core is told. */
-function stop(view: EditorView, card: GlossCard): void {
+function stop(backend: GlossBackend, card: GlossCard): void {
   card.stop();
-  const backend = view.state.facet(glossBackendFacet);
-  if (backend && card.gloss !== null) backend.cancel(card.gloss);
+  if (card.gloss !== null) backend.cancel(card.gloss);
 }
 
 /**
  * `Esc` in the buffer while answers stream stops them all (10-keymap.md#on-a-gloss), and closes
  * cards that ended without a gloss. Vim still gets the key (it leaves insert mode as usual).
  */
-const escapeKey = Prec.highest(
-  EditorView.domEventHandlers({
-    keydown(e, view) {
-      if (e.key !== "Escape") return false;
-      for (const card of cards(view)) {
-        if (card.state === "streaming") stop(view, card);
-        else if (card.state !== "prompt") remove(view, card);
-      }
-      return false;
-    },
-  }),
-);
+function escapeKey(backend: GlossBackend): Extension {
+  return Prec.highest(
+    EditorView.domEventHandlers({
+      keydown(e, view) {
+        if (e.key !== "Escape") return false;
+        for (const card of cards(view)) {
+          if (card.state === "streaming") stop(backend, card);
+          else if (card.state !== "prompt") remove(view, card);
+        }
+        return false;
+      },
+    }),
+  );
+}
 
 /** The gloss feature of a lecture buffer whose asks go to `backend` (none: `a` stays Vim's). */
 export function glossExtension(backend: GlossBackend | null): Extension {
-  return backend ? [glossBackendFacet.of(backend), cardsField, escapeKey] : [cardsField];
+  return backend ? [glossBackendFacet.of(backend), cardsField, escapeKey(backend)] : [];
 }
