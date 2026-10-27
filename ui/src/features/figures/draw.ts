@@ -32,10 +32,9 @@ export function pathData(run: Point[], sx: (x: number) => number, sy: (y: number
   return run.map(([x, y], i) => `${i === 0 ? "M" : "L"}${c(sx(x))},${c(sy(y))}`).join(" ");
 }
 
-/** A tick label's number: 3 significant digits, no trailing zeros, no "-0". */
+/** A tick label's number: 3 significant digits, no trailing zeros (String(-0) is "0"). */
 export function tick(v: number): string {
-  const s = String(Number(v.toPrecision(3)));
-  return s === "-0" ? "0" : s;
+  return String(Number(v.toPrecision(3)));
 }
 
 function node<K extends keyof SVGElementTagNameMap>(

@@ -57,8 +57,8 @@ export function range(ys: Iterable<number>): [number, number] | null {
   let lo = Number.POSITIVE_INFINITY;
   let hi = Number.NEGATIVE_INFINITY;
   for (const y of ys) {
-    if (y < lo) lo = y;
-    if (y > hi) hi = y;
+    lo = Math.min(lo, y);
+    hi = Math.max(hi, y);
   }
   if (lo > hi) return null;
   return lo === hi ? [lo - 1, hi + 1] : [lo, hi];

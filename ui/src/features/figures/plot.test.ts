@@ -29,6 +29,8 @@ describe("computing a plot", () => {
     expect(xs?.length).toBe(4);
     expect(xs?.[3]).toBe(0.7);
     expect(sampleCurve((x) => x, [0, 1]).flat().length).toBe(SAMPLES + 1);
+    // -1 + (1.3 * 10) / 10 is 0.30000000000000004 in floating point: the last x is the end itself.
+    expect(sampleCurve((x) => x, [-1, 0.3], 10)[0]?.at(-1)).toEqual([0.3, 0.3]);
   });
 
   it("breaks a curve where it is undefined", () => {
@@ -94,6 +96,23 @@ describe("computing a plot", () => {
     // About half of U(-2, 2) falls in [0, 2].
     expect(data.points.length).toBeGreaterThan(150);
     expect(data.points.length).toBeLessThan(250);
+  });
+
+  it("keeps scatter points on the domain's ends and drops those past them", () => {
+    const pts = (sample: string) =>
+      plotData(spec(JSON.stringify({ type: "fnplot", exprs: ["x"], x: [0, 1], scatter: { sample, n: 3 } })))?.points;
+    expect(pts("x ~ U(0,0); y = 1")).toEqual([
+      [0, 1],
+      [0, 1],
+      [0, 1],
+    ]);
+    expect(pts("x ~ U(1,1); y = 2")).toEqual([
+      [1, 2],
+      [1, 2],
+      [1, 2],
+    ]);
+    expect(pts("x ~ U(2,3); y = 2")).toEqual([]);
+    expect(pts("x ~ U(-3,-2); y = 2")).toEqual([]);
   });
 
   it("has nothing to draw when no point is defined", () => {
@@ -189,6 +208,40 @@ describe("drawing a plot", () => {
       "figure-curve figure-curve-0",
       "figure-curve figure-curve-0",
     ]);
+  });
+
+  it("draws no axis line on the edge of a range that ends at 0, or beyond it", () => {
+    const axes = (x: [number, number], y: [number, number]) =>
+      drawPlot({ curves: [{ text: "x", segments: [] }], points: [], x, y }).querySelectorAll(".figure-axis").length;
+    expect(axes([-1, 0], [-1, 0])).toBe(0);
+    expect(axes([0, 1], [0, 1])).toBe(0);
+    expect(axes([-2, -1], [-2, -1])).toBe(0);
+    expect(axes([1, 2], [1, 2])).toBe(0);
+    expect(axes([-1, 1], [-1, 1])).toBe(2);
+  });
+
+  it("places the tick labels at the frame's corners, the legend inside it, and each point", () => {
+    const svg = drawPlot({
+      curves: [
+        { text: "1/x", segments: [] },
+        { text: "2", segments: [] },
+      ],
+      points: [[0, 0.5]],
+      x: [-1, 1],
+      y: [0, 1],
+    });
+    expect(svg.getAttribute("aria-label")).toBe("Plot of y = 1/x, y = 2 for x from -1 to 1");
+    const at = (e: Element | null) => ["x", "y", "text-anchor"].map((a) => e?.getAttribute(a));
+    const bottom = `${HEIGHT - 6}`;
+    expect([...svg.querySelectorAll(".figure-tick")].map(at)).toEqual([
+      [`${PAD.left}`, bottom, "start"],
+      [`${WIDTH - PAD.right}`, bottom, "end"],
+      [`${PAD.left - 6}`, `${PAD.top + 8}`, "end"],
+      [`${PAD.left - 6}`, `${HEIGHT - PAD.bottom}`, "end"],
+    ]);
+    expect(at(svg.querySelector(".figure-legend"))).toEqual([`${PAD.left + 8}`, `${PAD.top + 14}`, "start"]);
+    const point = svg.querySelector(".figure-point");
+    expect(["cx", "cy", "r"].map((a) => point?.getAttribute(a))).toEqual(["296", "104", "2"]);
   });
 
   it("refers to no URL, so drawing makes no request", () => {

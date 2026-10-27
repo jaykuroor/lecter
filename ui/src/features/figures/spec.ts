@@ -123,9 +123,10 @@ function scatter(v: unknown, ps: Param[], names: readonly string[]): Scatter | n
   if (v === undefined) return null;
   if (!isObject(v) || typeof v.sample !== "string") throw new Bad("scatter needs a sample");
   const parts = v.sample.split(";");
-  const u = UNIFORM.exec(parts[0] ?? "");
-  const y = Y_FORMULA.exec(parts[1] ?? "");
-  if (parts.length !== 2 || !u || !y) throw new Bad('scatter.sample must read "x ~ U(a, b); y = …"');
+  const two = parts.length === 2;
+  const u = two ? UNIFORM.exec(`${parts[0]}`) : null;
+  const y = two ? Y_FORMULA.exec(`${parts[1]}`) : null;
+  if (!u || !y) throw new Bad('scatter.sample must read "x ~ U(a, b); y = …"');
   const lo = constant(`${u[1]}`, ps, "U(a, b): a");
   const hi = constant(`${u[2]}`, ps, "U(a, b): b");
   if (!(lo <= hi)) throw new Bad("U(a, b) needs a ≤ b");
@@ -165,7 +166,7 @@ export function parseFnplot(source: string): SpecResult {
       },
     };
   } catch (e) {
-    if (e instanceof Bad) return { ok: false, error: e.message };
-    throw e;
+    // Only Bad is thrown here: JSON.parse is caught above and compile() returns its errors.
+    return { ok: false, error: (e as Bad).message };
   }
 }

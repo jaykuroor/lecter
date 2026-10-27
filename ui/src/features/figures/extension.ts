@@ -20,8 +20,8 @@ function build(state: EditorState): Figures {
   return { blocks, deco };
 }
 
-/** Whether `tr` changes a fence line or a spec (before or after the edit). */
-function touchesFigures(tr: Transaction, blocks: FigureBlock[]): boolean {
+/** Whether `tr` changes a fence line or the inside of one of `blocks` (before or after the edit). */
+export function touchesFigures(tr: Transaction, blocks: FigureBlock[]): boolean {
   let touched = false;
   tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
     if (touched) return;
@@ -38,14 +38,14 @@ function touchesFigures(tr: Transaction, blocks: FigureBlock[]): boolean {
   return touched;
 }
 
-const figuresField = StateField.define<Figures>({
+export const figuresField = StateField.define<Figures>({
   create: build,
   update(value, tr) {
     if (!tr.docChanged) return value;
     if (touchesFigures(tr, value.blocks)) return build(tr.state);
-    const map = (pos: number, assoc: number) => tr.changes.mapPos(pos, assoc);
+    // No change reaches a block here, so its ends map without ambiguity.
     return {
-      blocks: value.blocks.map((b) => ({ ...b, from: map(b.from, 1), to: map(b.to, -1) })),
+      blocks: value.blocks.map((b) => ({ ...b, from: tr.changes.mapPos(b.from), to: tr.changes.mapPos(b.to) })),
       deco: value.deco.map(tr.changes),
     };
   },

@@ -72,9 +72,11 @@ describe("a described figure in a gloss", () => {
     expect(fence.text).toBe("```");
     expect(view.state.doc.line(fence.number + 1).text).toBe(":::");
     expect(fig.previousElementSibling?.textContent).toBe("```");
+    expect(fig.dataset.figure).toBe("fnplot");
+    expect(fig.firstElementChild?.className).toBe("figure-stage");
     inView(fig, true);
     await vi.waitFor(() => expect(fig.dataset.drawn).toBe("plot"));
-    const svg = fig.querySelector("svg.figure-plot");
+    const svg = fig.querySelector(".figure-stage > svg.figure-plot");
     expect(svg?.getAttribute("aria-label")).toBe("Plot of y = x^2 for x from -1 to 1");
     expect(svg?.querySelector(".figure-legend")?.textContent).toBe("y = x^2");
     // y = x^2 over [-1, 1]: from the top-left corner down to the bottom at x = 0 and back up.
@@ -103,6 +105,11 @@ describe("a described figure in a gloss", () => {
     // Edits elsewhere while it is in view don't draw it again, and keep the same figure.
     const note = view.state.doc.toString().indexOf("my own note");
     view.dispatch({ changes: { from: note, insert: "x" } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(figure(view)).toBe(fig);
+    expect(fig.dataset.renders).toBe("1");
+    // A new gloss elsewhere finds the figures again, but this one is the same and isn't redrawn.
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\n::: {.note #n-1}\nmine\n:::\n" } });
     await new Promise((r) => setTimeout(r, 0));
     expect(figure(view)).toBe(fig);
     expect(fig.dataset.renders).toBe("1");
@@ -150,9 +157,14 @@ describe("a described figure in a gloss", () => {
     await vi.waitFor(() => expect(second.dataset.drawn).toBe("plot"));
     expect(second.querySelector(".figure-legend")?.textContent).toBe("y = 2*x");
     // Undoing the whole gloss removes the figure.
+    const mine = observers.find((o) => o.targets.has(second));
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: TEXT } });
     expect(figure(view)).toBe(null);
     expect(watched(second)).toBe(false);
+    // An entry that still arrives for it, or for anything not watched, changes nothing.
+    mine?.report([{ target: second, isIntersecting: false }]);
+    mine?.report([{ target: document.createElement("figure"), isIntersecting: true }]);
+    expect(second.dataset.visible).toBe("true");
   });
 
   it("shows why a spec in a gloss can't be drawn, as text", async () => {

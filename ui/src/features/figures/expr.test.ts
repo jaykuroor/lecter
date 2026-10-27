@@ -41,6 +41,11 @@ describe("function plot expressions", () => {
     expect(at("1E-2", 0)).toBe(0.01);
     expect(at(".5e1", 0)).toBe(5);
     expect(at("  12  ", 0)).toBe(12);
+    expect(at("12.5", 0)).toBe(12.5);
+    expect(at("2e10", 0)).toBe(2e10);
+    expect(at(".25", 0)).toBe(0.25);
+    expect(at(".5e+1", 0)).toBe(5);
+    expect(at(".5e12", 0)).toBe(5e11);
   });
 
   it("call functions and know pi and e", () => {
@@ -88,6 +93,11 @@ describe("function plot expressions", () => {
     expect(error(compile("max(x, 1)", ["x"]))).toBe('unknown name "max"');
     expect(error(compile("constructor", ["x"]))).toBe('unknown name "constructor"');
     expect(error(compile("toString(x)", ["x"]))).toBe('unknown name "toString"');
+  });
+
+  it("count nesting, not how many groups follow each other", () => {
+    const groups = Array.from({ length: MAX_DEPTH + 5 }, () => "(x)").join("+");
+    expect(at(groups, 1)).toBe(MAX_DEPTH + 5);
   });
 
   it("cap the length and the nesting", () => {

@@ -209,7 +209,7 @@ export function compile(src: string, names: readonly string[]): CompileResult {
   try {
     return { ok: true, fn: new Parser(tokens, names).parse() };
   } catch (e) {
-    if (e instanceof Fail) return { ok: false, error: e.message };
-    throw e;
+    // The parser throws only Fail (its depth is capped, so no stack overflow).
+    return { ok: false, error: (e as Fail).message };
   }
 }

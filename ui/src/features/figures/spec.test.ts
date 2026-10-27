@@ -100,6 +100,10 @@ describe("the function plot spec", () => {
     expect(p({ n: 5 })).toBe("params.n must be an object");
     expect(p({ x: { min: 0, max: 1, value: 0 } })).toBe('"x" can\'t be a param name');
     expect(p({ pi: { min: 0, max: 1, value: 0 } })).toBe('"pi" can\'t be a param name');
+    expect(p({ y: { min: 0, max: 1, value: 0 } })).toBe('"y" can\'t be a param name');
+    expect(p({ e: { min: 0, max: 1, value: 0 } })).toBe('"e" can\'t be a param name');
+    expect(p({ a: { max: 1, value: 0 } })).toBe(`params.a.min must be a number within ±${MAX_MAGNITUDE}`);
+    expect(p({ a: { min: 0, value: 0 } })).toBe(`params.a.max must be a number within ±${MAX_MAGNITUDE}`);
     expect(p({ "a b": { min: 0, max: 1, value: 0 } })).toBe('"a b" can\'t be a param name');
     expect(p({ a: { min: 0, max: 1 } })).toBe(`params.a.value must be a number within ±${MAX_MAGNITUDE}`);
     expect(p({ a: { min: 0, max: 1, value: 2 } })).toBe("params.a needs min ≤ value ≤ max");
@@ -122,6 +126,15 @@ describe("the function plot spec", () => {
     expect(s({ sample: "x ~ U(0,1); z = x", n: 3 })).toBe(form);
     expect(s({ sample: "x ~ U(0,1); y = x; y = 2", n: 3 })).toBe(form);
     expect(s({ sample: "x ~ U(1,0); y = x", n: 3 })).toBe("U(a, b) needs a ≤ b");
+    expect(s({ sample: "x ~ U(0,1) junk; y = x", n: 3 })).toBe(form);
+    expect(s({ sample: "z x ~ U(0,1); y = x", n: 3 })).toBe(form);
+    expect(s({ sample: "x ~ U(0,1); zy = x", n: 3 })).toBe(form);
+    expect(s({ sample: "x ~ U(0,1); y = x\n+ 1", n: 3 })).toBe(form);
+    expect(s({ sample: "x ~ U (0,1);y=x", n: 3 })).toBe("accepted");
+    // A bound that is no number (NaN) is refused like an infinite one.
+    expect(s({ sample: "x ~ U(0,0/0); y = x", n: 3 })).toBe(
+      `U(a, b): b must be a number within ±${MAX_MAGNITUDE}`,
+    );
     expect(s({ sample: "x ~ U(x,1); y = x", n: 3 })).toBe('U(a, b): a: unknown name "x"');
     expect(s({ sample: "x ~ U(0,1/0); y = x", n: 3 })).toBe(`U(a, b): b must be a number within ±${MAX_MAGNITUDE}`);
     expect(s({ sample: "x ~ U(0,1); y = q", n: 3 })).toBe('scatter y: unknown name "q"');

@@ -20,20 +20,25 @@ function loadRuntime(): Promise<Runtime> {
 type OnView = (visible: boolean) => void;
 
 const watched = new WeakMap<Element, OnView>();
-let observer: IntersectionObserver | null = null;
+let shared: IntersectionObserver | null = null;
 
 /** One observer for every figure (no polling): tells each figure when it enters or leaves view. */
-function watch(el: Element, onView: OnView): void {
-  observer ??= new IntersectionObserver((entries) => {
+function observer(): IntersectionObserver {
+  shared ??= new IntersectionObserver((entries) => {
+    // An entry may still arrive for a figure that has just gone.
     for (const e of entries) watched.get(e.target)?.(e.isIntersecting);
   });
+  return shared;
+}
+
+function watch(el: Element, onView: OnView): void {
   watched.set(el, onView);
-  observer.observe(el);
+  observer().observe(el);
 }
 
 function unwatch(el: Element): void {
   watched.delete(el);
-  observer?.unobserve(el);
+  observer().unobserve(el);
 }
 
 /** A function plot drawn from `source` (the spec between the fences). */
@@ -56,17 +61,18 @@ export class FigureWidget extends WidgetType {
     figure.append(stage);
     // Each time it comes into view counts; a load that finishes after the figure left view (or
     // came back again, or left the buffer) draws nothing.
-    let shown = 0;
+    let current: object = {};
     const show = (visible: boolean): void => {
       figure.dataset.visible = String(visible);
-      const turn = ++shown;
+      const turn = {};
+      current = turn;
       if (!visible) {
         stage.replaceChildren();
         delete figure.dataset.drawn;
         return;
       }
       void loadRuntime().then((r) => {
-        if (turn !== shown || !figure.isConnected) return;
+        if (turn !== current || !figure.isConnected) return;
         figure.dataset.drawn = r.renderFnplot(stage, this.source);
         figure.dataset.renders = String(Number(figure.dataset.renders) + 1);
       });
