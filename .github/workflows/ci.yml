@@ -201,6 +201,7 @@ jobs:
         with:
           name: e2e-app-${{ matrix.os }}
           path: .verify/
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: ignore
 
