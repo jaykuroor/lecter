@@ -229,6 +229,13 @@ describe("a described figure", function () {
     await browser.execute(() => document.querySelector("figure.figure")?.scrollIntoView({ block: "center" }));
     await shot("figure");
 
+    // The lecture file is saved a moment after the last edit (F-021's trailing debounce, D-122),
+    // so wait for the gloss to reach it, as gloss.ts does.
+    await until(
+      async () => readFileSync(file(), "utf8").includes(`**you asked:** ${QUESTION}`),
+      15_000,
+      "the gloss to be saved",
+    );
     const text = readFileSync(file(), "utf8");
     expect(text).toContain(`**you asked:** ${QUESTION}\n\n**Sample answer.**`);
     expect(text).toMatch(/\n```fnplot\n\{"type": "fnplot", "exprs": \["x\^2"\], "x": \[-1, 1\][^\n]*\}\n```\n:::\n/);
