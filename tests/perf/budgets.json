@@ -1,0 +1,168 @@
+{
+  "about": "Performance budgets (docs/spec/14-quality.md#performance-budgets). Protected: never loosen a value to pass (a loosened budget needs the maintainer's D-entry and a Budget-Changed trailer). Fields: budget = the target; cmp = lt (value < budget) or le (value <= budget); kind = timing (x1.5 CI allowance, one re-measure) or memory, size, tokens, cpu (exact); from = the milestone it starts gating; script = the measurement (run with the ids it should measure; prints one JSON line per id); quick = the fast check that --quick runs instead; job = nightly for budgets measured only there; no script = PENDING (fails once its milestone is done). MB and KB are decimal (10^6, 10^3 bytes).",
+  "budgets": [
+    {
+      "id": "keystroke_p99_ms",
+      "budget": 8,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M0.5",
+      "how": "500 keystrokes (after 50 warm-up) in the 200-slide fixture lecture, real app via WebDriver; mocked core in Playwright as the quick check",
+      "script": "tests/perf/app/run.sh",
+      "quick": "tests/perf/measure/keystroke_mock.py"
+    },
+    {
+      "id": "cold_open_ms",
+      "budget": 400,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M0.5",
+      "how": "Process start to first buffer paint of the 200-slide fixture lecture",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "idle_rss_mb",
+      "budget": 150,
+      "cmp": "lt",
+      "unit": "MB",
+      "kind": "memory",
+      "from": "M0.5",
+      "how": "RSS sum of all app processes (webview included) 60 s after opening the fixture lecture",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "rss_300_slides_mb",
+      "budget": 250,
+      "cmp": "lt",
+      "unit": "MB",
+      "kind": "memory",
+      "from": "M0.5",
+      "how": "RSS sum of all app processes with the 300-slide fixture lecture open and scrolled end to end",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "idle_cpu_pct",
+      "budget": 0.5,
+      "cmp": "lt",
+      "unit": "%",
+      "kind": "cpu",
+      "from": "M0.5",
+      "how": "Average CPU of all app processes (percent of one core) over a 5-minute idle sample",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "ttft_overhead_ms",
+      "budget": 20,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M0.5",
+      "how": "Gloss request (Enter) to the first answer text painted, minus the provider's own first-token delay",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "tier1_p95_ms",
+      "budget": 100,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M4",
+      "how": "Fixture course: 1 textbook (~600 pages) + 10 lectures"
+    },
+    {
+      "id": "parse_100_pages_ms",
+      "budget": 1000,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M2",
+      "how": "100-page text-layer fixture PDF"
+    },
+    {
+      "id": "uncached_tokens_a_p95",
+      "budget": 2500,
+      "cmp": "le",
+      "unit": "tokens",
+      "kind": "tokens",
+      "from": "M3",
+      "how": "Logged usage on the eval set"
+    },
+    {
+      "id": "crash_loss_ms",
+      "budget": 250,
+      "cmp": "le",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M2",
+      "how": "Kill -9 during typing; compare the journal"
+    },
+    {
+      "id": "ui_main_chunk_kb_gz",
+      "budget": 250,
+      "cmp": "le",
+      "unit": "KB",
+      "kind": "size",
+      "from": "M0.5",
+      "how": "Size of the main UI chunk after vite build, gzipped",
+      "script": "tests/perf/measure/bundle.py",
+      "quick": "tests/perf/measure/bundle.py"
+    },
+    {
+      "id": "installer_mb.deb",
+      "budget": 25,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile .deb bundle size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.rpm",
+      "budget": 25,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile .rpm bundle size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.dmg",
+      "budget": 30,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile macOS .dmg bundle size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.exe",
+      "budget": 20,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile Windows .exe installer size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.appimage",
+      "budget": 110,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile AppImage size (bundles WebKitGTK)",
+      "script": "tests/perf/measure/installer.py"
+    }
+  ]
+}
