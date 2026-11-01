@@ -110,5 +110,11 @@ Should the stored figure form (F-145) keep reading the ```fnplot blocks that ske
 - Recommended: yes, read both and write only the new form, so existing lectures keep their plots. (applied as default: ```fnplot)
 - Answer:
 
+## Q-017 · planning · blocks: F-025 (and the M0.5 gate)
+Which performance budgets should hold on Linux/WebKitGTK, and which app fixes come first? The F-025 perf gate works but cannot go green as specified (D-139).
+- Context: release build + test-hooks, ubuntu-24.04 under Xvfb (CI run 41361813736): keystroke_p99_ms 15/16 (limit 12 with ×1.5); cold_open_ms 2906/973 (limit 600; shell first paint 2718/823 ms, buffer 188/150 ms); idle_rss_mb 602.29 / 150 (WebKitWebProcess RSS 361.0, PSS 281.7; lecter-app RSS 190.6, PSS 111.9; network 50.8; PSS total 414.6); rss_300_slides_mb 629.85 / 250; idle_cpu_pct 12.55 / 0.5 (95% in WebKitWebProcess llvmpipe threads, i.e. continuous software redraw while idle); ttft_overhead_ms 21 / 30 and ui_main_chunk_kb_gz 141.94 / 250 pass. Debug-build numbers were similar (D-138). The branch feat/F-025-perf-budgets is complete and reviewed (PASS).
+- Recommended: (1) a new card to stop idle redraw (likely CodeMirror's cursor blink or another CSS animation; target 0 frames while idle); (2) a card for cold open (shell first paint ~0.8 s); (3) set WebKitGTK memory budgets from measurement (e.g. per-OS targets, with the webview counted by PSS) instead of 150/250 MB total RSS, which the web process alone exceeds; (4) keep keystroke_p99_ms at 8 ms but decide whether CI under Xvfb/llvmpipe is the right place to gate it (D-080 measured 11–12 ms on WebKit). Then merge F-025 once the gate can pass.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

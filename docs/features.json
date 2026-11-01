@@ -844,8 +844,8 @@
     "tests/perf/budgets.json",
     ".github/workflows/ci.yml"
    ],
-   "status": "in_progress",
-   "notes": "",
+   "status": "blocked",
+   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards)",
    "priority": 2021,
    "base": "c90d636f098d320c8724ccc228b8c9b569940d5e"
   },

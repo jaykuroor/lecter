@@ -773,3 +773,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: F-025 stays unmerged. Its first CI perf run (run 41359945525, debug + test-hooks build, ubuntu-24.04 under Xvfb, WebKitGTK) measured keystroke_p99_ms 15/16 (limit 12), cold_open_ms 1409/1043 (limit 600), idle_rss_mb 620.61 (app 214.7, WebKitWebProcess 355.0, WebKitNetworkProcess 50.8; budget 150), rss_300_slides_mb 653.21 (budget 250), idle_cpu_pct 9.25 (budget 0.5); ttft_overhead_ms 20 and ui_main_chunk_kb_gz 141.94 passed. The builder re-measures on a release-profile build with test-hooks, adds a per-process CPU and memory breakdown to find the idle CPU source, and re-runs CI on the branch; what still fails goes back to the maintainer with numbers. No budget is loosened.
 - Why: merging would turn main red on every push; a debug build overstates open time and memory, and idle CPU at 9% points to work running while idle.
 - Instead of: merging and stopping the line for perf fixes, or blocking F-025 for the planning session.
+
+## D-139 · First release-build perf measurements; F-025 blocked for planning
+2026-11-01 · orchestrator, decider: maintainer · active
+- Decision: the first real-app measurements (F-025 criterion 5) are the release + test-hooks CI run 41361813736 on ubuntu-24.04 under Xvfb: keystroke_p99_ms 15/16, cold_open_ms 2906/973, idle_rss_mb 602.29 (PSS 414.6), rss_300_slides_mb 629.85 (PSS 450.7), idle_cpu_pct 12.55 (95% llvmpipe threads in WebKitWebProcess), ttft_overhead_ms 21, ui_main_chunk_kb_gz 141.94. Five budgets fail, so F-025 is blocked unmerged and the budgets and fixes go to the planning session (Q-017). No budget is loosened.
+- Why: merging would keep main red; the spec says to measure, record and ask rather than loosen.
+- Instead of: merging and stopping the line, or another diagnostic round first.
