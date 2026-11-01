@@ -40,3 +40,5 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - CodeMirror schedules its own `requestAnimationFrame` measures: a test that stubs rAF to step frames must count paints (e.g. spy on `Text.prototype.appendData`), not queued frames, and give jsdom's `Range` empty `getClientRects` (src/features/gloss/gloss.test.ts) (F-023)
 - The keystroke check (`e2e/buffer-perf.spec.ts`) is tagged `@perf`: `test:e2e` skips it; run it alone with `pnpm -C ui run test:perf` (D-120)
 - Run outside init.sh's environment, `add_dep.py ui` leaves a ~400 MB `.pnpm-store/` in the checkout that the secret scan then reads for 20+ minutes: set `pnpm_config_store_dir` to the home store first (F-020)
+- CodeMirror makes its own IntersectionObservers: a fake `IntersectionObserver` in a test must keep each instance's callback and targets, not one global (src/features/figures/figure.test.ts) (F-024)
+- Stryker's `--incremental` keeps old `Survived` results for module-level (static) mutants such as top-level regexes even after their tests change: delete `ui/reports/stryker-incremental.json` and rerun `scripts/mutants.py` (F-024)

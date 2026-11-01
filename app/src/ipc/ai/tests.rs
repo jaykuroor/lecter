@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use lecter_ai::provider::scripted::Step;
+use lecter_ai::provider::scripted::{ScriptedProvider, Step};
 use lecter_core::save::Session;
 use lecter_core::testenv::TestEnv;
 

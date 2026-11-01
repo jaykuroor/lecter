@@ -2,10 +2,12 @@
 //!
 //! v0 skeleton (F-023): the [`provider::Provider`] trait with the in-process scripted provider
 //! (the tests' fake and the app's offline sample), the `a` request ([`prompt::ask_request`]), the
-//! answer loop ([`ask::stream_answer`]) and the gloss as the lecture file stores it ([`gloss`]).
+//! answer loop ([`ask::stream_answer`]) and the gloss as the lecture file stores it ([`gloss`]);
+//! F-024 adds the sample plot ([`figures`]).
 
 pub mod ask;
 pub mod error;
+pub mod figures;
 pub mod gloss;
 pub mod prompt;
 pub mod provider;

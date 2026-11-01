@@ -1,0 +1,78 @@
+/* A described figure under its spec in a gloss (08-figures.md). Colours are design tokens only
+   (tokens.json): the curve is --k-derive (gloss-kind: "derive = steps, plot, hint"), the frame
+   and axes the view's lines, the labels --dim. The stage keeps the plot's aspect ratio whether
+   or not it is drawn, so dropping the drawing out of view doesn't move the layout. */
+.figure {
+  --k: var(--k-derive);
+  box-sizing: border-box;
+  margin: 4px 0 8px 108px;
+  padding: 8px 10px;
+  max-width: 600px;
+  border: 1px solid color-mix(in srgb, var(--k) 24%, var(--borders));
+  border-radius: 10px;
+  background: var(--view-bg);
+}
+
+.figure-stage {
+  aspect-ratio: 560 / 220;
+  width: 100%;
+}
+
+.figure-plot {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.figure-frame {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+
+.figure-axis {
+  stroke: var(--borders);
+  stroke-width: 1;
+}
+
+.figure-tick,
+.figure-legend {
+  fill: var(--dim);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 10.5px;
+}
+
+.figure-legend {
+  fill: var(--k);
+  font-weight: 600;
+}
+
+.figure-curve {
+  fill: none;
+  stroke: var(--k);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.figure-curve-1 {
+  stroke: var(--k-ask);
+}
+
+.figure-curve-2 {
+  stroke: var(--k-source);
+}
+
+.figure-curve-3 {
+  stroke: var(--k-doubt);
+}
+
+.figure-point {
+  fill: color-mix(in srgb, var(--k-ask) 70%, transparent);
+}
+
+.figure-error {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.9rem;
+}
