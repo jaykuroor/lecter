@@ -45,7 +45,7 @@ describe("keystroke to paint", function () {
     await pressKeys([...`${elementNumber(text, `s${middle}b1`)}`, "G"]);
     await pressKeys(["o"]);
     const mode = await browser.execute(() => document.querySelector(".lecture-buffer")?.getAttribute("data-vim-mode"));
-    if (mode !== "insert") throw new Error(`expected insert mode after o, got ${mode}`);
+    expect(mode).toBe("insert");
 
     const result = await browser.execute(
       async (keys: string[]) => {
@@ -78,9 +78,10 @@ describe("keystroke to paint", function () {
       keySequence(WARMUP + KEYS),
     );
 
-    if (!result.text.includes("cross terms; check")) throw new Error("the typed text never reached the buffer");
+    // The typed text reached the buffer, so the keys were measured on real edits.
+    expect(result.text).toContain("cross terms; check");
     const measured: Sample[] = result.samples.slice(WARMUP);
-    if (measured.length !== KEYS) throw new Error(`expected ${KEYS} samples, got ${measured.length}`);
+    expect(measured).toHaveLength(KEYS);
     const work = measured.map((s) => s.handler + s.frame);
     const p = (xs: number[], q: number) => percentile(xs, q).toFixed(2);
     const handler = measured.map((s) => s.handler);

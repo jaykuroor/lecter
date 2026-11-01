@@ -95,6 +95,9 @@ describe("time to first token", function () {
       }, QUESTION);
       totals.push(total);
     }
+    // No first word can show before the provider sent it.
+    expect(totals).toHaveLength(ASKS);
+    expect(Math.min(...totals)).toBeGreaterThanOrEqual(delay);
     const overheads = totals.map((t) => t - delay);
     record(
       "ttft_overhead_ms",

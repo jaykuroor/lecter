@@ -39,7 +39,9 @@ describe("memory with 300 slides", function () {
       const labels = Array.from(document.querySelectorAll(".slide-heading-label"), (l) => l.textContent ?? "");
       return { steps, height: box.scrollHeight, atEnd: labels.some((l) => l.endsWith(`Slide ${total} / ${total}`)) };
     }, slides);
-    if (!scrolled.atEnd) throw new Error(`the last slide's heading never rendered (${scrolled.steps} pages)`);
+    // Scrolled to the end: the last slide's heading rendered.
+    expect(scrolled.atEnd).toBe(true);
+    expect(scrolled.steps).toBeGreaterThan(1);
 
     const first = rssMb(tree(pid));
     await idle(5_000);

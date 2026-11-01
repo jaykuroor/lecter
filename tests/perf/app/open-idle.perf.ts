@@ -23,9 +23,11 @@ describe("open and idle", function () {
     const opened = await openLecture(name);
 
     if (wanted("cold_open_ms")) {
-      if (opened.firstPaint === null) throw new Error("the page reports neither paint timing nor a load event");
-      const shell = opened.timeOrigin + opened.firstPaint - started;
-      if (!(shell > 0 && shell < 60_000)) throw new Error(`implausible process start → first paint: ${shell} ms`);
+      // The page reports its first paint (or at least its load event), after the process started.
+      expect(opened.firstPaintKind).not.toBe("none");
+      const shell = opened.timeOrigin + (opened.firstPaint ?? Number.NaN) - started;
+      expect(shell).toBeGreaterThan(0);
+      expect(shell).toBeLessThan(60_000);
       record(
         "cold_open_ms",
         shell + opened.openMs,
@@ -37,6 +39,8 @@ describe("open and idle", function () {
 
     await idle(RSS_AFTER_MS);
     const procs = tree(pid);
+    // The webview runs in processes of its own: a tree of one would miss most of the memory.
+    expect(procs.length).toBeGreaterThan(1);
     const rss = rssMb(procs);
     if (wanted("idle_rss_mb"))
       record("idle_rss_mb", rss.total, `${procs.length} processes 60 s after open: ${rss.parts}`);
