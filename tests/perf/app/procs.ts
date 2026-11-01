@@ -70,18 +70,35 @@ export function tree(root: number): number[] {
   return out;
 }
 
-/** Resident memory of `pids`, summed, in MB (10^6 bytes), and per process name. */
+/** A process's short name (/proc/<pid>/comm, 15 characters at most). */
+export function nameOf(pid: number): string {
+  return (read(`/proc/${pid}/comm`) ?? "?").trim();
+}
+
+/** Proportional set size of `pid` in MB (shared pages split between their users), if readable. */
+function pssMb(pid: number): number | null {
+  const rollup = read(`/proc/${pid}/smaps_rollup`);
+  const kb = rollup ? /^Pss:\s+(\d+) kB$/m.exec(rollup)?.[1] : undefined;
+  return kb === undefined ? null : (Number(kb) * 1024) / 1e6;
+}
+
+/**
+ * Resident memory of `pids`, summed, in MB (10^6 bytes): the budget's number. `parts` lists each
+ * process's RSS and, for information only, its PSS (which doesn't count shared pages twice).
+ */
 export function rssMb(list: number[]): { total: number; parts: string } {
   let total = 0;
+  let pssTotal = 0;
   const parts: string[] = [];
   for (const pid of list) {
     const status = read(`/proc/${pid}/status`);
-    const kb = status ? Number(/^VmRSS:\s+(\d+) kB$/m.exec(status)?.[1] ?? 0) : 0;
-    const name = status ? (/^Name:\s+(.*)$/m.exec(status)?.[1] ?? "?") : "?";
-    total += (kb * 1024) / 1e6;
-    parts.push(`${name} ${((kb * 1024) / 1e6).toFixed(1)}`);
+    const mb = ((status ? Number(/^VmRSS:\s+(\d+) kB$/m.exec(status)?.[1] ?? 0) : 0) * 1024) / 1e6;
+    const pss = pssMb(pid);
+    total += mb;
+    pssTotal += pss ?? 0;
+    parts.push(`${nameOf(pid)} rss ${mb.toFixed(1)} pss ${pss === null ? "?" : pss.toFixed(1)}`);
   }
-  return { total, parts: parts.join(", ") };
+  return { total, parts: `${parts.join(", ")}; pss total ${pssTotal.toFixed(1)} (information only)` };
 }
 
 /** Clock ticks per second (utime and stime are in these). */
@@ -101,6 +118,64 @@ export function cpuTicks(list: number[]): Map<number, number> {
     if (f) out.set(pid, Number(f[11]) + Number(f[12]));
   }
   return out;
+}
+
+/** CPU ticks so far of each thread of `pid`, by thread id, with the thread's name. */
+export function threadTicks(pid: number): Map<number, { name: string; ticks: number }> {
+  const out = new Map<number, { name: string; ticks: number }>();
+  let tids: string[] = [];
+  try {
+    tids = readdirSync(`/proc/${pid}/task`);
+  } catch {
+    return out; // the process is gone
+  }
+  for (const tid of tids) {
+    const stat = read(`/proc/${pid}/task/${tid}/stat`);
+    if (!stat) continue;
+    const name = stat.slice(stat.indexOf("(") + 1, stat.lastIndexOf(")"));
+    const f = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    out.set(Number(tid), { name, ticks: Number(f[11]) + Number(f[12]) });
+  }
+  return out;
+}
+
+/** A snapshot of the CPU ticks of every process in `list` and of each of their threads. */
+export interface CpuSnapshot {
+  procs: Map<number, number>;
+  threads: Map<number, Map<number, { name: string; ticks: number }>>;
+}
+
+export function cpuSnapshot(list: number[]): CpuSnapshot {
+  return { procs: cpuTicks(list), threads: new Map(list.map((pid) => [pid, threadTicks(pid)])) };
+}
+
+/**
+ * The ticks used between two snapshots: the total (a process that started in between counts from
+ * zero; one that ended is lost with its ticks, and counted in `ended`), and a breakdown per
+ * process, busiest first, with each process's busiest threads.
+ */
+export function cpuUsed(
+  before: CpuSnapshot,
+  after: CpuSnapshot,
+  topThreads = 4,
+): { used: number; ended: number; parts: string } {
+  let used = 0;
+  const rows: { used: number; text: string }[] = [];
+  for (const [pid, t] of after.procs) {
+    const d = t - (before.procs.get(pid) ?? 0);
+    used += d;
+    const was = before.threads.get(pid) ?? new Map();
+    const threads = [...(after.threads.get(pid) ?? new Map()).entries()]
+      .map(([tid, x]) => ({ name: x.name, d: x.ticks - (was.get(tid)?.ticks ?? 0) }))
+      .filter((x) => x.d > 0)
+      .sort((a, b) => b.d - a.d)
+      .slice(0, topThreads)
+      .map((x) => `${x.name} ${x.d}`);
+    rows.push({ used: d, text: `${nameOf(pid)}[${pid}] ${d}${threads.length ? ` (${threads.join(", ")})` : ""}` });
+  }
+  const ended = [...before.procs.keys()].filter((p) => !after.procs.has(p)).length;
+  rows.sort((a, b) => b.used - a.used);
+  return { used, ended, parts: rows.map((r) => r.text).join("; ") };
 }
 
 /** When `pid` started, as epoch ms (to the clock tick: 10 ms with CLK_TCK 100). */

@@ -4,9 +4,11 @@
 //   the lecture's buffer painted, measured in the page with no gap for the user's two clicks.
 // - idle_rss_mb: 60 s after the lecture opened, the RSS sum of the app and its webview processes.
 // - idle_cpu_pct: then 5 minutes of idle, the CPU those processes used, as a percent of one core.
+// The detail lines break memory down per process (RSS, and PSS for information) and CPU per
+// process and thread, to find what runs while idle.
 // The waits send no WebDriver commands, so the embedded WebDriver server is idle too.
 
-import { appPid, clockTicks, cpuTicks, rssMb, startedAtMs, tree } from "./procs.ts";
+import { appPid, clockTicks, cpuSnapshot, cpuUsed, rssMb, startedAtMs, tree } from "./procs.ts";
 import { home, idle, lecture, openLecture, record, wanted } from "./support.ts";
 
 const RSS_AFTER_MS = 60_000;
@@ -46,21 +48,17 @@ describe("open and idle", function () {
       record("idle_rss_mb", rss.total, `${procs.length} processes 60 s after open: ${rss.parts}`);
     if (!wanted("idle_cpu_pct")) return;
 
-    const before = cpuTicks(tree(pid));
+    const before = cpuSnapshot(tree(pid));
     const t0 = Date.now();
     await idle(CPU_WINDOW_MS);
-    const after = cpuTicks(tree(pid));
+    const after = cpuSnapshot(tree(pid));
     const seconds = (Date.now() - t0) / 1000;
-    let used = 0;
-    // A process that started inside the window counts from zero; one that ended is lost (its
-    // ticks are gone with it), which the detail line shows as a count.
-    for (const [p, t] of after) used += t - (before.get(p) ?? 0);
-    const gone = [...before.keys()].filter((p) => !after.has(p)).length;
-    const pct = (used / ticks / seconds) * 100;
+    const cpu = cpuUsed(before, after);
     record(
       "idle_cpu_pct",
-      pct,
-      `${used} ticks over ${seconds.toFixed(0)} s idle in ${after.size} processes (${gone} ended)`,
+      (cpu.used / ticks / seconds) * 100,
+      `${cpu.used} ticks (${ticks}/s) over ${seconds.toFixed(0)} s idle in ${after.procs.size} processes ` +
+        `(${cpu.ended} ended); by process, busiest threads in brackets: ${cpu.parts}`,
     );
   });
 });

@@ -128,7 +128,7 @@ jobs:
 
   # The performance budgets (14-quality.md#performance-budgets, F-025): tests/perf/budgets.sh through
   # `verify.sh --stage perf`, which turns on the CI rule because CI is set (timing x1.5 with one
-  # re-measure; memory, size and token budgets exact). It builds the debug app with the embedded
+  # re-measure; memory, size and token budgets exact). It builds a release-profile app (in target/perf/, D-138) with the embedded
   # WebDriver server and measures it under xvfb-run, so it needs the shared Setup (Rust, the Tauri
   # packages, Xvfb). The budget lines go to the job summary; report.json is uploaded on every run.
   perf:

@@ -1,5 +1,5 @@
 // WebdriverIO for the real-app budgets (tests/perf/app/run.sh, F-025): the e2e setup
-// (tests/e2e/wdio.conf.ts: embedded WebDriver, debug build with test hooks), one measurement file
+// (tests/e2e/wdio.conf.ts: embedded WebDriver; here a release-profile build with test hooks), one measurement file
 // per run, so each gets a fresh app process. Log capture is off: the frontend capture talks to the
 // page and the backend capture raises the app's log level, and either would be measured.
 //

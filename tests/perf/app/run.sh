@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # The real-app budgets (14-quality.md#performance-budgets), run by tests/perf/budgets.sh:
 #   tests/perf/app/run.sh <budget id>...
-# Builds ui/dist and the debug app with the embedded WebDriver server (`--features test-hooks`, as
-# scripts/e2e-app.sh does), then runs each measurement file that one of the ids needs, each in a
+# Builds ui/dist and a release-profile app with the embedded WebDriver server (`--features
+# custom-protocol,test-hooks`; D-069, D-138) in its own target dir, target/perf/, so the release
+# build that tests/e2e/release-check.sh checks for test hooks (target/release/) is never this one.
+# Then it runs each measurement file that one of the ids needs, each in a
 # fresh app process with its own throwaway LECTER_TEST_HOME and a course holding one generated
 # fixture lecture (tests/fixtures/lectures/gen_lecture.py). Prints one JSON line per id on stdout
 # (a value, or an error); everything else goes to stderr, which budgets.sh keeps in
@@ -29,12 +31,13 @@ if [ -n "${HTTPS_PROXY:-}" ]; then export npm_config_https_proxy="$HTTPS_PROXY";
 PY=$(command -v python3 || command -v python)
 
 if [ "${LECTER_PERF_NO_BUILD:-0}" != 1 ]; then
-  echo "== build: ui/dist and the debug app with test hooks" >&2
-  { pnpm --silent -C ui run build && cargo build -p lecter-app --locked --features custom-protocol,test-hooks; } >&2 \
+  echo "== build: ui/dist and the release-profile app with test hooks (target/perf/)" >&2
+  { pnpm --silent -C ui run build \
+      && CARGO_TARGET_DIR="$PWD/target/perf" cargo build -p lecter-app --release --locked --features custom-protocol,test-hooks; } >&2 \
     || fail_all "build failed (see the log)"
 fi
-APP="$PWD/target/debug/lecter-app"
-[ -x "$APP" ] || fail_all "no app binary at target/debug/lecter-app"
+APP="$PWD/target/perf/release/lecter-app"
+[ -x "$APP" ] || fail_all "no app binary at target/perf/release/lecter-app"
 echo "== typecheck: tests/perf/app" >&2
 pnpm -C ui exec tsc -p ../tests/perf/app/tsconfig.json >&2 || fail_all "tests/perf/app does not typecheck"
 
