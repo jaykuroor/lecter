@@ -104,5 +104,11 @@ Should a gloss stopped part-way (Esc or the 30 s budget) be marked in the lectur
 - Recommended: yes, a `stopped` attribute so a later regenerate can find them; decide with F-094's gloss rendering. (applied as default: no marker)
 - Answer:
 
+## Q-016 · planning · blocks: nothing
+Should the stored figure form (F-145) keep reading the ```fnplot blocks that skeleton glosses already saved (D-135)?
+- Context: F-024 saves plots as ```fnplot code blocks inside gloss divs; F-145 defines `::: {.figure}` with assets.
+- Recommended: yes, read both and write only the new form, so existing lectures keep their plots. (applied as default: ```fnplot)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

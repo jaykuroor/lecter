@@ -748,3 +748,22 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: breadcrumb and slide text go inside `<untrusted_source>` with &, < and > escaped, and the system prompt says not to follow instructions in it. Answer lines starting with `:::` or `[` (also indented) get a backslash; the question is collapsed to one line; the model name loses ", \, } and newlines. The answer is rendered with textContent only. Dependencies: tokio-util, thiserror, tracing, serde, tokio for lecter-ai (all already in the tree, 0 new crates).
 - Why: 13-security.md (untrusted input; model output never executed or parsed as structure).
 - Instead of: rendering answer markdown before F-094.
+
+## D-135 · Skeleton figures are ```fnplot blocks inside the gloss
+2026-11-01 · session F-024 · active
+- Decision: a ```fnplot code block inside a gloss div is a figure; the widget goes under its closing fence. The sample provider (D-131) answers plot/graph/chart/figure/draw/sketch questions with the spec's fnplot example. A leading backslash before `[` or `:::` (D-134 escaping) is removed only inside spec text; the escaping itself is unchanged, and fence closers are tested on the raw line first.
+- Why: the spec doesn't say how the skeleton embeds a figure; Markdown viewers show it as code.
+- Instead of: `::: {.figure}` with assets (F-145); a second provider.
+- Revisit if: F-145 defines the stored figure form (Q-016).
+
+## D-136 · Own expression grammar for fnplot, with caps
+2026-11-01 · session F-024 · active
+- Decision: a recursive-descent parser compiles expressions to closures: at most 200 characters and nesting depth 32, functions and constants looked up in Maps, never eval/Function/innerHTML. Spec caps: 4 KB, 4 exprs, 8 params, 5000 points, |n| ≤ 1e9 for spec fields; params use their value (sliders with F-140). Seeded scatter uses mulberry32 with a fixed seed.
+- Why: model output is untrusted (13-security); 08-figures names no library ("rendered by Lecter"); under 150 lines.
+- Instead of: mathjs or function-plot (large bundles).
+
+## D-137 · Figures draw lazily, only in view
+2026-11-01 · session F-024 · active
+- Decision: one shared IntersectionObserver; the plot runtime is its own lazy chunk (3.6 KB gz) loaded on first view; out of view the drawing is dropped and the stage keeps its size; stale async loads are discarded; the SVG is built with DOM calls and textContent only, with no href, src or url(). No dependency added.
+- Why: criterion 3 (re-render only when scrolled into view); no polling; no network.
+- Instead of: drawing every figure on open.

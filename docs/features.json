@@ -804,7 +804,7 @@
     "screenshot:figure"
    ],
    "try": "Ask for a plot in the tutorial-style sample: a plot appears in the answer",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2020,
    "base": "2ddc849eef0552fb2ee33220cce2c065f276fef1"

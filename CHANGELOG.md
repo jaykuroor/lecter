@@ -18,3 +18,4 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - Notes are journaled as you type and saved automatically; reopening after a quit or a crash keeps your typing (F-021)
 - Search your opened lectures with `:find words` or the Find field in the side panel (F-022)
 - Press `a` on a slide line to ask about it: an answer streams in under the line, is saved in the lecture, and Esc stops it (a sample answer until a provider is connected) (F-023)
+- Answers that include a function plot now show the plot inside the answer, computed on your computer; ask the sample "can you plot this?" to try it (F-024)
