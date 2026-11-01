@@ -224,6 +224,14 @@ class Pending(unittest.TestCase):
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertRegex(r.stdout, r"(?m)^PENDING later_ms .*M4 is done")
         self.assertEqual(after.entries()["later_ms"]["status"], "fail")
+        # A milestone is done only when all its features are: one feature left keeps it pending,
+        # wherever it sits in the file.
+        for order in (["done", "todo"], ["todo", "done"]):
+            with self.subTest(order=order):
+                half = Run(b, done=["M0.5", "M4"])
+                feats = [{"id": f"F-91{i}", "milestone": "M4", "status": s} for i, s in enumerate(order)]
+                half.features.write_text(json.dumps({"features": feats}))
+                self.assertEqual(half().returncode, 0)
 
     def test_quick_runs_the_quick_checks_and_still_gates_pending_budgets(self):
         b = [timing("slow_ms", script=TIMED), timing("q_ms", quick=TIMED, script=FIXED),
