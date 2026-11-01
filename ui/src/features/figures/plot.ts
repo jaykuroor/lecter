@@ -20,7 +20,7 @@ export interface PlotData {
 export const SAMPLES = 200;
 
 /** The scatter's seed: the same spec always draws the same points. */
-export const SEED = 0x5eed;
+const SEED = 0x5eed;
 
 /** A small seeded generator of uniform numbers in [0, 1) (mulberry32). */
 export function random(seed: number): () => number {

@@ -10,13 +10,13 @@
 import { type Compiled, compile } from "./expr";
 
 /** One curve: its text as written and its compiled form over [x, ...param values]. */
-export interface Curve {
+interface Curve {
   text: string;
   fn: Compiled;
 }
 
 /** A parameter with its range and current value. */
-export interface Param {
+interface Param {
   name: string;
   min: number;
   max: number;
@@ -24,7 +24,7 @@ export interface Param {
 }
 
 /** Random points: x ~ U(lo, hi), y = `y` over [x, ...param values]. */
-export interface Scatter {
+interface Scatter {
   lo: number;
   hi: number;
   y: Compiled;

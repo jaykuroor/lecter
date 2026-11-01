@@ -53,4 +53,4 @@ export const figuresField = StateField.define<Figures>({
 });
 
 /** Function plots drawn under their specs in glosses (F-024). */
-export const figureExtension: Extension = figuresField;
+export const figureExtension: Extension = [figuresField];
