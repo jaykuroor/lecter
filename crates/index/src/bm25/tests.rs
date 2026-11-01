@@ -360,3 +360,27 @@ fn hits_whose_lecture_path_leaves_lectures_are_dropped() {
     index.drop_missing(&dir, &mut hits).unwrap();
     assert_eq!(ids(&hits), [("lectures/ok.md", "s1b1")]);
 }
+
+/// 02-course-folder.md: the cache folder can be deleted while the app runs. `on_disk` tells the
+/// holder of an open index that its files are gone (the folder, or just `meta.json`).
+#[test]
+fn on_disk_is_false_once_the_index_folder_or_its_meta_file_is_deleted() {
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env);
+    let index = CourseIndex::open(&dir).unwrap();
+    assert!(index.on_disk());
+    index.index_lecture(L07, SEVEN).unwrap();
+    assert!(index.on_disk());
+    std::fs::remove_file(dir.join(INDEX_DIR).join("meta.json")).unwrap();
+    assert!(!index.on_disk());
+    std::fs::remove_dir_all(dir.join(INDEX_DIR)).unwrap();
+    assert!(!index.on_disk());
+    // A folder of that name is not an index either.
+    std::fs::create_dir_all(dir.join(INDEX_DIR).join("meta.json")).unwrap();
+    assert!(!index.on_disk());
+    std::fs::remove_dir_all(dir.join(INDEX_DIR)).unwrap();
+    // Opened again: a new, empty index on disk.
+    let index = CourseIndex::open(&dir).unwrap();
+    assert!(index.on_disk());
+    assert!(index.search("variables", 50).unwrap().is_empty());
+}
