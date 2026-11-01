@@ -28,6 +28,9 @@ use crate::error::{Error, Result};
 /// Where a course keeps its BM25 index, relative to the course root.
 pub const INDEX_DIR: &str = ".lecter/cache/index";
 
+/// The file Tantivy writes with every index (`Index::create` and each commit).
+const META_FILE: &str = "meta.json";
+
 /// The `kind` of a lecture slide block (05-retrieval.md#indexing: "Slides").
 pub const KIND_SLIDES: &str = "slides";
 
@@ -132,6 +135,14 @@ impl CourseIndex {
     /// The folder the index lives in (canonical).
     pub fn dir(&self) -> &Path {
         &self.dir
+    }
+
+    /// Whether the index is still on disk: its `meta.json` is a file. The cache folder can be
+    /// deleted while the app runs (02-course-folder.md); an index whose files are gone writes and
+    /// finds nothing, and its holder opens it again. One `stat`; callers check once per search or
+    /// index, never on a timer.
+    pub fn on_disk(&self) -> bool {
+        is_file(&self.dir.join(META_FILE))
     }
 
     /// Indexes the slide blocks of the lecture `lecture` (course-relative path) whose whole file is

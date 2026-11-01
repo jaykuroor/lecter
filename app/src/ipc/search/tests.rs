@@ -149,3 +149,37 @@ fn hits_of_a_deleted_lecture_are_dropped() {
     std::fs::write(Path::new(&path).join(L08), EIGHT).unwrap();
     assert_eq!(ids(&call(&courses, &lectures, &indexes, &path, "zero").unwrap()), [(L07, "s1b2")]);
 }
+
+/// 02-course-folder.md: `.lecter/cache` is a cache that can be deleted. An index folder deleted
+/// while the app runs is rebuilt on the next `search_find`, with the open lectures in it again.
+#[test]
+fn find_rebuilds_an_index_folder_deleted_while_the_app_runs() {
+    let env = TestEnv::new().unwrap();
+    let (path, courses) = course(&env);
+    let (lectures, indexes) = (OpenLectures::default(), SearchIndexes::default());
+    open(&lectures, &path, L07);
+    assert_eq!(call(&courses, &lectures, &indexes, &path, "variables").unwrap().len(), 2);
+    let dir = Path::new(&path).join(lecter_index::INDEX_DIR);
+    std::fs::remove_dir_all(&dir).unwrap();
+    let hits = call(&courses, &lectures, &indexes, &path, "variables").unwrap();
+    assert_eq!(ids(&hits), [(L07, "s1b2"), (L07, "s1b1")]);
+    assert!(dir.join("meta.json").is_file(), "the index was not written again on disk");
+}
+
+/// The same for the background index `lecture_open` starts: a lecture opened after the index
+/// folder was deleted is indexed into a new one, and stays searchable once closed.
+#[test]
+fn a_lecture_opened_after_the_index_folder_was_deleted_is_searchable() {
+    let env = TestEnv::new().unwrap();
+    let (path, courses) = course(&env);
+    let (lectures, indexes) = (OpenLectures::default(), SearchIndexes::default());
+    open(&lectures, &path, L07);
+    assert_eq!(call(&courses, &lectures, &indexes, &path, "zero").unwrap().len(), 1);
+    let dir = Path::new(&path).join(lecter_index::INDEX_DIR);
+    std::fs::remove_dir_all(&dir).unwrap();
+    tauri::async_runtime::block_on(index_in_background(&indexes, path.clone(), L08.into(), EIGHT.into())).unwrap();
+    assert!(dir.join("meta.json").is_file(), "the background index did not write a new index");
+    // l08 is not open: only the background index put it there. l07 is open and comes back too.
+    assert_eq!(ids(&call(&courses, &lectures, &indexes, &path, "residuals").unwrap()), [(L08, "s2b1")]);
+    assert_eq!(call(&courses, &lectures, &indexes, &path, "zero").unwrap().len(), 2);
+}

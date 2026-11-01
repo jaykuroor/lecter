@@ -45,10 +45,12 @@ impl From<Hit> for FindHit {
 pub struct SearchIndexes(Arc<Mutex<HashMap<String, Arc<CourseIndex>>>>);
 
 impl SearchIndexes {
-    /// The index of `course`, opened (and created on disk) the first time. Blocks on the disk.
+    /// The index of `course`, opened (and created on disk) the first time, and again when its
+    /// folder was deleted since (`.lecter/cache` is a cache, 02-course-folder.md): the new index
+    /// is empty, and the callers index the open lectures into it. Blocks on the disk.
     fn get(&self, course: &str) -> Result<Arc<CourseIndex>, lecter_index::Error> {
         let mut map = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(index) = map.get(course) {
+        if let Some(index) = map.get(course).filter(|index| index.on_disk()) {
             return Ok(Arc::clone(index));
         }
         let index = Arc::new(CourseIndex::open(Path::new(course))?);
