@@ -165,12 +165,28 @@ fn sandboxed_child_cannot_use_an_inherited_socket() {
     assert_eq!(out.code, Some(DENIED), "{out:?}");
 }
 
+/// A folder directly under %USERPROFILE% (outside the temp folder), removed when the test ends.
+#[cfg(windows)]
+struct ProfileDir(PathBuf);
+
+#[cfg(windows)]
+impl Drop for ProfileDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// SEC-01 on Windows (D-144): LPAC may read OS files granted to ALL RESTRICTED APPLICATION PACKAGES
+/// (such as win.ini), but never the user's own files. A file under the user profile is the boundary.
 #[cfg(windows)]
 #[test]
-fn sandboxed_child_cannot_read_a_system_file() {
-    let f = Fixture::new("system");
-    let root = std::env::var_os("SystemRoot").unwrap();
-    let file = Path::new(&root).join("win.ini");
+fn sandboxed_child_cannot_read_a_file_under_the_user_profile() {
+    let f = Fixture::new("profile");
+    let profile = std::env::var_os("USERPROFILE").unwrap();
+    let dir = ProfileDir(Path::new(&profile).join(format!("lecter-f005-profile-{}", std::process::id())));
+    std::fs::create_dir_all(&dir.0).unwrap();
+    let file = dir.0.join("notes.txt");
+    std::fs::write(&file, "synthetic user notes").unwrap();
     let control = unsandboxed(&["read", path(&file)]);
     assert_eq!(control.code, Some(OK), "control: {control:?}");
     let out = sandboxed(&f, &["read", path(&file)]);

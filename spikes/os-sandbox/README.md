@@ -19,7 +19,7 @@ so the test fails instead of passing by accident.
 | cannot read a sibling file | `read <secret next to input>` | read OK | refused |
 | cannot read a file in another folder | `read <crate Cargo.toml>` | read OK | refused |
 | cannot read an earlier run's input | run 1 reads A; run 2 (input B) reads A | read OK | refused |
-| cannot read a system file (Windows) | `read %SystemRoot%\win.ini` | read OK | refused |
+| cannot read a file under the user profile (Windows) | `read %USERPROFILE%\lecter-f005-profile-<pid>\notes.txt` | read OK | refused |
 | cannot open a network socket | `net <loopback listener>` | connected | refused |
 | cannot use an inherited socket (Unix) | `use-fd <connected TCP fd, CLOEXEC cleared>` | write OK | refused |
 | cannot exceed 1 GiB | `alloc 1088` MiB (one byte written per page) | holds it | refused |
@@ -51,9 +51,9 @@ on ubuntu-24.04, macos-15 and windows-2025.
 
 | OS | Go / no-go | Evidence |
 |---|---|---|
-| Linux | **GO** | 11/11 pass locally (below) |
+| Linux | **GO** | 11/11 pass locally (below; re-run after merging main) |
 | macOS | **GO** | macos-15: every spike test passed in CI run 40119881557 (8f4b4a7) and in run 40154388308 (c8900b7, the shipped code), including `RLIMIT_AS` at +1 GiB |
-| Windows | **IMPOSSIBLE as specified** for "no file other than its input"; GO for network, user files, earlier inputs, memory and processes | windows-2025, runs 40120703752 and 40154388308 (LPAC): 55/56. Network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC still reads `%SystemRoot%\win.ini` (92 bytes); the test prints its SDDL. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
+| Windows | **GO under D-144** (pending the CI run of the user-profile test) | windows-2025, runs 40120703752 and 40154388308 (LPAC): network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC reads `%SystemRoot%\win.ini` (92 bytes), which D-144 accepts; the old win.ini test was replaced by a user-profile file test. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
 
 **Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
 sandbox, which already sets `no_new_privs` and its own seccomp filter; ours stacks on top. Sandboxed
@@ -104,11 +104,11 @@ The read is allowed by the inherited ACE `(A;ID;0x1200a9;;;S-1-15-2-2)`: ALL RES
 PACKAGES, read and execute. LPAC honours that grant by design. The CI log lines are kept in
 `.evidence/F-005/windows-ci.log` (not tracked).
 
-Proposed SEC-01 wording for Windows (a spec change for the planning session): "Windows: LPAC
-AppContainer + job object. Besides its input (passed as a handle), the worker can read only files
-whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files;
-only C:\Windows was measured). Files without that grant, including everything under the user
-profile, are denied."
+D-144 accepts this boundary for SEC-01 on Windows: besides its input (passed as a handle), the worker
+may read files whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed
+program files; only C:\Windows was measured). Files under the user profile must be denied, which
+`cannot_read_a_file_under_the_user_profile` asserts with a file created directly under
+`%USERPROFILE%` (outside the temp folder).
 
 ## Requirements for the parse worker
 
@@ -144,9 +144,9 @@ Rules the worker must keep:
    non-inheritable and `DuplicateHandle` it into the suspended child, or hold std's spawn lock and
    clear the flag right after `CreateProcessW`. The spike uses the simple flag because its tests
    start nothing else concurrently.
-9. **Windows system files stay readable under LPAC.** The `cannot_read_a_system_file` test fails
-   there by design of LPAC; its assert prints the file's SDDL. If the parse worker must close this
-   gap, it should attempt the Chromium-style lockdown token (restricted token, startup
+9. **Windows system files stay readable under LPAC** (accepted, D-144). The user-profile test's
+   assert prints the file's SDDL if a grant ever lets the read through. If a later feature must close
+   the system-file gap, it should attempt the Chromium-style lockdown token (restricted token, startup
    impersonation; preserved at commit 30934ba) in a feature of its own. That attempt also has to
    solve start-up DLL loading, which failed with 0xC0000135.
 10. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
