@@ -27,6 +27,10 @@ so the test fails instead of passing by accident.
 | can allocate under the limit | `alloc 256` | — | holds it |
 | can start a thread | `thread` | — | runs |
 | enter refuses when a thread started first (Linux) | `--thread-first --sandbox …` | — | exit 20 |
+| holds no fd but its input (Linux) | `fds` | — | `fds above stderr: 1` |
+| cannot signal a process outside it (Linux) | `signal <test pid>` (signal 0) | allowed | refused |
+
+Unit tests pin the Landlock ruleset for every ABI (masks from uapi `linux/landlock.h`) and the error text.
 
 | OS | Applied by | Network | Files | Memory and processes |
 |---|---|---|---|---|
@@ -51,7 +55,7 @@ on ubuntu-24.04, macos-15 and windows-2025.
 
 | OS | Go / no-go | Evidence |
 |---|---|---|
-| Linux | **GO** | 11/11 pass locally (below; re-run after merging main) |
+| Linux | **GO** | 20/20 pass locally (13 sandbox tests, 7 unit tests; below) |
 | macOS | **GO** | macos-15: every spike test passed in CI run 40119881557 (8f4b4a7) and in run 40154388308 (c8900b7, the shipped code), including `RLIMIT_AS` at +1 GiB |
 | Windows | **GO under D-144** (pending the CI run of the user-profile test) | windows-2025, runs 40120703752 and 40154388308 (LPAC): network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC reads `%SystemRoot%\win.ini` (92 bytes), which D-144 accepts; the old win.ini test was replaced by a user-profile file test. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
 
@@ -63,7 +67,9 @@ results:
 - `alloc 1088` → refused after 1008 MiB;
 - `spawn-alloc` → `fork` gets `EPERM`;
 - the inherited socket → `EBADF`;
-- `--thread-first` → `enter` refuses.
+- `--thread-first` → `enter` refuses;
+- `fds` → only the input is open above stderr;
+- `signal <test pid>` → `EPERM` (Landlock signal scope).
 
 Two runs with key lines switched off show the tests catch a missing defence. With the whole sandbox
 off, the first four denial tests fail. With `close_range`, the thread check and the clone/fork rules
