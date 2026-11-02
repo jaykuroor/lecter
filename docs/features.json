@@ -4842,8 +4842,9 @@
    ],
    "try": "Open a lecture and leave it a minute: the caret stops blinking after 10 s and the fan stays quiet; press a key and it blinks again",
    "priority": 2020,
-   "status": "todo",
-   "notes": ""
+   "status": "in_progress",
+   "notes": "",
+   "base": "dd714c5a12dce34347df5f1884b1125fa7248aef"
   },
   {
    "id": "F-179",
