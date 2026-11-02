@@ -17,7 +17,7 @@ use std::path::Path;
 
 use windows_sys::Win32::Foundation::{
     CloseHandle, GENERIC_EXECUTE, GENERIC_READ, HANDLE, HANDLE_FLAG_INHERIT, LocalFree, SetHandleInformation,
-    WAIT_OBJECT_0, WAIT_TIMEOUT,
+    WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows_sys::Win32::Security::Authorization::{
     ConvertSecurityDescriptorToStringSecurityDescriptorW, EXPLICIT_ACCESS_W, GRANT_ACCESS, GetNamedSecurityInfoW,
@@ -35,10 +35,11 @@ use windows_sys::Win32::System::JobObjects::{
     SetInformationJobObject,
 };
 use windows_sys::Win32::System::Threading::{
-    CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-    GetExitCodeProcess, InitializeProcThreadAttributeList, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-    PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ResumeThread,
-    STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+    CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateMutexW, CreateProcessW, DeleteProcThreadAttributeList,
+    EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, InitializeProcThreadAttributeList,
+    PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+    PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ReleaseMutex, ResumeThread, STARTF_USESTDHANDLES,
+    STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 
 use crate::launch::{Outcome, sandboxed_args};
@@ -47,6 +48,8 @@ use crate::{Error, MEMORY_LIMIT_BYTES};
 
 /// One container for every spike run: a fixed name keeps the one ACE (on the probe exe) to one SID.
 const CONTAINER_NAME: &str = "lecter.spike.os-sandbox";
+/// Session-wide mutex around the shared setup (profile, exe ACE, process creation), see [`SetupLock`].
+const SETUP_LOCK_NAME: &str = "Local\\lecter.spike.os-sandbox.setup";
 /// HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS).
 const HRESULT_ALREADY_EXISTS: i32 = 0x8007_00B7_u32 as i32;
 /// How long a probe may run before the parent kills it.
@@ -140,6 +143,38 @@ impl Drop for AttrList {
     fn drop(&mut self) {
         // SAFETY: the list was initialised by InitializeProcThreadAttributeList.
         unsafe { DeleteProcThreadAttributeList(self.ptr()) };
+    }
+}
+
+/// Holds a named mutex shared by every process in the logon session. Parallel runs share one
+/// AppContainer profile and the ACE on the probe exe. Without the lock, one run could call
+/// `CreateAppContainerProfile` or `CreateProcessW` while another was still creating the profile
+/// (CI run 41504019480: HRESULT 0x8007000a, then ERROR_FILE_NOT_FOUND), or rewrite the exe's DACL
+/// during another run's process creation. Only the setup is serialised; the children run in parallel.
+struct SetupLock(Handle);
+
+impl SetupLock {
+    fn acquire() -> Result<Self, Error> {
+        let name = wide(OsStr::new(SETUP_LOCK_NAME));
+        // SAFETY: default security, not initially owned, NUL-terminated name.
+        let mutex = Handle(unsafe { CreateMutexW(std::ptr::null(), 0, name.as_ptr()) });
+        if mutex.0.is_null() {
+            return Err(Error::last_os("CreateMutexW (setup lock)"));
+        }
+        // SAFETY: a valid mutex handle. WAIT_ABANDONED still grants ownership; the steps under the
+        // lock are idempotent, so a holder that died part-way leaves nothing to repair.
+        match unsafe { WaitForSingleObject(mutex.0, WAIT_MS) } {
+            WAIT_OBJECT_0 | WAIT_ABANDONED => Ok(Self(mutex)),
+            WAIT_TIMEOUT => Err(Error::other("WaitForSingleObject (setup lock)", "setup lock not released in time")),
+            _ => Err(Error::last_os("WaitForSingleObject (setup lock)")),
+        }
+    }
+}
+
+impl Drop for SetupLock {
+    fn drop(&mut self) {
+        // SAFETY: this thread owns the mutex (acquire succeeded); the handle closes after this.
+        unsafe { ReleaseMutex(self.0.0) };
     }
 }
 
@@ -299,6 +334,8 @@ pub fn file_sddl(path: &Path) -> Result<String, Error> {
 
 /// Runs `exe --sandbox <input> <args>` in the AppContainer and job; waits up to two minutes.
 pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> {
+    // Held until CreateProcessW returns (released early by `?` on any setup error).
+    let setup = SetupLock::acquire()?;
     let sid = container_sid()?;
     grant(exe, &sid, GENERIC_READ | GENERIC_EXECUTE)?;
     let job = job()?;
@@ -384,6 +421,7 @@ pub fn run(exe: &Path, input: &Path, args: &[&OsStr]) -> Result<Outcome, Error> 
             &mut pi,
         )
     };
+    drop(setup);
     if ok == 0 {
         return Err(Error::last_os("CreateProcessW (AppContainer)"));
     }

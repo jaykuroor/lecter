@@ -74,6 +74,21 @@ fn sandboxed_child_can_read_its_input() {
 }
 
 #[test]
+fn sandboxed_runs_started_together_all_succeed() {
+    // The core runs workers in parallel; on Windows they share one AppContainer profile and the ACE
+    // on the exe, which parallel setup once broke (CI run 41504019480).
+    let fixtures: Vec<Fixture> = (0..6).map(|i| Fixture::new(&format!("parallel{i}"))).collect();
+    let outs: Vec<Outcome> = std::thread::scope(|s| {
+        let runs: Vec<_> = fixtures.iter().map(|f| s.spawn(move || sandboxed(f, &["read-input"]))).collect();
+        runs.into_iter().map(|r| r.join().unwrap()).collect()
+    });
+    for out in &outs {
+        assert_eq!(out.code, Some(OK), "{out:?}");
+        assert!(out.stderr.contains("read-input: 23 bytes"), "{out:?}");
+    }
+}
+
+#[test]
 fn sandboxed_child_cannot_read_a_sibling_file() {
     let f = Fixture::new("sibling");
     let control = unsandboxed(&["read", path(&f.secret)]);

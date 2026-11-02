@@ -16,6 +16,7 @@ so the test fails instead of passing by accident.
 | Test | Probe | Control | Sandboxed |
 |---|---|---|---|
 | can read its input | `read-input` | — | read OK |
+| runs started together all succeed | six `read-input` runs at once | — | all read OK |
 | cannot read a sibling file | `read <secret next to input>` | read OK | refused |
 | cannot read a file in another folder | `read <crate Cargo.toml>` | read OK | refused |
 | cannot read an earlier run's input | run 1 reads A; run 2 (input B) reads A | read OK | refused |
@@ -55,9 +56,9 @@ on ubuntu-24.04, macos-15 and windows-2025.
 
 | OS | Go / no-go | Evidence |
 |---|---|---|
-| Linux | **GO** | 20/20 pass locally (13 sandbox tests, 7 unit tests; below) |
+| Linux | **GO** | 21/21 pass locally (14 sandbox tests, 7 unit tests; below) |
 | macOS | **GO** | macos-15: every spike test passed in CI run 40119881557 (8f4b4a7) and in run 40154388308 (c8900b7, the shipped code), including `RLIMIT_AS` at +1 GiB |
-| Windows | **GO under D-144** (pending the CI run of the user-profile test) | windows-2025, runs 40120703752 and 40154388308 (LPAC): network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC reads `%SystemRoot%\win.ini` (92 bytes), which D-144 accepts; the old win.ini test was replaced by a user-profile file test. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
+| Windows | **GO under D-144** (pending the CI run of the user-profile test and the setup lock; run 41504019480 hit the setup race, requirement 10) | windows-2025, runs 40120703752 and 40154388308 (LPAC): network, earlier input, sibling and other-folder files, 1 GiB, spawn and thread pass. LPAC reads `%SystemRoot%\win.ini` (92 bytes), which D-144 accepts; the old win.ini test was replaced by a user-profile file test. Run 40153640323 (30934ba, LPAC + Chromium-style lockdown token): the child can't start (0xC0000135 STATUS_DLL_NOT_FOUND) |
 
 **Linux:** Fedora 44, kernel 7.2.11, x86_64, Landlock ABI 10. Measured inside Claude Code's bubblewrap
 sandbox, which already sets `no_new_privs` and its own seccomp filter; ours stacks on top. Sandboxed
@@ -148,13 +149,21 @@ Rules the worker must keep:
    the handle inheritable in the core while the process starts. A concurrent `CreateProcess` with
    `bInheritHandles = TRUE` (for example std `Command`) could receive it. Either open it
    non-inheritable and `DuplicateHandle` it into the suspended child, or hold std's spawn lock and
-   clear the flag right after `CreateProcessW`. The spike uses the simple flag because its tests
-   start nothing else concurrently.
+   clear the flag right after `CreateProcessW`. The spike uses the simple flag: its only concurrent
+   process creations are its own, which pass a `HANDLE_LIST` and run under the setup lock (item 10).
 9. **Windows system files stay readable under LPAC** (accepted, D-144). The user-profile test's
    assert prints the file's SDDL if a grant ever lets the read through. If a later feature must close
    the system-file gap, it should attempt the Chromium-style lockdown token (restricted token, startup
    impersonation; preserved at commit 30934ba) in a feature of its own. That attempt also has to
    solve start-up DLL loading, which failed with 0xC0000135.
-10. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
+10. **Windows setup under a cross-process lock.** Parallel workers share one AppContainer profile and
+   the ACE on the worker exe. CI run 41504019480 (d90775b) failed when two tests started together on
+   a fresh runner. One got `CreateAppContainerProfile` HRESULT 0x8007000a while the other was
+   creating the profile; the other's `CreateProcessW` got ERROR_FILE_NOT_FOUND. The likely cause is
+   that the profile wasn't complete yet. `run` now holds a session-wide named mutex
+   (`Local\lecter.spike.os-sandbox.setup`) from profile creation through `CreateProcessW`. The children
+   still run in parallel, and `sandboxed_runs_started_together_all_succeed` starts six at once. The
+   core can instead create the profile and the ACE once, at install or first start.
+11. Not covered here: the 60 s time limit (a wall-clock kill in the core). The seccomp filter should
    become an allow list once the worker's syscalls are known. macOS `sandbox_init` is deprecated but
    still shipped (Chromium uses it).
