@@ -824,3 +824,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: WebKitWebProcess alone exceeds 150 MB RSS and shared libraries are counted once per process by RSS; idle CPU is 95 % llvmpipe redraw; Xvfb/llvmpipe keystroke timings measure software rendering, not Lecter (D-080 measured 11–12 ms on WebKit).
 - Instead of: one 150/250 MB total for every OS; a caret that never blinks (less visible) or blinks forever (redraws while idle); gating keystrokes on software-rendered CI.
 - Revisit if: F-029 lowers idle memory (tighten the Linux targets to the new measurement), or a CI runner with hardware rendering becomes available.
+
+## D-147 · F-005 spike: Windows/macOS-only mutants are covered by the cross-OS test job
+2026-11-02 · orchestrator, decider: maintainer · active
+- Decision: the 87 mutants that survive in spikes/os-sandbox's Windows-only (windows.rs, Windows probe lines) and macOS-only (macos.rs) code are accepted for F-005. The Linux mutation run compiles that code out; the CI `test` job on macOS and Windows is its proof. The card that ports the sandbox into the parse worker (SEC-01, F-052..F-054) gets its own mutation run.
+- Why: spikes don't ship, and mutants.py runs only on the Linux host, so these mutants can't be built there, let alone killed.
+- Instead of: blocking F-005 until mutation testing runs on macOS/Windows CI.
+- Revisit if: mutants.py gains a macOS/Windows CI run (Q-entry: run it for cross-OS crates before SEC-01 ships).
