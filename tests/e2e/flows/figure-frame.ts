@@ -1,0 +1,205 @@
+// F-028 spike: the figure frame's sandbox in the real app's webview (WebKitGTK, WKWebView,
+// WebView2; 08-figures.md#sandbox-pages, 13-security.md#tauri-and-ipc). The app doesn't serve
+// `lecter-fig:` or `lecter-lib:` yet (F-141), and its CSP only frames `lecter-fig:`, so the flow
+// points the app's main webview at a harness page from a local server (spikes/figure-frame/):
+// a parent page with the main window's CSP, two `sandbox="allow-scripts"` frames under the CSP of
+// 08-figures.md (`self`: the exact CSP, probe script from 'self'; `lib`: the probe from a second
+// origin standing in for lecter-lib:). Tauri injects its IPC into that page as into any other, so
+// the parent's own call to the core is the control that the IPC is there to be reached.
+//
+// Criterion 1: every network request the probe tries (fetch, XHR, beacon, WebSocket,
+// EventSource, image, CSS, link prefetch/preload/stylesheet, nested frame, popup, form,
+// navigation) never reaches the server, the parent's DOM, globals and location throw, storage
+// throws or is empty and the parent sees no write, and the IPC can't be reached: Tauri's IPC
+// endpoints are blocked and no answer from the core comes back for the frame's calls.
+// Criterion 2: a 5 s busy loop in the frame is detected within 2 s by the two-leg watchdog: a
+// heartbeat from the parent page, and a heartbeat from outside the page (WebDriver executes here,
+// `webview.eval` from the core in the app) for webviews that run the frame on the parent's thread.
+//
+// Each check is logged as `FRAME <webview> <scope> <area> <check>: ok|FAIL|observed (<detail>)`
+// before the test asserts them all, so one CI run gives every webview's failures; the lines also go
+// to the GitHub job summary (spikes/figure-frame/README.md, "Where the lines are"). The webview is
+// pointed back at the app at the end and the shell checked, so later flows find the app as at start.
+
+import { appendFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { DETECT_BUDGET_MS, type Harness, startHarness, watchOutOfPage } from "../../../spikes/figure-frame/server.ts";
+import { shot } from "../support/shot.ts";
+
+/** A bounded busy loop: long enough to pass the 2 s budget, short enough that the app recovers. */
+const BUSY_MS = 5000;
+/** How long a request that got through has to reach the beacon log after the frames navigate. */
+const OBSERVE_MS = 1500;
+const observe = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The harness API (spikes/figure-frame/pages/harness.js). */
+type Watch = {
+  busyAsked: number | null;
+  busyStart: number | null;
+  busyEnd: number | null;
+  flaggedAt: number | null;
+  maxGap: number;
+  pongs: number;
+};
+type Ff = {
+  settled(): boolean;
+  refreshHits(): number;
+  hitsAt: number;
+  busy(variant: string, ms: number): number;
+  watch(variant: string): Watch;
+  navigateTest(): number;
+  frames: Record<string, { result?: unknown; navigateTried?: number; loaded?: unknown }>;
+  grade(webview: string, final: boolean): { lines: string[]; failed: string[] };
+};
+type FfWindow = Window & { __ff?: Ff };
+
+/** Which of the three webviews this is, from its user agent. */
+function webview(ua: string): string {
+  if (/Edg\//.test(ua)) return "WebView2";
+  if (/Macintosh/.test(ua)) return "WKWebView";
+  if (/Linux/.test(ua) && /AppleWebKit/.test(ua)) return "WebKitGTK";
+  return `unknown(${ua})`;
+}
+
+/**
+ * The job summary file: GITHUB_STEP_SUMMARY, or else the newest step summary in the runner's
+ * file-commands folder (the F-027 run found no GITHUB_STEP_SUMMARY in the worker on one OS).
+ */
+function summaryFile(): string | null {
+  const direct = process.env.GITHUB_STEP_SUMMARY;
+  if (direct) return direct;
+  const temp = process.env.RUNNER_TEMP;
+  if (!temp) return null;
+  const dir = join(temp, "_runner_file_commands");
+  if (!existsSync(dir)) return null;
+  const newest = readdirSync(dir)
+    .filter((f) => f.startsWith("step_summary_"))
+    .map((f) => join(dir, f))
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
+  return newest ?? null;
+}
+
+let summaryStarted = false;
+/** Prints `line` and, on GitHub Actions, adds it to the job summary (a passing job keeps no log). */
+function report(line: string): void {
+  console.log(line);
+  const file = summaryFile();
+  if (!file) return;
+  const head = summaryStarted ? "" : "\n#### F-028 figure-frame checks\n\n";
+  summaryStarted = true;
+  try {
+    // Indented four spaces: one Markdown code block, so the lines read exactly as in the log.
+    appendFileSync(file, `${head}    ${line}\n`);
+  } catch (e) {
+    console.log(`FRAME job summary not writable (${String(e)})`);
+  }
+}
+
+let harness: Harness | null = null;
+let appUrl = "";
+let engine = "unknown";
+
+const ff = () => browser.execute(() => (window as FfWindow).__ff !== undefined);
+
+/** Re-reads the server's beacon log into the harness and waits until it has it. */
+async function freshHits(): Promise<void> {
+  const asked = await browser.execute(() => (window as FfWindow).__ff?.refreshHits() ?? 0);
+  await browser.waitUntil(() => browser.execute((t: number) => ((window as FfWindow).__ff?.hitsAt ?? 0) >= t, asked), {
+    timeout: 10_000,
+    interval: 100,
+    timeoutMsg: "the harness could not read the beacon log",
+  });
+}
+
+describe("figure frame sandbox", function () {
+  this.timeout(180_000);
+
+  before(async () => {
+    harness = await startHarness();
+    // An explicit window switch turns off the service's focus check for this session.
+    await browser
+      .switchToWindow(await browser.getWindowHandle())
+      .catch((e: unknown) => console.log(`FRAME window switch failed, flows run slower: ${String(e)}`));
+    const where = await browser.execute(() => ({ url: location.href, ua: navigator.userAgent }));
+    appUrl = where.url;
+    engine = webview(where.ua);
+    report(`FRAME ${engine} harness info user-agent: observed (${JSON.stringify(where.ua)})`);
+    report(
+      `FRAME ${engine} harness info env: observed (${JSON.stringify({
+        GITHUB_ACTIONS: process.env.GITHUB_ACTIONS ?? null,
+        GITHUB_STEP_SUMMARY: Boolean(process.env.GITHUB_STEP_SUMMARY),
+        RUNNER_TEMP: Boolean(process.env.RUNNER_TEMP),
+        summary: summaryFile() !== null,
+      })})`,
+    );
+    await browser.url(`${harness.url}?tauri=1`);
+    await browser.waitUntil(ff, { timeout: 20_000, interval: 100, timeoutMsg: "the harness page did not load" });
+    await browser.waitUntil(() => browser.execute(() => (window as FfWindow).__ff?.settled() ?? false), {
+      timeout: 40_000,
+      interval: 200,
+      timeoutMsg: "the probe frames did not report",
+    });
+  });
+
+  // Back to the app: later flows find its shell as at start (shell.ts checks the same things).
+  after(async () => {
+    if (appUrl) await browser.url(appUrl);
+    await expect($('[aria-label="Course rail"]')).toBeDisplayed({ wait: 30_000 });
+    await expect($('[role="status"]')).toHaveText(/^v\d+\.\d+\.\d+$/, { wait: 30_000 });
+    await harness?.close();
+  });
+
+  it("detects a busy loop in the frame within 2 s", async () => {
+    const variant = await browser.execute(
+      () => ["self", "lib"].find((v) => (window as FfWindow).__ff?.frames[v]?.result) ?? "self",
+    );
+    await browser.execute((v: string, ms: number) => (window as FfWindow).__ff?.busy(v, ms), variant, BUSY_MS);
+    const outside = await watchOutOfPage(() => browser.execute(() => 1), BUSY_MS + 1500);
+    await browser.waitUntil(
+      () => browser.execute((v: string) => (window as FfWindow).__ff?.watch(v).busyEnd != null, variant),
+      { timeout: 20_000, interval: 100, timeoutMsg: "the busy loop did not end" },
+    );
+    const inside = await browser.execute((v: string) => (window as FfWindow).__ff?.watch(v) ?? null, variant);
+    if (!inside) throw new Error("the harness is gone");
+    const start = inside.busyStart ?? inside.busyAsked ?? 0;
+    const inPage = inside.flaggedAt === null ? null : inside.flaggedAt - start;
+    const outOfPage = outside.detectedAt === null ? null : outside.detectedAt - start;
+    const legs = [inPage, outOfPage].filter((x): x is number => x !== null);
+    const detected = legs.length > 0 ? Math.min(...legs) : Number.POSITIVE_INFINITY;
+    const detail = {
+      inPageMs: inPage,
+      outOfPageMs: outOfPage,
+      parentMaxGapMs: inside.maxGap,
+      maxPingMs: outside.maxPingMs,
+      busyMs: BUSY_MS,
+    };
+    const ok = detected <= DETECT_BUDGET_MS;
+    report(
+      `FRAME ${engine} ${variant} watchdog detected within ${DETECT_BUDGET_MS} ms: ${ok ? "ok" : "FAIL"} (${JSON.stringify(detail)})`,
+    );
+    // Which leg sees it, and whether the parent froze with the frame, decide F-142's design.
+    report(
+      `FRAME ${engine} ${variant} watchdog frame shares the parent's thread: observed (${JSON.stringify({ shares: inside.maxGap >= BUSY_MS / 2 })})`,
+    );
+    expect(detected).toBeLessThanOrEqual(DETECT_BUDGET_MS);
+  });
+
+  it("keeps the sandboxed frame off the network, the parent, storage and the IPC", async () => {
+    await shot("figure-frame-harness");
+    await browser.execute(() => (window as FfWindow).__ff?.navigateTest());
+    await browser.waitUntil(
+      () =>
+        browser.execute(() =>
+          Object.values((window as FfWindow).__ff?.frames ?? {}).every((f) => !f.loaded || f.navigateTried),
+        ),
+      { timeout: 10_000, interval: 100, timeoutMsg: "the frames did not try to navigate" },
+    );
+    // A blocked request leaves no trace: this is an observation window, not a wait for an event.
+    await observe(OBSERVE_MS);
+    await freshHits();
+    const graded = await browser.execute((w: string) => (window as FfWindow).__ff?.grade(w, true) ?? null, engine);
+    if (!graded) throw new Error("the harness is gone");
+    for (const line of graded.lines) report(line);
+    expect(graded.failed).toEqual([]);
+  });
+});
