@@ -957,6 +957,7 @@
    "title": "Settings core: schema, JSONC, precedence",
    "spec": [
     "12-settings-theme-onboarding.md#settings",
+    "12-settings-theme-onboarding.md#performance-preset",
     "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
@@ -971,7 +972,8 @@
     "The resolved value of a key SHALL follow prompt > role > course > global > default and report its source (property test).",
     "WHEN a config file contains unknown keys THEN they SHALL be preserved on write and reported once.",
     "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart.",
-    "Global-only keys (13-security.md SEC-25: provider hosts and base URLs, feedback.endpoint, search service URLs, privacy.*, log.*, limits.*, budgets above the global value) SHALL be ignored with one notice when course.jsonc sets them, tested with the hostile course fixture tests/fixtures/courses/hostile/ (SEC-25)."
+    "Global-only keys (13-security.md SEC-25: provider hosts and base URLs, feedback.endpoint, search service URLs, privacy.*, log.*, limits.*, budgets above the global value) SHALL be ignored with one notice when course.jsonc sets them, tested with the hostile course fixture tests/fixtures/courses/hostile/ (SEC-25).",
+    "ui.performance SHALL accept performance, balanced and quality, SHALL default to balanced, and SHALL reject any other value with the allowed list (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core settings"
@@ -980,7 +982,7 @@
     "log:tests"
    ],
    "status": "todo",
-   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006.",
+   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006. | Q-006 applied (D-143): ui.performance criterion added.",
    "priority": 3025,
    "reviews": [
     "security"
@@ -1278,7 +1280,8 @@
    "kind": "feature",
    "title": "Command line",
    "spec": [
-    "10-keymap.md#commands"
+    "10-keymap.md#commands",
+    "12-settings-theme-onboarding.md#performance-preset"
    ],
    "depends_on": [
     "F-037",
@@ -1290,7 +1293,8 @@
    "acceptance": [
     ": SHALL open a command line with completion for commands and setting keys.",
     "`:set key=value` SHALL validate against the schema and reject invalid values with the reason.",
-    "`:set key?` SHALL show the value and its source."
+    "`:set key?` SHALL show the value and its source.",
+    "`:set ui.performance=quality` SHALL apply without a restart and show the note \"Can add input lag on slower machines.\"; `:set ui.performance=fast` SHALL be rejected with the three allowed values (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- cmdline"
@@ -1434,7 +1438,8 @@
    "kind": "feature",
    "title": "Settings window (schema-driven)",
    "spec": [
-    "12-settings-theme-onboarding.md#settings"
+    "12-settings-theme-onboarding.md#settings",
+    "12-settings-theme-onboarding.md#performance-preset"
    ],
    "depends_on": [
     "F-030",
@@ -1444,19 +1449,21 @@
     "ui/src/features/settings/**"
    ],
    "acceptance": [
-    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Privacy, Advanced, with search.",
+    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Performance, Privacy, Advanced, with search.",
     "A change SHALL write the correct file (global or course) and apply immediately.",
-    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter)."
+    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter).",
+    "The Performance page SHALL offer the presets Performance, Balanced and Quality with Balanced selected on a new install, and WHEN Quality is selected THEN it SHALL show the note \"Can add input lag on slower machines.\" (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- settings"
    ],
    "evidence": [
-    "screenshot:settings"
+    "screenshot:settings",
+    "screenshot:settings-performance-quality"
    ],
    "try": "Open Settings with Ctrl-, and change the hint bar detail",
    "status": "todo",
-   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006.",
+   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006. | Q-006 applied (D-143): Performance page criterion added.",
    "priority": 3040
   },
   {
@@ -4737,6 +4744,48 @@
     "log:ci-run"
    ],
    "id": "F-178",
+   "status": "todo",
+   "notes": ""
+  },
+  {
+   "id": "F-074",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Performance preset in the lecture buffer",
+   "spec": [
+    "12-settings-theme-onboarding.md#performance-preset",
+    "09-ui.md#editing",
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-030",
+    "F-062",
+    "F-064"
+   ],
+   "paths": [
+    "ui/src/features/buffer/preset/**",
+    "ui/e2e/preset.spec.ts"
+   ],
+   "acceptance": [
+    "WHEN ui.performance is balanced and the user types a burst of keys in a note THEN the Markdown parse SHALL run zero times during the burst and the note SHALL be highlighted within 200 ms plus one frame after the last key (counted with a parse spy).",
+    "WHEN ui.performance is performance THEN notes and glosses SHALL show no Markdown highlighting and their math SHALL show as source text.",
+    "WHEN ui.performance is quality THEN Markdown highlighting and math in the edited note SHALL update after every keystroke.",
+    "KaTeX SHALL be in a separate chunk, absent from the main UI chunk, and SHALL load only when the first math comes into view (network log of the built UI).",
+    "WHEN ui.performance changes THEN open lectures SHALL switch to the new preset without a reload, keeping cursor and mode.",
+    "With the Balanced preset and highlighting on, the keystroke_p99_ms and ui_main_chunk_kb_gz budgets SHALL hold on the 200-slide fixture."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/features/buffer/preset",
+    "pnpm -C ui run test:e2e -- preset",
+    "tests/perf/budgets.sh --only keystroke_p99_ms,ui_main_chunk_kb_gz"
+   ],
+   "evidence": [
+    "screenshot:preset-balanced",
+    "screenshot:preset-performance",
+    "perf"
+   ],
+   "try": "Type Markdown in a note, then :set ui.performance=performance and see the highlighting go",
+   "priority": 4066,
    "status": "todo",
    "notes": ""
   }
