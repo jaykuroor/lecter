@@ -71,17 +71,55 @@ download. The kit change that makes every OS's lines downloadable: the e2e-app u
 
 ## Results
 
-**Local, Playwright Chromium 156 (no Tauri), `measure.mjs`:** 69/71 checks ok.
-- **`<link rel=prefetch>` reaches the network** from both frames (`hit: true`): Chromium doesn't
-  apply `default-src 'none'` to prefetch. Every other vector is blocked by the CSP
-  (`connect-src`, `img-src`, `style-src-elem`, `frame-src` violations) or the sandbox (popup, form).
-  If WebView2 behaves the same, criterion 1 can't be met by the CSP alone on Windows; the frame
-  needs a request filter outside the page (WebView2 `WebResourceRequested` refusing anything but
-  `lecter-lib:`/`lecter-fig:` from the frame).
-- Parent, storage and IPC: all blocked (SecurityError for every storage API and parent read; no
-  IPC object in the frame; both IPC endpoints blocked by `connect-src`).
-- Watchdog: the sandboxed frame runs on the parent's thread (parent timer gap 5066 ms for a
-  5000 ms loop), so the in-page leg sees the loop only when it ends (5000 ms); the out-of-page leg
-  flags it at 1503 ms.
+**Run 1: CI run 41461890948** (head a656c4c, `workflow_dispatch`). All three `e2e-app` jobs
+failed, so all three uploaded their logs. `fetch.sh 41461890948 <artifacts>` gives this tally
+(`.evidence/F-028/summary.txt`):
 
-**CI (three webviews):** pending; `fetch.sh <run-id>` fills this in.
+| | WebKitGTK (ubuntu-24.04) | WKWebView (macos-15) | WebView2 (windows-2025, Edg 155) |
+|---|---|---|---|
+| Checks ok | 38/39 | 38/39 | 70/72 |
+| Probe ran in `self` (exact CSP, script from `'self'`) | **no** (`loaded: false`) | **no** | yes |
+| Probe ran in `lib` (script from the lib origin) | yes | yes | yes |
+| Network (16 vectors per frame) | all blocked | all blocked | all blocked **except `<link rel=prefetch>`** (beacon hit, both frames) |
+| Parent DOM, globals, location | all throw / null | all throw / null | all throw / null |
+| Storage (6 APIs + cookie; parent sees no write) | all blocked | all blocked | all blocked |
+| IPC endpoints (`ipc://`, `http://ipc.localhost`) | blocked (CSP) | blocked (CSP) | blocked (CSP) |
+| IPC objects in the frame (observed) | `webkit.messageHandlers.ipc` | `webkit.messageHandlers.ipc` | `__TAURI_INTERNALS__.invoke`, `window.ipc`, `chrome.webview` |
+| Frame's IPC call answered by the core | no (raw post, no key) | no (raw post, no key) | no (`invoke` and raw post: no answer, no stray callback) |
+| Control: the core answers the parent | yes (ACL rejection) | yes | yes |
+| Frame on the parent's thread | yes (parent timer gap 5091 ms) | yes (5011 ms) | no (112 ms) |
+| Watchdog, in-page leg | 5000 ms (sees the loop only when it ends) | 5008 ms | **1285 ms** |
+| Watchdog, out-of-page leg | null (flow bug, below) | null (flow bug) | null (the page never blocked) |
+
+**What the run shows:**
+
+1. **Network on WebView2:** Chromium doesn't apply `default-src 'none'` to `<link rel=prefetch>`,
+   so a figure can send a GET to any URL it builds. Playwright Chromium 156 does the same locally;
+   WebKit didn't send it. The CSP and sandbox of 08-figures.md can't keep a figure off the network
+   on Windows, so criterion 1 can't be met there as specified. Something outside the page has to
+   block it: WebView2's `WebResourceRequested` (filter `*`, all contexts) refusing every request
+   whose URL isn't `lecter-fig:`, `lecter-lib:` or the app's own origin. That is native code for
+   F-141.
+2. **`'self'` on WebKit:** in a sandboxed (opaque-origin) frame, WebKitGTK and WKWebView never
+   match `'self'`. Under the exact CSP, a figure's own script from `lecter-fig:` would not run.
+   Chromium matches the response URL's origin. A scheme source works in all three: the `lib`
+   frame's script origin is named explicitly and ran everywhere. So `script-src lecter-fig:
+   lecter-lib:` instead of `'self' lecter-lib:`. This doesn't weaken criterion 1's proof on WebKit:
+   the `lib` frame's CSP is the spec's, with the stand-in for `lecter-lib:`, and every check held.
+3. **IPC:** on WebView2, wry adds Tauri's init scripts to subframes, so the figure frame holds
+   `__TAURI_INTERNALS__` with the invoke key. Its calls still go nowhere: the custom-protocol fetch
+   is blocked by `connect-src`, and WebView2 hands an iframe's `chrome.webview.postMessage` to
+   `CoreWebView2Frame.WebMessageReceived`, which wry doesn't listen to. On WebKit the frame has
+   `webkit.messageHandlers.ipc`, which reaches the core, but no key, and the core drops keyless
+   messages. So each webview has two guards today. On WebView2, a wry change that forwards frame
+   messages, or a looser CSP, would leave only one.
+4. **Watchdog on WebKit:** the frame shares the page's main thread, so the in-page leg can't run
+   during the loop. The out-of-page leg gave null because of a bug in the flow, not in WebKit. The
+   WebDriver call that starts the loop only returned when the loop ended (wdio log: sent
+   14:31:53.096, answered 14:31:58.101 on WebKitGTK; 14:37:45.201 → 14:37:50.217 on WKWebView).
+   The flow waited for it before it began watching, so every later ping came back in 4–15 ms. Fixed after run 1: the starting call is now the watcher's first ping
+   (`watchOutOfPage(…, first)`). Locally (Chromium, frame on the parent's thread), that leg flags
+   the loop at 1751 ms: the 250 ms heartbeat plus the 1500 ms stale limit, the worst case for a
+   loop that starts just after a ping. Run 2 measures it on WebKit.
+
+**Run 2** (the out-of-page fix): pending; `fetch.sh <run-id>` fills it in.

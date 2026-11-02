@@ -153,8 +153,14 @@ describe("figure frame sandbox", function () {
     const variant = await browser.execute(
       () => ["self", "lib"].find((v) => (window as FfWindow).__ff?.frames[v]?.result) ?? "self",
     );
-    await browser.execute((v: string, ms: number) => (window as FfWindow).__ff?.busy(v, ms), variant, BUSY_MS);
-    const outside = await watchOutOfPage(() => browser.execute(() => 1), BUSY_MS + 1500);
+    // Not awaited: where the frame shares the page's thread this call returns only when the loop
+    // ends, so the out-of-page leg watches it as its first ping.
+    const trigger = browser.execute(
+      (v: string, ms: number) => (window as FfWindow).__ff?.busy(v, ms),
+      variant,
+      BUSY_MS,
+    );
+    const outside = await watchOutOfPage(() => browser.execute(() => 1), BUSY_MS + 1500, trigger);
     await browser.waitUntil(
       () => browser.execute((v: string) => (window as FfWindow).__ff?.watch(v).busyEnd != null, variant),
       { timeout: 20_000, interval: 100, timeoutMsg: "the busy loop did not end" },

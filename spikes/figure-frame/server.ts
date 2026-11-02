@@ -190,14 +190,26 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * process. Every HEARTBEAT_MS it evaluates a trivial script in the page (`ping`, a WebDriver
  * execute here, `webview.eval` in the app) and flags the page busy once one hasn't come back for
  * STALE_MS. Runs for `durationMs`, then waits for the last ping.
+ *
+ * `first` is the call that started the busy loop, sent just before: it is watched as the first
+ * ping. In a webview that runs the frame on the page's thread that call itself only returns when
+ * the loop ends (WebKitGTK and WKWebView in CI run 41461890948: 5 s), so awaiting it before
+ * watching would hide the loop from this leg.
  */
-export async function watchOutOfPage(ping: () => Promise<unknown>, durationMs: number): Promise<OutOfPage> {
+export async function watchOutOfPage(
+  ping: () => Promise<unknown>,
+  durationMs: number,
+  first?: Promise<unknown>,
+): Promise<OutOfPage> {
   const end = Date.now() + durationMs;
   const out: OutOfPage = { detectedAt: null, maxPingMs: 0 };
+  let next: Promise<unknown> | undefined = first;
   while (Date.now() < end) {
     const sent = Date.now();
     let back = false;
-    const answer = ping().then(
+    const call = next ?? ping();
+    next = undefined;
+    const answer = call.then(
       () => {
         back = true;
       },

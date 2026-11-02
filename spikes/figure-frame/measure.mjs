@@ -40,8 +40,9 @@ try {
 
     // Busy loop in the first frame whose probe ran; both watchdog legs watch it.
     const v = await page.evaluate(() => ["self", "lib"].find((x) => window.__ff.frames[x]?.result) ?? "self");
-    await page.evaluate(([x, ms]) => window.__ff.busy(x, ms), [v, BUSY_MS]);
-    const outside = await watchOutOfPage(() => page.evaluate(() => 1), BUSY_MS + 1500);
+    // Not awaited: the out-of-page leg watches the call that starts the loop as its first ping.
+    const trigger = page.evaluate(([x, ms]) => window.__ff.busy(x, ms), [v, BUSY_MS]);
+    const outside = await watchOutOfPage(() => page.evaluate(() => 1), BUSY_MS + 1500, trigger);
     await until("busy loop over", () => page.evaluate((x) => window.__ff.watch(x).busyEnd !== null, v));
     const inside = await page.evaluate((x) => window.__ff.watch(x), v);
 
