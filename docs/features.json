@@ -279,10 +279,10 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox. | Builder's final commit a8e5aa5 on feat/F-005-os-sandbox (pushed up to c8900b7; push again before merging). | Q-008 answered (D-144): SEC-01 allows LPAC reads of ALL RESTRICTED APPLICATION PACKAGES files on Windows. On feat/F-005-os-sandbox: swap the win.ini test for a user-profile file that must be denied, re-run Windows CI, merge.",
    "priority": 1006,
-   "base": "d51d35fc12ca12a273acde87f9d2026a071d0439"
+   "base": "76ea1cb115d8659e459e7ea333980f99719add19"
   },
   {
    "id": "F-006",
