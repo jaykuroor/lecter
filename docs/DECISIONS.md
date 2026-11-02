@@ -831,3 +831,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: spikes don't ship, and mutants.py runs only on the Linux host, so these mutants can't be built there, let alone killed.
 - Instead of: blocking F-005 until mutation testing runs on macOS/Windows CI.
 - Revisit if: mutants.py gains a macOS/Windows CI run (Q-entry: run it for cross-OS crates before SEC-01 ships).
+
+## D-148 · Parse-worker OS sandboxes: GO on Linux, macOS and Windows (F-005)
+2026-11-02 · F-005 builder, recorded by the orchestrator · active
+- Decision: the parse worker's sandboxes are Linux seccomp + Landlock (+ RLIMIT_AS 1 GiB, closed fds, PDEATHSIG, Landlock signal scope), a macOS sandbox profile, and a Windows LPAC AppContainer + job object, picked by cfg(target_os). Go/no-go: Linux GO (21/21 on Fedora 44, kernel 7.2.11, Landlock ABI 10), macOS GO (CI run 41513695098), Windows GO under D-144 (CI run 41513695098, including a file under %USERPROFILE% being denied). On Windows, profile creation, the exe's DACL grant and CreateProcessW run under one named mutex (`Local\lecter.spike.os-sandbox.setup`) so parallel launches don't race; the children still run in parallel. The Landlock rules are a pure `ruleset(abi)` function tested per ABI against uapi landlock.h.
+- Why: parallel tests on a fresh Windows runner failed with 0x8007000a / ERROR_FILE_NOT_FOUND while another process was creating the shared profile (run 41504019480); the earlier green run won the race by luck.
+- Instead of: one AppContainer profile per run (races the read-modify-write on the shared exe DACL and weakens the "earlier run, same container" test); running the tests one at a time; the Windows lockdown token (failed with 0xC0000135); asserting win.ini stays readable (brittle).
+- Revisit if: the parse-worker port (F-052..F-054) creates the profile and exe ACE once at install or first start instead of taking the lock (spikes/os-sandbox/README.md requirement 10).

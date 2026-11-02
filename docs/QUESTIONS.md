@@ -133,5 +133,11 @@ How should 08-figures.md#sandbox-pages change so the figure frame stays off the 
 - Recommended: (1) add a native request filter to the spec for figure frames that refuses every request not to lecter-fig:/lecter-lib: (WebView2 WebResourceRequested; WebKit content rule list or scheme handler checks), built in F-141, and rewrite F-028 criterion 1 to prove filter + CSP; (2) change the CSP to `script-src lecter-fig: lecter-lib:` (unverified with a real custom scheme; F-141 must prove it on each webview); (3) require F-142's watchdog to be core-side (webview.eval heartbeat) with the kill from the native side; (4) consider a native guard that drops IPC not from the main frame (WebView2 injects Tauri's IPC into subframes).
 - Answer: follow the recommendation (maintainer 2026-11-02): 08-figures.md#sandbox-pages requires a native request filter for figure frames that refuses every request not to lecter-fig:/lecter-lib: (WebView2 WebResourceRequested; WebKit content rule list or scheme handler checks), built in F-141, and F-028 criterion 1 proves filter + CSP; the CSP becomes `script-src lecter-fig: lecter-lib:` (F-141 proves it on each webview); F-142's watchdog is core-side (webview.eval heartbeat) with the kill from the native side; add a native guard that drops IPC not from the main frame. Then re-run F-028 on branch feat/F-028-figure-frame. Applied by the planning session 2026-11-02: 08-figures#sandbox-pages, SEC-31, F-028/F-141/F-142 criteria, F-028 unblocked (D-145).
 
+## Q-020 · later · blocks: the parse-worker sandbox port (F-052..F-054)
+Should mutants.py run in macOS and Windows CI for crates with cross-OS code before the parse worker (SEC-01) ships?
+- Context: mutants.py runs only on the Linux host, so Windows-only and macOS-only code is compiled out. F-005 had 91 such survivors, accepted for the spike by D-147. The port into the parse worker will ship this code.
+- Recommended: yes for the sandbox crate: a scheduled macOS/Windows mutants job scoped to cfg(windows)/cfg(target_os = "macos") files, before F-052..F-054 are done.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
