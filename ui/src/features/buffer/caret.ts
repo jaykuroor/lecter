@@ -63,7 +63,8 @@ class CaretBlink {
 
 const caretPlugin = ViewPlugin.fromClass(CaretBlink, {
   // Observers, not handlers: they see every key and click and never stop another handler.
-  // A click on the caret's own place dispatches no selection, so it needs its own restart.
+  // A click that moves nothing (on the caret's place, or the context-menu button) dispatches no
+  // selection, so it needs its own restart.
   eventObservers: {
     keydown() {
       this.input();

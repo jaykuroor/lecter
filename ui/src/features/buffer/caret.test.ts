@@ -31,8 +31,9 @@ function key(k: string): void {
   view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
 }
 
-function click(): void {
-  view.contentDOM.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+/** A mouse button pressed on the text: 0 the main button, 2 the one that opens the context menu. */
+function click(button = 0): void {
+  view.contentDOM.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button }));
 }
 
 /** Sets what `(prefers-reduced-motion: reduce)` answers. */
@@ -132,17 +133,25 @@ describe("the caret", () => {
     expect(blinking()).toBe(0);
   });
 
-  it("blinks again at the next click, even one on the caret's own place", () => {
+  it("blinks again at the next click", () => {
     open();
-    click();
+    key("j");
     timeline.advance(15_000);
     expect(blinking()).toBe(0);
-    const selection = view.state.selection;
-    click(); // the same place: CodeMirror dispatches no selection for it
-    expect(view.state.selection.eq(selection)).toBe(true);
+    click();
     expect(blinking()).toBe(2);
     timeline.advance(BLINK_FOR_MS);
     expect(blinking()).toBe(0);
+  });
+
+  it("blinks again at a click that moves nothing (the context-menu button)", () => {
+    open();
+    key("j");
+    timeline.advance(15_000);
+    const selection = view.state.selection;
+    click(2); // CodeMirror selects nothing for it, so no transaction restarts the blink
+    expect(view.state.selection.eq(selection)).toBe(true);
+    expect(blinking()).toBe(2);
   });
 
   it("blinks in another lecture opened into the same focused editor", async () => {
