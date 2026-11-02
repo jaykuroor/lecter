@@ -122,5 +122,11 @@ Should text committed by an IME in normal mode be dropped, and which card builds
 - Recommended: drop it (follow 09-ui#editing), and add the inputHandler + keydown guard from D-140 to the next card that owns ui/src/features/buffer/editorState.ts, with tests/e2e/flows/ime.ts turning its observations into assertions.
 - Answer:
 
+## Q-019 · planning · blocks: F-028 (and the M0.5 gate)
+How should 08-figures.md#sandbox-pages change so the figure frame stays off the network on WebView2 and figure scripts run on WebKit (D-142)?
+- Context: F-028 is IMPOSSIBLE as written (reviewer agreed): `<link rel=prefetch>` from the sandboxed frame reaches the network on WebView2 despite `default-src 'none'` (no CSP3 directive covers prefetch in Chromium). WebKit doesn't match `'self'` in an opaque-origin frame, so `script-src 'self' lecter-lib:` blocks a figure's own script. On WebKit the frame shares the parent's thread, so a busy figure freezes the UI and only a core-side watchdog can see it. The branch feat/F-028-figure-frame holds the harness and flow.
+- Recommended: (1) add a native request filter to the spec for figure frames that refuses every request not to lecter-fig:/lecter-lib: (WebView2 WebResourceRequested; WebKit content rule list or scheme handler checks), built in F-141, and rewrite F-028 criterion 1 to prove filter + CSP; (2) change the CSP to `script-src lecter-fig: lecter-lib:` (unverified with a real custom scheme; F-141 must prove it on each webview); (3) require F-142's watchdog to be core-side (webview.eval heartbeat) with the kill from the native side; (4) consider a native guard that drops IPC not from the main frame (WebView2 injects Tauri's IPC into subframes).
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
