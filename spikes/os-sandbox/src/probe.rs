@@ -7,7 +7,9 @@
 //! - `alloc <MiB>`: allocate and touch that many MiB in 16 MiB chunks;
 //! - `spawn-alloc <MiB>`: start a second process (fork on Unix, itself on Windows); both allocate;
 //! - `thread`: start and join a thread;
-//! - `use-fd <n>` (Unix): write one byte to an inherited fd.
+//! - `use-fd <n>` (Unix): write one byte to an inherited fd;
+//! - `fds` (Linux): count the open fds above stderr;
+//! - `signal <pid>` (Linux): check permission to signal another process (signal 0).
 
 /// The probe did what it was asked.
 pub const OK: i32 = 0;

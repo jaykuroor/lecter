@@ -46,3 +46,21 @@ impl std::error::Error for Error {
         Some(&self.source)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn message_names_the_step_then_the_os_error() {
+        let e = Error::other("landlock_restrict_self", "operation not permitted");
+        assert_eq!(e.to_string(), "landlock_restrict_self: operation not permitted");
+    }
+
+    #[test]
+    fn source_is_the_os_error() {
+        let e = Error::other("close_range(3, ~0)", "bad fd");
+        let source = std::error::Error::source(&e).map(ToString::to_string);
+        assert_eq!(source.as_deref(), Some("bad fd"));
+    }
+}

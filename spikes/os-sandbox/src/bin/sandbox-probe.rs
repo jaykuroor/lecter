@@ -205,6 +205,26 @@ fn use_fd(fd: i32) -> i32 {
     report("use-fd", if n == 1 { Ok(1) } else { Err(std::io::Error::last_os_error()) })
 }
 
+/// Counts the open fds above stderr (3..1024) without touching the file system.
+#[cfg(target_os = "linux")]
+fn fds() -> i32 {
+    // SAFETY: F_GETFD only reads the flags of an fd number; a closed one fails with EBADF.
+    let open = (3..1024).filter(|&fd| unsafe { libc::fcntl(fd, libc::F_GETFD) } != -1).count();
+    say!("fds above stderr: {open}");
+    OK
+}
+
+/// Checks whether this process may signal `pid` (signal 0: the permission check only).
+#[cfg(target_os = "linux")]
+fn signal(pid: usize) -> i32 {
+    let Ok(pid) = libc::pid_t::try_from(pid) else {
+        return USAGE;
+    };
+    // SAFETY: signal 0 delivers nothing; the kernel only checks permission.
+    let rc = unsafe { libc::kill(pid, 0) };
+    report("signal", if rc == 0 { Ok(0) } else { Err(std::io::Error::last_os_error()) })
+}
+
 fn main() -> ExitCode {
     std::panic::set_hook(Box::new(|info| {
         say!("probe panicked: {info}");
@@ -260,6 +280,10 @@ fn main() -> ExitCode {
         (Some("thread"), _, _) => thread(),
         #[cfg(unix)]
         (Some("use-fd"), _, Some(fd)) => use_fd(fd as i32),
+        #[cfg(target_os = "linux")]
+        (Some("fds"), _, _) => fds(),
+        #[cfg(target_os = "linux")]
+        (Some("signal"), _, Some(pid)) => signal(pid),
         _ => {
             say!("usage: see lecter_spike_os_sandbox::probe");
             USAGE

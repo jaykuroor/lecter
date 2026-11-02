@@ -17,6 +17,7 @@ const RULE_PATH_BENEATH: libc::c_uint = 1;
 const ACCESS_FS_READ_FILE: u64 = 1 << 2;
 
 #[repr(C)]
+#[derive(Debug, PartialEq, Eq)]
 struct RulesetAttr {
     handled_access_fs: u64,
     handled_access_net: u64,
@@ -57,19 +58,11 @@ fn handled_fs(abi: i64) -> u64 {
     access
 }
 
-/// Restricts the process to reading `input`. Returns the kernel's Landlock ABI version.
-pub fn restrict_to_file(input: &Path) -> Result<i64, Error> {
-    // SAFETY: the version query takes a null attr and size 0.
-    let abi = unsafe {
-        libc::syscall(
-            libc::SYS_landlock_create_ruleset,
-            std::ptr::null::<RulesetAttr>(),
-            0usize,
-            CREATE_RULESET_VERSION,
-        )
-    };
+/// The ruleset for a kernel at Landlock ABI `abi`, and how many bytes of it that kernel reads
+/// (`handled_access_net` arrived at ABI 4, `scoped` at 6). `None` when the kernel has no Landlock.
+fn ruleset(abi: i64) -> Option<(RulesetAttr, usize)> {
     if abi < 1 {
-        return Err(Error::last_os("landlock ABI version"));
+        return None;
     }
     let attr = RulesetAttr {
         handled_access_fs: handled_fs(abi),
@@ -84,6 +77,23 @@ pub fn restrict_to_file(input: &Path) -> Result<i64, Error> {
         1..=3 => 8usize,
         4 | 5 => 16,
         _ => size_of::<RulesetAttr>(),
+    };
+    Some((attr, size))
+}
+
+/// Restricts the process to reading `input`. Returns the kernel's Landlock ABI version.
+pub fn restrict_to_file(input: &Path) -> Result<i64, Error> {
+    // SAFETY: the version query takes a null attr and size 0.
+    let abi = unsafe {
+        libc::syscall(
+            libc::SYS_landlock_create_ruleset,
+            std::ptr::null::<RulesetAttr>(),
+            0usize,
+            CREATE_RULESET_VERSION,
+        )
+    };
+    let Some((attr, size)) = ruleset(abi) else {
+        return Err(Error::last_os("landlock ABI version"));
     };
     // SAFETY: `attr` is valid for `size` bytes (size ≤ size_of::<RulesetAttr>()).
     let ruleset = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, &attr, size, 0u32) };
@@ -112,3 +122,6 @@ pub fn restrict_to_file(input: &Path) -> Result<i64, Error> {
     }
     Ok(abi)
 }
+
+#[cfg(test)]
+mod tests;

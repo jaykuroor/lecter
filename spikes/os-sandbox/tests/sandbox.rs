@@ -69,6 +69,8 @@ fn sandboxed_child_can_read_its_input() {
     let f = Fixture::new("input");
     let out = sandboxed(&f, &["read-input"]);
     assert_eq!(out.code, Some(OK), "{out:?}");
+    // The fixture's input is the 23-byte "synthetic lecture input".
+    assert!(out.stderr.contains("read-input: 23 bytes"), "{out:?}");
 }
 
 #[test]
@@ -116,6 +118,7 @@ fn sandboxed_child_can_allocate_well_under_the_limit() {
     let f = Fixture::new("mem-under");
     let out = sandboxed(&f, &["alloc", "256"]);
     assert_eq!(out.code, Some(OK), "{out:?}");
+    assert!(out.stderr.contains("holding 256 MiB"), "{out:?}");
 }
 
 #[test]
@@ -145,6 +148,7 @@ fn sandboxed_child_can_start_a_thread() {
     let f = Fixture::new("thread");
     let out = sandboxed(&f, &["thread"]);
     assert_eq!(out.code, Some(OK), "{out:?}");
+    assert!(out.stderr.contains("thread ran"), "{out:?}");
 }
 
 #[cfg(unix)]
@@ -193,6 +197,28 @@ fn sandboxed_child_cannot_read_a_file_under_the_user_profile() {
     // On failure, show which grant allowed the read.
     let acl = lecter_spike_os_sandbox::file_sddl(&file).unwrap_or_else(|e| format!("(ACL unavailable: {e})"));
     assert_eq!(out.code, Some(DENIED), "{out:?}\n{} SDDL: {acl}", file.display());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn sandboxed_child_holds_no_fd_but_its_input() {
+    // Landlock's ruleset and O_PATH fds must be closed once the sandbox is on; only the input stays.
+    let f = Fixture::new("fds");
+    let out = sandboxed(&f, &["fds"]);
+    assert_eq!(out.code, Some(OK), "{out:?}");
+    assert!(out.stderr.contains("fds above stderr: 1"), "{out:?}");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn sandboxed_child_cannot_signal_a_process_outside_it() {
+    // Landlock's signal scope (ABI ≥ 6): the worker can't signal the core or any other process.
+    let f = Fixture::new("signal");
+    let me = std::process::id().to_string();
+    let control = unsandboxed(&["signal", &me]);
+    assert_eq!(control.code, Some(OK), "control: {control:?}");
+    let out = sandboxed(&f, &["signal", &me]);
+    assert_eq!(out.code, Some(DENIED), "{out:?}");
 }
 
 #[cfg(target_os = "linux")]
