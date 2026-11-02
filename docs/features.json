@@ -945,9 +945,10 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2024
+   "priority": 2024,
+   "base": "feba84bffe76595e1e8743e0bfbdfc36c3ab1e9a"
   },
   {
    "id": "F-030",
