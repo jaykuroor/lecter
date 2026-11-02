@@ -206,7 +206,7 @@ fn sandboxed_child_holds_no_fd_but_its_input() {
     let f = Fixture::new("fds");
     let out = sandboxed(&f, &["fds"]);
     assert_eq!(out.code, Some(OK), "{out:?}");
-    assert!(out.stderr.contains("fds above stderr: 1"), "{out:?}");
+    assert!(out.stderr.lines().any(|l| l == "fds above stderr: 1"), "{out:?}");
 }
 
 #[cfg(target_os = "linux")]
