@@ -838,3 +838,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: parallel tests on a fresh Windows runner failed with 0x8007000a / ERROR_FILE_NOT_FOUND while another process was creating the shared profile (run 41504019480); the earlier green run won the race by luck.
 - Instead of: one AppContainer profile per run (races the read-modify-write on the shared exe DACL and weakens the "earlier run, same container" test); running the tests one at a time; the Windows lockdown token (failed with 0xC0000135); asserting win.ini stays readable (brittle).
 - Revisit if: the parse-worker port (F-052..F-054) creates the profile and exe ACE once at install or first start instead of taking the lock (spikes/os-sandbox/README.md requirement 10).
+
+## D-149 · F-029's idle CPU measurement moves to F-025
+2026-11-02 · orchestrator, decider: maintainer · active
+- Decision: F-029 merges with criterion 5's redraw source recorded in its D-entry. The other half, idle CPU per process after the fix on ubuntu-24.04, is measured by F-025's open-idle run when F-025 lands, and recorded in the same F-029 D-entry.
+- Why: F-025 depends on F-029, and its perf run stops at its own self-check until D-146's per-OS targets are applied (CI run 41521347359: `('lt', 150) != ('lt', 460.0)`), so F-029 can't take the measurement first.
+- Instead of: measuring on the author's Fedora machine (not the named runner, and hardware rendering); blocking F-029 until planning breaks the loop.
+- Revisit if: F-025's open-idle run shows idle CPU still above its budget; the redraw then has a second source.
