@@ -914,7 +914,7 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 2023,
    "base": "5f6b46170c3717462053577f6c8f516c16c73e11"

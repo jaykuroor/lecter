@@ -116,5 +116,11 @@ Which performance budgets should hold on Linux/WebKitGTK, and which app fixes co
 - Recommended: (1) a new card to stop idle redraw (likely CodeMirror's cursor blink or another CSS animation; target 0 frames while idle); (2) a card for cold open (shell first paint ~0.8 s); (3) set WebKitGTK memory budgets from measurement (e.g. per-OS targets, with the webview counted by PSS) instead of 150/250 MB total RSS, which the web process alone exceeds; (4) keep keystroke_p99_ms at 8 ms but decide whether CI under Xvfb/llvmpipe is the right place to gate it (D-080 measured 11–12 ms on WebKit). Then merge F-025 once the gate can pass.
 - Answer:
 
+## Q-018 · planning · blocks: nothing
+Should text committed by an IME in normal mode be dropped, and which card builds the F-027 workaround (D-140)?
+- Context: on WebKitGTK and WKWebView a 2+ character IME commit in normal mode lands in the slide line (09-ui#editing says slide lines are read-only) and `u` doesn't undo it. Dropping it loses codemirror-vim's one-character IME-as-key support.
+- Recommended: drop it (follow 09-ui#editing), and add the inputHandler + keydown guard from D-140 to the next card that owns ui/src/features/buffer/editorState.ts, with tests/e2e/flows/ime.ts turning its observations into assertions.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
