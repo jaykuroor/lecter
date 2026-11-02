@@ -11,16 +11,25 @@
 // the page during a window; each mutation and frame is time-stamped in the page, and only those
 // inside the window count, so the WebDriver calls that open and close it can't be mistaken for
 // idle work. A window is opened and read in two calls because WebDriver scripts time out at 30 s.
+// Before a window opens, the flow waits for the page's animations to finish (their `finished`
+// promises): an animation's clock starts at the frame after the key, which a slow software
+// renderer can push past 10 s by tens of milliseconds. That they ended within 10 s plus one second
+// of slack is asserted; the window itself still starts no earlier than 10 s after the input.
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { shot } from "../support/shot.ts";
 
 const NAME = "2026-10-27-l11-idle.md";
+const STEM = "2026-10-27-l11-idle";
 /** The caret blinks this long after the last input; the idle checks start then (D-146). */
 const BLINK_MS = 10_000;
 /** The mutation and frame window (criterion 2). */
 const WINDOW_MS = 30_000;
+/** Slack for an animation's start: it begins at the first frame after the key that started it. */
+const START_SLACK_MS = 1_000;
+/** How long the stream's painting is sampled, frame by frame (criterion 4). */
+const PAINT_SAMPLE_MS = 2_000;
 const QUESTION = "Why does correlation have no units?";
 
 // A synthetic lecture as Lecter writes it (03-lecture-files.md). English only.
@@ -97,6 +106,63 @@ async function idleFor(ms: number, since = 0): Promise<void> {
   if (elapsed < ms) await browser.pause(Math.ceil(ms - elapsed) + 50);
 }
 
+/**
+ * Waits (in the page, at most 15 s) for every animation and transition now in the window to
+ * finish, and returns how long after the later of the last input and `since` the last one ended
+ * (0 when none was left), and any still running.
+ */
+async function animationsEnd(since: number): Promise<{ endedAfterInput: number; stillRunning: string[] }> {
+  return await browser.execute(async (since: number) => {
+    const probe = (window as unknown as { __idle?: Probe }).__idle;
+    const from = Math.max(probe?.lastInput ?? 0, since);
+    const animations = document.getAnimations();
+    let last = from;
+    const ends = animations.map((a) =>
+      a.finished.then(
+        () => {
+          last = Math.max(last, performance.now());
+        },
+        () => undefined, // cancelled: it ends too
+      ),
+    );
+    const timeout = new Promise((resolve) => setTimeout(resolve, 15_000));
+    await Promise.race([Promise.all(ends), timeout]);
+    const stillRunning = animations
+      .filter((a) => a.playState === "running")
+      .map((a) => {
+        const target = a.effect instanceof KeyframeEffect ? a.effect.target : null;
+        return target instanceof Element ? target.className : "?";
+      });
+    return { endedAfterInput: last - from, stillRunning };
+  }, since);
+}
+
+/**
+ * Waits for the blink to end and asserts it did within 10 s (plus slack) of the later of the last
+ * input and `since` (a stream's end, when the editor may get its focus back and blink again).
+ */
+async function expectBlinkEnds(label: string, since = 0): Promise<void> {
+  const end = await animationsEnd(since);
+  console.log(
+    `IDLE ${label}: animations ended ${Math.round(end.endedAfterInput)} ms after the last input ${end.stillRunning.join("; ")}`,
+  );
+  expect(end.stillRunning).toEqual([]);
+  expect(end.endedAfterInput).toBeLessThanOrEqual(BLINK_MS + START_SLACK_MS);
+}
+
+/** Whether the window and the editor have focus: the caret only blinks in a focused editor. */
+function focus(): Promise<{ document: boolean; editor: boolean }> {
+  return browser.execute(() => ({
+    document: document.hasFocus(),
+    editor: document.querySelector(".cm-editor")?.classList.contains("cm-focused") ?? false,
+  }));
+}
+
+/** Asserts focus first, so that a caret that doesn't blink for want of focus says so. */
+async function expectFocused(): Promise<void> {
+  expect(await focus()).toEqual({ document: true, editor: true });
+}
+
 /** Running animations and transitions in the main window: kind and target. */
 function running(): Promise<string[]> {
   return browser.execute(() =>
@@ -171,6 +237,7 @@ function closeWindow(ms: number): Promise<{ lasted: number; mutations: string[];
 
 /** The idle checks (criteria 1 and 2), starting 10 s after the last input and `since`. */
 async function expectIdle(label: string, since = 0): Promise<void> {
+  await expectBlinkEnds(label, since);
   await idleFor(BLINK_MS, since);
   await openWindow();
   const animations = await running();
@@ -206,8 +273,14 @@ describe("an idle lecture", function () {
     writeFileSync(file(), LECTURE);
   });
 
-  // Other flows list this course's lectures exactly.
-  after(() => rmSync(file(), { force: true }));
+  // Other flows list this course's lectures exactly; the gloss in the last test left a journal.
+  after(() => {
+    rmSync(file(), { force: true });
+    const journal = join(course(), ".lecter", "journal");
+    if (existsSync(journal)) {
+      for (const f of readdirSync(journal).filter((f) => f.startsWith(STEM))) rmSync(join(journal, f), { force: true });
+    }
+  });
 
   it("runs no animation, DOM change or frame 10 s after the last key, with the caret solid", async () => {
     await $("button.course-open").click();
@@ -216,6 +289,7 @@ describe("an idle lecture", function () {
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
     await installProbe();
 
+    await expectFocused();
     await browser.keys("j");
     expect(await sinceInput()).toBeLessThan(BLINK_MS);
     // Blinking right after the key.
@@ -234,14 +308,18 @@ describe("an idle lecture", function () {
 
   it("blinks again at the next key and the next click, then stops 10 s later", async () => {
     expect(await caretBlinks()).toBe(0);
+    await expectFocused();
     // Esc in normal mode moves nothing; it is still a key.
     await browser.keys("Escape");
     expect(await caretBlinks()).toBeGreaterThan(0);
+    await expectBlinkEnds("after Esc");
     await idleFor(BLINK_MS);
     expect(await running()).toEqual([]);
 
     await $(".cm-block").click();
+    await expectFocused();
     expect(await caretBlinks()).toBeGreaterThan(0);
+    await expectBlinkEnds("after a click");
     await idleFor(BLINK_MS);
     expect(await running()).toEqual([]);
     expect((await caret())?.opacity).toBe("1");
@@ -261,18 +339,29 @@ describe("an idle lecture", function () {
     }, QUESTION);
     expect(sent).toBe(true);
 
-    // Each sample while the answer streams shows more of it than the one before.
-    const lengths: number[] = [];
-    await browser.waitUntil(
-      async () => {
-        const c = await card();
-        if (c?.state === "streaming" && c.text.length > (lengths.at(-1) ?? 0)) lengths.push(c.text.length);
-        return c === null || lengths.length >= 3;
-      },
-      { timeout: 30_000, interval: 50, timeoutMsg: "the answer never streamed" },
-    );
-    console.log(`IDLE stream: answer lengths on screen while streaming: ${lengths.join(", ")}`);
+    // The sample provider sends a word every 90 ms after 400 ms (crates/ai/src/provider/scripted.rs,
+    // about 60 words). Once the first words show, the page reads the card at every frame for 2 s:
+    // the answer on screen grows step by step, about 20 words' worth.
+    await browser.waitUntil(async () => (await card())?.state === "streaming", {
+      timeout: 20_000,
+      interval: 50,
+      timeoutMsg: "the answer never started streaming",
+    });
+    const lengths = await browser.execute(async (ms: number) => {
+      const seen: number[] = [];
+      const start = performance.now();
+      while (performance.now() - start < ms) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const c = document.querySelector<HTMLElement>(".gloss");
+        if (c?.dataset.state !== "streaming") break;
+        const n = c.querySelector(".gloss-body")?.textContent?.length ?? 0;
+        if (n !== seen.at(-1)) seen.push(n);
+      }
+      return seen;
+    }, PAINT_SAMPLE_MS);
+    console.log(`IDLE stream: answer lengths painted while streaming: ${lengths.join(", ")}`);
     expect(lengths.length).toBeGreaterThanOrEqual(3);
+    expect(lengths).toEqual([...lengths].sort((a, b) => a - b));
 
     await browser.waitUntil(async () => (await card()) === null, {
       timeout: 30_000,
