@@ -38,6 +38,12 @@ class Guard(unittest.TestCase):
     def bash(self, cmd):
         return self.run_guard("Bash", command=cmd)
 
+    def test_verify_cache_is_off_limits(self):
+        self.assertEqual(self.bash("mkdir -p .git/lecter-verify-cache && echo lint > .git/lecter-verify-cache/k.lint"), 2)
+        self.assertEqual(self.bash("ls $(git rev-parse --git-common-dir)/lecter-verify-cache"), 2)
+        self.assertEqual(self.run_guard("Write", file_path=str(self.root / ".git/lecter-verify-cache/k.lint"), content="lint"), 2)
+        self.assertEqual(self.bash("scripts/verify.sh --quick --no-cache"), 0)
+
     def test_protected_file_edit_blocked(self):
         self.assertEqual(self.edit("scripts/verify.sh"), 2)
         self.assertEqual(self.edit("tests/corpus/thresholds.json"), 2)
@@ -59,6 +65,8 @@ class Guard(unittest.TestCase):
     def test_kit_files_blocked(self):
         self.assertEqual(self.edit("scripts/check_tests.py"), 2)
         self.assertEqual(self.bash("echo pass > scripts/check_private.py"), 2)
+        self.assertEqual(self.edit("scripts/add_dep.py"), 2)  # its package age check is a security control
+        self.assertEqual(self.edit("scripts/mutants.py"), 2)
 
     def test_dependency_adds_blocked(self):
         for cmd in ("cargo add serde -p lecter-core", "pnpm -C ui add lodash", "npm install left-pad"):

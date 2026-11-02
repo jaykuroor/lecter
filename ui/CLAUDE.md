@@ -26,10 +26,19 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 
 ## Learned
 
-- pnpm and verify need Node 24 (D-061): init.sh and verify.sh put a `node` link to `/usr/bin/node-24` first on `PATH`; for bare pnpm commands do it yourself.
+- pnpm and verify need the pinned Node from fnm (D-130): init.sh and verify.sh put a `node` link to fnm's install of `engines.node` first on `PATH`; for bare pnpm commands outside a login shell, `. scripts/node_env.sh` first.
 - pnpm 12 reads settings from `pnpm_config_*` env vars, not `npm_config_*` (e.g. `pnpm_config_store_dir`) (F-013).
 - In the sandbox, add_dep.py fails with a read-only "store operation lock" unless `XDG_RUNTIME_DIR` points at a writable dir (e.g. `$TMPDIR/xdg-run`).
 - `installMockCore` is serialised by `page.addInitScript`: keep it self-contained (no imported values at runtime).
 - Vitest runs without globals, so component tests call `afterEach(cleanup)` themselves.
 - Biome's `noInvalidGridAreas` misfires on valid multi-row `grid-template-areas`; place grid items by line numbers instead.
 - `ui/knip.json` and `ui/.jscpd.json` are protected: the guard freezes them after their first write unless the card lists them under `protected` (F-014).
+- Solid compiles a JSX prop expression into a getter: `<X state={createY()} />` calls `createY()` on every read of `props.state`; create stores before the JSX (F-018)
+- `add_dep.py ui` rewrites `pnpm-lock.yaml` in pnpm's own style; the committed one is Biome-formatted, so run `pnpm -C ui exec biome format --write pnpm-lock.yaml` after it or biome ci fails (F-016)
+- @replit/codemirror-vim's key table is global: `Vim.mapCommand` changes every Vim editor on the page, so lecture motions check the `lectureBuffer` facet and fall back to plain lines (F-020)
+- Vitest (jsdom) can drive Vim: `Vim.handleKey(getCM(view), key, "user")`; CM layout doesn't exist there, so test positions, not pixels (F-020)
+- CodeMirror schedules its own `requestAnimationFrame` measures: a test that stubs rAF to step frames must count paints (e.g. spy on `Text.prototype.appendData`), not queued frames, and give jsdom's `Range` empty `getClientRects` (src/features/gloss/gloss.test.ts) (F-023)
+- The keystroke check (`e2e/buffer-perf.spec.ts`) is tagged `@perf`: `test:e2e` skips it; run it alone with `pnpm -C ui run test:perf` (D-120)
+- Run outside init.sh's environment, `add_dep.py ui` leaves a ~400 MB `.pnpm-store/` in the checkout that the secret scan then reads for 20+ minutes: set `pnpm_config_store_dir` to the home store first (F-020)
+- CodeMirror makes its own IntersectionObservers: a fake `IntersectionObserver` in a test must keep each instance's callback and targets, not one global (src/features/figures/figure.test.ts) (F-024)
+- Stryker's `--incremental` keeps old `Survived` results for module-level (static) mutants such as top-level regexes even after their tests change: delete `ui/reports/stryker-incremental.json` and rerun `scripts/mutants.py` (F-024)

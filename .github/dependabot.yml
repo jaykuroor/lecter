@@ -25,6 +25,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    # The two-week rule for new versions (01-architecture.md#dependency-policy).
+    cooldown:
+      default-days: 14
+    ignore:
+      # Node 24 is the runtime (ui/package.json engines); its types stay on 24.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # WebdriverIO 10 waits until @wdio/tauri-service supports it (D-109 pairs the plugin and service with WebdriverIO 9).
+      - dependency-name: "@wdio/*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         patterns: ["*"]

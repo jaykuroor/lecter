@@ -9,14 +9,14 @@ Fails when the change, without the trailer it needs:
     or is a known native runtime) not covered by scripts/deps_preapproved.txt
   - adds more than 30 packages to Cargo.lock
   - adds a UI package whose Dep-Added trailer reports gz=<n>KB above 100
-The last three need  Deps-Approved: D-0NN  where D-0NN is a decision by Jay (the builder reports NEEDS_JAY).
+The last three need  Deps-Approved: D-0NN  where D-0NN is a decision by the maintainer (the builder reports NEEDS_MAINTAINER).
 `scripts/add_dep.py` adds packages and prints the trailer to use.
 """
 import argparse, fnmatch, json, re, sys, tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib_git import find_base, git, jay_decision, old_text, trailers  # noqa: E402
+from lib_git import find_base, git, maintainer_decision, old_text, trailers  # noqa: E402
 
 NATIVE_BUILD = {"cc", "cmake", "bindgen", "pkg-config", "vcpkg", "system-deps", "autotools"}
 NATIVE_NAMES = {"ort", "ort-sys", "onnxruntime", "pdfium-render", "llama-cpp-2", "llama-cpp-sys-2", "tch", "openssl"}
@@ -77,7 +77,7 @@ def check(root, base):
         return []
     tr = trailers(root, base, ("Dep-Added", "Deps-Approved"))
     added_ok = {v.rstrip(":") : rest for v, rest in tr["Dep-Added"]}
-    approved = any(jay_decision(root, v) for v, _ in tr["Deps-Approved"])
+    approved = any(maintainer_decision(root, v) for v, _ in tr["Deps-Approved"])
     problems = []
     new_direct = set()
     for path in manifests(root, base):
@@ -91,18 +91,18 @@ def check(root, base):
                                 "(use scripts/add_dep.py)")
             m = re.search(r"gz=(\d+(?:\.\d+)?)\s*KB", added_ok.get(name, ""), re.I)
             if path.endswith(".json") and m and float(m.group(1)) > MAX_UI_KB_GZ and not approved:
-                problems.append(f"{name}: adds {m.group(1)} KB gz to the UI (limit {MAX_UI_KB_GZ}); NEEDS_JAY")
+                problems.append(f"{name}: adds {m.group(1)} KB gz to the UI (limit {MAX_UI_KB_GZ}); NEEDS_MAINTAINER")
     lock = Path(root) / "Cargo.lock"
     new_pkgs = lock_packages(lock.read_text(encoding="utf-8") if lock.exists() else "")
     old_pkgs = lock_packages(old_text(root, base, "Cargo.lock"))
     added = {n: d for n, d in new_pkgs.items() if n not in old_pkgs and not n.startswith("lecter-")}
     if len(added) > MAX_NEW_CRATES and not approved:
-        problems.append(f"Cargo.lock: {len(added)} new crates (limit {MAX_NEW_CRATES}); NEEDS_JAY, then Deps-Approved: D-0NN")
+        problems.append(f"Cargo.lock: {len(added)} new crates (limit {MAX_NEW_CRATES}); NEEDS_MAINTAINER, then Deps-Approved: D-0NN")
     allow = preapproved(root)
     for name, deps in sorted(added.items()):
         native = name in NATIVE_NAMES or bool(deps & NATIVE_BUILD)
         if native and not approved and not any(fnmatch.fnmatchcase(name, g) for g in allow):
-            problems.append(f"Cargo.lock: {name} is native (builds or loads C/C++); NEEDS_JAY, then Deps-Approved: D-0NN")
+            problems.append(f"Cargo.lock: {name} is native (builds or loads C/C++); NEEDS_MAINTAINER, then Deps-Approved: D-0NN")
     return problems
 
 

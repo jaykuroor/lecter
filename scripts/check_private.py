@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail if Jay's private lecture files (tests/corpus/private) leak into anything git tracks.
+"""Fail if the private test corpus (tests/corpus/private) leak into anything git tracks.
 
   python3 scripts/check_private.py [--root DIR]
 
@@ -104,7 +104,7 @@ def private_texts(private: Path):
         if suf == ".pdf":
             t = pdf_text(p, cache)
             if t is None:
-                note = "note: install pdftotext (Fedora: sudo dnf install poppler-utils) so PDF text is compared too"
+                note = "note: install pdftotext (package poppler-utils) so PDF text is compared too"
                 continue
         elif suf in PRIVATE_TEXT_EXT and p.stat().st_size < 20_000_000:
             t = p.read_text(encoding="utf-8", errors="ignore")

@@ -6,7 +6,7 @@
 # Works with the old (detect/protect) and new (git/dir) gitleaks CLIs. Findings are redacted.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-command -v gitleaks >/dev/null || { echo "gitleaks is not installed (Fedora: sudo dnf install gitleaks)"; exit 1; }
+command -v gitleaks >/dev/null || { echo "gitleaks is not installed (scripts/init.sh --check says how)"; exit 1; }
 CONF=(); [ -f .gitleaks.toml ] && CONF=(--config .gitleaks.toml)
 NEW=0; gitleaks git --help >/dev/null 2>&1 && NEW=1
 G=(--no-banner --redact --verbose --log-level warn --exit-code 1 "${CONF[@]}")
@@ -33,5 +33,5 @@ case "${1:-}" in
       uncommitted ;;
   *) echo "usage: scripts/secret_scan.sh [--since REV | --all]"; exit 2 ;;
 esac
-if [ $FAIL = 0 ]; then echo "SECRETS OK"; else echo "SECRETS FOUND: stop, do not push, and report it (Jay rotates the secret and removes it from history)"; fi
+if [ $FAIL = 0 ]; then echo "SECRETS OK"; else echo "SECRETS FOUND: stop, do not push, and report it (the maintainer rotates the secret and removes it from history)"; fi
 exit $FAIL

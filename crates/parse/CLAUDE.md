@@ -32,3 +32,4 @@ Spec: `04-parsing.md` (all of it), `13-security.md` (first row), `01-architectur
 
 ## Learned
 
+- PDFium binds once per process: tests share one `OnceLock<Pdfium>` per test binary, and find the verified library by walking up from `CARGO_MANIFEST_DIR` (cargo-mutants copies the tree under `.verify/` without `target/`) (F-019)

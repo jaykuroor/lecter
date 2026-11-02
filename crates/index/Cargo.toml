@@ -9,3 +9,14 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+# Course folders: the safe `.lecter/cache/index` path and the error codes (01-architecture.md#repository-layout).
+lecter-core = { path = "../core" }
+serde = { version = "1", default-features = false, features = ["derive"] }
+tantivy = { version = "0.27.0", default-features = false, features = ["mmap", "lz4-compression"] }
+thiserror = "2.0.21"
+
+[dev-dependencies]
+# TempDir-like throwaway course folders for the index tests.
+lecter-core = { path = "../core", features = ["test-hooks"] }

@@ -38,8 +38,8 @@ def main():
     start = start_file.read_text().strip() if start_file.exists() else ""
     found = secrets(start)
     if found:
-        print("A commit from this session contains what looks like a secret. Do not push. Tell Jay which file and "
-              "commit (he rotates the secret and rewrites the commit).\n" + found, file=sys.stderr)
+        print("A commit from this session contains what looks like a secret. Do not push. Tell the maintainer which file and "
+              "commit (they rotate the secret and rewrite the commit).\n" + found, file=sys.stderr)
         return 2
     if os.environ.get("LECTER_STRICT") != "1":
         return 0

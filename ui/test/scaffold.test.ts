@@ -14,9 +14,9 @@ interface PackageJson {
 describe("ui scaffold", () => {
   const pkg = read("package.json") as PackageJson;
 
-  it("pins the Node LTS and pnpm versions (D-058)", () => {
+  it("pins the Node LTS and pnpm versions (D-058, D-130)", () => {
     expect(pkg.packageManager).toBe("pnpm@12.15.0");
-    expect(pkg.engines).toEqual({ node: "24.18.0", pnpm: "12.15.0" });
+    expect(pkg.engines).toEqual({ node: "24.22.1", pnpm: "12.15.0" });
   });
 
   it("provides the scripts verify.sh calls", () => {
@@ -27,6 +27,21 @@ describe("ui scaffold", () => {
     expect(scripts["lint:dup"]).toMatch(/^jscpd\b/);
     expect(scripts["lint:unused"]).toMatch(/^knip\b/);
     expect(scripts["test:e2e:smoke"]).toContain("@smoke");
+  });
+
+  // D-120: the keystroke check (@perf) leaves the parallel e2e run and runs alone, once, in Chromium.
+  it("keeps the @perf check out of test:e2e and runs it alone in test:perf (D-120)", () => {
+    const scripts = pkg.scripts ?? {};
+    const args = (name: string) => (scripts[name] ?? "").split(/\s+/);
+    const e2e = args("test:e2e");
+    expect(e2e[e2e.indexOf("--grep-invert") + 1]).toBe("@perf");
+    expect(e2e).not.toContain("--grep");
+    const perf = args("test:perf");
+    expect(perf.slice(0, 2)).toEqual(["playwright", "test"]);
+    expect(perf[perf.indexOf("--grep") + 1]).toBe("@perf");
+    expect(perf).not.toContain("--grep-invert");
+    expect(perf.filter((a) => a.startsWith("--project"))).toEqual(["--project=chromium"]);
+    expect(perf).toContain("--workers=1");
   });
 
   it("compiles TypeScript strictly with no implicit any", () => {

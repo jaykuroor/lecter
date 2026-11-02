@@ -214,6 +214,22 @@ fn ci_setup_caches_rust_and_pnpm_and_installs_the_cargo_tools() -> Result<(), St
     Ok(())
 }
 
+/// D-108: CI caches the verified PDFium under target/pdfium, keyed on the pins file, before
+/// init.sh (which fetches and SHA-256-checks it) runs.
+#[test]
+fn ci_caches_the_pinned_pdfium_keyed_on_the_pins_before_init() -> Result<(), String> {
+    let setup = read(".github/actions/setup/action.yml")?;
+    let cache = setup.find("PDFium cache").ok_or("the setup action has no PDFium cache step")?;
+    let step = &setup[cache..];
+    let step = &step[..step[1..].find("\n    - ").map_or(step.len(), |i| i + 1)];
+    for needle in ["actions/cache@", "path: target/pdfium", "hashFiles('spikes/pdfium/pins.json')"] {
+        assert!(step.contains(needle), "the PDFium cache step lacks `{needle}`:\n{step}");
+    }
+    let init = setup.find("run: scripts/init.sh").ok_or("the setup action doesn't run init.sh")?;
+    assert!(init > cache, "the PDFium cache must be restored before init.sh fetches PDFium");
+    Ok(())
+}
+
 #[test]
 fn ci_installs_a_pinned_checksum_verified_gitleaks() -> Result<(), String> {
     let all = ci_with_local_actions()?;
@@ -319,9 +335,15 @@ fn init_check(path: &Path, fallback: &Path) -> Result<(i32, String), String> {
     Ok((out.status.code().unwrap_or(-1), text))
 }
 
+/// A package name, an install command or a download link.
+#[cfg(unix)]
+fn has_install_hint(line: &str) -> bool {
+    ["package ", "cargo install", "npm install", "https://"].iter().any(|h| line.contains(h))
+}
+
 #[cfg(unix)]
 #[test]
-fn init_check_lists_each_missing_tool_with_a_fedora_install_command() -> Result<(), String> {
+fn init_check_lists_each_missing_tool_with_an_install_hint() -> Result<(), String> {
     let dir = bare_path(&[])?;
     let (code, out) = init_check(dir.path(), &dir.path().join("no-node-24"))?;
     if code != 1 {
@@ -330,13 +352,13 @@ fn init_check_lists_each_missing_tool_with_a_fedora_install_command() -> Result<
     let listed: Vec<&str> = out.lines().filter(|l| l.starts_with("  - ")).collect();
     for tool in ["git ", "python3 ", "cargo ", "node ", "pnpm ", "gitleaks ", "cargo-nextest ", "cargo-deny "] {
         let line = listed.iter().find(|l| l[4..].starts_with(tool)).ok_or(format!("`{tool}` not listed:\n{out}"))?;
-        if !(line.contains("sudo dnf install") || line.contains("cargo install") || line.contains("npm install")) {
-            return Err(format!("no Fedora install command on: {line}"));
+        if !has_install_hint(line) {
+            return Err(format!("no install hint on: {line}"));
         }
     }
     for line in &listed {
-        if !line.contains("sudo dnf ") && !line.contains("cargo install") && !line.contains("npm install") {
-            return Err(format!("no Fedora install command on: {line}"));
+        if !has_install_hint(line) {
+            return Err(format!("no install hint on: {line}"));
         }
     }
     Ok(())
@@ -354,8 +376,8 @@ fn init_check_wants_the_pinned_node_and_falls_back_to_node_24() -> Result<(), St
     let old = bare_path(&[("node", "echo v22.23.1")])?;
     let (_, out) = init_check(old.path(), &old.path().join("no-node-24"))?;
     let node = out.lines().find(|l| l.starts_with("  - node ")).ok_or(format!("node 22 not reported:\n{out}"))?;
-    if !node.contains(&want) || !node.contains("sudo dnf install nodejs24") {
-        return Err(format!("node line should name {want} and the dnf command: {node}"));
+    if !node.contains(&want) || !node.contains(&format!("fnm install {want}")) {
+        return Err(format!("node line should name {want} and `fnm install {want}`: {node}"));
     }
     let with_fb = bare_path(&[("node", "echo v22.23.1"), ("node-24", &format!("echo v{want}"))])?;
     let (_, out) = init_check(with_fb.path(), &with_fb.path().join("node-24"))?;
@@ -371,7 +393,14 @@ fn init_check_wants_the_pinned_node_and_falls_back_to_node_24() -> Result<(), St
 #[cfg(unix)]
 #[test]
 fn init_replaces_a_node_link_that_points_somewhere_else() -> Result<(), String> {
-    let want = "24.18.0";
+    // The version ui/package.json pins, as init.sh reads it.
+    let want = read("ui/package.json")?
+        .lines()
+        .find_map(|l| {
+            l.trim().strip_prefix("\"node\": \"").map(|v| v.trim_end_matches(['"', ','].as_ref()).to_string())
+        })
+        .ok_or("ui/package.json has no engines.node")?;
+    let want = want.as_str();
     let dir = bare_path(&[
         ("node", "echo v22.23.1"),
         ("node-24", &format!("echo v{want}")),

@@ -1,8 +1,8 @@
-import type { CommandName, Commands, IpcError } from "../../src/core/commands";
+import type { CommandName, Commands, IpcError } from "../../src/core/bindings";
 import type { MockFixture } from "./fixture";
 
-/** One handler per command; a mock that drifts from `Commands` fails `tsc`. */
-type MockHandlers = {
+/** One handler per command of the generated `Commands`; a mock that drifts from the contract fails `tsc`. */
+export type MockHandlers = {
   [K in CommandName]: (args: Commands[K]["args"]) => Commands[K]["result"];
 };
 
@@ -24,11 +24,73 @@ interface MockInternals {
  * serialises it, so it must stay self-contained: no references to imported values.
  */
 export function installMockCore(fixture: MockFixture): void {
+  const callbacks = new Map<number, (response: unknown) => void>();
+  // Running mocked gloss streams: id → stop.
+  const streams = new Map<string, () => void>();
+  let glossCount = 0;
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
+    course_open: () => fixture.courseOpen,
+    lecture_open: ({ path }) => {
+      const lecture = fixture.lectures[path];
+      if (lecture) return lecture;
+      const error: IpcError = { code: "E_NOT_FOUND", message: `${path} no longer exists.`, retryable: false };
+      throw error;
+    },
+    // Records each batch for the test to read back (window.__mockEdits); edits are not applied.
+    lecture_apply_edits: (args) => {
+      const w = window as unknown as { __mockEdits?: (typeof args)[] };
+      w.__mockEdits ??= [];
+      w.__mockEdits.push(args);
+      return null;
+    },
+    // Records each call for the test to read back (window.__mockFinds).
+    search_find: (args) => {
+      const w = window as unknown as { __mockFinds?: (typeof args)[] };
+      w.__mockFinds ??= [];
+      w.__mockFinds.push(args);
+      return fixture.find[args.query] ?? [];
+    },
+    // Plays fixture.gloss on the channel as the core would (03-lecture-files.md#body for the div).
+    gloss_request: ({ block, question, onEvent }) => {
+      glossCount += 1;
+      const gloss = `g-${glossCount.toString(16).padStart(4, "0")}`;
+      let index = 0;
+      const send = (message: unknown) => callbacks.get(onEvent.id)?.({ index: index++, message });
+      const div = (answer: string) =>
+        `::: {.gloss #${gloss} kind=ask key=a anchor=${block} model="sample" by=ai}\n**you asked:** ${question.trim()}\n${answer ? `\n${answer.trimEnd()}\n` : ""}:::`;
+      let text = "";
+      let next = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const step = () => {
+        const delta = fixture.gloss.deltas[next];
+        if (delta === undefined) {
+          streams.delete(gloss);
+          send({ event: "done", data: { markdown: div(text) } });
+          return;
+        }
+        next += 1;
+        text += delta;
+        send({ event: "delta", data: { text: delta } });
+        timer = setTimeout(step, fixture.gloss.deltaMs);
+      };
+      streams.set(gloss, () => {
+        clearTimeout(timer);
+        streams.delete(gloss);
+        send({ event: "stopped", data: { markdown: text.trim() ? div(text) : null } });
+      });
+      setTimeout(() => {
+        send({ event: "started", data: { gloss, model: "sample" } });
+        step();
+      }, 0);
+      return gloss;
+    },
+    gloss_cancel: ({ gloss }) => {
+      streams.get(gloss)?.();
+      return null;
+    },
   };
   const isCommand = (cmd: string): cmd is CommandName => Object.hasOwn(handlers, cmd);
-  const callbacks = new Map<number, (response: unknown) => void>();
   let nextId = 1;
   const internals: MockInternals = {
     invoke(cmd, args) {
@@ -40,7 +102,14 @@ export function installMockCore(fixture: MockFixture): void {
         };
         return Promise.reject(error);
       }
-      return Promise.resolve(handlers[cmd]((args ?? {}) as Commands[typeof cmd]["args"]));
+      // A handler throws the contract's IpcError for a failing command; the caller sees a rejection.
+      try {
+        // Each handler takes its own command's args; `isCommand` can't narrow which one `cmd` is.
+        const handler = handlers[cmd] as (a: unknown) => unknown;
+        return Promise.resolve(handler(args ?? {}));
+      } catch (error) {
+        return Promise.reject(error);
+      }
     },
     transformCallback(callback, once) {
       const id = nextId++;

@@ -104,7 +104,7 @@ class Deps(Repo):
         self.write("crates/core/Cargo.toml", crate("core", 'serde = "1"\n'))
         self.write("Cargo.lock", lock(("lecter-core", ["serde"]), ("serde", [])))
         self.write("ui/package.json", '{"dependencies": {"solid-js": "1.9.0"}}')
-        self.write("docs/DECISIONS.md", "# Decisions\n\n## D-050 · Approve ort\n2026-10-24 · Jay · active\n")
+        self.write("docs/DECISIONS.md", "# Decisions\n\n## D-050 · Approve ort\n2026-10-24 · maintainer · active\n")
         self.base = self.commit("base")
         self.git("switch", "-q", "-c", "feat/F-099-x")
 
@@ -125,7 +125,7 @@ class Deps(Repo):
     def commit_allow_empty(self, msg):
         self.git("commit", "-q", "--allow-empty", "-m", msg)
 
-    def test_native_crate_needs_jay(self):
+    def test_native_crate_needs_maintainer(self):
         self.write("crates/core/Cargo.toml", crate("core", 'serde = "1"\nort = "2"\n'))
         self.write("Cargo.lock", lock(("lecter-core", ["serde", "ort"]), ("serde", []), ("ort", ["ort-sys"]), ("ort-sys", ["cc"]), ("cc", [])))
         self.commit("F-099: add ort\n\nDep-Added: ort - MIT, 3 crates, local model")
@@ -141,14 +141,14 @@ class Deps(Repo):
         self.commit("F-099: sqlite\n\nDep-Added: rusqlite - MIT, 3 crates, state.db")
         self.assertEqual(self.probs(), [])
 
-    def test_too_many_crates_needs_jay(self):
+    def test_too_many_crates_needs_maintainer(self):
         many = [(f"c{i}", []) for i in range(31)]
         self.write("crates/core/Cargo.toml", crate("core", 'serde = "1"\nbig = "1"\n'))
         self.write("Cargo.lock", lock(("lecter-core", ["serde", "big"]), ("serde", []), ("big", [n for n, _ in many]), *many))
         self.commit("F-099: big\n\nDep-Added: big - MIT, 32 crates, x")
         self.assertTrue(any("new crates" in p for p in self.probs()))
 
-    def test_large_ui_package_needs_jay(self):
+    def test_large_ui_package_needs_maintainer(self):
         self.write("ui/package.json", '{"dependencies": {"solid-js": "1.9.0", "huge": "1.0.0"}}')
         self.commit("F-099: huge\n\nDep-Added: huge - MIT, gz=180KB, charts")
         self.assertTrue(any("KB gz" in p for p in self.probs()))

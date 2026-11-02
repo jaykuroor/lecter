@@ -1,5 +1,5 @@
-# Native crates covered by Jay's stack decisions (D-001 Tauri, D-005 UI, docs/spec/01-architecture.md#stack-decided).
-# scripts/check_deps.py accepts these without a Deps-Approved trailer. Protected: only Jay edits this file (D-055).
+# Native crates covered by the stack decisions (D-001 Tauri, D-005 UI, docs/spec/01-architecture.md#stack-decided).
+# scripts/check_deps.py accepts these without a Deps-Approved trailer. Protected: only the maintainer edits this file (D-055).
 # Glob patterns, one per line.
 
 # Tauri 2 and its webviews (WebKitGTK on Linux via pkg-config, WKWebView, WebView2)

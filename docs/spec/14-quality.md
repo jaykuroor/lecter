@@ -6,10 +6,10 @@ These are CI gates from the walking skeleton on (milestone M0.5). Every feature 
 
 | Id (`tests/perf/budgets.json`) | Target | How measured |
 |---|---|---|
-| `keystroke_p99_ms` | p99 < 8 ms | Trace of 500 keystrokes in the 200-slide fixture lecture (real app via WebDriver; mocked core in Playwright as the fast check) |
+| `keystroke_p99_ms` | p99 < 8 ms | Trace of 500 keystrokes in the 200-slide fixture lecture (real app via WebDriver; mocked core in Playwright as the fast check). The real-app trace gates only with hardware rendering (see rules) |
 | `cold_open_ms` | < 400 ms | Process start to first buffer paint of the fixture lecture |
-| `idle_rss_mb` | < 150 MB total, webview included | RSS sum of all app processes 60 s after opening the fixture lecture |
-| `rss_300_slides_mb` | < 250 MB total | RSS with the 300-slide fixture lecture open and scrolled end to end |
+| `idle_rss_mb` | Per OS (see rules); Linux < 460 MB | Memory of all app processes, webview included, 60 s after opening the fixture lecture |
+| `rss_300_slides_mb` | Per OS (see rules); Linux < 500 MB | Memory with the 300-slide fixture lecture open and scrolled end to end |
 | `idle_cpu_pct` | < 0.5% average | 5-minute idle sample |
 | `ttft_overhead_ms` | < 20 ms | Gloss request against the fake provider with 0 ms latency |
 | `tier1_p95_ms` | < 100 ms | Fixture course: 1 textbook (~600 pages) + 10 lectures (from M4) |
@@ -21,12 +21,15 @@ These are CI gates from the walking skeleton on (milestone M0.5). Every feature 
 
 Rules:
 - A budget is born with the feature that makes it measurable, and its entry lists the milestone it starts gating (`"from"`). Entries without a measurement yet print `PENDING` and fail once their milestone is done.
-- `kind: timing` budgets get a ×1.5 allowance on shared CI runners; memory, size and token budgets are exact.
-- Never loosen a budget to pass. Measure, record a D-entry, and ask Jay. `tests/perf/budgets.json` is a protected file (`#protected-checks`), and the test-weakening lint fails on any loosened value.
+- `kind: timing` budgets: shared CI runners are noisy, so with `--ci` a timing value gets a ×1.5 allowance, and a value over it is measured once more: the budget fails only if both runs are over ×1.5 (the report keeps both values). Locally (`--quick`, `--only`) they gate at ×1. Memory, size and token budgets are exact everywhere. The gardener tracks values between ×1 and ×1.5.
+- Memory budgets have a target per OS (`budgets.json` `"per_os"`). They count Lecter's own processes by RSS and the webview's processes by PSS (macOS: `phys_footprint`; Windows: private working set), because shared WebKit and system libraries would otherwise be counted once per process. Each OS's target is its first release-build measurement plus 10 %, rounded up to the next 10 MB, recorded in a D-entry (Linux: D-139's 414.6 and 450.7 MB PSS → 460 and 500 MB). Targets may only go down afterwards.
+- `keystroke_p99_ms` from the real app gates only where the webview renders on a GPU: locally (`--only keystroke_p99_ms`, run by the maintainer at each milestone gate). CI runners render in software (Xvfb/llvmpipe, WARP), so with `--ci` the real-app value prints `REPORT` and never fails; the mocked-core Playwright trace gates every push.
+- Nothing animates while idle: after 10 s without input or a running stream, the window has no running animation or transition and no repeating DOM work. The caret blinks for 10 s after the last input, then stays solid until the next one (GTK's behaviour).
+- Never loosen a budget to pass. Measure, record a D-entry, and ask the maintainer. `tests/perf/budgets.json` is a protected file (`#protected-checks`), and the test-weakening lint fails on any loosened value.
 
 ## Perf harness
 
-Built in the walking skeleton (F-025). `tests/perf/budgets.sh [--ci] [--only <id>]` runs each measurement script listed in `budgets.json`, prints one line per budget (`PASS keystroke_p99_ms 5.1 / 8`), writes `tests/perf/report.json`, and exits non-zero on a breach. It runs in the `perf` job on every push (Linux) and nightly on all three OSes (`16-ci-cd.md`). Builders run `--only` for the budgets their change can affect and attach the output as evidence.
+Built in the walking skeleton (F-025). `tests/perf/budgets.sh [--ci] [--only <id>]` runs each measurement script listed in `budgets.json`, prints one line per budget (`PASS keystroke_p99_ms 5.1 / 8`), writes `tests/perf/report.json`, and exits non-zero on a breach. It runs in the `perf` job on every code push (Linux) and nightly on all three OSes (`16-ci-cd.md`). Builders run `--only` for the budgets their change can affect and attach the output as evidence.
 
 ## Test layers
 
@@ -48,9 +51,13 @@ Built in the walking skeleton (F-025). `tests/perf/budgets.sh [--ci] [--only <id
 
 How to add each kind: `docs/TESTING.md`. How CI runs them: `16-ci-cd.md`. Tests never call real providers; live runs go only through `scripts/live.sh`.
 
+## Mutation testing
+
+Coverage shows a line ran, not that a test would notice it being wrong. `scripts/mutants.py` (cargo-mutants for Rust, Stryker with the Vitest runner for `ui/src`) mutates only the lines a change touched and reruns their tests, capped at about 10 minutes. It runs in the default `scripts/verify.sh` set, locally only (CI never runs it; it is skipped during a merge). A surviving mutant fails the check unless a commit carries `Mutant-Equivalent: <file> - <mutation> - <reason>` and the reviewer accepts the reason. `nightly.yml` runs the whole tree and reports the score; there is no score threshold, because the gate is the changed lines. Rules for tests that catch bugs: `docs/TESTING.md#tests-that-catch-bugs`.
+
 ## Evidence
 
-Each feature lists the evidence it needs in `features.json` → `evidence`. The builder saves it under `.evidence/<F-id>/` (git-ignored) and `python3 scripts/evidence.py check F-0NN` confirms it exists. The reviewer opens it and compares it with the criteria.
+Each feature lists the evidence it needs in `features.json` → `evidence`. The builder saves it under `.evidence/<F-id>/` (git-ignored) and `python3 scripts/evidence.py check F-0NN` confirms it exists. The reviewer reads the log tails, opens screenshots for the criteria about what the user sees, and compares them with the criteria. For a spike, the orchestrator checks the measurement log instead.
 
 | Item | File | What it shows |
 |---|---|---|
@@ -64,26 +71,29 @@ Each feature lists the evidence it needs in `features.json` → `evidence`. The 
 Builders can add tests, snapshots, fixtures and budget entries, but they can't weaken the checks that judge them. The guard hook (`scripts/hooks/guard.py`, lists `PROTECTED` and `KIT_FILES`, the single source) blocks edits, including shell writes, to existing:
 
 - **checks:** `scripts/verify.sh`, `tests/perf/budgets.json`, `tests/corpus/thresholds.json`, `.github/workflows/**`, `deny.toml`, `clippy.toml`, `rustfmt.toml`, `rust-toolchain.toml`, `ui/biome.json`, `ui/tsconfig.json`, `ui/playwright.config.ts`, `tests/e2e/wdio.conf.ts`, `ui/knip.json`, `ui/.jscpd.json`, snapshot files and visual baselines. A feature may edit one only when it lists it under `protected` (for example F-025 creates the budgets).
-- **kit files** (Jay only): `.claude/settings*.json`, `.claude/agents/**`, `scripts/hooks/**`, the lint scripts, `scripts/live.sh`, `scripts/deps_preapproved.txt`, `.gitleaks.toml`, `scripts/tests/**`.
+- **kit files** (the maintainer only): `.claude/settings*.json`, `.claude/agents/**`, `scripts/hooks/**`, the lint scripts, `scripts/add_dep.py`, `scripts/live.sh`, `scripts/deps_preapproved.txt`, `.gitleaks.toml`, `scripts/tests/**`.
 
 `scripts/check_tests.py` (lint stage) compares the change with its base and fails when it:
 
 - deletes a test file or a test function, or a `proptest!` block;
 - adds `#[ignore]`, `.skip`, `.only`, `.fixme`, `xit`, `xdescribe`, or Playwright/WebdriverIO retries;
 - loosens a value in `budgets.json` or `thresholds.json`;
-- changes an existing snapshot.
+- changes an existing snapshot;
+- adds a test that asserts nothing, asserts a constant, compares a value with itself, or only checks `is_ok`/`is_some`/`toBeDefined`/`toBeTruthy`/`not.toBeNull` (and warns when a changed test file has more than 3 mocks).
 
-A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a Jay decision).
+A deliberate exception needs a commit trailer the reviewer must accept: `Test-Removed: <path::name> — <reason>`, `Snapshot-Changed: <path> — <reason>`, `Test-Smell-Ok: <path::name> — <reason>`, or `Budget-Changed: <id> — D-0NN` (a decision by the maintainer).
+
+`scripts/check_sec_ids.py` (lint stage) fails when a SEC-xx or ROB-xx requirement (`13-security.md`, `17-robustness.md`) is cited by no feature card and isn't listed in the script as kit-only or covered by a named card. A requirement no card names is one no builder reads.
 
 ## Definition of done
 
 This is the one definition; every other file links here.
 
-1. Every acceptance criterion has an automated test that failed before the change and passes after it (spikes: a reproducible measurement script and a D-entry).
-2. `scripts/verify.sh` prints `VERIFY OK` (format, lint, types, tests, the e2e smoke set, the kit checks, secret scan, private-corpus check, test-weakening lint, and the budgets the change touches).
+1. Every acceptance criterion has an automated test that failed on an assertion before the change and passes after it, with an edge-case test where the criterion has an input, a limit or an error path (spikes: a reproducible measurement script and a D-entry).
+2. `scripts/verify.sh` prints `VERIFY OK` (format, lint, types, tests, the e2e smoke set, the kit checks, secret scan, private-corpus check, test-weakening and test-smell lint, mutation testing of the changed lines, and the budgets the change touches).
 3. The evidence listed for the feature exists and matches the criteria (`python3 scripts/evidence.py check F-0NN`).
 4. No placeholder code: no `todo!()`, `unimplemented!()`, `TODO` without an issue reference, or mock data in production paths.
-5. A fresh-context `reviewer` found no unresolved defect; for features with `reviews: ["security"]`, the `security-reviewer` too.
+5. A fresh-context `reviewer` left no unresolved blocker or major (with `SECURITY` for features with `reviews: ["security"]`; minors go to PROGRESS "Watch out"). Spikes: the orchestrator checked the measurement log and the D-entry instead. The `security-reviewer` runs once per milestone gate, and on the deep-security cards listed in `PROMPT.orchestrate.md`.
 6. The handoff is written: PROGRESS, D-entries, CHANGELOG line, Learned notes (`handoff` skill).
 
 ### When the criteria can't be met

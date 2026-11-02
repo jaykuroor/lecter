@@ -45,6 +45,14 @@ runs:
       shell: bash
       run: bash .github/scripts/install-gitleaks.sh "$RUNNER_TEMP/gitleaks" && echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
 
+    # The pinned PDFium (D-084) for the parse worker's tests (D-108). init.sh's fetch re-checks its
+    # SHA-256 on every run and downloads only on a cache miss; the key changes with the pins.
+    - name: PDFium cache (target/pdfium, keyed on the pins)
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+      with:
+        path: target/pdfium
+        key: pdfium-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('spikes/pdfium/pins.json') }}
+
     - name: Install (scripts/init.sh)
       shell: bash
       run: scripts/init.sh

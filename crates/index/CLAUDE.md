@@ -13,4 +13,5 @@ Spec: `05-retrieval.md` (all), `02-course-folder.md#course-details-coursejsonc`.
 - Indexing runs at background priority and stops when the user starts an AI request.
 
 ## Learned
+- Tantivy readers use `ReloadPolicy::Manual` + `reload()` after each commit: the default `OnCommitWithDelay` starts a thread that polls `meta.json` (F-022)
 

@@ -164,7 +164,7 @@
     "Every workflow SHALL start with `permissions: contents: read` and pin third-party actions by commit SHA with the version in a comment.",
     "ci.yml SHALL use the concurrency group from 16-ci-cd.md, cache Rust and pnpm, and install cargo-nextest, cargo-deny and a checksum-verified gitleaks binary.",
     ".github/dependabot.yml SHALL group weekly updates for github-actions, cargo and npm (ui/) with at most 3 open PRs each.",
-    "WHEN `scripts/init.sh` runs on a clean checkout THEN it SHALL install dependencies, build, and print `INIT OK`; `scripts/init.sh --check` SHALL list missing tools with Fedora install commands."
+    "WHEN `scripts/init.sh` runs on a clean checkout THEN it SHALL install dependencies, build, and print `INIT OK`; `scripts/init.sh --check` SHALL list missing tools with install hints."
    ],
    "verify": [
     "scripts/verify.sh",
@@ -269,8 +269,8 @@
     "spikes/os-sandbox/**"
    ],
    "acceptance": [
-    "spikes/os-sandbox SHALL be a workspace test crate whose child process, once sandboxed, cannot open a network socket, read a file other than its input, or exceed 1 GB, each asserted by a test.",
-    "The tests SHALL implement Linux seccomp + Landlock, a macOS sandbox profile, and a Windows AppContainer or restricted token plus job object, selected by cfg(target_os).",
+    "spikes/os-sandbox SHALL be a workspace test crate whose child process, once sandboxed, cannot open a network socket, read a file other than its input, or exceed 1 GB, each asserted by a test. On Windows (SEC-01: LPAC AppContainer + job object) the file test SHALL assert that a file under the user profile is denied; files granted to ALL RESTRICTED APPLICATION PACKAGES (OS files such as win.ini) are allowed.",
+    "The tests SHALL implement Linux seccomp + Landlock, a macOS sandbox profile, and a Windows LPAC AppContainer plus job object, selected by cfg(target_os).",
     "Linux results SHALL be measured locally; macOS and Windows results SHALL come from the `test` CI job (report UNVERIFIED-ON until CI runs), and the go/no-go per OS SHALL be recorded in a D-entry."
    ],
    "verify": [
@@ -280,9 +280,9 @@
     "log:tests"
    ],
    "status": "in_progress",
-   "notes": "",
+   "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox. | Builder's final commit a8e5aa5 on feat/F-005-os-sandbox (pushed up to c8900b7; push again before merging). | Q-008 answered (D-144): SEC-01 allows LPAC reads of ALL RESTRICTED APPLICATION PACKAGES files on Windows. On feat/F-005-os-sandbox: swap the win.ini test for a user-profile file that must be denied, re-run Windows CI, merge.",
    "priority": 1006,
-   "base": "d51d35fc12ca12a273acde87f9d2026a071d0439"
+   "base": "76ea1cb115d8659e459e7ea333980f99719add19"
   },
   {
    "id": "F-006",
@@ -311,10 +311,11 @@
    "evidence": [
     "log:tests"
    ],
-   "ask_jay_first": "PDFium is a native binary. Approve the source (for example bblanchon/pdfium-binaries, BSD/Apache) and pinning by SHA-256 per OS?",
-   "status": "todo",
+   "ask_maintainer_first": "PDFium is a native binary. Approve the source (for example bblanchon/pdfium-binaries, BSD/Apache) and pinning by SHA-256 per OS?",
+   "status": "done",
    "notes": "",
-   "priority": 1007
+   "priority": 1007,
+   "base": "7de29dd67035e535f742e81cbcf18dfe2abcbdce"
   },
   {
    "id": "F-002",
@@ -441,9 +442,10 @@
    "evidence": [
     "harness:version"
    ],
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2011
+   "priority": 2011,
+   "base": "d4b069bd0b2130710abff8d72f2cc1749696d230"
   },
   {
    "id": "F-016",
@@ -488,9 +490,10 @@
     ".github/workflows/ci.yml",
     "tests/e2e/wdio.conf.ts"
    ],
-   "status": "todo",
-   "notes": "",
-   "priority": 2012
+   "status": "done",
+   "notes": "BLOCKED: BLOCKED: sandbox denies AF_UNIX sockets and /tmp is read-only, so Xvfb/GTK can't start; flows shell.ts and open-folder.ts never ran. Code on feat/F-016-webdriver (2 commits, verify OK). Next: author runs scripts/e2e-app.sh shell --evidence F-016 and scripts/e2e-app.sh open-folder in the worktree outside the sandbox.",
+   "priority": 2012,
+   "base": "3f4b05b4c83691ec9b3d5a7c35279b5e7f10c0fa"
   },
   {
    "id": "F-017",
@@ -530,9 +533,10 @@
    "reviews": [
     "security"
    ],
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2013
+   "priority": 2013,
+   "base": "67e16e7991e1c18de608b23fe7cd61669f2d71e9"
   },
   {
    "id": "F-018",
@@ -571,9 +575,10 @@
     "security"
    ],
    "try": "Open a course folder (any folder with a slides/ subfolder)",
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2014
+   "priority": 2014,
+   "base": "c707fea7bba32452cd0a208647357db51ad49173"
   },
   {
    "id": "F-019",
@@ -611,9 +616,10 @@
    "reviews": [
     "security"
    ],
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2015
+   "priority": 2015,
+   "base": "d3e5f852736aa07e8da98870a2db7675933c46a2"
   },
   {
    "id": "F-020",
@@ -650,9 +656,10 @@
     "perf"
    ],
    "try": "Open a lecture; move with j/k, type with i, leave with Esc",
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2016
+   "priority": 2016,
+   "base": "5ff7b19bfb34579520b4a743bbca114c5afc063c"
   },
   {
    "id": "F-021",
@@ -688,9 +695,10 @@
     "security"
    ],
    "try": "Type a note, quit Lecter, reopen: the note is still there",
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2017
+   "priority": 2017,
+   "base": "ed054ffd9708b4ea3665c0468adfa15ad35213a1"
   },
   {
    "id": "F-022",
@@ -723,9 +731,10 @@
     "harness:search"
    ],
    "try": "Type :find and a word from the lecture",
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2018
+   "priority": 2018,
+   "base": "e00cf5fc446571be4cd5b5b73600ca413da71ec9"
   },
   {
    "id": "F-023",
@@ -763,9 +772,10 @@
     "harness:prompt"
    ],
    "try": "Press a on a line, ask something: a sample answer streams in under it",
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2019
+   "priority": 2019,
+   "base": "81aa149f6d30f085206400527c1835c2798d0cf2"
   },
   {
    "id": "F-024",
@@ -794,9 +804,10 @@
     "screenshot:figure"
    ],
    "try": "Ask for a plot in the tutorial-style sample: a plot appears in the answer",
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2020
+   "priority": 2020,
+   "base": "2ddc849eef0552fb2ee33220cce2c065f276fef1"
   },
   {
    "id": "F-025",
@@ -810,18 +821,22 @@
    ],
    "depends_on": [
     "F-020",
-    "F-023"
+    "F-023",
+    "F-029",
+    "F-179"
    ],
    "paths": [
     "tests/perf/**",
     "tests/fixtures/lectures/**"
    ],
    "acceptance": [
-    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone.",
-    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (×1.5 for timing with --ci).",
+    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone, and per-OS targets (`per_os`) for idle_rss_mb and rss_300_slides_mb.",
+    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact).",
     "Budgets whose feature doesn't exist yet SHALL print PENDING and fail once their starting milestone is done.",
     "ci.yml SHALL gain the required `perf` job, and a deliberately slowed fixture SHALL make it fail (asserted in a test of budgets.sh).",
-    "The first measurements SHALL be recorded in a D-entry."
+    "The first measurements SHALL be recorded in a D-entry.",
+    "Memory budgets SHALL count Lecter's own processes by RSS and the webview's processes by PSS (macOS phys_footprint, Windows private working set); the Linux targets SHALL be 460 and 500 MB, and the macOS and Windows targets SHALL come from a workflow_dispatch release-build run on the branch (measurement + 10 %, rounded up to the next 10 MB), recorded in a D-entry.",
+    "WHEN budgets.sh runs with --ci THEN the real-app keystroke_p99_ms SHALL print REPORT and never fail while the mocked-core Playwright trace gates it; without --ci the real-app value SHALL gate (asserted in a test of budgets.sh)."
    ],
    "verify": [
     "tests/perf/budgets.sh"
@@ -834,8 +849,9 @@
     ".github/workflows/ci.yml"
    ],
    "status": "todo",
-   "notes": "",
-   "priority": 2021
+   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards) | Q-017 answered (D-146): after F-029 and F-179 merge, on feat/F-025-perf-budgets add per-OS PSS memory targets and keystroke REPORT under --ci, re-run CI (dispatch for macOS/Windows targets), merge.",
+   "priority": 2021,
+   "base": "c90d636f098d320c8724ccc228b8c9b569940d5e"
   },
   {
    "id": "F-026",
@@ -902,9 +918,10 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2023
+   "priority": 2023,
+   "base": "5f6b46170c3717462053577f6c8f516c16c73e11"
   },
   {
    "id": "F-028",
@@ -920,10 +937,12 @@
    ],
    "paths": [
     "spikes/figure-frame/**",
-    "tests/e2e/flows/figure-frame*"
+    "tests/e2e/flows/figure-frame*",
+    "app/src/figure_filter*",
+    "app/src/test_hooks.rs"
    ],
    "acceptance": [
-    "A sandboxed iframe (allow-scripts only) with the CSP of 08-figures.md#sandbox-pages SHALL be proven, in all three webviews via the e2e-app job, unable to fetch the network, read parent DOM, use storage or call IPC.",
+    "A sandboxed iframe (allow-scripts only) with the CSP of 08-figures.md#sandbox-pages and a native request filter that refuses every frame request outside the frame and library origins (standing in for lecter-fig:/lecter-lib:; WebView2 WebResourceRequested, WebKit content rule list or scheme-handler checks) SHALL be proven, in all three webviews via the e2e-app job, unable to fetch the network (all 16 vectors, `<link rel=prefetch>` included), read parent DOM, use storage or call IPC.",
     "A busy loop in the frame SHALL be detected within 2 s by the watchdog approach chosen, and the result per webview SHALL be recorded in a D-entry."
    ],
    "verify": [
@@ -933,8 +952,12 @@
     "log:e2e-app"
    ],
    "status": "todo",
-   "notes": "",
-   "priority": 2024
+   "notes": "BLOCKED: IMPOSSIBLE: criterion 1 on WebView2 - link prefetch from the sandboxed frame bypasses the CSP (reviewer agreed); smallest spec change: native request filter for figure frames in 08-figures#sandbox-pages (Q-019, D-142). Branch feat/F-028-figure-frame complete; criterion 2 passes on all three after run 2. | Q-019 answered (D-145): add a native request filter (app/src/figure_filter*, test-hooks only until F-141 ships it) on branch feat/F-028-figure-frame; criterion 1 now proves filter + CSP. Criterion 2 already passes.",
+   "priority": 2024,
+   "base": "feba84bffe76595e1e8743e0bfbdfc36c3ab1e9a",
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-030",
@@ -942,19 +965,24 @@
    "kind": "feature",
    "title": "Settings core: schema, JSONC, precedence",
    "spec": [
-    "12-settings-theme-onboarding.md#settings"
+    "12-settings-theme-onboarding.md#settings",
+    "12-settings-theme-onboarding.md#performance-preset",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-026"
    ],
    "paths": [
-    "crates/core/src/settings/**"
+    "crates/core/src/settings/**",
+    "tests/fixtures/courses/hostile/**"
    ],
    "acceptance": [
     "Settings types SHALL be defined in Rust and SHALL generate settings.schema.json (a test fails if the committed schema is stale).",
     "The resolved value of a key SHALL follow prompt > role > course > global > default and report its source (property test).",
     "WHEN a config file contains unknown keys THEN they SHALL be preserved on write and reported once.",
-    "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart."
+    "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart.",
+    "Global-only keys (13-security.md SEC-25: provider hosts and base URLs, feedback.endpoint, search service URLs, privacy.*, log.*, limits.*, budgets above the global value) SHALL be ignored with one notice when course.jsonc sets them, tested with the hostile course fixture tests/fixtures/courses/hostile/ (SEC-25).",
+    "ui.performance SHALL accept performance, balanced and quality, SHALL default to balanced, and SHALL reject any other value with the allowed list (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core settings"
@@ -963,8 +991,11 @@
     "log:tests"
    ],
    "status": "todo",
-   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006.",
-   "priority": 3025
+   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006. | Q-006 applied (D-143): ui.performance criterion added.",
+   "priority": 3025,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-031",
@@ -1046,7 +1077,9 @@
     "WHEN a folder is opened for the first time THEN a trust screen SHALL show counts of slides, sources and lectures, the provider that receives excerpts, and web search state.",
     "WHEN the user picks Open read-only THEN AI, indexing and scripted figures SHALL be disabled for that course.",
     "Trust SHALL be stored per absolute path in trusted.jsonc; WHEN the path changes THEN trust SHALL be asked again.",
-    "Every file API used by the AI SHALL reject paths outside the course root after canonicalisation (property test with .., symlinks, UNC and Windows separators)."
+    "Every file API used by the AI SHALL reject paths outside the course root after canonicalisation (property test with .., symlinks, UNC and Windows separators).",
+    "The trust screen SHALL list the course's AGENTS.md, role files, skills and settings overrides, and WHEN any of them changes THEN trust SHALL be asked again (SEC-25).",
+    "AI, indexing and scripted-figure commands on a read-only course SHALL return E_NOT_TRUSTED from the Rust core, tested through lecter-harness without the UI (SEC-27)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core trust",
@@ -1256,7 +1289,8 @@
    "kind": "feature",
    "title": "Command line",
    "spec": [
-    "10-keymap.md#commands"
+    "10-keymap.md#commands",
+    "12-settings-theme-onboarding.md#performance-preset"
    ],
    "depends_on": [
     "F-037",
@@ -1268,7 +1302,8 @@
    "acceptance": [
     ": SHALL open a command line with completion for commands and setting keys.",
     "`:set key=value` SHALL validate against the schema and reject invalid values with the reason.",
-    "`:set key?` SHALL show the value and its source."
+    "`:set key?` SHALL show the value and its source.",
+    "`:set ui.performance=quality` SHALL apply without a restart and show the note \"Can add input lag on slower machines.\"; `:set ui.performance=fast` SHALL be rejected with the three allowed values (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- cmdline"
@@ -1412,7 +1447,8 @@
    "kind": "feature",
    "title": "Settings window (schema-driven)",
    "spec": [
-    "12-settings-theme-onboarding.md#settings"
+    "12-settings-theme-onboarding.md#settings",
+    "12-settings-theme-onboarding.md#performance-preset"
    ],
    "depends_on": [
     "F-030",
@@ -1422,19 +1458,21 @@
     "ui/src/features/settings/**"
    ],
    "acceptance": [
-    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Privacy, Advanced, with search.",
+    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Performance, Privacy, Advanced, with search.",
     "A change SHALL write the correct file (global or course) and apply immediately.",
-    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter)."
+    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter).",
+    "The Performance page SHALL offer the presets Performance, Balanced and Quality with Balanced selected on a new install, and WHEN Quality is selected THEN it SHALL show the note \"Can add input lag on slower machines.\" (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- settings"
    ],
    "evidence": [
-    "screenshot:settings"
+    "screenshot:settings",
+    "screenshot:settings-performance-quality"
    ],
    "try": "Open Settings with Ctrl-, and change the hint bar detail",
    "status": "todo",
-   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006.",
+   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006. | Q-006 applied (D-143): Performance page criterion added.",
    "priority": 3040
   },
   {
@@ -1863,7 +1901,8 @@
    "spec": [
     "09-ui.md",
     "04-parsing.md#reading-ladder",
-    "09-ui.md#design-reference"
+    "09-ui.md#design-reference",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-050",
@@ -1871,12 +1910,14 @@
     "F-063"
    ],
    "paths": [
-    "ui/src/features/buffer/**"
+    "ui/src/features/buffer/**",
+    "tests/fixtures/xss/**"
    ],
    "acceptance": [
     "Slide blocks SHALL render KaTeX math (MathML output, trust false) and figures via lecter://.",
     "Blocks SHALL show confidence borders by tier, with a text badge on low confidence, per docs/design/components.md#block.",
-    "Only visible blocks SHALL be rendered; the keystroke_p99_ms and rss_300_slides_mb budgets SHALL hold."
+    "Only visible blocks SHALL be rendered; the keystroke_p99_ms and rss_300_slides_mb budgets SHALL hold.",
+    "The XSS fixture set tests/fixtures/xss/ (SVG onload, javascript: link, KaTeX \\href, Mermaid click handler, raw HTML in slide text) SHALL render inert in slide blocks: no script runs, no request leaves and a CSP-violation listener stays silent (SEC-22, SEC-30)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- buffer",
@@ -1889,7 +1930,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 4054
+   "priority": 4054,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-063",
@@ -2230,7 +2274,8 @@
    "acceptance": [
     "Logs SHALL rotate daily and at 10 MB, keeping 5 files (ROB-50).",
     "With log.content = false, no prompt, answer, note or key text SHALL appear in logs (a test greps the logs after a scripted session).",
-    "Crash reports SHALL be written locally only (ROB-51)."
+    "Crash reports SHALL be written locally only (ROB-51).",
+    "File names, paths and error bodies SHALL enter logs only as escaped structured fields; a test logs a file name containing a newline and a terminal escape code and asserts no forged line and no raw escape in the log (ROB-52)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core log"
@@ -2249,7 +2294,9 @@
    "title": "Provider trait, OpenAI-compatible adapter, fake provider scenarios",
    "spec": [
     "07-providers.md#adapters-one-rust-trait",
-    "14-quality.md#test-layers"
+    "14-quality.md#test-layers",
+    "13-security.md#secrets",
+    "13-security.md#unbounded-consumption-outbound-requests"
    ],
    "depends_on": [
     "F-026"
@@ -2262,7 +2309,9 @@
    "acceptance": [
     "The Provider trait SHALL stream text, tool calls, usage and errors, and honour a cancel token.",
     "The OpenAI-compatible adapter SHALL work against Ollama, LM Studio and OpenRouter request formats (recorded fixtures).",
-    "tests/fake-provider SHALL simulate latency, 429 with retry-after, 5xx, dropped streams, malformed SSE and unknown event types, each as a named scenario."
+    "tests/fake-provider SHALL simulate latency, 429 with retry-after, 5xx, dropped streams, malformed SSE and unknown event types, each as a named scenario.",
+    "Tests SHALL prove a key is dropped on a redirect to another host, a bad TLS certificate fails with no override, and plain http is refused except for localhost and 127.0.0.1 (SEC-43).",
+    "One SSE line or JSON event over 1 MB, or a response over 16 MB, SHALL end the stream with E_PROVIDER_TOO_LARGE, with fake-provider scenarios at the limit and at limit+1 (SEC-14)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai provider"
@@ -2421,7 +2470,8 @@
    "kind": "feature",
    "title": "ChatGPT sign-in",
    "spec": [
-    "07-providers.md#sign-in"
+    "07-providers.md#sign-in",
+    "13-security.md#secrets"
    ],
    "depends_on": [
     "F-084"
@@ -2432,7 +2482,8 @@
    "acceptance": [
     "Before implementing, the provider's current terms SHALL be re-checked and noted in a D-entry.",
     "ChatGPT Plus/Pro browser sign-in SHALL be offered behind a build-time flag, storing tokens in the keychain.",
-    "Anthropic SHALL offer API key only, with an explanation."
+    "Anthropic SHALL offer API key only, with an explanation.",
+    "Browser sign-in SHALL use PKCE (S256) and a random state checked on return, with a one-time redirect listener on 127.0.0.1 at a random port that closes after 5 minutes, tested against a fake sign-in server (SEC-44)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai oauth"
@@ -2595,7 +2646,8 @@
     "Caps per gloss (output tokens, tool calls, steps), per lecture, per day and per month SHALL be enforced (SEC-12).",
     "Background jobs SHALL have their own daily cap and SHALL pause at it.",
     "A hedged request SHALL count against the budget, and hedging SHALL be skipped when it would exceed it.",
-    "WHEN a foreground request would exceed a cap THEN the UI SHALL ask first (E_BUDGET card), and the status line SHALL show the lecture's running cost."
+    "WHEN a foreground request would exceed a cap THEN the UI SHALL ask first (E_BUDGET card), and the status line SHALL show the lecture's running cost.",
+    "A new install SHALL have default caps of $5 per month and $1 per day (ai.budget.monthly, ai.budget.daily), and a model with no catalog price SHALL count against ai.budget.monthlyTokens (default 2,000,000); all three SHALL be changeable in Settings → AI and with :set, and the cap prompt SHALL offer to raise the cap in one step (SEC-12)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai budget",
@@ -2653,7 +2705,8 @@
    "title": "Roles and the AI harness settings page",
    "spec": [
     "02-course-folder.md#agentsmd-roles-and-skills",
-    "06-ai-harness.md#ai-harness-settings-page"
+    "06-ai-harness.md#ai-harness-settings-page",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-088",
@@ -2665,7 +2718,8 @@
    ],
    "acceptance": [
     "Built-in role files SHALL load, overridable by global then course files.",
-    "Settings → AI SHALL edit per-role model, tools, web search, max steps, output cap, top-k, detail and prompt, writing an override file."
+    "Settings → AI SHALL edit per-role model, tools, web search, max steps, output cap, top-k, detail and prompt, writing an override file.",
+    "A course role file SHALL NOT set global-only keys or enable a tool or web search that the global settings turn off; the hostile course fixture proves it (SEC-25)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai roles",
@@ -2676,7 +2730,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 5078
+   "priority": 5078,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-093",
@@ -2692,13 +2749,15 @@
     "F-088"
    ],
    "paths": [
-    "crates/ai/src/prompt/**"
+    "crates/ai/src/prompt/**",
+    "tests/fixtures/injection/**"
    ],
    "acceptance": [
     "Tier 0 SHALL be assembled in the fixed order with cache breakpoints, and untrusted text SHALL be wrapped in <untrusted_source> (SEC-20).",
     "Two identical requests SHALL produce byte-identical prefixes (test).",
     "A 1-token warm-up request SHALL be sent when a lecture opens, if caching is enabled.",
-    "insta snapshots SHALL pin the exact prompt layout per provider."
+    "insta snapshots SHALL pin the exact prompt layout per provider.",
+    "A prompt-injection suite (hostile slide, source and web fixtures in tests/fixtures/injection/, and a fake-provider scenario that obeys their instructions) SHALL show the model receives only the role's allowed tools and that no file outside the course root is read (SEC-20, SEC-21)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai prompt"
@@ -2721,7 +2780,8 @@
    "spec": [
     "03-lecture-files.md#body",
     "06-ai-harness.md#roles-built-in-defaults",
-    "09-ui.md#design-reference"
+    "09-ui.md#design-reference",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-088",
@@ -2733,7 +2793,8 @@
    "acceptance": [
     "Answers SHALL stream into a gloss rendered at most once per animation frame, styled per docs/design/components.md#gloss in its streaming, done and focused states.",
     "Glosses SHALL be saved as fenced divs with the prompt as the first line.",
-    "Each gloss kind SHALL use its colour token (k-*) from docs/design/tokens.json."
+    "Each gloss kind SHALL use its colour token (k-*) from docs/design/tokens.json.",
+    "The XSS fixture set (tests/fixtures/xss/) streamed as an answer SHALL render inert in a gloss in every state: no script runs, no request leaves and the CSP-violation listener stays silent (SEC-22)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- gloss",
@@ -2746,7 +2807,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 5080
+   "priority": 5080,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-095",
@@ -3028,7 +3092,8 @@
    "kind": "feature",
    "title": "Web search configuration",
    "spec": [
-    "06-ai-harness.md#web-search-configuration"
+    "06-ai-harness.md#web-search-configuration",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-081",
@@ -3040,7 +3105,8 @@
    ],
    "acceptance": [
     "Web search SHALL resolve per prompt > role > course > global with the values native, service and off.",
-    "Domain allow and block lists and max searches per answer SHALL be enforced."
+    "Domain allow and block lists and max searches per answer SHALL be enforced.",
+    "Anthropic's native web_fetch SHALL be off unless ai.search.allowFetch is true (default false), and WHEN it is on THEN the allow and block lists SHALL apply to every fetched URL (SEC-24)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai search"
@@ -3154,7 +3220,8 @@
    "kind": "feature",
    "title": "Note actions with undo",
    "spec": [
-    "06-ai-harness.md#tools"
+    "06-ai-harness.md#tools",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-088",
@@ -3166,7 +3233,8 @@
    ],
    "acceptance": [
     "add_flag, add_doubt, add_later, add_office_hours and add_revise SHALL create visible items shown in the gloss.",
-    "Each SHALL be undoable with one key."
+    "Each SHALL be undoable with one key.",
+    "Under the prompt-injection suite (tests/fixtures/injection/), every note action SHALL be visible in the gloss and undoable, and memory.md SHALL stay byte-identical (SEC-21)."
    ],
    "verify": [
     "cargo nextest run -p lecter-ai actions",
@@ -3177,7 +3245,10 @@
    ],
    "status": "todo",
    "notes": "",
-   "priority": 5094
+   "priority": 5094,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-109",
@@ -3196,7 +3267,8 @@
    "acceptance": [
     "Glosses and notes SHALL render no raw HTML, KaTeX SHALL use trust false and Mermaid strict mode (SEC-22).",
     "A remote image URL in an answer SHALL render as a link chip and no request SHALL leave the webview, asserted in a WebDriver flow (SEC-23).",
-    "Links SHALL show their host and open only http(s) after confirmation (SEC-24)."
+    "Links SHALL show their host and open only http(s) after confirmation (SEC-24).",
+    "Under the prompt-injection suite and the XSS fixture set (tests/fixtures/xss/), no request SHALL leave the webview, no script SHALL run and no CSP violation SHALL be reported in glosses, notes and figure captions, asserted in a WebDriver flow (SEC-21, SEC-22, SEC-30)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- safe-render",
@@ -3263,7 +3335,7 @@
    ],
    "acceptance": [
     "With the ChatGPT sign-in stored in the keychain, the F-002 and F-004 measurements SHALL be re-run for OpenAI fast models through scripts/live.sh and appended to their D-entries with a recommendation.",
-    "IF the sandbox blocks keychain access THEN the builder SHALL report BLOCKED with the exact command for Jay to run in his own terminal."
+    "IF the sandbox blocks keychain access THEN the builder SHALL report BLOCKED with the exact command for the maintainer to run in their own terminal."
    ],
    "verify": [
     "see spikes/vision/README.md and spikes/ttft/README.md"
@@ -3274,7 +3346,7 @@
    "needs": [
     "live-keys"
    ],
-   "ask_jay_first": "Sign in with ChatGPT in scripts/dev.sh (Settings → Providers) so the spike can use the keychain token?",
+   "ask_maintainer_first": "Sign in with ChatGPT in scripts/dev.sh (Settings → Providers) so the spike can use the keychain token?",
    "status": "todo",
    "notes": "",
    "priority": 5097
@@ -3403,7 +3475,7 @@
    "evidence": [
     "perf"
    ],
-   "ask_jay_first": "Local embeddings need a model download and possibly ONNX Runtime (native). Approve the runtime and model chosen in the F-003 D-entry?",
+   "ask_maintainer_first": "Local embeddings need a model download and possibly ONNX Runtime (native). Approve the runtime and model chosen in the F-003 D-entry?",
    "status": "todo",
    "notes": "",
    "priority": 6101,
@@ -3592,7 +3664,7 @@
    "reviews": [
     "security"
    ],
-   "ask_jay_first": "The local document model is a native runtime plus a large download. Approve the runtime and model from the F-002 D-entry?",
+   "ask_maintainer_first": "The local document model is a native runtime plus a large download. Approve the runtime and model from the F-002 D-entry?",
    "status": "todo",
    "notes": "",
    "priority": 6107
@@ -3761,12 +3833,17 @@
    ],
    "paths": [
     "ui/src/features/figures/page*",
-    "app/src/protocol_lib*"
+    "app/src/protocol_lib*",
+    "app/src/figure_filter*",
+    "app/src/ipc_frame_guard*"
    ],
    "acceptance": [
-    "Pages SHALL render in an iframe with sandbox allow-scripts only and the CSP of 08-figures.md#sandbox-pages.",
+    "Pages SHALL render in an iframe with sandbox allow-scripts only and the CSP of 08-figures.md#sandbox-pages (`script-src lecter-fig: lecter-lib:`), and a WebDriver flow SHALL prove a page's own script from lecter-fig: and a library from lecter-lib: both run in each CI OS's webview.",
     "Libraries SHALL load only from lecter-lib://, version-pinned.",
-    "A WebDriver flow SHALL prove a page cannot fetch, read the parent or call IPC on the CI OSes."
+    "WHEN a figure frame requests anything not on lecter-fig: or lecter-lib: THEN the native request filter SHALL refuse it before it leaves the app (WebView2 WebResourceRequested; WebKitGTK and WKWebView content rule list or scheme-handler checks), proven on each CI OS against F-028's 16 network vectors, `<link rel=prefetch>` included.",
+    "A WebDriver flow SHALL prove a page cannot read the parent or use storage on the CI OSes.",
+    "WHEN an IPC message comes from any frame other than a window's main frame THEN the core SHALL drop it without running the command, proven by a call from a figure frame on each CI OS (SEC-31).",
+    "lecter-fig: and lecter-lib: SHALL serve only hash-named or bundled files and return 404 for anything else, tested with ../, encoded ../ and absolute paths (SEC-33)."
    ],
    "verify": [
     "scripts/e2e-app.sh figure-page --evidence F-141"
@@ -3796,21 +3873,26 @@
     "F-141"
    ],
    "paths": [
-    "ui/src/features/figures/watchdog*"
+    "ui/src/features/figures/watchdog*",
+    "app/src/figure_watchdog*"
    ],
    "acceptance": [
-    "A frame busy over 2 s or over 150 MB SHALL be replaced by its static image.",
+    "WHEN a page frame's main thread is busy THEN the core-side watchdog (a webview.eval heartbeat every 250 ms) SHALL flag it within 2 s on each CI OS, kill it from the native side and replace it by its static image.",
+    "WHEN a page frame uses over 150 MB THEN it SHALL be killed from the native side and replaced by its static image.",
     "At most figures.maxLiveFrames frames SHALL be live; off-screen frames SHALL be replaced by their static image and restored."
    ],
    "verify": [
-    "pnpm -C ui run test:e2e -- figure-watchdog"
+    "scripts/e2e-app.sh figure-watchdog --evidence F-142"
    ],
    "evidence": [
-    "log:e2e"
+    "log:e2e-app"
    ],
    "status": "todo",
    "notes": "",
-   "priority": 7114
+   "priority": 7114,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-143",
@@ -3910,7 +3992,8 @@
    "kind": "feature",
    "title": "Dashboard panels",
    "spec": [
-    "11-dashboard.md#panels"
+    "11-dashboard.md#panels",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-066",
@@ -3921,7 +4004,8 @@
    ],
    "acceptance": [
     "The dashboard SHALL show every panel in 11-dashboard.md#panels with live data from lectures and course.md.",
-    "The dashboard SHALL be lazy-loaded (not in the main chunk)."
+    "The dashboard SHALL be lazy-loaded (not in the main chunk).",
+    "Dashboard rows SHALL render text through the safe renderer; the XSS fixture set (tests/fixtures/xss/) renders inert there (SEC-22)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- dashboard"
@@ -4219,7 +4303,8 @@
    "kind": "feature",
    "title": "Export to PDF and LaTeX via Pandoc",
    "spec": [
-    "10-keymap.md#commands"
+    "10-keymap.md#commands",
+    "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
     "F-164"
@@ -4229,7 +4314,8 @@
    ],
    "acceptance": [
     ":export pdf and :export tex SHALL run the installed Pandoc with a fixed argument list (no shell, no user-controlled flags).",
-    "WHEN Pandoc is missing THEN the command SHALL explain how to install it."
+    "WHEN Pandoc is missing THEN the command SHALL explain how to install it.",
+    "Pandoc SHALL run with --sandbox and read AI-written text without raw_tex and raw_html; a test exports a gloss containing \\input{} and a local image path and asserts neither file is embedded (SEC-26)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core export_pandoc"
@@ -4284,7 +4370,8 @@
    "kind": "feature",
    "title": "Tauri lockdown audit",
    "spec": [
-    "13-security.md#tauri-and-ipc"
+    "13-security.md#tauri-and-ipc",
+    "13-security.md#privacy"
    ],
    "depends_on": [
     "F-109",
@@ -4298,7 +4385,8 @@
    "acceptance": [
     "Each window SHALL have its own capability file listing only commands it calls (a test diffs capabilities against the bindings usage).",
     "A test SHALL load the release config and assert the CSP of SEC-30 and devtools off.",
-    "Dropped paths SHALL be canonicalised and checked (SEC-35), tested with symlink and traversal fixtures."
+    "Dropped paths SHALL be canonicalised and checked (SEC-35), tested with symlink and traversal fixtures.",
+    "With no provider configured, a scripted session SHALL open no outbound connection except the update check, asserted with a connection-recording test (SEC-60)."
    ],
    "verify": [
     "cargo nextest run -p lecter-app security"
@@ -4319,7 +4407,8 @@
    "kind": "feature",
    "title": "Nightly fuzzing and regression flow",
    "spec": [
-    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch"
+    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch",
+    "13-security.md#unbounded-consumption-outbound-requests"
    ],
    "depends_on": [
     "F-055"
@@ -4330,7 +4419,8 @@
    ],
    "acceptance": [
     "nightly.yml SHALL run every fuzz target for 10 minutes and upload crash inputs.",
-    "A seeded crash input SHALL become a regression test in tests/fixtures/fuzz-regressions/ (documented flow, proven once)."
+    "A seeded crash input SHALL become a regression test in tests/fixtures/fuzz-regressions/ (documented flow, proven once).",
+    "The provider SSE and JSON stream parsers SHALL be fuzz targets with seed corpora (SEC-14)."
    ],
    "verify": [
     "nightly.yml via workflow_dispatch"
@@ -4456,7 +4546,8 @@
    "title": "Signed in-app updates",
    "spec": [
     "01-architecture.md#packaging",
-    "13-security.md#supply-chain"
+    "13-security.md#supply-chain",
+    "13-security.md#privacy"
    ],
    "depends_on": [
     "F-170"
@@ -4466,7 +4557,8 @@
    ],
    "acceptance": [
     "WHEN an installed build sees a newer signed latest.json THEN the app SHALL offer the update.",
-    "The updater SHALL verify the signature before installing and reject a tampered manifest (test)."
+    "The updater SHALL verify the signature before installing and reject a tampered manifest (test).",
+    "The update check SHALL be listed in Settings → Privacy and SHALL be possible to turn off (SEC-60)."
    ],
    "verify": [
     "cargo nextest run -p lecter-app updater"
@@ -4626,7 +4718,7 @@
    ],
    "acceptance": [
     "tests/visual SHALL compare WebDriver screenshots of the main screens with per-OS baselines, failing above a 0.5% pixel difference.",
-    "Baseline files SHALL be protected, so only a Jay-approved feature can change them."
+    "Baseline files SHALL be protected, so only a feature the maintainer approved can change them."
    ],
    "verify": [
     "scripts/e2e-app.sh visual"
@@ -4637,10 +4729,159 @@
    "protected": [
     "tests/visual/baselines/**"
    ],
-   "ask_jay_first": "Approve the first set of per-OS screenshot baselines (the orchestrator shows them before merging)?",
+   "ask_maintainer_first": "Approve the first set of per-OS screenshot baselines (the orchestrator shows them before merging)?",
    "status": "todo",
    "notes": "",
    "priority": 8140
+  },
+  {
+   "milestone": "M1",
+   "kind": "feature",
+   "priority": 3042,
+   "title": "Nightly workflow: mutation score",
+   "spec": [
+    "16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch",
+    "14-quality.md#mutation-testing"
+   ],
+   "depends_on": [
+    "F-013"
+   ],
+   "paths": [
+    ".github/workflows/nightly.yml"
+   ],
+   "acceptance": [
+    ".github/workflows/nightly.yml SHALL run at 03:00 UTC and on workflow_dispatch, start with `permissions: contents: read` (plus `actions: read` for skip-check), and pin third-party actions by commit SHA with the version in a comment.",
+    "The `skip-check` job SHALL skip every other job when the newest successful nightly ran on the same commit.",
+    "The `mutants` job SHALL run `python3 scripts/mutants.py --full --minutes 120` on ubuntu-24.04 with cargo-mutants from a pinned taiki-e/install-action, SHALL NOT fail on surviving mutants, and SHALL upload `.verify/mutants/score.json` and `.verify/mutants/survivors.txt` as the `mutants` artifact."
+   ],
+   "verify": [
+    "actionlint .github/workflows/nightly.yml",
+    "nightly.yml via workflow_dispatch"
+   ],
+   "evidence": [
+    "log:ci-run"
+   ],
+   "id": "F-178",
+   "status": "todo",
+   "notes": ""
+  },
+  {
+   "id": "F-074",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Performance preset in the lecture buffer",
+   "spec": [
+    "12-settings-theme-onboarding.md#performance-preset",
+    "09-ui.md#editing",
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-030",
+    "F-062",
+    "F-064"
+   ],
+   "paths": [
+    "ui/src/features/buffer/preset/**",
+    "ui/e2e/preset.spec.ts"
+   ],
+   "acceptance": [
+    "WHEN ui.performance is balanced and the user types a burst of keys in a note THEN the Markdown parse SHALL run zero times during the burst and the note SHALL be highlighted within 200 ms plus one frame after the last key (counted with a parse spy).",
+    "WHEN ui.performance is performance THEN notes and glosses SHALL show no Markdown highlighting and their math SHALL show as source text.",
+    "WHEN ui.performance is quality THEN Markdown highlighting and math in the edited note SHALL update after every keystroke.",
+    "KaTeX SHALL be in a separate chunk, absent from the main UI chunk, and SHALL load only when the first math comes into view (network log of the built UI).",
+    "WHEN ui.performance changes THEN open lectures SHALL switch to the new preset without a reload, keeping cursor and mode.",
+    "With the Balanced preset and highlighting on, the keystroke_p99_ms and ui_main_chunk_kb_gz budgets SHALL hold on the 200-slide fixture."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/features/buffer/preset",
+    "pnpm -C ui run test:e2e -- preset",
+    "tests/perf/budgets.sh --only keystroke_p99_ms,ui_main_chunk_kb_gz"
+   ],
+   "evidence": [
+    "screenshot:preset-balanced",
+    "screenshot:preset-performance",
+    "perf"
+   ],
+   "try": "Type Markdown in a note, then :set ui.performance=performance and see the highlighting go",
+   "priority": 4066,
+   "status": "todo",
+   "notes": ""
+  },
+  {
+   "id": "F-029",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Nothing redraws while idle",
+   "spec": [
+    "14-quality.md#performance-budgets",
+    "09-ui.md#editing"
+   ],
+   "depends_on": [
+    "F-016",
+    "F-020"
+   ],
+   "paths": [
+    "ui/src/features/buffer/**",
+    "ui/src/App.css",
+    "ui/src/App.tsx",
+    "tests/e2e/flows/idle*"
+   ],
+   "acceptance": [
+    "WHEN a lecture is open and 10 s pass without input THEN document.getAnimations() in the main window SHALL list no running animation or transition (e2e-app flow `idle`).",
+    "WHEN a lecture is open and idle THEN, over a 30 s window starting 10 s after the last input, a MutationObserver on the document SHALL record zero mutations and no requestAnimationFrame callback SHALL run (e2e-app flow `idle`).",
+    "WHEN 10 s pass after the last key or click THEN the caret SHALL stop blinking and stay visible, and WHEN the next key or click arrives THEN it SHALL blink again (09-ui.md#editing).",
+    "WHEN a gloss is streaming THEN its updates SHALL still paint, and the idle checks SHALL apply again 10 s after the stream ends.",
+    "The source of the idle redraw (D-139: 12.55 % CPU, 95 % in WebKitWebProcess llvmpipe threads) and the idle CPU per process after the fix, measured with F-025's open-idle run on ubuntu-24.04, SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/features/buffer",
+    "scripts/e2e-app.sh idle --evidence F-029"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "try": "Open a lecture and leave it a minute: the caret stops blinking after 10 s and the fan stays quiet; press a key and it blinks again",
+   "priority": 2020,
+   "status": "todo",
+   "notes": ""
+  },
+  {
+   "id": "F-179",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Cold open under budget",
+   "spec": [
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-016",
+    "F-020"
+   ],
+   "paths": [
+    "app/src/main.rs",
+    "app/src/startup*",
+    "app/tauri.conf.json",
+    "ui/index.html",
+    "ui/src/main.tsx",
+    "ui/src/App.tsx",
+    "ui/vite.config.ts",
+    "tests/e2e/flows/cold-open*"
+   ],
+   "acceptance": [
+    "The app SHALL log one `startup <phase> <ms>` line per phase (window created, page load started, shell first paint, buffer first paint of the opened lecture), in ms since process start, and the release-build breakdown on ubuntu-24.04 before and after the change SHALL be recorded in a D-entry.",
+    "WHEN the release build (with test-hooks) starts and opens the 200-slide fixture lecture THEN the e2e-app flow `cold-open` SHALL measure process start to the buffer's first paint under 600 ms on ubuntu-24.04 CI (cold_open_ms with the ×1.5 rule, measured once more on a breach).",
+    "Work not needed for the first paint (IPC calls, chunks, fonts) SHALL start after it, and the ui_main_chunk_kb_gz budget SHALL still hold."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh cold-open --evidence F-179"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "try": "Start the app and open a lecture: the window and the lecture appear in well under a second",
+   "priority": 2020,
+   "status": "todo",
+   "notes": ""
   }
  ]
 }

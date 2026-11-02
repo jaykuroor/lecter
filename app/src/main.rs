@@ -10,14 +10,50 @@
 #[cfg(all(dev, not(debug_assertions)))]
 compile_error!("release builds must embed the UI: build with `--features custom-protocol` (Tauri's CLI adds it)");
 
+mod dialog;
+// The bindings generator (ipc/export.rs) is the export-bindings binary's; here only its tests run.
+#[cfg(test)]
+#[path = "ipc/export.rs"]
+mod export;
 mod ipc;
+// Debug builds and the `test-hooks` feature only; release builds never contain it (SEC-34).
+#[cfg(any(debug_assertions, feature = "test-hooks"))]
+mod test_hooks;
 
 fn main() {
-    let result = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![ipc::app::app_info])
-        .run(tauri::generate_context!());
-    if let Err(e) = result {
-        eprintln!("Lecter could not start: {e}");
-        std::process::exit(1);
+    // The dialog plugin's own commands stay unreachable from the UI: no capability grants them.
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    // The embedded WebDriver server for the real-app e2e (tests/e2e/). It listens on 127.0.0.1
+    // only, and the dependency exists only with the `test-hooks` feature (SEC-34).
+    #[cfg(feature = "test-hooks")]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+    // The commands and events of the IPC contract (ipc/mod.rs), behind the argument limits.
+    let contract = ipc::contract();
+    // The open lectures' save sessions; quitting saves them (F-021).
+    let lectures = ipc::session::OpenLectures::default();
+    // The running gloss streams; quitting stops them (F-023).
+    let glosses = ipc::ai::Glosses::default();
+    let built = builder
+        .manage(ipc::session::OpenedCourses::default())
+        .manage(lectures.clone())
+        .manage(ipc::search::SearchIndexes::default())
+        .manage(glosses.clone())
+        .invoke_handler(ipc::invoke_handler(&contract))
+        .setup(move |app| {
+            contract.mount_events(app);
+            Ok(())
+        })
+        .build(tauri::generate_context!());
+    match built {
+        Ok(app) => app.run(move |_, event| {
+            if let tauri::RunEvent::Exit = event {
+                glosses.cancel_all();
+                ipc::lecture::close_all(&lectures);
+            }
+        }),
+        Err(e) => {
+            eprintln!("Lecter could not start: {e}");
+            std::process::exit(1);
+        }
     }
 }

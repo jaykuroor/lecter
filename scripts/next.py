@@ -6,7 +6,7 @@
   scripts/next.py --list          every feature, one line each
   scripts/next.py --ready         features ready to start (dependencies done, gate open, needs met)
   scripts/next.py --ready --beside F-0NN[,F-0MM]   ready features whose owned paths don't overlap those
-Exit codes: 0 normal; 3 all done; 4 everything left is blocked or waiting; 5 a milestone gate is open (Jay tries the app).
+Exit codes: 0 normal; 3 all done; 4 everything left is blocked or waiting; 5 a milestone gate is open (the maintainer tries the app).
 """
 import re, sys
 from lib_features import DOCS, load, pick, ready, counts, milestone_line, by_id, open_gate, parallel_safe, unmet_needs, checklist
@@ -50,8 +50,8 @@ def card(f, idx):
         out.append("May edit protected: " + "  ".join(f["protected"]))
     if f.get("needs"):
         out.append("Needs: " + ", ".join(f["needs"]) + ("  (live: run provider calls only via scripts/live.sh)" if "live-keys" in f["needs"] else ""))
-    if f.get("ask_jay_first"):
-        out.append("Ask Jay before building: " + f["ask_jay_first"])
+    if f.get("ask_maintainer_first"):
+        out.append("Ask the maintainer before building: " + f["ask_maintainer_first"])
     if f.get("notes"):
         out.append(f"Notes from earlier sessions: {f['notes']}")
     return "\n".join(out)
@@ -80,7 +80,7 @@ def main(argv):
     print(progress_head())
     qs = open_questions()
     if qs:
-        print(f"Open questions for Jay ({len(qs)}): " + " | ".join(qs[:5]))
+        print(f"Open questions for the maintainer ({len(qs)}): " + " | ".join(qs[:5]))
     ds = recent_decisions(4 if "--brief" in argv else 8)
     if ds:
         print("Recent decisions: " + " | ".join(ds))
@@ -92,7 +92,7 @@ def main(argv):
         return 0
     gate = open_gate(data)
     if gate:
-        print(f"MILESTONE GATE {gate}: stop building. Jay tries the app first (python3 scripts/feature.py gate).")
+        print(f"MILESTONE GATE {gate}: stop building. The maintainer tries the app first (python3 scripts/feature.py gate).")
         for line in checklist(data, gate)[:6]:
             print(f"  - {line}")
         return 5

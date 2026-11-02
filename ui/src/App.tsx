@@ -1,5 +1,12 @@
-import { Show } from "solid-js";
+import { onCleanup, Show } from "solid-js";
+import { Buffer } from "./features/buffer/Buffer";
+import { CoursePanel } from "./features/course/CoursePanel";
+import { registerFindCommand } from "./features/find/exCommand";
+import { FindPanel } from "./features/find/FindPanel";
 import { createAppInfo } from "./state/appInfo";
+import { createCourse } from "./state/course";
+import { createFind } from "./state/find";
+import { createLecture } from "./state/lecture";
 import "./App.css";
 
 /**
@@ -9,21 +16,42 @@ import "./App.css";
  */
 export function App() {
   const info = createAppInfo();
+  const course = createCourse();
+  const lecture = createLecture();
+  const find = createFind();
+  // `:find words` in the buffer and the Find field both search the open course (F-022).
+  const runFind = (words: string) => void find.run(course.course()?.path ?? null, words);
+  onCleanup(registerFindCommand(runFind));
   return (
     <div class="app-frame">
       <header class="headerbar">
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
       </header>
-      <nav class="rail" aria-label="Course rail" />
+      <nav class="rail" aria-label="Course rail">
+        <CoursePanel
+          state={course}
+          onOpenLecture={(path, file) => void lecture.open(path, file)}
+          openLecture={lecture.lecture()?.path ?? null}
+        />
+      </nav>
       <div class="document-column">
-        <main class="buffer" aria-label="Document" />
+        <main class="buffer" aria-label="Document">
+          <Buffer
+            lecture={lecture.lecture()}
+            course={course.course()?.path ?? null}
+            error={lecture.error()}
+            onEdits={lecture.edit}
+          />
+        </main>
         <footer class="status-line" role="status" aria-label="Status line">
           <Show when={info()} fallback={<span>Connecting to core…</span>}>
             {(i) => <span>v{i().version}</span>}
           </Show>
         </footer>
       </div>
-      <aside class="side-panel" aria-label="Side panel" />
+      <aside class="side-panel" aria-label="Side panel">
+        <FindPanel state={find} onFind={runFind} />
+      </aside>
     </div>
   );
 }

@@ -12,15 +12,19 @@ if [ -n "${HTTPS_PROXY:-}" ]; then
   export npm_config_https_proxy="$HTTPS_PROXY" npm_config_proxy="${HTTP_PROXY:-$HTTPS_PROXY}" npm_config_noproxy="${NO_PROXY:-}"
 fi
 # ui/package.json pins engines.node (D-058). When plain `node` is another version, put a `node` link to the
-# fallback first on PATH (D-061), in a dir the user owns (the user cache, else the sandbox's per-user TMPDIR);
-# a link that points anywhere else is replaced.
+# fallback (fnm's install of that version, D-130) first on PATH, in a dir the user owns (the user cache, else
+# the sandbox's per-user TMPDIR); a link that points anywhere else is replaced.
 NODE_WANT=$(sed -n 's/^ *"node": *"\([0-9.]*\)".*/\1/p' ui/package.json 2>/dev/null | head -n 1)
-NODE_FALLBACK="${LECTER_NODE_FALLBACK:-/usr/bin/node-24}" NODE_NOTE=""
+NODE_FALLBACK="${LECTER_NODE_FALLBACK:-${FNM_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fnm}/node-versions/v$NODE_WANT/installation/bin/node}" NODE_NOTE=""
 if [ -n "$NODE_WANT" ] && [ "$(node --version 2>/dev/null)" != "v$NODE_WANT" ] && [ -x "$NODE_FALLBACK" ] \
   && [ "$("$NODE_FALLBACK" --version 2>/dev/null)" = "v$NODE_WANT" ]; then
   for _shim in "${XDG_CACHE_HOME:-$HOME/.cache}/lecter/node-v$NODE_WANT" "${TMPDIR:+$TMPDIR/lecter-node-v$NODE_WANT}"; do
     [ -n "$_shim" ] && mkdir -p -m 700 "$_shim" 2>/dev/null && [ -O "$_shim" ] || continue
     [ "$(readlink "$_shim/node" 2>/dev/null)" = "$NODE_FALLBACK" ] || ln -sfn "$NODE_FALLBACK" "$_shim/node" 2>/dev/null || continue
+    for _t in pnpm corepack; do   # corepack's shims sit beside fnm's node (D-130)
+      _src="$(dirname "$NODE_FALLBACK")/$_t"
+      [ -e "$_src" ] && ln -sfn "$_src" "$_shim/$_t" 2>/dev/null || true
+    done
     export PATH="$_shim:$PATH" NODE_NOTE="node: using $NODE_FALLBACK (v$NODE_WANT)"; break
   done
 fi
@@ -33,29 +37,29 @@ if [ -z "${pnpm_config_store_dir:-}" ] && [ -f ui/package.json ] && command -v p
     "$PWD"/*) export pnpm_config_store_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm/store" ;;
   esac
 fi
-# Every missing tool is listed with the Fedora command that installs it.
+# Every missing tool is listed with a hint on how to install it.
 missing=()
 need() { command -v "$1" >/dev/null 2>&1 || missing+=("$1 ($2)"); }
 PNPM_WANT=$(sed -n 's/^ *"packageManager": *"pnpm@\([0-9.]*\)".*/\1/p' ui/package.json 2>/dev/null | head -n 1)
-need git     "sudo dnf install git"
-command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=("python3 (3.10+: sudo dnf install python3)")
-need cargo   "rustup: sudo dnf install rustup && rustup-init -y"
+need git     "package git"
+command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=("python3 (3.10+: package python3)")
+need cargo   "rustup: https://rustup.rs"
 node_found=$(node --version 2>/dev/null || true)
 if [ -z "$node_found" ] || { [ -n "$NODE_WANT" ] && [ "$node_found" != "v$NODE_WANT" ]; }; then
-  missing+=("node ${NODE_WANT:-LTS} (found ${node_found:-none}: sudo dnf install nodejs24, which provides $NODE_FALLBACK)")
+  missing+=("node ${NODE_WANT:-LTS} (found ${node_found:-none}: install it with fnm, https://github.com/Schniz/fnm: fnm install ${NODE_WANT:-lts-latest}, which provides $NODE_FALLBACK)")
 fi
-need pnpm    "${PNPM_WANT:-latest}: sudo npm install -g pnpm@${PNPM_WANT:-latest}"
-need gitleaks "secret scan: sudo dnf install gitleaks"
+need pnpm    "${PNPM_WANT:-latest}: corepack enable (ships with Node; reads packageManager), https://pnpm.io/installation"
+need gitleaks "secret scan: your package manager or https://github.com/gitleaks/gitleaks/releases"
 if [ "$(uname -s)" = "Linux" ]; then
-  pkg-config --exists webkit2gtk-4.1 2>/dev/null || missing+=("webkit2gtk-4.1 (Tauri 2 prerequisites: sudo dnf install webkit2gtk4.1-devel openssl-devel libappindicator-gtk3-devel librsvg2-devel && sudo dnf group install c-development)")
-  [ -n "${CI:-}" ] || need bwrap "Claude Code sandbox: sudo dnf install bubblewrap"
-  [ -n "${CI:-}" ] || need socat "Claude Code sandbox: sudo dnf install socat"
-  need xvfb-run "headless app runs: sudo dnf install xorg-x11-server-Xvfb"
+  pkg-config --exists webkit2gtk-4.1 2>/dev/null || missing+=("webkit2gtk-4.1 (Tauri 2 prerequisites, https://v2.tauri.app/start/prerequisites/#linux: the dev packages for webkit2gtk 4.1, openssl, libappindicator-gtk3 and librsvg2, plus a C toolchain)")
+  [ -n "${CI:-}" ] || need bwrap "Claude Code sandbox: package bubblewrap"
+  [ -n "${CI:-}" ] || need socat "Claude Code sandbox: package socat"
+  need xvfb-run "headless app runs: the Xvfb package (provides xvfb-run)"
 fi
 [ -z "$NODE_NOTE" ] || echo "$NODE_NOTE"
 command -v pdftotext >/dev/null 2>&1 || echo "optional: pdftotext (poppler-utils) lets check_private.py fingerprint private PDFs"
 if [ "${1:-}" = "--check" ]; then
-  for t in cargo-nextest cargo-deny; do command -v "$t" >/dev/null 2>&1 || missing+=("$t (cargo install $t --locked)"); done
+  for t in cargo-nextest cargo-deny cargo-mutants; do command -v "$t" >/dev/null 2>&1 || missing+=("$t (cargo install $t --locked)"); done
 fi
 if [ ${#missing[@]} -gt 0 ]; then
   echo "Missing tools:"; printf '  - %s\n' "${missing[@]}"
@@ -74,7 +78,7 @@ fi
 [ "${1:-}" = "--check" ] && { echo "TOOLS OK"; exit 0; }
 
 # Required cargo tools (CI installs prebuilt ones first with taiki-e/install-action, so this is a no-op there).
-for t in cargo-nextest cargo-deny; do
+for t in cargo-nextest cargo-deny cargo-mutants; do
   command -v "$t" >/dev/null 2>&1 || cargo install "$t" --locked -q
 done
 command -v cargo-audit >/dev/null 2>&1 || echo "optional (used by --full): cargo install cargo-audit --locked"
@@ -90,6 +94,19 @@ if [ -f Cargo.toml ]; then
     cargo fetch --locked -q 2>/dev/null || cargo fetch -q
     cargo build --workspace -q
   fi
+fi
+# The pinned PDFium the parse worker loads (D-084, D-108): downloaded once into target/pdfium/ and
+# SHA-256 checked on every run (CI restores target/pdfium/ from its cache first). Tests only read it.
+# The first launcher that really is Python 3 runs it (Windows may have a python3 that is a Store stub).
+if [ -f spikes/pdfium/fetch_pdfium.py ]; then
+  pdfium_py=""
+  for py in python3 python py; do
+    command -v "$py" >/dev/null 2>&1 || continue
+    [ "$("$py" -I -c 'import sys; print(sys.version_info[0])' 2>/dev/null | tr -d '\r')" = 3 ] && { pdfium_py=$py; break; }
+  done
+  [ -n "$pdfium_py" ] || { echo "No working Python 3 to fetch PDFium (spikes/pdfium/fetch_pdfium.py)."; exit 1; }
+  "$pdfium_py" -I spikes/pdfium/fetch_pdfium.py >/dev/null \
+    || { echo "Fetching the pinned PDFium failed (spikes/pdfium/fetch_pdfium.py; exit 3 means a checksum mismatch)."; exit 1; }
 fi
 if [ -f ui/package.json ]; then
   if [ -n "${CI:-}" ]; then

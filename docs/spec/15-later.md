@@ -18,9 +18,6 @@ Listed so the v0 design leaves room for them. An agent must not implement anythi
 - Tablet apps (Tauri mobile targets).
 - Graph-based retrieval if revise and gap-finder quality needs it.
 
-## Business (Jay's future plans)
+## Business
 
-- Opencode-style model: the app stays free and open source; optional paid services later.
-- A "Lecter" provider for hosted, fine-tuned or discounted models.
-- Cloud storage and sync of course folders.
-- A feedback endpoint for opted-in ratings (v0 stores locally until `feedback.endpoint` is set).
+- No accounts, payments, subscriptions or hosted services in v0. Opted-in feedback stays local until `feedback.endpoint` is set (F-163).

@@ -37,7 +37,7 @@ class Lint(unittest.TestCase):
         self.write("ui/e2e/open.spec.ts", TS)
         self.write("tests/perf/budgets.json", json.dumps(BUDGETS))
         self.write("crates/core/src/snapshots/core__parse.snap", "---\nsource: x\n---\nblock\n")
-        self.write("docs/DECISIONS.md", "# Decisions\n\n## D-040 · Raise keystroke budget\n2026-10-24 · Jay · active\n")
+        self.write("docs/DECISIONS.md", "# Decisions\n\n## D-040 · Raise keystroke budget\n2026-10-24 · maintainer · active\n")
         self.commit("base")
         self.base = sh(self.root, "git", "rev-parse", "HEAD").strip()
         sh(self.root, "git", "switch", "-q", "-c", "feat/F-099-x")
@@ -90,7 +90,7 @@ class Lint(unittest.TestCase):
         (self.root / "ui/e2e/open.spec.ts").unlink()
         self.assertTrue(any("test file deleted" in p for p in self.problems()))
 
-    def test_loosened_budget_is_flagged_unless_jay_decided(self):
+    def test_loosened_budget_is_flagged_unless_maintainer_decided(self):
         self.write("tests/perf/budgets.json", json.dumps({"budgets": [{"id": "keystroke_p99_ms", "budget": 12, "kind": "timing"}]}))
         self.assertTrue(any("loosened keystroke_p99_ms" in p for p in self.problems()))
         self.commit("chore: budget\n\nBudget-Changed: keystroke_p99_ms - D-040")

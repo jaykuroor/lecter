@@ -1,4 +1,20 @@
 //! `lecter-parse`: Parse worker: reads one untrusted slide file into blocks, layout and crops.
+//!
+//! With the `proto` feature only, it is the worker protocol (messages and frame codec) the core
+//! speaks. The default `worker` feature adds the readers and the `lecter-parse` process itself.
+
+#[cfg(feature = "worker")]
+pub mod error;
+#[cfg(feature = "worker")]
+pub mod layout;
+#[cfg(feature = "worker")]
+pub mod pdf;
+#[cfg(feature = "worker")]
+pub mod pdfium;
+#[cfg(feature = "proto")]
+pub mod proto;
+#[cfg(feature = "worker")]
+pub mod worker;
 
 /// This crate's package name.
 pub const NAME: &str = env!("CARGO_PKG_NAME");

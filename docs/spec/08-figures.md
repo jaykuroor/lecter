@@ -28,9 +28,11 @@ Setting `figures.mode`: `auto`, `ask`, `off`, settable globally, per course, per
 
 ## Sandbox (pages)
 
-- Rendered in an `<iframe sandbox="allow-scripts">` (no `allow-same-origin`), with CSP `default-src 'none'; script-src 'self' lecter-lib:; style-src 'unsafe-inline'; img-src data:`. No network, no parent access, no storage, no keys.
-- Libraries come from a bundled `lecter-lib://` scheme, version-pinned.
-- Watchdog: if the frame's main thread is busy for more than 2 s, or memory exceeds 150 MB, the frame is killed and replaced by its static image.
+- Rendered in an `<iframe sandbox="allow-scripts">` (no `allow-same-origin`), with CSP `default-src 'none'; script-src lecter-fig: lecter-lib:; style-src 'unsafe-inline'; img-src data:`. No network, no parent access, no storage, no keys. Schemes are named, not `'self'`: WebKit never matches `'self'` in an opaque-origin frame (D-142).
+- Native request filter: the CSP alone doesn't hold (WebView2 sends `<link rel=prefetch>` despite `default-src 'none'`), so the app refuses every request from a figure frame that isn't to `lecter-fig:` or `lecter-lib:`, below the page: WebView2 `WebResourceRequested`; WebKitGTK and WKWebView a content rule list or checks in the scheme handlers.
+- IPC: the frame gets no capability, and the core drops every IPC message that doesn't come from the main frame (SEC-31).
+- Libraries come from a bundled `lecter-lib://` scheme, version-pinned. `lecter-lib:` and `lecter-fig:` serve only bundled or hash-named files and return 404 for anything else (SEC-33).
+- Watchdog: core-side. The core evaluates a heartbeat in the webview (`webview.eval`) every 250 ms; a frame with no answer for 1.5 s (busy main thread), or over 150 MB, is killed from the native side and replaced by its static image. An in-page watchdog alone can't work: WebKitGTK and WKWebView run the frame on the parent's thread.
 - In a read-only (untrusted) course, only static images show.
 
 ## Storage and export
