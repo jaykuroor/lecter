@@ -132,8 +132,4 @@
   color: var(--faint);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .buffer-editor .cm-cursor {
-    animation: none;
-  }
-}
+/* The caret's blink, its 10 s limit and reduced motion are in caret.ts. */
