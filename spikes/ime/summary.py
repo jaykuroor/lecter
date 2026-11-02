@@ -15,6 +15,7 @@ import re
 import sys
 from collections import defaultdict
 
+WEBVIEWS = ("WebKitGTK", "WKWebView", "WebView2")
 LINE = re.compile(r"\bIME (\S+) (insert|normal) (.+?): (ok|FAIL|observed) \((.*)\)\s*$")
 
 
@@ -35,6 +36,9 @@ def main(paths: list[str]) -> int:
         print("no IME check lines found")
         return 1
     failed = False
+    for webview in WEBVIEWS:
+        if webview not in seen:
+            print(f"{webview}: no check lines (job passed without an artifact? pass its job summary)")
     for webview in sorted(seen):
         checks = seen[webview]
         graded = {k: v for k, v in checks.items() if v[0] != "observed"}

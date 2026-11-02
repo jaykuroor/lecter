@@ -9,13 +9,15 @@
 // Checked: the composed text lands once (editor state, block text and the saved file) and no
 // normal-mode key fires while composing (mode, cursor and text unchanged). Each check is logged as
 // `IME <webview> <case> <check>: ok|FAIL (<detail>)` before the test asserts them all, so one CI
-// run gives every webview's failures (spikes/ime/summarize.sh collects them). Composed text in
-// normal mode is logged as an observation, not asserted (slide lines' read-only rule is F-020's).
+// run gives every webview's failures (also in the GitHub job summary; spikes/ime/summary.py
+// tallies them). Logged as observations, not asserted: whether composed text lands in normal mode
+// (slide lines' read-only rule is F-020's), whether Vim's u removes it, and whether a keyCode-229
+// key before compositionstart runs as a Vim key. The buffer is put back through the editor itself.
 //
 // The page reads CodeMirror's state through the content element's view (`cmTile.root.view`, what
 // EditorView.findFromDOM uses): flows can't import packages (tests/CLAUDE.md).
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { shot } from "../support/shot.ts";
 
@@ -67,13 +69,18 @@ type Ime = {
   end(text: string): void;
   key(key: string, composing: boolean): void;
   probe(): Probe;
+  /** Turns the editor's text back into `doc` with one change (the differing middle part). */
+  restore(doc: string): boolean;
 };
 type ImeWindow = Window & { __lecterIme?: Ime };
 
 /** Installs the IME player in the page (one per flow run; `after` removes it). */
 function install(): Promise<string> {
   return browser.execute(() => {
-    type Cm = { state: { doc: { toString(): string }; selection: { main: { head: number } } } };
+    type Cm = {
+      state: { doc: { toString(): string }; selection: { main: { head: number } } };
+      dispatch(spec: { changes: { from: number; to: number; insert: string } }): void;
+    };
     type Tiled = Element & { cmTile?: { root?: { view?: Cm } } };
     const content = (): HTMLElement => {
       const c = document.querySelector<HTMLElement>(".cm-content");
@@ -149,6 +156,18 @@ function install(): Promise<string> {
           block: document.querySelector(".cm-block")?.textContent ?? "",
         };
       },
+      restore(doc) {
+        const v = view();
+        if (!v) return false;
+        const now = v.state.doc.toString();
+        let from = 0;
+        while (from < now.length && from < doc.length && now[from] === doc[from]) from += 1;
+        let tail = 0;
+        while (tail < now.length - from && tail < doc.length - from && now.at(-1 - tail) === doc.at(-1 - tail))
+          tail += 1;
+        v.dispatch({ changes: { from, to: now.length - tail, insert: doc.slice(from, doc.length - tail) } });
+        return true;
+      },
     };
     (window as ImeWindow).__lecterIme = ime;
     return `${navigator.userAgent}`;
@@ -183,6 +202,12 @@ const firstKey = (k: string) => {
   edited();
   return browser.execute((s: string) => (window as ImeWindow).__lecterIme?.key(s, false), k);
 };
+/** Sets the editor's text back to `doc` through the editor (not through Vim). */
+async function restore(doc: string): Promise<void> {
+  edited();
+  const ok = await browser.execute((d: string) => (window as ImeWindow).__lecterIme?.restore(d) ?? false, doc);
+  if (!ok) throw new Error("can't reach the editor to restore its text");
+}
 /** A WebDriver key press (Vim may edit on it). */
 async function press(k: string): Promise<void> {
   edited();
@@ -198,6 +223,22 @@ function webview(ua: string): string {
   return `unknown(${ua})`;
 }
 
+let summaryStarted = false;
+/**
+ * Prints `line` to the run's output and, on GitHub Actions, adds it to the job summary: verify.sh
+ * keeps e2e-app's output in .verify/ and CI uploads that only when the job fails, so the summary
+ * is where a passing webview's lines show (spikes/ime/README.md).
+ */
+function report(line: string): void {
+  console.log(line);
+  const summary = process.env.GITHUB_STEP_SUMMARY;
+  if (!summary) return;
+  const head = summaryStarted ? "" : "\n#### F-027 IME checks\n\n";
+  summaryStarted = true;
+  // Indented four spaces: one Markdown code block, so the lines read exactly as in the log.
+  appendFileSync(summary, `${head}    ${line}\n`);
+}
+
 /** Records named checks, logs each one and asserts that none failed. */
 class Checks {
   private failed: string[] = [];
@@ -207,11 +248,11 @@ class Checks {
   ) {}
   check(name: string, ok: boolean, detail: unknown): void {
     const shown = JSON.stringify(detail);
-    console.log(`IME ${this.engine} ${this.scenario} ${name}: ${ok ? "ok" : "FAIL"} (${shown})`);
+    report(`IME ${this.engine} ${this.scenario} ${name}: ${ok ? "ok" : "FAIL"} (${shown})`);
     if (!ok) this.failed.push(`${name}: ${shown}`);
   }
   note(name: string, detail: unknown): void {
-    console.log(`IME ${this.engine} ${this.scenario} ${name}: observed (${JSON.stringify(detail)})`);
+    report(`IME ${this.engine} ${this.scenario} ${name}: observed (${JSON.stringify(detail)})`);
   }
   assertAll(): void {
     expect(this.failed).toEqual([]);
@@ -282,7 +323,7 @@ describe("Vim and IME composition", function () {
     const ua = await install();
     engine = webview(ua);
     const checks = new Checks(engine, "insert");
-    console.log(`IME ${engine} user-agent: ${ua}`);
+    report(`IME ${engine} user-agent: ${ua}`);
 
     await press("i");
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "insert");
@@ -400,10 +441,21 @@ describe("Vim and IME composition", function () {
     });
     await shot("ime-normal");
 
-    // Leave the buffer as it was, in normal mode, so the saved file matches the start.
-    if ((after.doc ?? "") !== doc0) await press("u");
-    const restored = await settle((p) => p.doc === doc0 && p.mode === "normal", "undo");
-    checks.check("undone", restored.doc === doc0, { occurrences: count(restored.doc ?? "", NORMAL_TEXT) });
+    // Vim's u on the composed text, observed; then the text goes back to how it was through the
+    // editor itself (one change, saved like typing), so the next steps don't depend on u.
+    if ((after.doc ?? "") !== doc0) {
+      await press("u");
+      const undone = await settle((p) => p.doc === doc0, "u");
+      checks.note("u undoes the normal-mode composed text", {
+        undone: undone.doc === doc0,
+        [NORMAL_TEXT]: count(undone.doc ?? "", NORMAL_TEXT),
+        [COMMIT]: count(undone.doc ?? "", COMMIT),
+        mode: undone.mode,
+      });
+      if (undone.doc !== doc0) await restore(doc0);
+      await press("Escape");
+    }
+    const restored = await settle((p) => p.doc === doc0 && p.mode === "normal", "the text before the test");
     checks.assertAll();
     // Later flows find the buffer in normal mode with the text it had before this test.
     expect(restored).toMatchObject({ doc: doc0, mode: "normal" });
