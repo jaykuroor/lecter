@@ -132,14 +132,34 @@ describe("the caret", () => {
     expect(blinking()).toBe(0);
   });
 
-  it("blinks again at the next click", () => {
+  it("blinks again at the next click, even one on the caret's own place", () => {
     open();
-    key("j");
-    timeline.advance(15_000);
     click();
+    timeline.advance(15_000);
+    expect(blinking()).toBe(0);
+    const selection = view.state.selection;
+    click(); // the same place: CodeMirror dispatches no selection for it
+    expect(view.state.selection.eq(selection)).toBe(true);
     expect(blinking()).toBe(2);
     timeline.advance(BLINK_FOR_MS);
     expect(blinking()).toBe(0);
+  });
+
+  it("blinks in another lecture opened into the same focused editor", async () => {
+    open();
+    await focusSettles();
+    timeline.advance(15_000);
+    view.setState(lectureState(sampleLecture, "Lecture l08.md"));
+    expect(view.hasFocus).toBe(true);
+    expect(blinking()).toBe(2);
+  });
+
+  it("leaves nothing running once the editor is gone", () => {
+    open();
+    key("j");
+    view.destroy();
+    opened = null;
+    expect(timeline.running()).toBe(0);
   });
 
   it("restarts the cycle when the cursor moves, so it shows at its new place", () => {

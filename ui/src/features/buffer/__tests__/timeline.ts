@@ -9,8 +9,10 @@ interface Running {
   duration: number;
   iterations: number;
   fill: string;
-  /** Clock time at which the current play started; null once cancelled. */
+  /** Clock time at which the current play started; null while idle (cancelled) or paused. */
   start: number | null;
+  /** The held current time of a paused animation (a time set while idle), else null. */
+  hold: number | null;
 }
 
 /** The fake timeline, installed on `Element.prototype` until `uninstall()`. */
@@ -61,20 +63,27 @@ export function installTimeline(): Timeline {
       iterations: options.iterations ?? 1,
       fill: options.fill ?? "auto",
       start: now,
+      hold: null,
     };
     all.push(r);
     return {
       get currentTime() {
-        return r.start === null ? null : now - r.start;
+        return r.start === null ? r.hold : now - r.start;
       },
+      // As the Web Animations spec: setting the time of a playing or finished animation moves its
+      // start; setting it on an idle one holds it there, paused, until play().
       set currentTime(t: number | null) {
-        r.start = t === null ? null : now - t;
+        if (r.start !== null && t !== null) r.start = now - t;
+        else r.hold = t;
       },
       play() {
-        if (r.start === null || !isRunning(r)) r.start = now;
+        if (r.hold !== null) r.start = now - r.hold;
+        else if (r.start === null || !isRunning(r)) r.start = now;
+        r.hold = null;
       },
       cancel() {
         r.start = null;
+        r.hold = null;
       },
     } as unknown as Animation;
   };

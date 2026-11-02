@@ -26,9 +26,8 @@ class CaretBlink {
   private readonly reduceMotion: MediaQueryList | null;
 
   constructor(private readonly view: EditorView) {
-    const win = view.dom.ownerDocument.defaultView;
-    this.reduceMotion =
-      typeof win?.matchMedia === "function" ? win.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    this.reduceMotion = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+    // Focused already (another lecture opened into the same editor): no focus change will come.
     this.input();
   }
 
@@ -59,19 +58,18 @@ class CaretBlink {
 
   destroy(): void {
     this.stop();
-    this.blinks.clear();
   }
 }
 
 const caretPlugin = ViewPlugin.fromClass(CaretBlink, {
-  eventHandlers: {
+  // Observers, not handlers: they see every key and click and never stop another handler.
+  // A click on the caret's own place dispatches no selection, so it needs its own restart.
+  eventObservers: {
     keydown() {
       this.input();
-      return false;
     },
     mousedown() {
       this.input();
-      return false;
     },
   },
 });
