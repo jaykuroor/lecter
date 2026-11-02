@@ -23,11 +23,20 @@
 
 import { appendFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { DETECT_BUDGET_MS, type Harness, startHarness, watchOutOfPage } from "../../../spikes/figure-frame/server.ts";
+import {
+  DETECT_BUDGET_MS,
+  type Harness,
+  STALE_MS,
+  startHarness,
+  watchOutOfPage,
+} from "../../../spikes/figure-frame/server.ts";
 import { shot } from "../support/shot.ts";
 
 /** A bounded busy loop: long enough to pass the 2 s budget, short enough that the app recovers. */
 const BUSY_MS = 5000;
+/** The idle baseline before the loop: how long, and the slowest ping that keeps it meaningful. */
+const IDLE_MS = 2000;
+const IDLE_PING_LIMIT_MS = STALE_MS / 3;
 /** How long a request that got through has to reach the beacon log after the frames navigate. */
 const OBSERVE_MS = 1500;
 const observe = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -143,15 +152,25 @@ describe("figure frame sandbox", function () {
 
   // Back to the app: later flows find its shell as at start (shell.ts checks the same things).
   after(async () => {
-    if (appUrl) await browser.url(appUrl);
-    await expect($('[aria-label="Course rail"]')).toBeDisplayed({ wait: 30_000 });
-    await expect($('[role="status"]')).toHaveText(/^v\d+\.\d+\.\d+$/, { wait: 30_000 });
-    await harness?.close();
+    try {
+      if (appUrl) await browser.url(appUrl);
+      await expect($('[aria-label="Course rail"]')).toBeDisplayed({ wait: 30_000 });
+      await expect($('[role="status"]')).toHaveText(/^v\d+\.\d+\.\d+$/, { wait: 30_000 });
+    } finally {
+      await harness?.close();
+    }
   });
 
   it("detects a busy loop in the frame within 2 s", async () => {
     const variant = await browser.execute(
       () => ["self", "lib"].find((v) => (window as FfWindow).__ff?.frames[v]?.result) ?? "self",
+    );
+    // Idle baseline: with nothing busy, a ping must come back well inside the stale limit, so an
+    // unanswered ping during the loop means a busy frame, not a slow WebDriver.
+    const idle = await watchOutOfPage(() => browser.execute(() => 1), IDLE_MS);
+    const idleOk = idle.detectedAt === null && idle.maxPingMs <= IDLE_PING_LIMIT_MS;
+    report(
+      `FRAME ${engine} ${variant} watchdog idle pings answered within ${IDLE_PING_LIMIT_MS} ms: ${idleOk ? "ok" : "FAIL"} (${JSON.stringify({ maxPingMs: idle.maxPingMs, flagged: idle.detectedAt !== null, idleMs: IDLE_MS })})`,
     );
     // Not awaited: where the frame shares the page's thread this call returns only when the loop
     // ends, so the out-of-page leg watches it as its first ping.
@@ -187,6 +206,8 @@ describe("figure frame sandbox", function () {
     report(
       `FRAME ${engine} ${variant} watchdog frame shares the parent's thread: observed (${JSON.stringify({ shares: inside.maxGap >= BUSY_MS / 2 })})`,
     );
+    expect(idle.detectedAt).toBeNull();
+    expect(idle.maxPingMs).toBeLessThanOrEqual(IDLE_PING_LIMIT_MS);
     expect(detected).toBeLessThanOrEqual(DETECT_BUDGET_MS);
   });
 

@@ -7,7 +7,7 @@
 
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import { DETECT_BUDGET_MS, startHarness, watchOutOfPage } from "./server.ts";
+import { DETECT_BUDGET_MS, STALE_MS, startHarness, watchOutOfPage } from "./server.ts";
 
 const require = createRequire(join(import.meta.dirname, "../../ui/package.json"));
 const playwright = require("@playwright/test");
@@ -40,6 +40,10 @@ try {
 
     // Busy loop in the first frame whose probe ran; both watchdog legs watch it.
     const v = await page.evaluate(() => ["self", "lib"].find((x) => window.__ff.frames[x]?.result) ?? "self");
+    // Idle baseline: pings must come back well inside the stale limit when nothing is busy.
+    const idle = await watchOutOfPage(() => page.evaluate(() => 1), 2000);
+    const idleOk = idle.detectedAt === null && idle.maxPingMs <= STALE_MS / 3;
+    const idleLine = `FRAME ${name} ${v} watchdog idle pings answered within ${STALE_MS / 3} ms: ${idleOk ? "ok" : "FAIL"} (${JSON.stringify({ maxPingMs: idle.maxPingMs, flagged: idle.detectedAt !== null, idleMs: 2000 })})`;
     // Not awaited: the out-of-page leg watches the call that starts the loop as its first ping.
     const trigger = page.evaluate(([x, ms]) => window.__ff.busy(x, ms), [v, BUSY_MS]);
     const outside = await watchOutOfPage(() => page.evaluate(() => 1), BUSY_MS + 1500, trigger);
@@ -69,6 +73,8 @@ try {
       `FRAME ${name} ${v} watchdog detected within ${DETECT_BUDGET_MS} ms: ${ok ? "ok" : "FAIL"} (${JSON.stringify(detail)})`,
     );
     if (!ok) graded.failed.push("watchdog");
+    graded.lines.push(idleLine);
+    if (!idleOk) graded.failed.push("watchdog idle");
     for (const l of graded.lines) console.log(l);
     failed += graded.failed.length;
     await browser.close();

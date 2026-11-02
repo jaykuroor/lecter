@@ -43,7 +43,9 @@ build with the embedded WebDriver, CI's `e2e-app` job) at a harness from a local
   within 1.5–1.75 s, under the 2 s budget): the **in-page** leg (the parent pings the frame by
   `postMessage`) and the **out-of-page** leg (a trivial script evaluated in the page from outside:
   a WebDriver execute here, `webview.eval` from the core in the app). The parent's own timer gaps
-  show whether the frame runs on the parent's thread. Detection = the earlier leg.
+  show whether the frame runs on the parent's thread. Detection = the earlier leg. Before the
+  loop, a 2 s idle baseline of the out-of-page leg must flag nothing, and its slowest ping must
+  stay under 500 ms.
 
 Every check prints `FRAME <webview> <scope> <area> <check>: ok|FAIL|observed (<detail>)`, then the
 flow asserts none failed. `measure.mjs` runs the same harness in ui/'s Playwright browsers (no
@@ -104,7 +106,10 @@ failed, so all three uploaded their logs. `fetch.sh 41461890948 <artifacts>` giv
    match `'self'`. Under the exact CSP, a figure's own script from `lecter-fig:` would not run.
    Chromium matches the response URL's origin. A scheme source works in all three: the `lib`
    frame's script origin is named explicitly and ran everywhere. So `script-src lecter-fig:
-   lecter-lib:` instead of `'self' lecter-lib:`. This doesn't weaken criterion 1's proof on WebKit:
+   lecter-lib:` instead of `'self' lecter-lib:`. **Unverified with a real custom scheme:** the
+   harness named an `http://127.0.0.1:<port>` origin, not a registered `lecter-fig:`/`lecter-lib:`
+   scheme. F-141 must prove that each webview loads a frame script from a custom scheme named in
+   `script-src`. This doesn't weaken criterion 1's proof on WebKit:
    the `lib` frame's CSP is the spec's, with the stand-in for `lecter-lib:`, and every check held.
 3. **IPC:** on WebView2, wry adds Tauri's init scripts to subframes, so the figure frame holds
    `__TAURI_INTERNALS__` with the invoke key. Its calls still go nowhere: the custom-protocol fetch
@@ -117,9 +122,13 @@ failed, so all three uploaded their logs. `fetch.sh 41461890948 <artifacts>` giv
    during the loop. The out-of-page leg gave null because of a bug in the flow, not in WebKit. The
    WebDriver call that starts the loop only returned when the loop ended (wdio log: sent
    14:31:53.096, answered 14:31:58.101 on WebKitGTK; 14:37:45.201 → 14:37:50.217 on WKWebView).
-   The flow waited for it before it began watching, so every later ping came back in 4–15 ms. Fixed after run 1: the starting call is now the watcher's first ping
-   (`watchOutOfPage(…, first)`). Locally (Chromium, frame on the parent's thread), that leg flags
-   the loop at 1751 ms: the 250 ms heartbeat plus the 1500 ms stale limit, the worst case for a
-   loop that starts just after a ping. Run 2 measures it on WebKit.
+   The flow waited for it before it began watching, so every later ping came back in 4–15 ms.
+   Fixed after run 1: the starting call is now the watcher's first ping
+   (`watchOutOfPage(…, first)`), and a 2 s idle baseline runs first. Its pings must come back
+   within 500 ms (a third of the stale limit) and none may be flagged, so an unanswered ping
+   during the loop means a busy frame, not a slow WebDriver. Locally (Chromium, frame on the
+   parent's thread), the slowest idle ping was 4 ms and the leg flags the loop at 1749 ms: the
+   250 ms heartbeat plus the 1500 ms stale limit, the worst case for a loop that starts just after
+   a ping. Run 2 measures it on WebKit.
 
 **Run 2** (the out-of-page fix): pending; `fetch.sh <run-id>` fills it in.
