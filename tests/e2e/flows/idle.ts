@@ -163,6 +163,27 @@ async function expectFocused(): Promise<void> {
   expect(await focus()).toEqual({ document: true, editor: true });
 }
 
+/**
+ * Clicks `selector` the way a mouse does: the embedded WebDriver's pointer actions dispatch
+ * mousedown, mouseup and click at the element's centre. Its element click (`$(…).click()`) calls
+ * only `el.click()`, a lone `click` event that no real mouse sends alone and that neither
+ * CodeMirror (selection on mousedown) nor the caret (restart on mousedown) acts on.
+ */
+async function mouseClick(selector: string): Promise<void> {
+  const target = await $(selector);
+  await browser.action("pointer").move({ origin: target }).down().up().perform();
+}
+
+/** Waits briefly (2 s) for the caret to blink after an input, then asserts it does. */
+async function expectBlinking(after: string): Promise<void> {
+  await browser
+    .waitUntil(async () => (await caretBlinks()) > 0, { timeout: 2_000, interval: 50 })
+    .catch(() => undefined);
+  const blinks = await caretBlinks();
+  console.log(`IDLE caret animations right after ${after}: ${blinks}`);
+  expect(blinks).toBeGreaterThan(0);
+}
+
 /** Running animations and transitions in the main window: kind and target. */
 function running(): Promise<string[]> {
   return browser.execute(() =>
@@ -311,14 +332,14 @@ describe("an idle lecture", function () {
     await expectFocused();
     // Esc in normal mode moves nothing; it is still a key.
     await browser.keys("Escape");
-    expect(await caretBlinks()).toBeGreaterThan(0);
+    await expectBlinking("Esc");
     await expectBlinkEnds("after Esc");
     await idleFor(BLINK_MS);
     expect(await running()).toEqual([]);
 
-    await $(".cm-block").click();
+    await mouseClick(".cm-block");
     await expectFocused();
-    expect(await caretBlinks()).toBeGreaterThan(0);
+    await expectBlinking("a click");
     await expectBlinkEnds("after a click");
     await idleFor(BLINK_MS);
     expect(await running()).toEqual([]);

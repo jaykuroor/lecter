@@ -154,6 +154,23 @@ describe("the caret", () => {
     expect(blinking()).toBe(2);
   });
 
+  it("blinks again at a click as the real-app WebDriver's pointer actions send it", () => {
+    // tauri-plugin-wdio-webdriver 1.5.0 dispatch_pointer_event: untrusted MouseEvents mousedown
+    // (buttons 1), mouseup, then click, at the element under the pointer (tests/e2e/flows/idle.ts).
+    open();
+    key("j");
+    timeline.advance(15_000);
+    const line = view.contentDOM.querySelector(".cm-line.cm-block");
+    expect(line).not.toBeNull();
+    const at = { bubbles: true, cancelable: true, clientX: 300, clientY: 40, button: 0 };
+    line?.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+    line?.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
+    line?.dispatchEvent(new MouseEvent("click", { ...at, buttons: 0 }));
+    expect(blinking()).toBe(2);
+    timeline.advance(BLINK_FOR_MS);
+    expect(blinking()).toBe(0);
+  });
+
   it("blinks in another lecture opened into the same focused editor", async () => {
     open();
     await focusSettles();
