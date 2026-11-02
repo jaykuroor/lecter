@@ -6,10 +6,10 @@ These are CI gates from the walking skeleton on (milestone M0.5). Every feature 
 
 | Id (`tests/perf/budgets.json`) | Target | How measured |
 |---|---|---|
-| `keystroke_p99_ms` | p99 < 8 ms | Trace of 500 keystrokes in the 200-slide fixture lecture (real app via WebDriver; mocked core in Playwright as the fast check) |
+| `keystroke_p99_ms` | p99 < 8 ms | Trace of 500 keystrokes in the 200-slide fixture lecture (real app via WebDriver; mocked core in Playwright as the fast check). The real-app trace gates only with hardware rendering (see rules) |
 | `cold_open_ms` | < 400 ms | Process start to first buffer paint of the fixture lecture |
-| `idle_rss_mb` | < 150 MB total, webview included | RSS sum of all app processes 60 s after opening the fixture lecture |
-| `rss_300_slides_mb` | < 250 MB total | RSS with the 300-slide fixture lecture open and scrolled end to end |
+| `idle_rss_mb` | Per OS (see rules); Linux < 460 MB | Memory of all app processes, webview included, 60 s after opening the fixture lecture |
+| `rss_300_slides_mb` | Per OS (see rules); Linux < 500 MB | Memory with the 300-slide fixture lecture open and scrolled end to end |
 | `idle_cpu_pct` | < 0.5% average | 5-minute idle sample |
 | `ttft_overhead_ms` | < 20 ms | Gloss request against the fake provider with 0 ms latency |
 | `tier1_p95_ms` | < 100 ms | Fixture course: 1 textbook (~600 pages) + 10 lectures (from M4) |
@@ -22,6 +22,9 @@ These are CI gates from the walking skeleton on (milestone M0.5). Every feature 
 Rules:
 - A budget is born with the feature that makes it measurable, and its entry lists the milestone it starts gating (`"from"`). Entries without a measurement yet print `PENDING` and fail once their milestone is done.
 - `kind: timing` budgets: shared CI runners are noisy, so with `--ci` a timing value gets a ×1.5 allowance, and a value over it is measured once more: the budget fails only if both runs are over ×1.5 (the report keeps both values). Locally (`--quick`, `--only`) they gate at ×1. Memory, size and token budgets are exact everywhere. The gardener tracks values between ×1 and ×1.5.
+- Memory budgets have a target per OS (`budgets.json` `"per_os"`). They count Lecter's own processes by RSS and the webview's processes by PSS (macOS: `phys_footprint`; Windows: private working set), because shared WebKit and system libraries would otherwise be counted once per process. Each OS's target is its first release-build measurement plus 10 %, rounded up to the next 10 MB, recorded in a D-entry (Linux: D-139's 414.6 and 450.7 MB PSS → 460 and 500 MB). Targets may only go down afterwards.
+- `keystroke_p99_ms` from the real app gates only where the webview renders on a GPU: locally (`--only keystroke_p99_ms`, run by the maintainer at each milestone gate). CI runners render in software (Xvfb/llvmpipe, WARP), so with `--ci` the real-app value prints `REPORT` and never fails; the mocked-core Playwright trace gates every push.
+- Nothing animates while idle: after 10 s without input or a running stream, the window has no running animation or transition and no repeating DOM work. The caret blinks for 10 s after the last input, then stays solid until the next one (GTK's behaviour).
 - Never loosen a budget to pass. Measure, record a D-entry, and ask the maintainer. `tests/perf/budgets.json` is a protected file (`#protected-checks`), and the test-weakening lint fails on any loosened value.
 
 ## Perf harness

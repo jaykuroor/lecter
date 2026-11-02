@@ -804,3 +804,23 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: D-081 fixed the three presets and the Balanced default; the key name and the pause length were the gaps. 200 ms keeps highlighting visibly prompt while leaving bursts of typing (≤ 150 ms between keys) parse-free.
 - Instead of: a `performance.preset` namespace (one key doesn't need its own group); a pause of 500 ms or more (highlighting would feel late).
 - Revisit if: F-074's trace shows parses inside typing bursts or highlighting feels late in the gate.
+
+## D-144 · Windows parse sandbox: accept the LPAC boundary
+2026-11-02 · planning session, decider: maintainer (Q-008) · active
+- Decision: SEC-01 on Windows is LPAC AppContainer + job object. Besides its input (passed as a handle), the worker may read only files whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files); everything else, including the whole user profile, is denied. The rest of SEC-01 is unchanged. F-005 criterion 1 now asserts a user-profile file is denied on Windows instead of win.ini; F-005 is unblocked to finish on feat/F-005-os-sandbox and merge.
+- Why: LPAC honours that grant by design (CI run 40154388308, 55/56 with only win.ini readable); the lockdown-token alternative (30934ba) failed to start (0xC0000135). OS files hold nothing of the student's.
+- Instead of: a lockdown token without AppContainer, which needs its start-up DLL loading solved first.
+- Revisit if: a parser exploit needs OS file contents to escalate, or the lockdown token is made to start.
+
+## D-145 · Figure frames: native request filter, scheme CSP, core-side watchdog
+2026-11-02 · planning session, decider: maintainer (Q-019) · active
+- Decision: 08-figures#sandbox-pages now requires (1) a native request filter refusing every figure-frame request not to lecter-fig:/lecter-lib: (WebView2 WebResourceRequested; WebKit content rule list or scheme-handler checks), built for real in F-141 and proven in F-028 criterion 1 together with the CSP; (2) CSP `script-src lecter-fig: lecter-lib:` instead of `'self'`, proven per webview in F-141; (3) a core-side watchdog (webview.eval heartbeat every 250 ms, flagged after 1.5 s) that kills the frame from the native side (F-142); (4) the core drops IPC not from a window's main frame (SEC-31, F-141). F-028 gets the filter as `app/src/figure_filter*`, compiled only with test-hooks until F-141 ships it, so it isn't written twice; F-028 and F-142 now take a security review.
+- Why: D-142: `<link rel=prefetch>` leaves the frame on WebView2 despite `default-src 'none'`; WebKit never matches `'self'` in an opaque-origin frame; WebKit runs the frame on the parent's thread; WebView2 injects Tauri's IPC into subframes.
+- Instead of: the CSP alone, or an in-page watchdog alone.
+
+## D-146 · Perf budgets: per-OS memory by PSS, keystroke gated off CI, idle draws nothing
+2026-11-02 · planning session, decider: maintainer (Q-017) · active
+- Decision: in 14-quality#performance-budgets, idle_rss_mb and rss_300_slides_mb get per-OS targets (`per_os`), counting Lecter's processes by RSS and the webview's by PSS (macOS phys_footprint, Windows private working set). Target = first release-build measurement + 10 %, rounded up to the next 10 MB; Linux from D-139 (414.6, 450.7 MB PSS) → 460 and 500 MB; macOS and Windows from F-025's dispatch run; targets only go down afterwards. keystroke_p99_ms stays 8 ms, but the real-app trace gates only with hardware rendering (local, at each milestone gate); with --ci it prints REPORT and the mocked-core trace gates. New M0.5 cards: F-029 (nothing redraws while idle; the caret blinks 10 s after the last input, then stays solid, as GTK does) and F-179 (cold open under 600 ms on CI). F-025 depends on both, is unblocked, and merges once its gate passes.
+- Why: WebKitWebProcess alone exceeds 150 MB RSS and shared libraries are counted once per process by RSS; idle CPU is 95 % llvmpipe redraw; Xvfb/llvmpipe keystroke timings measure software rendering, not Lecter (D-080 measured 11–12 ms on WebKit).
+- Instead of: one 150/250 MB total for every OS; a caret that never blinks (less visible) or blinks forever (redraws while idle); gating keystrokes on software-rendered CI.
+- Revisit if: F-029 lowers idle memory (tighten the Linux targets to the new measurement), or a CI runner with hardware rendering becomes available.

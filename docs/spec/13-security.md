@@ -20,7 +20,7 @@ Every requirement below has an id (`SEC-nn`). Features cite the ids they impleme
 
 ## Untrusted files
 
-- **SEC-01 Sandboxed parse worker.** Parsing runs in the `lecter-parse` child process with no network, read access to its one input file only, a 1 GB memory limit and a 60 s time limit per file. Linux: seccomp + Landlock. macOS: a sandbox profile. Windows: AppContainer, or a restricted token plus a job object. The model worker uses the same sandbox, except that its downloads run in the core.
+- **SEC-01 Sandboxed parse worker.** Parsing runs in the `lecter-parse` child process with no network, read access to its one input file only, a 1 GB memory limit and a 60 s time limit per file. Linux: seccomp + Landlock. macOS: a sandbox profile. Windows: LPAC AppContainer + job object; besides its input (passed as a handle), the worker can read only files whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files), and files without that grant, including everything under the user profile, are denied. The model worker uses the same sandbox, except that its downloads run in the core.
 - **SEC-02 Archive limits.** Zip: at most 200 MB uncompressed, compression ratio at most 100, at most 10,000 entries, no absolute paths or `..` in entry names.
 - **SEC-03 XML.** No DTD processing, no external entities, depth at most 256.
 - **SEC-04 Size limits** (all settings under `limits.*`, with these defaults): file 500 MB; 2,000 pages; 100 megapixels per image after decoding (decompression bombs); PDF object nesting depth 64; text extracted per page 1 MB. Over a limit: the file is marked failed with a clear reason, and nothing crashes.
@@ -48,7 +48,7 @@ Every requirement below has an id (`SEC-nn`). Features cite the ids they impleme
 ## Tauri and IPC
 
 - **SEC-30 CSP.** Main webview: `default-src 'self'; img-src 'self' lecter: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src lecter-fig:`. No remote content, no `eval`, no inline scripts.
-- **SEC-31 Least-privilege capabilities.** One capability file per window, listing only the commands that window uses. No remote URLs in any capability. The figure frame gets none.
+- **SEC-31 Least-privilege capabilities.** One capability file per window, listing only the commands that window uses. No remote URLs in any capability. The figure frame gets none, and the core drops every IPC message that doesn't come from a window's main frame (WebView2 injects Tauri's IPC into subframes).
 - **SEC-32 Every command validates its input in Rust** (`18-contracts.md#validation`): types, string lengths, list sizes, payload size (1 MB per call by default; larger data goes through `lecter://` or channels), path canonicalisation. The UI is never trusted.
 - **SEC-33 `lecter://` serves only the content-hash cache.** The handler accepts `lecter://cache/<blake3>.<ext>` and nothing else: no paths, no `..`, no other folders. The same rule holds for `lecter-fig:` (hash-named figure files only) and `lecter-lib:` (bundled, version-pinned libraries only); anything else gets a 404.
 - **SEC-34 Devtools are off in release builds.** The WebDriver plugin (`tauri-plugin-wdio-webdriver`) and the test hooks exist only in debug builds; CI checks release binaries for their symbols (`16-ci-cd.md`).
