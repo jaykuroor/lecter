@@ -6,7 +6,8 @@
 (() => {
   const variant = document.body.dataset.variant || "unknown";
   const pageOrigin = new URL(location.href).origin;
-  const libOrigin = (document.currentScript && new URL(document.currentScript.src).origin) || pageOrigin;
+  // The lib origin (the stand-in for lecter-lib:) is a real second origin in both variants.
+  const libOrigin = document.body.dataset.lib || pageOrigin;
   const post = (msg) => parent.postMessage({ ...msg, variant }, "*");
   const violations = [];
   document.addEventListener("securitypolicyviolation", (e) => {

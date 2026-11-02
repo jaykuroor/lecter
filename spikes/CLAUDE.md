@@ -19,4 +19,4 @@ Spikes never become dependencies of `crates/` or `ui/`. Port what you learned; d
 - Playwright WebKit won't launch on distros Playwright doesn't support (its Ubuntu build needs ICU 74, libjpeg.so.8, libjxl 0.8); measure WebKit on Ubuntu.
 - The sandbox proxy can stall or truncate large downloads: check Content-Length, cap each attempt's time and retry before hashing.
 - Keystroke latency: a task posted from a key handler runs after the next frame in Chromium; use `--disable-gpu-vsync --disable-frame-rate-limit` for end-to-end numbers.
-
+- Chromium 156 lets `<link rel=prefetch>` through a `default-src 'none'` CSP in a sandboxed frame (spikes/figure-frame); a CSP alone doesn't keep a page off the network

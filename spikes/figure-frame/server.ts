@@ -82,7 +82,7 @@ function probeHtml(variant: "self" | "lib", lib: string): string {
   return [
     "<!doctype html>",
     `<html lang="en"><head><meta charset="utf-8"><title>probe ${variant}</title></head>`,
-    `<body data-variant="${variant}"><p>figure probe</p>`,
+    `<body data-variant="${variant}" data-lib="${lib}"><p>figure probe</p>`,
     `<script src="${src}"></script>`,
     "</body></html>",
   ].join("\n");

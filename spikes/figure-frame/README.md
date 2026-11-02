@@ -80,8 +80,8 @@ download. The kit change that makes every OS's lines downloadable: the e2e-app u
   `lecter-lib:`/`lecter-fig:` from the frame).
 - Parent, storage and IPC: all blocked (SecurityError for every storage API and parent read; no
   IPC object in the frame; both IPC endpoints blocked by `connect-src`).
-- Watchdog: the sandboxed frame runs on the parent's thread (parent timer gap 5075 ms for a
+- Watchdog: the sandboxed frame runs on the parent's thread (parent timer gap 5066 ms for a
   5000 ms loop), so the in-page leg sees the loop only when it ends (5000 ms); the out-of-page leg
-  flags it at 1502 ms.
+  flags it at 1503 ms.
 
 **CI (three webviews):** pending; `fetch.sh <run-id>` fills this in.
