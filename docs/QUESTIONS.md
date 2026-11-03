@@ -139,5 +139,11 @@ Should mutants.py run in macOS and Windows CI for crates with cross-OS code befo
 - Recommended: yes for the sandbox crate: a scheduled macOS/Windows mutants job scoped to cfg(windows)/cfg(target_os = "macos") files, before F-052..F-054 are done.
 - Answer:
 
+## Q-021 · later · blocks: nothing
+Should native carets in text inputs (the gloss prompt textarea) also stop blinking 10 s after the last input, like the lecture caret (D-146, D-150)?
+- Context: F-029 replaced only CodeMirror's caret blink. A focused native textarea blinks under the webview's own rules (WebKitGTK follows GTK's setting), so an idle window with the gloss prompt open may still redraw.
+- Recommended: leave it native; the prompt is open only while the user is typing a question. Revisit if the open-idle run shows redraws with the prompt open.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
