@@ -31,6 +31,7 @@ const START_SLACK_MS = 1_000;
 /** How long the stream's painting is sampled, frame by frame (criterion 4). */
 const PAINT_SAMPLE_MS = 2_000;
 const QUESTION = "Why does correlation have no units?";
+const FIRST_BLOCK = "Correlation is covariance divided by both standard deviations.";
 
 // A synthetic lecture as Lecter writes it (03-lecture-files.md). English only.
 const LECTURE = [
@@ -164,14 +165,67 @@ async function expectFocused(): Promise<void> {
 }
 
 /**
- * Clicks `selector` the way a mouse does: the embedded WebDriver's pointer actions dispatch
- * mousedown, mouseup and click at the element's centre. Its element click (`$(…).click()`) calls
- * only `el.click()`, a lone `click` event that no real mouse sends alone and that neither
- * CodeMirror (selection on mousedown) nor the caret (restart on mousedown) acts on.
+ * Clicks `selector` once, as a mouse does: pointerdown, mousedown, pointerup, mouseup, click, all
+ * with `detail: 1` (a single click), at a point near the start of its first line. The embedded
+ * WebDriver can't do this: its element click (`$(…).click()`) sends only a lone `click`, which no
+ * real mouse sends and which neither CodeMirror (selection on mousedown) nor the caret (restart on
+ * mousedown) acts on; its pointer actions send `detail: 0`, which CodeMirror counts as a triple
+ * click and turns into a whole-line selection, so Vim leaves normal mode.
  */
-async function mouseClick(selector: string): Promise<void> {
-  const target = await $(selector);
-  await browser.action("pointer").move({ origin: target }).down().up().perform();
+async function mouseClick(selector: string): Promise<boolean> {
+  return await browser.execute((sel: string) => {
+    const el = document.querySelector(sel);
+    if (!el) return false;
+    const box = el.getBoundingClientRect();
+    const x = box.left + Math.min(box.width / 2, 40);
+    const y = box.top + Math.min(box.height / 2, 10);
+    const target = document.elementFromPoint(x, y) ?? el;
+    const at = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0, detail: 1 };
+    const pointer = { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true };
+    target.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, buttons: 1 }));
+    target.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+    target.dispatchEvent(new PointerEvent("pointerup", { ...pointer, buttons: 0 }));
+    target.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
+    target.dispatchEvent(new MouseEvent("click", { ...at, buttons: 0 }));
+    return true;
+  }, selector);
+}
+
+/** The buffer's Vim mode and the focused line's text. */
+function cursor(): Promise<{ mode: string; line: string }> {
+  return browser.execute(() => ({
+    mode: document.querySelector<HTMLElement>(".lecture-buffer")?.dataset.vimMode ?? "",
+    line: document.querySelector(".cm-focused-line")?.textContent ?? "",
+  }));
+}
+
+/** Opens this flow's lecture from the rail, unless it is open already. */
+async function openLecture(): Promise<void> {
+  const open = await browser.execute(
+    () => document.querySelector<HTMLElement>(".lecture-buffer")?.dataset.lecture ?? "",
+  );
+  if (open !== `lectures/${NAME}`) {
+    await $("button.course-open").click();
+    await $(`button.course-file-open=${NAME}`).click();
+  }
+  await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
+  await installProbe();
+}
+
+/**
+ * Puts the cursor on the lecture's first slide line in normal mode, whatever an earlier test left:
+ * Esc (out of insert or visual mode), then gg.
+ */
+async function toFirstSlideLine(): Promise<void> {
+  await openLecture();
+  await browser.keys("Escape");
+  await browser.keys("g");
+  await browser.keys("g");
+  const want = { mode: "normal", line: FIRST_BLOCK };
+  await browser
+    .waitUntil(async () => JSON.stringify(await cursor()) === JSON.stringify(want), { timeout: 5_000, interval: 50 })
+    .catch(() => undefined);
+  expect(await cursor()).toEqual(want);
 }
 
 /** Waits briefly (2 s) for the caret to blink after an input, then asserts it does. */
@@ -304,17 +358,12 @@ describe("an idle lecture", function () {
   });
 
   it("runs no animation, DOM change or frame 10 s after the last key, with the caret solid", async () => {
-    await $("button.course-open").click();
-    await $(`button.course-file-open=${NAME}`).click();
-    await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
-    await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
-    await installProbe();
-
+    await toFirstSlideLine();
     await expectFocused();
     await browser.keys("j");
     expect(await sinceInput()).toBeLessThan(BLINK_MS);
-    // Blinking right after the key.
-    expect(await caretBlinks()).toBeGreaterThan(0);
+    expect((await cursor()).mode).toBe("normal");
+    await expectBlinking("j");
 
     await expectIdle("after a key");
     // Stopped, and visible: the block cursor shows at full opacity.
@@ -328,6 +377,9 @@ describe("an idle lecture", function () {
   });
 
   it("blinks again at the next key and the next click, then stops 10 s later", async () => {
+    await toFirstSlideLine();
+    await expectBlinkEnds("before Esc");
+    await idleFor(BLINK_MS);
     expect(await caretBlinks()).toBe(0);
     await expectFocused();
     // Esc in normal mode moves nothing; it is still a key.
@@ -337,8 +389,10 @@ describe("an idle lecture", function () {
     await idleFor(BLINK_MS);
     expect(await running()).toEqual([]);
 
-    await mouseClick(".cm-block");
+    expect(await mouseClick(".cm-block")).toBe(true);
     await expectFocused();
+    // A single click puts the cursor on the line; it doesn't select it.
+    expect(await cursor()).toEqual({ mode: "normal", line: FIRST_BLOCK });
     await expectBlinking("a click");
     await expectBlinkEnds("after a click");
     await idleFor(BLINK_MS);
@@ -347,6 +401,8 @@ describe("an idle lecture", function () {
   });
 
   it("paints a streaming gloss, and is idle again 10 s after the stream ends", async () => {
+    // `a` asks on a slide line in normal mode (10-keymap.md#on-a-slide-line).
+    await toFirstSlideLine();
     await browser.keys("a");
     await expect($(".gloss-prompt-input")).toBeExisting();
     const sent = await browser.execute((q: string) => {

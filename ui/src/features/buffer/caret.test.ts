@@ -171,6 +171,20 @@ describe("the caret", () => {
     expect(blinking()).toBe(0);
   });
 
+  it("blinks again at a single click as the idle flow sends it, leaving the cursor a cursor", () => {
+    // tests/e2e/flows/idle.ts mouseClick: mousedown, mouseup, click with detail 1 (a single click).
+    open();
+    key("j");
+    timeline.advance(15_000);
+    const line = view.contentDOM.querySelector(".cm-line.cm-block");
+    const at = { bubbles: true, cancelable: true, clientX: 150, clientY: 10, button: 0, detail: 1 };
+    line?.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+    line?.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
+    line?.dispatchEvent(new MouseEvent("click", { ...at, buttons: 0 }));
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(blinking()).toBe(2);
+  });
+
   it("blinks in another lecture opened into the same focused editor", async () => {
     open();
     await focusSettles();
