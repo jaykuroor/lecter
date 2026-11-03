@@ -951,10 +951,10 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "BLOCKED: IMPOSSIBLE: criterion 1 on WebView2 - link prefetch from the sandboxed frame bypasses the CSP (reviewer agreed); smallest spec change: native request filter for figure frames in 08-figures#sandbox-pages (Q-019, D-142). Branch feat/F-028-figure-frame complete; criterion 2 passes on all three after run 2. | Q-019 answered (D-145): add a native request filter (app/src/figure_filter*, test-hooks only until F-141 ships it) on branch feat/F-028-figure-frame; criterion 1 now proves filter + CSP. Criterion 2 already passes.",
    "priority": 2024,
-   "base": "feba84bffe76595e1e8743e0bfbdfc36c3ab1e9a",
+   "base": "40dae6712a15e2d27e4ad07ddb1e486bd87544d0",
    "reviews": [
     "security"
    ]
