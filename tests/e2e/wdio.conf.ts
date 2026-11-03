@@ -10,6 +10,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { timings } from "./support/timings";
+import { type Session, skipFocusCheck } from "./support/window";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
@@ -59,6 +60,8 @@ export const config = {
   outputDir: process.env.LECTER_E2E_OUT,
   waitforTimeout: 15_000,
   bail: 0,
+  // Each flow's session: no 5 s window-focus wait before every find and click (support/window.ts).
+  before: (_caps: unknown, _specs: string[], session: Session) => skipFocusCheck(session),
   onWorkerStart: times.onWorkerStart,
   onWorkerEnd: times.onWorkerEnd,
   onComplete: times.onComplete,

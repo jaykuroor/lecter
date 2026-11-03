@@ -15,6 +15,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shot } from "../support/shot.ts";
+import { skipFocusCheck } from "../support/window.ts";
 
 const NAME = "2026-10-26-l08-restart.md";
 const STEM = "2026-10-26-l08-restart";
@@ -92,6 +93,8 @@ async function relaunch(): Promise<void> {
   if (typeof log === "number") closeSync(log);
   await waitFor(alive, 60_000, "the relaunched app's WebDriver server");
   await browser.reloadSession();
+  // A new session: switch the service's focus check off again (wdio.conf.ts did the first one).
+  await skipFocusCheck(browser);
 }
 
 /** Opens the course (the dialog answers LECTER_TEST_PICK) and the lecture, with the mouse. */
