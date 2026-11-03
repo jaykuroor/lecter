@@ -16,11 +16,15 @@ mod dialog;
 #[path = "ipc/export.rs"]
 mod export;
 mod ipc;
+// The `startup <phase> <ms>` lines (cold_open_ms; 14-quality.md#performance-budgets).
+mod startup;
 // Debug builds and the `test-hooks` feature only; release builds never contain it (SEC-34).
 #[cfg(any(debug_assertions, feature = "test-hooks"))]
 mod test_hooks;
 
 fn main() {
+    // First, so the start time is read before anything else runs.
+    let timing = startup::Startup::from_process_start();
     // The dialog plugin's own commands stay unreachable from the UI: no capability grants them.
     let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
     // The embedded WebDriver server for the real-app e2e (tests/e2e/). It listens on 127.0.0.1
@@ -38,8 +42,19 @@ fn main() {
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())
+        .manage(timing.clone())
         .invoke_handler(ipc::invoke_handler(&contract))
+        .on_page_load({
+            let timing = timing.clone();
+            move |webview, payload| {
+                if webview.label() == "main" && payload.event() == tauri::webview::PageLoadEvent::Started {
+                    timing.mark_now(startup::Phase::PageLoadStarted);
+                }
+            }
+        })
         .setup(move |app| {
+            // Tauri builds the windows of tauri.conf.json before this hook runs.
+            timing.mark_now(startup::Phase::WindowCreated);
             contract.mount_events(app);
             Ok(())
         })

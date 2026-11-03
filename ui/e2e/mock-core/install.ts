@@ -30,6 +30,13 @@ export function installMockCore(fixture: MockFixture): void {
   let glossCount = 0;
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
+    // Records each paint, with its time, for the test to read back (window.__mockStartup).
+    app_mark_startup: ({ paint }) => {
+      const w = window as unknown as { __mockStartup?: { paint: string; at: number }[] };
+      w.__mockStartup ??= [];
+      w.__mockStartup.push({ paint, at: performance.now() });
+      return undefined;
+    },
     course_open: () => fixture.courseOpen,
     lecture_open: ({ path }) => {
       const lecture = fixture.lectures[path];

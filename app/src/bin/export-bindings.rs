@@ -17,6 +17,8 @@ mod dialog;
 mod export;
 #[path = "../ipc/mod.rs"]
 mod ipc;
+#[path = "../startup.rs"]
+mod startup;
 #[cfg(any(debug_assertions, feature = "test-hooks"))]
 #[path = "../test_hooks.rs"]
 mod test_hooks;

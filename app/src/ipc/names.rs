@@ -2,5 +2,13 @@
 // `allow-<command>` permission per name; the capability tests check `capabilities/` against it.
 
 /// Every Tauri command the shell exposes, in snake_case (`18-contracts.md#ipc`).
-pub const COMMANDS: &[&str] =
-    &["gloss_request", "gloss_cancel", "app_info", "course_open", "lecture_open", "lecture_apply_edits", "search_find"];
+pub const COMMANDS: &[&str] = &[
+    "gloss_request",
+    "gloss_cancel",
+    "app_info",
+    "app_mark_startup",
+    "course_open",
+    "lecture_open",
+    "lecture_apply_edits",
+    "search_find",
+];
