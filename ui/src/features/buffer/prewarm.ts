@@ -8,32 +8,30 @@ import { EditorView } from "@codemirror/view";
 import { lectureState } from "./editorState";
 
 /** A small lecture with every kind of part the decorations draw. Synthetic, English only. */
-const WARM_LECTURE = [
-  "---",
-  "lecter: 1",
-  "lecture: 1",
-  "title: Warm-up",
-  "---",
-  "",
-  '::: {.slide #s1 n=1 src="A1" title="Expectation" .flag}',
-  "## Expectation",
-  "",
-  "[The mean of a variable $E[X]=\\sum_x x\\,p(x)$ weights each value.]{#s1b1}",
-  "",
-  "[Linearity holds for any variables.]{#s1b2 .flag}",
-  "",
-  "::: {.gloss #g-0a1b kind=steps key=s anchor=s1b1 by=ai}",
-  "**you asked:** why does it hold?",
-  "",
-  "1. Expand and collect terms.",
-  ":::",
-  "",
-  "::: {.note #n-0001 anchor=s1b2}",
-  "Check the worked example.",
-  ":::",
-  ":::",
-  "",
-].join("\n");
+const WARM_LECTURE = String.raw`---
+lecter: 1
+lecture: 1
+title: Warm-up
+---
+
+::: {.slide #s1 n=1 src="A1" title="Expectation" .flag}
+## Expectation
+
+[The mean of a variable $E[X]=\sum_x x\,p(x)$ weights each value.]{#s1b1}
+
+[Linearity holds for any variables.]{#s1b2 .flag}
+
+::: {.gloss #g-0a1b kind=steps key=s anchor=s1b1 by=ai}
+**you asked:** why does it hold?
+
+1. Expand and collect terms.
+:::
+
+::: {.note #n-0001 anchor=s1b2}
+Check the worked example.
+:::
+:::
+`;
 
 let warmed = false;
 
