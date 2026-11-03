@@ -849,7 +849,7 @@
     ".github/workflows/ci.yml"
    ],
    "status": "todo",
-   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards) | Q-017 answered (D-146): after F-029 and F-179 merge, on feat/F-025-perf-budgets add per-OS PSS memory targets and keystroke REPORT under --ci, re-run CI (dispatch for macOS/Windows targets), merge. | D-149: also record idle CPU per process after F-029's fix (open-idle run, ubuntu-24.04) in F-029's D-entry (criterion 5 moved here).",
+   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards) | Q-017 answered (D-146): after F-029 and F-179 merge, on feat/F-025-perf-budgets add per-OS PSS memory targets and keystroke REPORT under --ci, re-run CI (dispatch for macOS/Windows targets), merge. | D-149: also record idle CPU per process after F-029's fix (open-idle run, ubuntu-24.04) in F-029's D-entry (criterion 5 moved here). | D-156: two cold_open targets. per_os in budgets.json = D-152 CI runner targets (the e2e-app cold-open flow keeps gating on CI); budgets.sh without --ci gates against a separate local target from the maintainer's machine (median of 5 + 10 %, D-155); --ci prints REPORT.",
    "priority": 2021,
    "base": "c90d636f098d320c8724ccc228b8c9b569940d5e"
   },

@@ -905,3 +905,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: a flat local 400 ms target (fails today inside the harness); keeping D-152's CI gate as the only gate.
 - Revisit if: a CI runner with hardware rendering becomes available.
 
+
+## D-156 · Two cold_open_ms targets: CI regression net and the maintainer's local gate
+2026-11-03 · orchestrator, decider: maintainer · active
+- Decision: the e2e-app `cold-open` flow (F-179) keeps gating on CI at D-152's per-OS runner targets (Linux 1080 ms; macOS/Windows from F-025's dispatch run) as a regression net on every push; `budgets.json` `per_os` for cold_open_ms holds those. The local gate of D-155 uses a separate target from the maintainer's machine (median of 5 + 10 %), applied by budgets.sh without --ci at each milestone gate; budgets.sh --ci prints REPORT for the real-app value, as 14-quality says.
+- Why: 14-quality's "gates only locally" read alone would leave cold open unguarded between milestone gates; the CI flow already catches startup regressions.
+- Instead of: making the CI flow REPORT only (no per-push guard; needs a new card for F-179's flow).
+- Revisit if: the Linux CI median keeps failing near 1080 ms on slow runners (Q-023 context), or a CI runner gets hardware rendering.
