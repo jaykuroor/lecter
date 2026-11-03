@@ -40,6 +40,10 @@ import {
 } from "./cold-open/launch.ts";
 import { openInPage, type PageTimes } from "./cold-open/page.ts";
 import { processTree, quiet } from "./cold-open/quiet.ts";
+import { reporter } from "./cold-open/summary.ts";
+
+/** Prints a line, and on CI also adds it to the job summary (a passing stage shows no log). */
+const report = reporter(process.env.GITHUB_STEP_SUMMARY);
 
 /** Only Linux builds and measures here (the criterion's ubuntu-24.04 runner). */
 const MEASURES = process.platform === "linux";
@@ -102,7 +106,7 @@ async function measure(n: number): Promise<Run> {
     coldOpenMs: shellMs + page.openMs,
     lines: startupLines(readFileSync(log, "utf8")),
   };
-  console.log(breakdown(run));
+  report(breakdown(run));
   if (n === 1) await shot("cold-open");
   return run;
 }
@@ -122,7 +126,7 @@ function check(r: Run, entry: string[]): void {
   const loaded = r.page.resources.map((x) => x.name);
   const seen = entry.filter((f) => loaded.includes(f));
   if (seen.length === 0) {
-    console.log(`REPORT cold-open run ${r.n}: this webview lists no resource timing for index.html's files`);
+    report(`REPORT cold-open run ${r.n}: this webview lists no resource timing for index.html's files`);
     return;
   }
   const shell = r.page.shellMark as number;
@@ -145,7 +149,7 @@ describe("cold open", function () {
     if (!MEASURES) {
       // A release build here would cost the job minutes; this OS's value and target come from
       // the perf stage (F-025, D-152).
-      console.log(`REPORT cold-open not measured on ${process.platform}: this flow measures on Linux only (D-152)`);
+      report(`REPORT cold-open not measured on ${process.platform}: this flow measures on Linux only (D-152)`);
       return;
     }
     await buildRelease();
@@ -162,7 +166,7 @@ describe("cold open", function () {
     await browser.closeWindow().catch(() => undefined);
     await waitFor(async () => !(await alive()), 30_000, "the debug app to quit");
     await quiet(debugBinary, debugApp, "the debug app");
-    console.log(
+    report(
       `cold-open: the debug app's ${debugApp.length} processes ended ${Date.now() - closed} ms after its window closed`,
     );
 
@@ -177,8 +181,8 @@ describe("cold open", function () {
       runs.map((r) => r.coldOpenMs),
       process.platform,
     );
-    for (const line of v.lines) console.log(line);
-    console.log(`cold-open: ${APP}; targets ${JSON.stringify(TARGETS)}`);
+    for (const line of v.lines) report(line);
+    report(`cold-open: ${APP}; targets ${JSON.stringify(TARGETS)}`);
     for (const r of runs) check(r, entry);
     expect(runs.every((r) => Number.isFinite(r.coldOpenMs))).toBe(true);
     expect(v.outcome).not.toBe("fail");
