@@ -1,34 +1,35 @@
 #!/usr/bin/env bash
 # The real-app e2e (16-ci-cd.md e2e-app job; drive-app skill; D-049).
-#   scripts/e2e-app.sh [flow] [--evidence F-0NN]
+#   scripts/e2e-app.sh [flow...] [--evidence F-0NN]
 # Builds the debug app with the embedded WebDriver server (`--features test-hooks`) and runs the
-# WebdriverIO flows in tests/e2e/flows/ (all of them, or just <flow>) against it. On Linux without
+# WebdriverIO flows in tests/e2e/flows/ (all of them, or the named ones) against it. On Linux without
 # a display it re-runs itself under xvfb-run. Each run gets a throwaway LECTER_TEST_HOME and a
 # synthetic course folder that LECTER_TEST_PICK hands to the next folder dialog; LECTER_TEST_TRUST=1
 # answers the trust question. With --evidence F-0NN it saves every shot('<state>') as <state>.png,
 # the app's log as app.log and this run's output as e2e-app.log in .evidence/F-0NN/.
+# CI shards (D-154): LECTER_E2E_SHARD=<i>/<n> runs shard i of n (tests/e2e/support/shards.ts).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-FLOW="" EVIDENCE=""
+FLOWS=() EVIDENCE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --evidence) EVIDENCE="${2:-}"; shift 2 || { echo "--evidence needs F-0NN"; exit 2; } ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
     -*) echo "unknown option: $1"; exit 2 ;;
-    *) [ -z "$FLOW" ] || { echo "one flow at a time"; exit 2; }; FLOW="$1"; shift ;;
+    *) FLOWS+=("$1"); shift ;;
   esac
 done
 if [ -n "$EVIDENCE" ] && ! [[ "$EVIDENCE" =~ ^F-[0-9]{3}$ ]]; then echo "--evidence takes a feature id like F-016"; exit 2; fi
-if [ -n "$FLOW" ]; then
+for FLOW in ${FLOWS[@]+"${FLOWS[@]}"}; do
   [[ "$FLOW" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "flow names are lower-case words: $FLOW"; exit 2; }
   [ -f "tests/e2e/flows/$FLOW.ts" ] || { echo "no flow tests/e2e/flows/$FLOW.ts (have: $(cd tests/e2e/flows && ls *.ts | sed 's/\.ts$//' | tr '\n' ' '))"; exit 2; }
-fi
+done
 
 # WebKitGTK needs a display. Without one, run the whole script under a virtual X server.
 if [ "$(uname)" = Linux ] && [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -z "${LECTER_E2E_XVFB:-}" ]; then
   command -v xvfb-run >/dev/null 2>&1 || { echo "no display and no xvfb-run (install the Xvfb package, which provides xvfb-run)"; exit 1; }
-  LECTER_E2E_XVFB=1 exec xvfb-run -a -s "-screen 0 1280x800x24" bash "$0" ${FLOW:+"$FLOW"} ${EVIDENCE:+--evidence "$EVIDENCE"}
+  LECTER_E2E_XVFB=1 exec xvfb-run -a -s "-screen 0 1280x800x24" bash "$0" ${FLOWS[@]+"${FLOWS[@]}"} ${EVIDENCE:+--evidence "$EVIDENCE"}
 fi
 
 # Same Node and pnpm settings as verify.sh (D-057, D-061), for runs outside it.
@@ -58,12 +59,12 @@ native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else pri
 export LECTER_TEST_HOME="$(native "$RUN/home")"
 export LECTER_TEST_PICK="$(native "$RUN/courses/Sample Course")"
 export LECTER_TEST_TRUST=1
-export LECTER_E2E_OUT="$(native "$RUN/out")" LECTER_E2E_SHOTS="$(native "$RUN/shots")" LECTER_E2E_FLOW="$FLOW"
+export LECTER_E2E_OUT="$(native "$RUN/out")" LECTER_E2E_SHOTS="$(native "$RUN/shots")" LECTER_E2E_FLOW="${FLOWS[*]:-}"
 # WebKitGTK can't start its own bubblewrap sandbox inside the Claude Code sandbox. Set only here,
 # for these debug test runs; never in dev.sh, the app or a release build.
 if [ "$(uname)" = Linux ]; then export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1; fi
 
-say "== wdio: ${FLOW:-all flows}"
+say "== wdio: ${FLOWS[*]:-${LECTER_E2E_SHARD:+shard $LECTER_E2E_SHARD of }all flows}"
 pnpm --silent -C ui run test:e2e:app 2>&1 | tee -a "$LOG"
 STATUS=${PIPESTATUS[0]}
 
