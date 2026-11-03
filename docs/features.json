@@ -4919,8 +4919,9 @@
     "log:e2e-app"
    ],
    "priority": 2019,
-   "status": "todo",
-   "notes": ""
+   "status": "in_progress",
+   "notes": "",
+   "base": "e1ebd10bd118a3d1e484b8f683e4db37e3a1c7ab"
   }
  ]
 }
