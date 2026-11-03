@@ -133,6 +133,16 @@ describe("startup", () => {
     expect(calls("app_mark_startup").map(([, a]) => a)).toEqual([{ paint: "shell_first_paint" }]);
   });
 
+  it("closes the message channel it waits for the paint on", async () => {
+    // An open port with a handler stays alive (and keeps Node's event loop running).
+    const close = vi.spyOn(MessagePort.prototype, "close");
+    render(() => <App />);
+    paint();
+    await waitFor(() => expect(calls("app_mark_startup")).toHaveLength(1));
+    expect(close).toHaveBeenCalled();
+    close.mockRestore();
+  });
+
   it("an app gone before its first paint asks nothing", async () => {
     render(() => <App />);
     cleanup();
