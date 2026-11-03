@@ -912,3 +912,30 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: 14-quality's "gates only locally" read alone would leave cold open unguarded between milestone gates; the CI flow already catches startup regressions.
 - Instead of: making the CI flow REPORT only (no per-push guard; needs a new card for F-179's flow).
 - Revisit if: the Linux CI median keeps failing near 1080 ms on slow runners (Q-023 context), or a CI runner gets hardware rendering.
+
+## D-157 · Figure-frame filter: sentinel-armed, a content rule list on WebKit, URL checks on WebView2 (F-028)
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: a test-hooks plugin (app/src/figure_filter/plugin.rs) cancels a sentinel navigation `<loopback>/__lecter-test/figure-filter?figure=…&page=…&next=…`, arms the filter, then loads `next?ff-filter=armed`. On WebKitGTK and WKWebView the filter is a content rule list that blocks every `load-context: child-frame` load, then lets `^data:` and each figure origin through (ignore-previous-rules). On WebView2 it's WebResourceRequested on `*` for all contexts and source kinds, checked by URL only: a refused request gets a 403 made in the app, and the page's own origins pass for frames too.
+- Why: the harness page can't use IPC and its ports are dynamic; the rule list is scoped to frames and blocked 16/16 vectors on its own on both WebKits; WebView2 can't tell which frame a request came from, and Referer/Sec-Fetch aren't reliably visible.
+- Instead of: a test IPC command (touches the contract, bindings and capabilities); scheme-handler checks on WebKit (can't see http); header heuristics on WebView2.
+- Revisit if: F-141 ships the filter for real lecter-fig:/lecter-lib: frames.
+
+## D-158 · Figure frames need the CSP and the native filter together (F-028)
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: F-141 keeps both guards. Root cause of D-142: Chromium checks `<link rel=prefetch>` against script-src, not default-src, so with D-145's `script-src lecter-fig: lecter-lib:` a figure can prefetch only from the figure schemes. With the filter alone and no CSP, WebKit blocked 16/16 vectors, but WebView2 blocked 15/16: WebSocket bypasses WebResourceRequested and only connect-src stops it. CI run 41694556626: WebKitGTK, WKWebView and WebView2 each 77/77 with filter + CSP, all 16 vectors blocked in the fig and lib frames, prefetch included.
+- Why: run 3's own-origin lines and local Chromium 156 show the prefetch rule; the bare-frame variant shows what each guard stops alone.
+- Instead of: the filter alone (WebView2 WebSocket leak); the CSP alone (WebView2 prefetch leak before D-145's script-src).
+- Revisit if: WebView2 exposes WebSocket requests to WebResourceRequested.
+
+## D-159 · Busy figure frames: per-webview watchdog results (F-028)
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: detection is the earlier of two legs. WebKitGTK and WKWebView run the frame on the parent's thread (parent gap ~5 s), so only the core-side eval heartbeat sees a busy loop: 1496 ms (WebKitGTK), 1498 ms (WKWebView). WebView2 runs the frame on its own thread, and the in-page ping leg sees it at 1548 ms (1.35–1.55 s across runs); idle pings answer within 15 ms everywhere (CI run 41694556626).
+- Why: criterion 2 asks for detection within 2 s and a per-webview record; this backs D-145's core-side watchdog for F-142.
+- Instead of: an in-page watchdog only (blind on WebKit, where the frame freezes the UI thread).
+- Revisit if: WebKit moves cross-origin frames to their own process or thread.
+
+## D-160 · F-028 dependencies
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: `webkit2gtk` (Linux), `webview2-com` and `windows-core` (Windows), `objc2`, `objc2-foundation` and `block2` (macOS) added to lecter-app as optional, per-OS dependencies enabled only by `test-hooks`, at wry's versions (MIT; windows-core MIT OR Apache-2.0); 0 new crates in Cargo.lock.
+- Why: Dep-Added trailers on F-028 commit 66b03d8; check_deps OK.
+- Instead of: a WebKit web-process extension; raw COM vtables; the full windows crate; building NSStrings by hand.
