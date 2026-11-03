@@ -238,3 +238,24 @@ export function closeWindow(ms: number): Promise<{ lasted: number; mutations: st
     };
   }, ms);
 }
+
+/**
+ * The editor's native caret state (F-180, nativeCaret.ts): whether .cm-content has the focus, its
+ * contenteditable and tabindex, and the DOM selection's type ("Caret" for a collapsed cursor).
+ */
+export function nativeCaret(): Promise<{
+  focused: boolean;
+  editable: string | null;
+  tabindex: string | null;
+  selection: string;
+}> {
+  return browser.execute(() => {
+    const content = document.querySelector(".cm-content");
+    return {
+      focused: content !== null && document.activeElement === content,
+      editable: content?.getAttribute("contenteditable") ?? null,
+      tabindex: content?.getAttribute("tabindex") ?? null,
+      selection: getSelection()?.type ?? "none",
+    };
+  });
+}

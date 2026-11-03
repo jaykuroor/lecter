@@ -19,6 +19,8 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { shot } from "../support/shot.ts";
+import { attribute, reporter, save } from "./idle-cpu/attribution.ts";
+import { verdict } from "./idle-cpu/budget.ts";
 import {
   animationsEnd,
   caret,
@@ -30,6 +32,7 @@ import {
   focus,
   idleFor,
   installProbe,
+  nativeCaret,
   openWindow,
   running,
   sinceInput,
@@ -170,6 +173,11 @@ async function expectIdle(label: string, since = 0): Promise<void> {
   expect(seen.lasted).toBeGreaterThanOrEqual(WINDOW_MS);
   expect(seen.mutations).toEqual([]);
   expect(seen.frames).toBe(0);
+  // F-180: the webview's own caret blink was the idle redraw. The focused editor is parked: not
+  // contenteditable, so the engine runs no caret blink, while it keeps the focus and the caret.
+  const native = await nativeCaret();
+  console.log(`IDLE ${label}: native caret ${JSON.stringify(native)}`);
+  expect(native).toEqual({ focused: true, editable: "false", tabindex: "0", selection: "Caret" });
 }
 
 /** The gloss card's state and answer text, or null when there is none. */
@@ -291,5 +299,36 @@ describe("an idle lecture", function () {
     const buffer = await browser.execute(() => document.querySelector(".cm-content")?.textContent ?? "");
     expect(buffer).toContain(`**you asked:** ${QUESTION}`);
     await expectIdle("after a stream", ended);
+  });
+});
+
+// F-180: the idle attribution and idle_cpu_pct on the release app (idle-cpu/attribution.ts). Last
+// in this flow: it closes the service's debug app and starts its own. Criterion 1: the
+// `idle-attribution` lines (per-process and per-thread CPU every 15 s, the page's counters).
+// Criterion 2: idle_cpu_pct < 0.5 % on Linux and macOS (idle-cpu/budget.ts); Windows reports.
+// Criterion 3: the source it found, the webview's native caret blinking in the focused editor,
+// would show here as CPU on Linux and macOS, and in the tests above as an editable editor.
+describe("an idle release build", function () {
+  // The release build (minutes the first time), a minute's settle and the 5-minute window.
+  this.timeout(40 * 60_000);
+
+  it("uses under 0.5 % of a core over 5 idle minutes, and says where any CPU went", async () => {
+    const { report, lines } = reporter();
+    try {
+      const { pct, page } = await attribute(report);
+      const v = verdict(pct, process.platform);
+      report(`idle-attribution result: ${v.line}`);
+      // The measured state is the one a user leaves: the lecture's editor focused, and parked.
+      expect(page.focus.editorFocused).toBe(true);
+      expect(page.focus.editable).toBe("false");
+      // Nothing in the page ran during the window.
+      expect(page.frames).toBe(0);
+      expect(page.mutations).toBe(0);
+      expect(page.animationEvents).toBe(0);
+      expect(page.running).toEqual([]);
+      expect(v.outcome).not.toBe("fail");
+    } finally {
+      save(lines);
+    }
   });
 });
