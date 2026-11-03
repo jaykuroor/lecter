@@ -17,10 +17,10 @@ pub mod policy;
 
 #[cfg(feature = "test-hooks")]
 mod plugin;
-#[cfg(all(feature = "test-hooks", target_os = "windows"))]
-mod webview2;
 #[cfg(all(feature = "test-hooks", target_os = "linux"))]
 mod webkitgtk;
+#[cfg(all(feature = "test-hooks", target_os = "windows"))]
+mod webview2;
 #[cfg(all(feature = "test-hooks", target_os = "macos"))]
 mod wkwebview;
 
