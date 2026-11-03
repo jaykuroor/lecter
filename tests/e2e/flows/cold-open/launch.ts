@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fixtureLecture } from "../../../../ui/e2e/mock-core/lectures.ts";
+import { processTree, running } from "./quiet.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
 const TARGET = join(root, "target", "perf");
@@ -116,8 +117,11 @@ export async function launch(n: number): Promise<Launch> {
 export async function stop(l: Launch): Promise<void> {
   await browser.deleteSession().catch(() => undefined);
   (browser as unknown as { sessionId?: string }).sessionId = undefined;
+  // Its WebKit processes too: a re-measure starts on a quiet machine.
+  const procs = processTree(APP);
   l.child.kill();
   await waitFor(async () => !(await alive()), 30_000, "the release app to stop");
+  await waitFor(async () => !procs.some(running), 30_000, "the release app's processes to end");
   rmSync(l.dir, { recursive: true, force: true });
 }
 

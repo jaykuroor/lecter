@@ -35,6 +35,7 @@ import {
   waitFor,
 } from "./cold-open/launch.ts";
 import { openInPage, type PageTimes } from "./cold-open/page.ts";
+import { processTree, running } from "./cold-open/quiet.ts";
 
 const BUDGET_MS = 400;
 /** 14-quality.md#performance-budgets: timing budgets get ×1.5 on shared CI runners. */
@@ -59,6 +60,8 @@ interface Run {
   page: PageTimes;
   /** Process start → the shell's first paint, from the page's mark (or its first contentful paint). */
   shellMs: number;
+  /** Process start → the page's time origin (its navigation start). */
+  navigationMs: number;
   coldOpenMs: number;
   lines: Partial<Record<Phase, number>>;
 }
@@ -73,7 +76,7 @@ function breakdown(r: Run): string {
     `(course listed ${p.courseMs.toFixed(0)}, lecture in the DOM ${p.lectureDomMs.toFixed(0)}, ` +
     `painted ${(p.openMs - p.courseMs - p.lectureDomMs).toFixed(0)}); ` +
     `app log since process start: ${logged}; ` +
-    `page since its time origin: response ${fmt(p.responseEnd)}, DOMContentLoaded ${fmt(p.domContentLoaded)}, ` +
+    `page navigation start since process start ${r.navigationMs.toFixed(0)}; page since its time origin: response ${fmt(p.responseEnd)}, DOMContentLoaded ${fmt(p.domContentLoaded)}, ` +
     `load ${fmt(p.loadEnd)}, first contentful paint ${fmt(p.fcp)}, shell mark ${fmt(p.shellMark)}; ` +
     `resources: ${p.resources.map((x) => `${x.name}@${x.start.toFixed(0)}`).join(" ")}`
   );
@@ -96,6 +99,7 @@ async function measure(n: number): Promise<Run> {
     n,
     page,
     shellMs,
+    navigationMs: page.timeOrigin - current.spawnedAt,
     coldOpenMs: shellMs + page.openMs,
     lines: startupLines(readFileSync(log, "utf8")),
   };
@@ -149,9 +153,16 @@ describe("cold open", function () {
     const entry = entryFiles();
     expect(entry.length).toBeGreaterThan(0);
 
-    // The service started the debug app; closing its window quits it and frees the port.
+    // The service started the debug app; closing its window quits it and frees the port. The
+    // timed launch starts only once it and every process it started (WebKit's) have ended, so
+    // its teardown doesn't share the CPU with the launch being measured.
+    const debugApp = processTree(join(root, "target", "debug", "lecter-app"));
+    expect(debugApp.length).toBeGreaterThan(0);
+    const closed = Date.now();
     await browser.closeWindow().catch(() => undefined);
     await waitFor(async () => !(await alive()), 30_000, "the debug app to quit");
+    await waitFor(async () => !debugApp.some(running), 30_000, "the debug app's processes to end");
+    console.log(`cold-open: the debug app's ${debugApp.length} processes ended ${Date.now() - closed} ms after its window closed`);
 
     const runs = [await measure(1)];
     const first = runs[0] as Run;

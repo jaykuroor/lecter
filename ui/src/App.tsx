@@ -12,9 +12,19 @@ import "./App.css";
 // loads right after that first paint, long before a lecture can be picked (cold_open_ms,
 // 14-quality.md#performance-budgets). `:find` is defined on Vim's Ex table, which comes with it.
 // One load per page, shared: what waits on it directly runs before the buffer renders from it.
-let editor: Promise<[typeof import("./features/buffer/Buffer"), typeof import("./features/find/exCommand")]>;
+let editor: Promise<
+  [
+    typeof import("./features/buffer/Buffer"),
+    typeof import("./features/find/exCommand"),
+    typeof import("./features/buffer/prewarm"),
+  ]
+>;
 const loadEditor = () =>
-  (editor ??= Promise.all([import("./features/buffer/Buffer"), import("./features/find/exCommand")]));
+  (editor ??= Promise.all([
+    import("./features/buffer/Buffer"),
+    import("./features/find/exCommand"),
+    import("./features/buffer/prewarm"),
+  ]));
 const Buffer = lazy(() => loadEditor().then(([buffer]) => ({ default: buffer.Buffer })));
 
 /**
@@ -41,8 +51,8 @@ function afterPaint(): Promise<void> {
  *
  * Startup: only what the first paint shows runs before it. After it, the UI tells the core it
  * painted (`startup shell-first-paint`), and only then asks for the app's version, loads the
- * buffer's chunk and defines `:find`. The first lecture's paint is reported too
- * (`startup buffer-first-paint`).
+ * buffer's chunk, defines `:find` and pre-warms the editor (features/buffer/prewarm.ts). The first
+ * lecture's paint is reported too (`startup buffer-first-paint`).
  */
 export function App() {
   const [painted, setPainted] = createSignal(false);
@@ -65,8 +75,11 @@ export function App() {
       markStartup("shell_first_paint");
       // Renders the buffer, which starts loading its chunk; `:find` is defined before it shows.
       setPainted(true);
-      void loadEditor().then(([, ex]) => {
-        if (!gone) dropFind = ex.registerFindCommand(runFind);
+      void loadEditor().then(([, ex, warm]) => {
+        if (gone) return;
+        dropFind = ex.registerFindCommand(runFind);
+        // Runs the editor's code once while nothing is open, so the first lecture opens faster.
+        if (!lecture.lecture()) warm.prewarmEditor();
       });
     });
   });
