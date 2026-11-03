@@ -11,12 +11,11 @@ import "./App.css";
 // The buffer (CodeMirror and Vim) is a chunk of its own: the shell paints without it, and it
 // loads right after that first paint, long before a lecture can be picked (cold_open_ms,
 // 14-quality.md#performance-budgets). `:find` is defined on Vim's Ex table, which comes with it.
-let exCommand: typeof import("./features/find/exCommand") | undefined;
-const Buffer = lazy(async () => {
-  const [buffer, ex] = await Promise.all([import("./features/buffer/Buffer"), import("./features/find/exCommand")]);
-  exCommand = ex;
-  return { default: buffer.Buffer };
-});
+// One load per page, shared: what waits on it directly runs before the buffer renders from it.
+let editor: Promise<[typeof import("./features/buffer/Buffer"), typeof import("./features/find/exCommand")]>;
+const loadEditor = () =>
+  (editor ??= Promise.all([import("./features/buffer/Buffer"), import("./features/find/exCommand")]));
+const Buffer = lazy(() => loadEditor().then(([buffer]) => ({ default: buffer.Buffer })));
 
 /**
  * Resolves just after the next frame is on screen: a `requestAnimationFrame` callback runs right
@@ -66,8 +65,8 @@ export function App() {
       markStartup("shell_first_paint");
       // Renders the buffer, which starts loading its chunk; `:find` is defined before it shows.
       setPainted(true);
-      void Buffer.preload().then(() => {
-        if (!gone) dropFind = exCommand?.registerFindCommand(runFind);
+      void loadEditor().then(([, ex]) => {
+        if (!gone) dropFind = ex.registerFindCommand(runFind);
       });
     });
   });
@@ -77,8 +76,8 @@ export function App() {
   createEffect(() => {
     if (bufferMarked || !lecture.lecture()) return;
     bufferMarked = true;
-    void Buffer.preload()
-      .then(afterPaint)
+    void loadEditor()
+      .then(() => afterPaint())
       .then(() => {
         if (!gone) markStartup("buffer_first_paint");
       });

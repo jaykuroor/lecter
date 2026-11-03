@@ -69,6 +69,11 @@ describe("startup", () => {
     expect(performance.getEntriesByName("startup:shell_first_paint", "mark")).toHaveLength(1);
     expect(await screen.findByText("v0.0.1")).toBeTruthy();
     await waitFor(() => expect(container.querySelector(".lecture-buffer")).not.toBeNull());
+    // No lecture yet, so no buffer paint to report, however many frames follow.
+    paint();
+    await settle();
+    paint();
+    await settle();
     expect(calls("app_mark_startup")).toHaveLength(1);
   });
 
