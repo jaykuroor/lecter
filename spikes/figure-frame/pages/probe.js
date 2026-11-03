@@ -1,20 +1,19 @@
 // F-028 spike: runs inside the sandboxed figure frame (`sandbox="allow-scripts"`, the CSP of
-// 08-figures.md#sandbox-pages) and tries everything a figure must not be able to do: reach the
-// network, read the parent, use storage, call Tauri's IPC. Each attempt is reported raw to the
+// 08-figures.md#sandbox-pages, the app's native request filter below) and tries everything a
+// figure must not be able to do: reach the network, read the parent, use storage, call Tauri's IPC. Each attempt is reported raw to the
 // harness (pages/harness.js), which grades it. The frame also answers the watchdog's pings and,
 // on request, runs a bounded busy loop. Plain script: the CSP allows no inline code and no eval.
 (() => {
   const variant = document.body.dataset.variant || "unknown";
-  const pageOrigin = new URL(location.href).origin;
-  // The lib origin (the stand-in for lecter-lib:) is a real second origin in both variants.
-  const libOrigin = document.body.dataset.lib || pageOrigin;
+  // The network stand-in: an origin that is neither the frame's nor the lib's (server.ts).
+  const netOrigin = document.body.dataset.net || new URL(location.href).origin;
   const post = (msg) => parent.postMessage({ ...msg, variant }, "*");
   const violations = [];
   document.addEventListener("securitypolicyviolation", (e) => {
     violations.push(`${e.effectiveDirective || e.violatedDirective} ${e.blockedURI}`);
   });
 
-  const beacon = (name, origin) => `${origin || pageOrigin}/beacon/${variant}-${name}`;
+  const beacon = (name) => `${netOrigin}/beacon/${variant}-${name}`;
   const describe = (e) => (e && e.name ? `${e.name}: ${e.message}` : String(e));
   const timeout = (ms, value) => new Promise((r) => setTimeout(() => r(value), ms));
   /** Runs `fn`; a throw or rejection is reported as `threw`, a value as `value`. */
@@ -32,12 +31,12 @@
       target.addEventListener(bad, () => reject(new Error(bad)));
     });
 
-  // Network: every way a page can make a request without running a new script. Scripts are left
-  // out: in the app `'self'` is lecter-fig: and the lib origin is lecter-lib:, which serve only
-  // bundled or hash-named files (SEC-33), so a script load never reaches the network there.
+  // Network: every way a page can make a request without running a new script, each aimed at the
+  // network origin. Scripts are left out: the CSP names only lecter-fig: and lecter-lib:, which
+  // serve only bundled or hash-named files (SEC-33), so a script load never reaches the network.
   const network = {
-    "fetch same-origin": () => fetch(beacon("fetch")).then((r) => `status ${r.status}`),
-    "fetch cross-origin": () => fetch(beacon("fetch-cross", libOrigin)).then((r) => `status ${r.status}`),
+    fetch: () => fetch(beacon("fetch")).then((r) => `status ${r.status}`),
+    "fetch no-cors": () => fetch(beacon("fetch-nocors"), { mode: "no-cors" }).then((r) => `type ${r.type}`),
     xhr: () => {
       const x = new XMLHttpRequest();
       x.open("GET", beacon("xhr"));
@@ -103,6 +102,19 @@
       const w = window.open(beacon("open"), "_blank");
       if (w === null) throw new Error("window.open returned null");
       return "a window opened";
+    },
+  };
+
+  // Observed only: a prefetch to the frame's own URL origin (the stand-in for lecter-fig:, which the
+  // filter lets through). CI run 41461890948 saw WebView2 send it despite the CSP; in the app that
+  // origin serves only hash-named files (SEC-33), so it isn't the network.
+  const ownOrigin = {
+    "link prefetch": () => {
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.href = `${new URL(location.href).origin}/beacon/${variant}-own-prefetch`;
+      document.head.append(link);
+      return onEvent(link, "load", "error");
     },
   };
 
@@ -231,12 +243,16 @@
       selfOrigin: String(self.origin),
       referrer: document.referrer,
       network: await run(network),
-      parent: await run(parentReads),
-      storage: await run(storage),
-      presence: ipcPresence(),
-      ipcAt: Date.now(),
-      ipc: await run(ipc),
+      ownOrigin: await run(ownOrigin),
     };
+    // The bare frame (no CSP) shows what the native filter stops on its own: network only.
+    if (variant !== "bare") {
+      result.parent = await run(parentReads);
+      result.storage = await run(storage);
+      result.presence = ipcPresence();
+      result.ipcAt = Date.now();
+      result.ipc = await run(ipc);
+    }
     // Late violation events (CSS, prefetch) arrive after the attempts.
     await timeout(500);
     result.violations = violations.slice(0, 50);

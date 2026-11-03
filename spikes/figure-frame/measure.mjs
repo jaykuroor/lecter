@@ -39,7 +39,7 @@ try {
     await until("frames settled", () => page.evaluate(() => window.__ff?.settled() ?? false));
 
     // Busy loop in the first frame whose probe ran; both watchdog legs watch it.
-    const v = await page.evaluate(() => ["self", "lib"].find((x) => window.__ff.frames[x]?.result) ?? "self");
+    const v = await page.evaluate(() => ["fig", "lib"].find((x) => window.__ff.frames[x]?.result) ?? "fig");
     // Idle baseline: pings must come back well inside the stale limit when nothing is busy.
     const idle = await watchOutOfPage(() => page.evaluate(() => 1), 2000);
     const idleOk = idle.detectedAt === null && idle.maxPingMs <= STALE_MS / 3;

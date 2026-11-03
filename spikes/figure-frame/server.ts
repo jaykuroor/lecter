@@ -1,11 +1,14 @@
-// F-028 spike: the local web server behind the figure-frame harness (spikes/figure-frame/README.md).
+// F-028 spike: the local web servers behind the figure-frame harness (spikes/figure-frame/README.md).
 // The flow tests/e2e/flows/figure-frame.ts and measure.mjs import it.
 //
-// One server (the "page" origin) serves the harness page, the sandboxed probe frame and the
-// beacon endpoint; a second one on another port (the "lib" origin) stands in for `lecter-lib:`,
-// which the app doesn't serve yet (F-141). Every request under /beacon/ is recorded and answered
-// 204 with `Access-Control-Allow-Origin: *`, so a request the sandbox or the CSP lets through
-// reaches the log and succeeds, and the harness reads the log at /hits.
+// Three loopback servers, three origins:
+// - "page": the harness page and the sandboxed probe frames (the frame origin, standing in for
+//   `lecter-fig:`; same URL origin as the parent, so only the sandbox separates them);
+// - "lib": a second origin standing in for `lecter-lib:`;
+// - "net": the network, outside both figure origins: every probe request aims here.
+// Every request under /beacon/ (on any of them) is recorded and answered 204 with
+// `Access-Control-Allow-Origin: *`, so a request the sandbox, the CSP or the native filter lets
+// through reaches the log and succeeds; the harness reads the log at /hits.
 //
 // Node built-ins only (flows have no node_modules; tests/CLAUDE.md).
 
@@ -17,14 +20,25 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-/** The figure frame's CSP, exactly as 08-figures.md#sandbox-pages gives it. */
-export const FRAME_CSP = "default-src 'none'; script-src 'self' lecter-lib:; style-src 'unsafe-inline'; img-src data:";
+/** The figure frame's CSP, exactly as 08-figures.md#sandbox-pages gives it (D-145). */
+export const FRAME_CSP = "default-src 'none'; script-src lecter-fig: lecter-lib:; style-src 'unsafe-inline'; img-src data:";
 
 /** The busy-frame watchdog's tick and staleness limit (README "Watchdog"). */
 export const HEARTBEAT_MS = 250;
 export const STALE_MS = 1500;
 /** Criterion 2: a busy frame is detected within this long after its loop starts. */
 export const DETECT_BUDGET_MS = 2000;
+
+/** The path the app's test-hooks build arms its native request filter on (app/src/figure_filter/arm.rs). */
+export const ARM_PATH = "/__lecter-test/figure-filter";
+
+/**
+ * The probe frames: `fig` loads its probe from the frame origin and `lib` from the lib origin, each
+ * under the spec's CSP with its stand-in named next to the scheme; `bare` has no CSP at all, so
+ * only the sandbox and the native filter stand between it and the network (observed, not graded).
+ */
+export type Variant = "fig" | "lib" | "bare";
+export const VARIANTS: Variant[] = ["fig", "lib", "bare"];
 
 /**
  * The harness page's CSP: the app's main-window CSP (SEC-30) with `frame-src` scoped to the probe
@@ -43,9 +57,12 @@ function harnessCsp(page: string): string {
   ].join("; ");
 }
 
-/** The probe frame's CSP per variant: `self` is the spec's exact CSP; `lib` adds the lib origin. */
-export function frameCsp(variant: "self" | "lib", lib: string): string {
-  return variant === "self" ? FRAME_CSP : FRAME_CSP.replace("lecter-lib:", `lecter-lib: ${lib}`);
+/** The probe frame's CSP per variant (null: none), the stand-in origin named next to its scheme. */
+export function frameCsp(variant: Variant, page: string, lib: string): string | null {
+  if (variant === "bare") return null;
+  return variant === "fig"
+    ? FRAME_CSP.replace("lecter-fig:", `lecter-fig: ${page}`)
+    : FRAME_CSP.replace("lecter-lib:", `lecter-lib: ${lib}`);
 }
 
 export type Harness = {
@@ -53,10 +70,25 @@ export type Harness = {
   url: string;
   page: string;
   lib: string;
+  net: string;
   /** Every beacon path requested so far, in order. */
   hits: string[];
   close(): Promise<void>;
 };
+
+/**
+ * The URL that arms the app's native filter and then goes on to the harness: frames may load from
+ * the frame and lib origins; `pageOrigins` (the app's own, for WebView2, which can't tell a
+ * frame's request from the page's) pass for the page.
+ */
+export function armUrl(h: Harness, pageOrigins: string[]): string {
+  const q = new URLSearchParams();
+  q.append("figure", h.page);
+  q.append("figure", h.lib);
+  for (const o of pageOrigins) q.append("page", o);
+  q.append("next", `${h.url}?tauri=1`);
+  return `${h.page}${ARM_PATH}?${q}`;
+}
 
 const SCRIPT = { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" };
 const HTML = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" };
@@ -77,15 +109,19 @@ function harnessHtml(): string {
   ].join("\n");
 }
 
-function probeHtml(variant: "self" | "lib", lib: string): string {
-  const src = variant === "self" ? "/frame/probe.js" : `${lib}/lib/probe.js`;
+function probeHtml(variant: Variant, lib: string, net: string): string {
+  const src = variant === "lib" ? `${lib}/lib/probe.js` : "/frame/probe.js";
   return [
     "<!doctype html>",
     `<html lang="en"><head><meta charset="utf-8"><title>probe ${variant}</title></head>`,
-    `<body data-variant="${variant}" data-lib="${lib}"><p>figure probe</p>`,
+    `<body data-variant="${variant}" data-net="${net}"><p>figure probe</p>`,
     `<script src="${src}"></script>`,
     "</body></html>",
   ].join("\n");
+}
+
+function variantOf(value: string | null): Variant {
+  return value === "lib" || value === "bare" ? value : "fig";
 }
 
 function listen(server: Server): Promise<number> {
@@ -100,10 +136,10 @@ function stop(server: Server): Promise<void> {
   return new Promise((resolve) => server.close(() => resolve()));
 }
 
-/** Starts both servers on free loopback ports. */
+/** Starts the three servers on free loopback ports. */
 export async function startHarness(): Promise<Harness> {
   const hits: string[] = [];
-  const origins = { page: "", lib: "" };
+  const origins = { page: "", lib: "", net: "" };
   const record = (req: IncomingMessage, res: ServerResponse | null): boolean => {
     const path = (req.url ?? "/").split("?")[0] ?? "/";
     if (!path.startsWith("/beacon/")) return false;
@@ -114,11 +150,14 @@ export async function startHarness(): Promise<Harness> {
     }
     return true;
   };
+  const notFound = (res: ServerResponse) => {
+    res.writeHead(404, HTML);
+    res.end("not found");
+  };
 
   const page = createServer((req, res) => {
     if (record(req, res)) return;
     const url = new URL(req.url ?? "/", origins.page);
-    const variant = url.searchParams.get("v") === "lib" ? "lib" : "self";
     switch (url.pathname) {
       case "/harness.html":
         res.writeHead(200, { ...HTML, "content-security-policy": harnessCsp(origins.page) });
@@ -128,10 +167,13 @@ export async function startHarness(): Promise<Harness> {
         res.writeHead(200, SCRIPT);
         res.end(asset("harness.js"));
         return;
-      case "/frame/probe.html":
-        res.writeHead(200, { ...HTML, "content-security-policy": frameCsp(variant, origins.lib) });
-        res.end(probeHtml(variant, origins.lib));
+      case "/frame/probe.html": {
+        const variant = variantOf(url.searchParams.get("v"));
+        const csp = frameCsp(variant, origins.page, origins.lib);
+        res.writeHead(200, csp === null ? HTML : { ...HTML, "content-security-policy": csp });
+        res.end(probeHtml(variant, origins.lib, origins.net));
         return;
+      }
       case "/frame/probe.js":
         res.writeHead(200, SCRIPT);
         res.end(asset("probe.js"));
@@ -141,8 +183,7 @@ export async function startHarness(): Promise<Harness> {
         res.end(JSON.stringify(hits));
         return;
       default:
-        res.writeHead(404, HTML);
-        res.end("not found");
+        notFound(res);
     }
   });
   const lib = createServer((req, res) => {
@@ -152,11 +193,13 @@ export async function startHarness(): Promise<Harness> {
       res.end(asset("probe.js"));
       return;
     }
-    res.writeHead(404, HTML);
-    res.end("not found");
+    notFound(res);
+  });
+  const net = createServer((req, res) => {
+    if (!record(req, res)) notFound(res);
   });
   // A WebSocket handshake is an HTTP upgrade: record it, then drop the socket.
-  for (const s of [page, lib]) {
+  for (const s of [page, lib, net]) {
     s.on("upgrade", (req, socket) => {
       record(req, null);
       socket.destroy();
@@ -165,13 +208,13 @@ export async function startHarness(): Promise<Harness> {
 
   origins.page = `http://127.0.0.1:${await listen(page)}`;
   origins.lib = `http://127.0.0.1:${await listen(lib)}`;
+  origins.net = `http://127.0.0.1:${await listen(net)}`;
   return {
     url: `${origins.page}/harness.html`,
-    page: origins.page,
-    lib: origins.lib,
+    ...origins,
     hits,
     close: async () => {
-      await Promise.all([stop(page), stop(lib)]);
+      await Promise.all([stop(page), stop(lib), stop(net)]);
     },
   };
 }

@@ -1,7 +1,10 @@
 // F-028 spike: the parent page of the figure-frame harness (spikes/figure-frame/README.md). It
 // stores secrets the frame must not see, checks that Tauri's IPC answers it (the control), then
-// opens two probe frames with `sandbox="allow-scripts"`: `self` loads its probe from 'self' under
-// the spec's exact CSP, `lib` loads it from the lib origin standing in for lecter-lib:. It grades
+// opens three probe frames with `sandbox="allow-scripts"`: `fig` loads its probe from the frame
+// origin (standing in for lecter-fig:) and `lib` from the lib origin (lecter-lib:), each under the
+// spec's CSP with its stand-in named; `bare` has no CSP, so its network results (observed, not
+// graded) show what the app's native request filter stops on its own. The app reports whether it
+// armed that filter in this page's query (`ff-filter`, app/src/figure_filter/arm.rs). It grades
 // what the probes report (pages/probe.js) and runs the in-page leg of the busy-frame watchdog:
 // a ping to each frame every HEARTBEAT_MS, a frame flagged busy once its last pong is STALE_MS old.
 // Drivers (the e2e flow, measure.mjs) call window.__ff.
@@ -14,10 +17,17 @@
   const SECRET = "parent-storage-secret";
   const params = new URL(location.href).searchParams;
   const expectTauri = params.get("tauri") === "1";
-  const variants = ["self", "lib"];
+  const filter = {
+    state: params.get("ff-filter"),
+    kind: params.get("ff-filter-kind"),
+    error: params.get("ff-filter-error"),
+  };
+  const variants = ["fig", "lib", "bare"];
+  /** The frames under the spec's CSP; `bare` is only observed. */
+  const graded = new Set(["fig", "lib"]);
   const BEACONS = {
-    "fetch same-origin": "fetch",
-    "fetch cross-origin": "fetch-cross",
+    fetch: "fetch",
+    "fetch no-cors": "fetch-nocors",
     xhr: "xhr",
     sendBeacon: "sendbeacon",
     websocket: "websocket",
@@ -231,16 +241,26 @@
     else note("harness", "control", "Tauri IPC answers the parent", ff.control.ipc);
     const ran = variants.filter((v) => ff.frames[v] && ff.frames[v].result);
     check("harness", "control", "a probe ran in a sandboxed frame", ran.length > 0, { ran });
+    // In the app the filter must be armed, or the network checks would prove the CSP alone.
+    if (expectTauri) check("harness", "filter", "native request filter armed", filter.state === "armed", filter);
+    else note("harness", "filter", "native request filter armed", filter);
+    // A request that got out: the beacon log has it, or the call itself got an answer.
+    const reached = (path, res) => hits.includes(path) || /^(status|type) /.test(res.value);
 
     for (const v of variants) {
       const fr = ff.frames[v];
       if (!fr) continue;
+      // Both CSP frames must run (D-145: the CSP names the scheme, which every webview matches).
+      const verdict = (scope, area, name, ok, detail) =>
+        graded.has(v) ? check(scope, area, name, ok, detail) : note(scope, area, name, { blocked: ok, ...detail });
+      const loaded = (ok, detail) =>
+        graded.has(v) ? check(v, "load", "probe script ran", ok, detail) : note(v, "load", "probe script ran", detail);
       if (!fr.result) {
-        note(v, "load", "probe script ran", { loaded: Boolean(fr.loaded), result: false });
+        loaded(false, { loaded: Boolean(fr.loaded), result: false });
         continue;
       }
       const r = fr.result;
-      note(v, "load", "probe script ran", {
+      loaded(true, {
         selfOrigin: r.selfOrigin,
         eventOrigin: fr.loaded && fr.loaded.eventOrigin,
         referrer: r.referrer,
@@ -254,9 +274,19 @@
       );
       for (const [name, res] of Object.entries(r.network)) {
         const path = `/beacon/${v}-${BEACONS[name]}`;
-        const hit = hits.includes(path);
-        check(v, "network", name, !hit && !/^status /.test(res.value), { hit, ...res });
+        verdict(v, "network", name, !reached(path, res), { hit: hits.includes(path), ...res });
       }
+      for (const [name, res] of Object.entries(r.ownOrigin || {})) {
+        const path = `/beacon/${v}-own-prefetch`;
+        note(v, "own-origin", name, { reached: reached(path, res), hit: hits.includes(path), ...res });
+      }
+      if (final) {
+        for (const name of ["form", "navigate"]) {
+          const hit = hits.includes(`/beacon/${v}-${name}`);
+          verdict(v, "network", name, !hit, { hit, tried: Boolean(fr.navigateTried) });
+        }
+      }
+      if (!graded.has(v)) continue;
       for (const [name, res] of Object.entries(r.parent))
         check(v, "parent", name, (res.threw || empty(res)) && !leaks(res), res);
       for (const [name, res] of Object.entries(r.storage)) {
@@ -275,12 +305,6 @@
         parentIpc: parentIpcAnswers,
       });
       note(v, "csp", "violations", r.violations);
-      if (final) {
-        for (const name of ["form", "navigate"]) {
-          const hit = hits.includes(`/beacon/${v}-${name}`);
-          check(v, "network", name, !hit, { hit, tried: Boolean(fr.navigateTried) });
-        }
-      }
     }
     let wrote = "";
     try {

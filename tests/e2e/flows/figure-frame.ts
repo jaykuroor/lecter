@@ -2,14 +2,18 @@
 // WebView2; 08-figures.md#sandbox-pages, 13-security.md#tauri-and-ipc). The app doesn't serve
 // `lecter-fig:` or `lecter-lib:` yet (F-141), and its CSP only frames `lecter-fig:`, so the flow
 // points the app's main webview at a harness page from a local server (spikes/figure-frame/):
-// a parent page with the main window's CSP, two `sandbox="allow-scripts"` frames under the CSP of
-// 08-figures.md (`self`: the exact CSP, probe script from 'self'; `lib`: the probe from a second
-// origin standing in for lecter-lib:). Tauri injects its IPC into that page as into any other, so
-// the parent's own call to the core is the control that the IPC is there to be reached.
+// a parent page with the main window's CSP, `sandbox="allow-scripts"` frames under the CSP of
+// 08-figures.md (`fig`: probe script from the frame origin, standing in for lecter-fig:; `lib`: from
+// a second origin standing in for lecter-lib:; `bare`: no CSP, observed only). Before the harness
+// loads, the flow arms the app's native request filter (app/src/figure_filter/, D-145) with those
+// two origins by navigating to the arm URL; the app goes on to the harness with the outcome in its
+// query. Tauri injects its IPC into that page as into any other, so the parent's own call to the
+// core is the control that the IPC is there to be reached.
 //
-// Criterion 1: every network request the probe tries (fetch, XHR, beacon, WebSocket,
-// EventSource, image, CSS, link prefetch/preload/stylesheet, nested frame, popup, form,
-// navigation) never reaches the server, the parent's DOM, globals and location throw, storage
+// Criterion 1: the filter is armed, and every network request the probe tries (fetch, XHR,
+// beacon, WebSocket, EventSource, image, CSS, link prefetch/preload/stylesheet, nested frame,
+// popup, form, navigation; all aimed at a third, "network" origin) never reaches the server, the
+// parent's DOM, globals and location throw, storage
 // throws or is empty and the parent sees no write, and the IPC can't be reached: Tauri's IPC
 // endpoints are blocked and no answer from the core comes back for the frame's calls.
 // Criterion 2: a 5 s busy loop in the frame is detected within 2 s by the two-leg watchdog: a
@@ -24,6 +28,7 @@
 import { appendFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
+  armUrl,
   DETECT_BUDGET_MS,
   type Harness,
   STALE_MS,
@@ -125,10 +130,6 @@ describe("figure frame sandbox", function () {
 
   before(async () => {
     harness = await startHarness();
-    // An explicit window switch turns off the service's focus check for this session.
-    await browser
-      .switchToWindow(await browser.getWindowHandle())
-      .catch((e: unknown) => console.log(`FRAME window switch failed, flows run slower: ${String(e)}`));
     const where = await browser.execute(() => ({ url: location.href, ua: navigator.userAgent }));
     appUrl = where.url;
     engine = webview(where.ua);
@@ -141,7 +142,15 @@ describe("figure frame sandbox", function () {
         summary: summaryFile() !== null,
       })})`,
     );
-    await browser.url(`${harness.url}?tauri=1`);
+    // The app's own origins (`tauri://localhost` has an opaque URL origin, so built by hand) and its
+    // IPC: WebView2 can't tell a frame's request from the page's, so these pass for the page.
+    const app = new URL(appUrl);
+    const arm = armUrl(harness, [`${app.protocol}//${app.host}`, "http://ipc.localhost", "ipc://localhost"]);
+    report(`FRAME ${engine} harness info arm: observed (${JSON.stringify(arm)})`);
+    // The app cancels this navigation, arms the filter and then loads the harness itself.
+    await browser.execute((u: string) => {
+      location.href = u;
+    }, arm);
     await browser.waitUntil(ff, { timeout: 20_000, interval: 100, timeoutMsg: "the harness page did not load" });
     await browser.waitUntil(() => browser.execute(() => (window as FfWindow).__ff?.settled() ?? false), {
       timeout: 40_000,
@@ -163,7 +172,7 @@ describe("figure frame sandbox", function () {
 
   it("detects a busy loop in the frame within 2 s", async () => {
     const variant = await browser.execute(
-      () => ["self", "lib"].find((v) => (window as FfWindow).__ff?.frames[v]?.result) ?? "self",
+      () => ["fig", "lib"].find((v) => (window as FfWindow).__ff?.frames[v]?.result) ?? "fig",
     );
     // Idle baseline: with nothing busy, a ping must come back well inside the stale limit, so an
     // unanswered ping during the loop means a busy frame, not a slow WebDriver.

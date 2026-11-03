@@ -11,6 +11,10 @@
 compile_error!("release builds must embed the UI: build with `--features custom-protocol` (Tauri's CLI adds it)");
 
 mod dialog;
+// The figure frames' native request filter (D-145): the F-028 spike arms it from its e2e flow;
+// F-141 installs it for real. Its policy is unit-tested in every test build.
+#[cfg(any(test, feature = "test-hooks"))]
+mod figure_filter;
 // The bindings generator (ipc/export.rs) is the export-bindings binary's; here only its tests run.
 #[cfg(test)]
 #[path = "ipc/export.rs"]
@@ -31,6 +35,8 @@ fn main() {
     // only, and the dependency exists only with the `test-hooks` feature (SEC-34).
     #[cfg(feature = "test-hooks")]
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+    #[cfg(feature = "test-hooks")]
+    let builder = builder.plugin(figure_filter::plugin());
     // The commands and events of the IPC contract (ipc/mod.rs), behind the argument limits.
     let contract = ipc::contract();
     // The open lectures' save sessions; quitting saves them (F-021).
