@@ -24,6 +24,13 @@ export const commands = {
 	 */
 	appInfo: () => __TAURI_INVOKE<AppInfo>("app_info"),
 	/**
+	 *  The UI has just painted `paint`: the shell logs its `startup <phase> <ms>` line, timed when
+	 *  the call arrives (the UI calls right after the paint), the first time only
+	 *  (`14-quality.md#performance-budgets`). The UI never chooses the time, and serde refuses any
+	 *  other phase name, so there is nothing else to validate (SEC-32).
+	 */
+	appMarkStartup: (paint: StartupPaint) => __TAURI_INVOKE<void>("app_mark_startup", { paint }),
+	/**
 	 *  Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 	 *  listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
 	 *  never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
@@ -249,6 +256,13 @@ export type Lecture = {
 	text: string,
 };
 
+/**  A startup paint the UI reports to `app_mark_startup`. */
+export type StartupPaint = 
+/**  The app's frame is on screen. */
+"shell_first_paint" | 
+/**  The first lecture opened this session is on screen in the buffer. */
+"buffer_first_paint";
+
 /**  Whether the folder-trust question (02-course-folder.md#trust) still has to be asked. */
 export type Trust = "ask" | "trusted";
 
@@ -279,6 +293,11 @@ export type Commands = {
     args: Record<string, never>;
     result: CommandOk<Awaited<ReturnType<typeof commands.appInfo>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.appInfo>>>;
+  };
+  app_mark_startup: {
+    args: { paint: Parameters<typeof commands.appMarkStartup>[0] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.appMarkStartup>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.appMarkStartup>>>;
   };
   course_open: {
     args: Record<string, never>;

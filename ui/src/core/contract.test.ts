@@ -13,6 +13,7 @@ const matching: MockHandlers = {
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
+  app_mark_startup: () => undefined,
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -30,6 +31,7 @@ const wrongResult: MockHandlers = {
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
+  app_mark_startup: () => undefined,
 };
 
 const wrongEnum: MockHandlers = {
@@ -41,6 +43,7 @@ const wrongEnum: MockHandlers = {
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
+  app_mark_startup: () => undefined,
 };
 
 const extra: MockHandlers = {
@@ -51,6 +54,7 @@ const extra: MockHandlers = {
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
+  app_mark_startup: () => undefined,
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -62,6 +66,7 @@ const commandNames: CommandName[] = [
   "gloss_request",
   "gloss_cancel",
   "app_info",
+  "app_mark_startup",
   "course_open",
   "lecture_open",
   "lecture_apply_edits",
