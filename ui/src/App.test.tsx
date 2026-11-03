@@ -44,7 +44,10 @@ describe("App shell", () => {
     fireEvent.click(row);
     await waitFor(() => expect(container.querySelector(".cm-block")?.textContent).toBe("Only block"));
     expect(row.getAttribute("aria-current")).toBe("page");
-    expect(asked.at(-1)).toEqual(["lecture_open", { course: "/c/STAT311", path: "lectures/l07.md" }]);
+    // The status line's app_info and the startup marks come after the first paint, in between.
+    expect(asked.filter((call) => (call as unknown[])[0] === "lecture_open")).toEqual([
+      ["lecture_open", { course: "/c/STAT311", path: "lectures/l07.md" }],
+    ]);
   });
 
   it(":find in the buffer lists the open course's hits in the side panel (F-022)", async () => {

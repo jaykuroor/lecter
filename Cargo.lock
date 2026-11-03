@@ -2088,9 +2088,12 @@ dependencies = [
 name = "lecter-app"
 version = "0.0.1"
 dependencies = [
+ "block2",
  "lecter-ai",
  "lecter-core",
  "lecter-index",
+ "objc2",
+ "objc2-foundation",
  "serde",
  "serde_json",
  "specta",
@@ -2101,6 +2104,9 @@ dependencies = [
  "tauri-plugin-wdio-webdriver",
  "tauri-specta",
  "tracing",
+ "webkit2gtk",
+ "webview2-com",
+ "windows-core",
 ]
 
 [[package]]
@@ -2165,6 +2171,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "lecter-spike-os-sandbox"
+version = "0.0.1"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

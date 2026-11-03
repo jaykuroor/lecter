@@ -62,6 +62,8 @@ Allowed dependencies between Lecter crates (`scripts/check_arch.py` fails the li
 | `parse`, `models`, `cas` | no Lecter crate |
 | `cli` (v1) | `core`, `ai`, `index` |
 
+Spike crates (`spikes/*`, named `lecter-spike-*`) are throwaway, may depend on no Lecter crate, and are never depended on (D-082).
+
 `parse` and `models` run as separate binaries and talk to `core` over stdin/stdout (`18-contracts.md#worker-protocol`).
 
 ## Debug-only test hooks

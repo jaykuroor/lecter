@@ -269,8 +269,8 @@
     "spikes/os-sandbox/**"
    ],
    "acceptance": [
-    "spikes/os-sandbox SHALL be a workspace test crate whose child process, once sandboxed, cannot open a network socket, read a file other than its input, or exceed 1 GB, each asserted by a test.",
-    "The tests SHALL implement Linux seccomp + Landlock, a macOS sandbox profile, and a Windows AppContainer or restricted token plus job object, selected by cfg(target_os).",
+    "spikes/os-sandbox SHALL be a workspace test crate whose child process, once sandboxed, cannot open a network socket, read a file other than its input, or exceed 1 GB, each asserted by a test. On Windows (SEC-01: LPAC AppContainer + job object) the file test SHALL assert that a file under the user profile is denied; files granted to ALL RESTRICTED APPLICATION PACKAGES (OS files such as win.ini) are allowed.",
+    "The tests SHALL implement Linux seccomp + Landlock, a macOS sandbox profile, and a Windows LPAC AppContainer plus job object, selected by cfg(target_os).",
     "Linux results SHALL be measured locally; macOS and Windows results SHALL come from the `test` CI job (report UNVERIFIED-ON until CI runs), and the go/no-go per OS SHALL be recorded in a D-entry."
    ],
    "verify": [
@@ -279,10 +279,10 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "blocked",
-   "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox. | Builder's final commit a8e5aa5 on feat/F-005-os-sandbox (pushed up to c8900b7; push again before merging).",
+   "status": "done",
+   "notes": "BLOCKED: IMPOSSIBLE: crit 1 on Windows (LPAC reads files granted to ALL RESTRICTED APPLICATION PACKAGES, e.g. win.ini) - SEC-01 Windows wording change, Q-008. Linux/macOS GO. Branch feat/F-005-os-sandbox. | Builder's final commit a8e5aa5 on feat/F-005-os-sandbox (pushed up to c8900b7; push again before merging). | Q-008 answered (D-144): SEC-01 allows LPAC reads of ALL RESTRICTED APPLICATION PACKAGES files on Windows. On feat/F-005-os-sandbox: swap the win.ini test for a user-profile file that must be denied, re-run Windows CI, merge.",
    "priority": 1006,
-   "base": "d51d35fc12ca12a273acde87f9d2026a071d0439"
+   "base": "76ea1cb115d8659e459e7ea333980f99719add19"
   },
   {
    "id": "F-006",
@@ -821,18 +821,22 @@
    ],
    "depends_on": [
     "F-020",
-    "F-023"
+    "F-023",
+    "F-029",
+    "F-179"
    ],
    "paths": [
     "tests/perf/**",
     "tests/fixtures/lectures/**"
    ],
    "acceptance": [
-    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone.",
-    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact).",
+    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone, and per-OS targets (`per_os`) for idle_rss_mb, rss_300_slides_mb and cold_open_ms.",
+    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact; cold_open_ms is the median of 5 launches gated at ×1 with neither allowance).",
     "Budgets whose feature doesn't exist yet SHALL print PENDING and fail once their starting milestone is done.",
     "ci.yml SHALL gain the required `perf` job, and a deliberately slowed fixture SHALL make it fail (asserted in a test of budgets.sh).",
-    "The first measurements SHALL be recorded in a D-entry."
+    "The first measurements SHALL be recorded in a D-entry.",
+    "Memory budgets SHALL count Lecter's own processes by RSS and the webview's processes by PSS (macOS phys_footprint, Windows private working set); the Linux targets SHALL be 460 and 500 MB, and the macOS and Windows targets SHALL come from a workflow_dispatch release-build run on the branch (measurement + 10 %, rounded up to the next 10 MB), recorded in a D-entry.",
+    "WHEN budgets.sh runs with --ci THEN the real-app keystroke_p99_ms and cold_open_ms SHALL print REPORT and never fail (keystroke_p99_ms stays gated by the mocked-core Playwright trace); without --ci both real-app values SHALL gate, cold_open_ms against the per-OS target from the maintainer's machine (median of 5 + 10 %, D-155), and an OS without a target SHALL print REPORT (asserted in a test of budgets.sh)."
    ],
    "verify": [
     "tests/perf/budgets.sh"
@@ -845,9 +849,9 @@
     ".github/workflows/ci.yml"
    ],
    "status": "in_progress",
-   "notes": "",
+   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards) | Q-017 answered (D-146): after F-029 and F-179 merge, on feat/F-025-perf-budgets add per-OS PSS memory targets and keystroke REPORT under --ci, re-run CI (dispatch for macOS/Windows targets), merge. | D-149: also record idle CPU per process after F-029's fix (open-idle run, ubuntu-24.04) in F-029's D-entry (criterion 5 moved here). | D-156: two cold_open targets. per_os in budgets.json = D-152 CI runner targets (the e2e-app cold-open flow keeps gating on CI); budgets.sh without --ci gates against a separate local target from the maintainer's machine (median of 5 + 10 %, D-155); --ci prints REPORT.",
    "priority": 2021,
-   "base": "c90d636f098d320c8724ccc228b8c9b569940d5e"
+   "base": "4c34740e4fc3ba8b9fbd79725bec117611688da9"
   },
   {
    "id": "F-026",
@@ -914,9 +918,10 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "todo",
+   "status": "done",
    "notes": "",
-   "priority": 2023
+   "priority": 2023,
+   "base": "5f6b46170c3717462053577f6c8f516c16c73e11"
   },
   {
    "id": "F-028",
@@ -932,10 +937,12 @@
    ],
    "paths": [
     "spikes/figure-frame/**",
-    "tests/e2e/flows/figure-frame*"
+    "tests/e2e/flows/figure-frame*",
+    "app/src/figure_filter*",
+    "app/src/test_hooks.rs"
    ],
    "acceptance": [
-    "A sandboxed iframe (allow-scripts only) with the CSP of 08-figures.md#sandbox-pages SHALL be proven, in all three webviews via the e2e-app job, unable to fetch the network, read parent DOM, use storage or call IPC.",
+    "A sandboxed iframe (allow-scripts only) with the CSP of 08-figures.md#sandbox-pages and a native request filter that refuses every frame request outside the frame and library origins (standing in for lecter-fig:/lecter-lib:; WebView2 WebResourceRequested, WebKit content rule list or scheme-handler checks) SHALL be proven, in all three webviews via the e2e-app job, unable to fetch the network (all 16 vectors, `<link rel=prefetch>` included), read parent DOM, use storage or call IPC.",
     "A busy loop in the frame SHALL be detected within 2 s by the watchdog approach chosen, and the result per webview SHALL be recorded in a D-entry."
    ],
    "verify": [
@@ -944,9 +951,13 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "todo",
-   "notes": "",
-   "priority": 2024
+   "status": "done",
+   "notes": "BLOCKED: IMPOSSIBLE: criterion 1 on WebView2 - link prefetch from the sandboxed frame bypasses the CSP (reviewer agreed); smallest spec change: native request filter for figure frames in 08-figures#sandbox-pages (Q-019, D-142). Branch feat/F-028-figure-frame complete; criterion 2 passes on all three after run 2. | Q-019 answered (D-145): add a native request filter (app/src/figure_filter*, test-hooks only until F-141 ships it) on branch feat/F-028-figure-frame; criterion 1 now proves filter + CSP. Criterion 2 already passes.",
+   "priority": 2024,
+   "base": "40dae6712a15e2d27e4ad07ddb1e486bd87544d0",
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-030",
@@ -955,6 +966,7 @@
    "title": "Settings core: schema, JSONC, precedence",
    "spec": [
     "12-settings-theme-onboarding.md#settings",
+    "12-settings-theme-onboarding.md#performance-preset",
     "13-security.md#ai-input-and-output"
    ],
    "depends_on": [
@@ -969,7 +981,8 @@
     "The resolved value of a key SHALL follow prompt > role > course > global > default and report its source (property test).",
     "WHEN a config file contains unknown keys THEN they SHALL be preserved on write and reported once.",
     "WHEN a config file changes on disk THEN the new values SHALL apply within 1 s without restart.",
-    "Global-only keys (13-security.md SEC-25: provider hosts and base URLs, feedback.endpoint, search service URLs, privacy.*, log.*, limits.*, budgets above the global value) SHALL be ignored with one notice when course.jsonc sets them, tested with the hostile course fixture tests/fixtures/courses/hostile/ (SEC-25)."
+    "Global-only keys (13-security.md SEC-25: provider hosts and base URLs, feedback.endpoint, search service URLs, privacy.*, log.*, limits.*, budgets above the global value) SHALL be ignored with one notice when course.jsonc sets them, tested with the hostile course fixture tests/fixtures/courses/hostile/ (SEC-25).",
+    "ui.performance SHALL accept performance, balanced and quality, SHALL default to balanced, and SHALL reject any other value with the allowed list (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "cargo nextest run -p lecter-core settings"
@@ -978,7 +991,7 @@
     "log:tests"
    ],
    "status": "todo",
-   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006.",
+   "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006. | Q-006 applied (D-143): ui.performance criterion added.",
    "priority": 3025,
    "reviews": [
     "security"
@@ -1276,7 +1289,8 @@
    "kind": "feature",
    "title": "Command line",
    "spec": [
-    "10-keymap.md#commands"
+    "10-keymap.md#commands",
+    "12-settings-theme-onboarding.md#performance-preset"
    ],
    "depends_on": [
     "F-037",
@@ -1288,7 +1302,8 @@
    "acceptance": [
     ": SHALL open a command line with completion for commands and setting keys.",
     "`:set key=value` SHALL validate against the schema and reject invalid values with the reason.",
-    "`:set key?` SHALL show the value and its source."
+    "`:set key?` SHALL show the value and its source.",
+    "`:set ui.performance=quality` SHALL apply without a restart and show the note \"Can add input lag on slower machines.\"; `:set ui.performance=fast` SHALL be rejected with the three allowed values (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- cmdline"
@@ -1432,7 +1447,8 @@
    "kind": "feature",
    "title": "Settings window (schema-driven)",
    "spec": [
-    "12-settings-theme-onboarding.md#settings"
+    "12-settings-theme-onboarding.md#settings",
+    "12-settings-theme-onboarding.md#performance-preset"
    ],
    "depends_on": [
     "F-030",
@@ -1442,19 +1458,21 @@
     "ui/src/features/settings/**"
    ],
    "acceptance": [
-    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Privacy, Advanced, with search.",
+    "The window SHALL render controls from the schema on the pages Appearance, Keys, AI, Providers, Courses, Notes and files, Performance, Privacy, Advanced, with search.",
     "A change SHALL write the correct file (global or course) and apply immediately.",
-    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter)."
+    "Every control SHALL be reachable by keyboard (Tab, arrows, j/k, / filter).",
+    "The Performance page SHALL offer the presets Performance, Balanced and Quality with Balanced selected on a new install, and WHEN Quality is selected THEN it SHALL show the note \"Can add input lag on slower machines.\" (12-settings-theme-onboarding.md#performance-preset)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- settings"
    ],
    "evidence": [
-    "screenshot:settings"
+    "screenshot:settings",
+    "screenshot:settings-performance-quality"
    ],
    "try": "Open Settings with Ctrl-, and change the hint bar detail",
    "status": "todo",
-   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006.",
+   "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006. | Q-006 applied (D-143): Performance page criterion added.",
    "priority": 3040
   },
   {
@@ -3815,12 +3833,16 @@
    ],
    "paths": [
     "ui/src/features/figures/page*",
-    "app/src/protocol_lib*"
+    "app/src/protocol_lib*",
+    "app/src/figure_filter*",
+    "app/src/ipc_frame_guard*"
    ],
    "acceptance": [
-    "Pages SHALL render in an iframe with sandbox allow-scripts only and the CSP of 08-figures.md#sandbox-pages.",
+    "Pages SHALL render in an iframe with sandbox allow-scripts only and the CSP of 08-figures.md#sandbox-pages (`script-src lecter-fig: lecter-lib:`), and a WebDriver flow SHALL prove a page's own script from lecter-fig: and a library from lecter-lib: both run in each CI OS's webview.",
     "Libraries SHALL load only from lecter-lib://, version-pinned.",
-    "A WebDriver flow SHALL prove a page cannot fetch, read the parent or call IPC on the CI OSes.",
+    "WHEN a figure frame requests anything not on lecter-fig: or lecter-lib: THEN the native request filter SHALL refuse it before it leaves the app (WebView2 WebResourceRequested; WebKitGTK and WKWebView content rule list or scheme-handler checks), proven on each CI OS against F-028's 16 network vectors, `<link rel=prefetch>` included.",
+    "A WebDriver flow SHALL prove a page cannot read the parent or use storage on the CI OSes.",
+    "WHEN an IPC message comes from any frame other than a window's main frame THEN the core SHALL drop it without running the command, proven by a call from a figure frame on each CI OS (SEC-31).",
     "lecter-fig: and lecter-lib: SHALL serve only hash-named or bundled files and return 404 for anything else, tested with ../, encoded ../ and absolute paths (SEC-33)."
    ],
    "verify": [
@@ -3851,21 +3873,26 @@
     "F-141"
    ],
    "paths": [
-    "ui/src/features/figures/watchdog*"
+    "ui/src/features/figures/watchdog*",
+    "app/src/figure_watchdog*"
    ],
    "acceptance": [
-    "A frame busy over 2 s or over 150 MB SHALL be replaced by its static image.",
+    "WHEN a page frame's main thread is busy THEN the core-side watchdog (a webview.eval heartbeat every 250 ms) SHALL flag it within 2 s on each CI OS, kill it from the native side and replace it by its static image.",
+    "WHEN a page frame uses over 150 MB THEN it SHALL be killed from the native side and replaced by its static image.",
     "At most figures.maxLiveFrames frames SHALL be live; off-screen frames SHALL be replaced by their static image and restored."
    ],
    "verify": [
-    "pnpm -C ui run test:e2e -- figure-watchdog"
+    "scripts/e2e-app.sh figure-watchdog --evidence F-142"
    ],
    "evidence": [
-    "log:e2e"
+    "log:e2e-app"
    ],
    "status": "todo",
    "notes": "",
-   "priority": 7114
+   "priority": 7114,
+   "reviews": [
+    "security"
+   ]
   },
   {
    "id": "F-143",
@@ -4737,6 +4764,126 @@
    "id": "F-178",
    "status": "todo",
    "notes": ""
+  },
+  {
+   "id": "F-074",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Performance preset in the lecture buffer",
+   "spec": [
+    "12-settings-theme-onboarding.md#performance-preset",
+    "09-ui.md#editing",
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-030",
+    "F-062",
+    "F-064"
+   ],
+   "paths": [
+    "ui/src/features/buffer/preset/**",
+    "ui/e2e/preset.spec.ts"
+   ],
+   "acceptance": [
+    "WHEN ui.performance is balanced and the user types a burst of keys in a note THEN the Markdown parse SHALL run zero times during the burst and the note SHALL be highlighted within 200 ms plus one frame after the last key (counted with a parse spy).",
+    "WHEN ui.performance is performance THEN notes and glosses SHALL show no Markdown highlighting and their math SHALL show as source text.",
+    "WHEN ui.performance is quality THEN Markdown highlighting and math in the edited note SHALL update after every keystroke.",
+    "KaTeX SHALL be in a separate chunk, absent from the main UI chunk, and SHALL load only when the first math comes into view (network log of the built UI).",
+    "WHEN ui.performance changes THEN open lectures SHALL switch to the new preset without a reload, keeping cursor and mode.",
+    "With the Balanced preset and highlighting on, the keystroke_p99_ms and ui_main_chunk_kb_gz budgets SHALL hold on the 200-slide fixture."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/features/buffer/preset",
+    "pnpm -C ui run test:e2e -- preset",
+    "tests/perf/budgets.sh --only keystroke_p99_ms,ui_main_chunk_kb_gz"
+   ],
+   "evidence": [
+    "screenshot:preset-balanced",
+    "screenshot:preset-performance",
+    "perf"
+   ],
+   "try": "Type Markdown in a note, then :set ui.performance=performance and see the highlighting go",
+   "priority": 4066,
+   "status": "todo",
+   "notes": ""
+  },
+  {
+   "id": "F-029",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Nothing redraws while idle",
+   "spec": [
+    "14-quality.md#performance-budgets",
+    "09-ui.md#editing"
+   ],
+   "depends_on": [
+    "F-016",
+    "F-020"
+   ],
+   "paths": [
+    "ui/src/features/buffer/**",
+    "ui/src/App.css",
+    "ui/src/App.tsx",
+    "tests/e2e/flows/idle*"
+   ],
+   "acceptance": [
+    "WHEN a lecture is open and 10 s pass without input THEN document.getAnimations() in the main window SHALL list no running animation or transition (e2e-app flow `idle`).",
+    "WHEN a lecture is open and idle THEN, over a 30 s window starting 10 s after the last input, a MutationObserver on the document SHALL record zero mutations and no requestAnimationFrame callback SHALL run (e2e-app flow `idle`).",
+    "WHEN 10 s pass after the last key or click THEN the caret SHALL stop blinking and stay visible, and WHEN the next key or click arrives THEN it SHALL blink again (09-ui.md#editing).",
+    "WHEN a gloss is streaming THEN its updates SHALL still paint, and the idle checks SHALL apply again 10 s after the stream ends.",
+    "The source of the idle redraw (D-139: 12.55 % CPU, 95 % in WebKitWebProcess llvmpipe threads) and the idle CPU per process after the fix, measured with F-025's open-idle run on ubuntu-24.04, SHALL be recorded in a D-entry."
+   ],
+   "verify": [
+    "pnpm -C ui exec vitest run src/features/buffer",
+    "scripts/e2e-app.sh idle --evidence F-029"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "try": "Open a lecture and leave it a minute: the caret stops blinking after 10 s and the fan stays quiet; press a key and it blinks again",
+   "priority": 2020,
+   "status": "done",
+   "notes": "",
+   "base": "dd714c5a12dce34347df5f1884b1125fa7248aef"
+  },
+  {
+   "id": "F-179",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Cold open under budget",
+   "spec": [
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-016",
+    "F-020"
+   ],
+   "paths": [
+    "app/src/main.rs",
+    "app/src/startup*",
+    "app/tauri.conf.json",
+    "ui/index.html",
+    "ui/src/main.tsx",
+    "ui/src/App.tsx",
+    "ui/vite.config.ts",
+    "tests/e2e/flows/cold-open*"
+   ],
+   "acceptance": [
+    "The app SHALL log one `startup <phase> <ms>` line per phase (window created, page load started, shell first paint, buffer first paint of the opened lecture), in ms since process start, and the release-build breakdown on ubuntu-24.04 before and after the change SHALL be recorded in a D-entry.",
+    "WHEN the release build (with test-hooks) starts and opens the 200-slide fixture lecture THEN the e2e-app flow `cold-open` SHALL measure process start to the buffer's first paint under 600 ms on ubuntu-24.04 CI (cold_open_ms with the ×1.5 rule, measured once more on a breach).",
+    "Work not needed for the first paint (IPC calls, chunks, fonts) SHALL start after it, and the ui_main_chunk_kb_gz budget SHALL still hold."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh cold-open --evidence F-179"
+   ],
+   "evidence": [
+    "log:e2e-app"
+   ],
+   "try": "Start the app and open a lecture: the window and the lecture appear in well under a second",
+   "priority": 2020,
+   "status": "done",
+   "notes": "Code done at feat/F-179-cold-open (verify OK); waiting for review (SECURITY: new app_mark_startup IPC command outside owned paths) and the author's real-app run of scripts/e2e-app.sh cold-open in the builder worktree, then CI on ubuntu-24.04. | D-152: per-OS cold_open_ms target = CI median of 5 launches + 10 %, rounded up to 10 ms. Builder adds median-of-5 and REPORT for an OS without a target; Linux target from this branch's CI run; spec/features.json wording via the author's prompt.",
+   "base": "a42b4ccdc9b8a255f0c566866107abd76cf11922"
   }
  ]
 }

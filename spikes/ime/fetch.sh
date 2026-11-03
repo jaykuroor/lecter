@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Collects one CI run's IME results (F-027) into .evidence/F-027/.
+#   spikes/ime/fetch.sh <run-id> [summary.txt | artifacts-dir ...]
+# Start the run with `gh workflow run ci.yml --ref <branch>` (workflow_dispatch adds macOS and
+# Windows to the e2e-app matrix); it must have finished.
+#
+# Where the flow's `IME ...` lines are: verify.sh keeps e2e-app's output in .verify/, and CI
+# uploads .verify/ as the artifact e2e-app-<os> only when that job fails. A passing job has them
+# only in its job summary (run page), which gh can't download: copy that block into a text file
+# and pass it as an extra argument. A directory argument holds artifacts already downloaded
+# (`gh run download <run-id> -p 'e2e-app-*' -D <dir>`), for when this script can't download them.
+# This script joins the artifacts' logs, the e2e-app job logs and those files into
+# .evidence/F-027/e2e-app.log, then prints the per-webview tally from spikes/ime/summary.py and
+# saves it as summary.txt.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+RUN="${1:?usage: spikes/ime/fetch.sh <run-id> [summary.txt | artifacts-dir ...]}"
+shift
+[[ "$RUN" =~ ^[0-9]+$ ]] || { echo "run ids are numbers: $RUN"; exit 2; }
+for extra in "$@"; do [ -e "$extra" ] || { echo "no such file or folder: $extra"; exit 2; }; done
+# gh caches under XDG_CACHE_HOME, which is read-only in the Claude sandbox.
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${TMPDIR:-/tmp}/cache}"
+OUT=.evidence/F-027
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/ime-fetch.XXXXXX")
+trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$OUT"
+LOG="$OUT/e2e-app.log"
+echo "== CI run $RUN: e2e-app artifacts, job logs and job summaries" > "$LOG"
+
+# Artifacts (failed jobs only). The wdio output is .verify/e2e-app/e2e-app.log inside each.
+gh run download "$RUN" -p 'e2e-app-*' -D "$TMP/art" >/dev/null 2>&1 || true
+DIRS=("$TMP"/art/e2e-app-*)
+for extra in "$@"; do [ -d "$extra" ] && DIRS+=("$extra"/e2e-app-*); done
+for dir in "${DIRS[@]}"; do
+  [ -d "$dir" ] || continue
+  f="$dir/e2e-app/e2e-app.log"; [ -f "$f" ] || f="$dir/e2e-app.log"
+  [ -f "$f" ] && { echo "== artifact $(basename "$dir")"; cat "$f"; } >> "$LOG"
+done
+# Job logs ("<job>\t<step>\t<line>"): the verify summary, and the failure tail.
+{ echo "== job logs"; gh run view "$RUN" --log 2>/dev/null | grep -a '^e2e-app' || true; } >> "$LOG"
+for extra in "$@"; do [ -f "$extra" ] && { echo "== job summary $extra"; cat "$extra"; } >> "$LOG"; done
+
+{
+  echo "CI run $RUN"
+  gh run view "$RUN" --json jobs -q '.jobs[] | select(.name | startswith("e2e-app")) | "  job \(.name): \(.conclusion)"' 2>/dev/null || true
+} > "$OUT/summary.txt"
+set +e
+python3 spikes/ime/summary.py "$LOG" >> "$OUT/summary.txt"
+STATUS=$?
+set -e
+cat "$OUT/summary.txt"
+echo "(a passing job's lines come only from a job summary file passed as an argument)"
+exit "$STATUS"

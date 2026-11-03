@@ -19,4 +19,7 @@ Spikes never become dependencies of `crates/` or `ui/`. Port what you learned; d
 - Playwright WebKit won't launch on distros Playwright doesn't support (its Ubuntu build needs ICU 74, libjpeg.so.8, libjxl 0.8); measure WebKit on Ubuntu.
 - The sandbox proxy can stall or truncate large downloads: check Content-Length, cap each attempt's time and retry before hashing.
 - Keystroke latency: a task posted from a key handler runs after the next frame in Chromium; use `--disable-gpu-vsync --disable-frame-rate-limit` for end-to-end numbers.
-
+- Chromium 156 checks `<link rel=prefetch>` against `script-src`, not `default-src` (spikes/figure-frame): any origin script-src names can be prefetched despite `default-src 'none'`; WebView2's WebResourceRequested doesn't see WebSocket handshakes (F-028)
+- Landlock (ABI 10) and a stacked seccomp filter work inside Claude Code's bubblewrap sandbox; `rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin` lets `cargo clippy --target` check cfg(windows/macos) code (F-005).
+- A Rust spike is a workspace crate named `lecter-spike-*` under `spikes/`; check_arch gives it no Lecter edges (D-082).
+- mutants.py runs on Linux only: every mutant in cfg(windows)/cfg(target_os = "macos") code shows as SURVIVED (compiled out); F-005 has 87 (Q for the maintainer).

@@ -773,3 +773,169 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: F-025 stays unmerged. Its first CI perf run (run 41359945525, debug + test-hooks build, ubuntu-24.04 under Xvfb, WebKitGTK) measured keystroke_p99_ms 15/16 (limit 12), cold_open_ms 1409/1043 (limit 600), idle_rss_mb 620.61 (app 214.7, WebKitWebProcess 355.0, WebKitNetworkProcess 50.8; budget 150), rss_300_slides_mb 653.21 (budget 250), idle_cpu_pct 9.25 (budget 0.5); ttft_overhead_ms 20 and ui_main_chunk_kb_gz 141.94 passed. The builder re-measures on a release-profile build with test-hooks, adds a per-process CPU and memory breakdown to find the idle CPU source, and re-runs CI on the branch; what still fails goes back to the maintainer with numbers. No budget is loosened.
 - Why: merging would turn main red on every push; a debug build overstates open time and memory, and idle CPU at 9% points to work running while idle.
 - Instead of: merging and stopping the line for perf fixes, or blocking F-025 for the planning session.
+
+## D-139 · First release-build perf measurements; F-025 blocked for planning
+2026-11-01 · orchestrator, decider: maintainer · active
+- Decision: the first real-app measurements (F-025 criterion 5) are the release + test-hooks CI run 41361813736 on ubuntu-24.04 under Xvfb: keystroke_p99_ms 15/16, cold_open_ms 2906/973, idle_rss_mb 602.29 (PSS 414.6), rss_300_slides_mb 629.85 (PSS 450.7), idle_cpu_pct 12.55 (95% llvmpipe threads in WebKitWebProcess), ttft_overhead_ms 21, ui_main_chunk_kb_gz 141.94. Five budgets fail, so F-025 is blocked unmerged and the budgets and fixes go to the planning session (Q-017). No budget is loosened.
+- Why: merging would keep main red; the spec says to measure, record and ask rather than loosen.
+- Instead of: merging and stopping the line, or another diagnostic round first.
+
+## D-140 · Vim and IME work together in all three webviews; normal-mode IME text needs a guard
+2026-11-01 · session F-027 · active
+- Decision: criterion 1 holds on WebKitGTK, WKWebView and WebView2 (CI runs 41364496453 and 41369104620): composed text lands once in the state, on screen and in the saved .md, and no Vim key fires while composing, because CodeMirror keeps keys from Vim while a composition is active (composing > 0). WebKitGTK 25/26 and WKWebView 25/26 checks ok; WebView2 passed every asserted check (detail lines not captured). Gaps on WebKitGTK and WKWebView: (a) a 2+ character commit in normal mode is inserted into the slide line (against 09-ui#editing) and Vim's `u` doesn't remove it; (b) a keyCode-229 key named by its character, sent before compositionstart, runs as a Vim key (Chromium sends `Process`, which Vim skips). Workaround chosen (not built; for the card that owns ui/src/features/buffer/editorState.ts): an inputHandler placed before vim() that drops text unless Vim is in insert or replace mode, plus a capture-phase keydown listener on the editor's outer element that calls stopPropagation (never preventDefault, which would cancel the IME) for `isComposing || keyCode === 229`, except `Process`, `Unidentified` and `Dead`.
+- Why: real-app CI measurements on all three webviews; the gaps break the slide-line read-only rule.
+- Instead of: leaving IME handling to codemirror-vim, or swallowing the keys in a CodeMirror key handler (returning true calls preventDefault and cancels the composition).
+
+## D-141 · IME spike method: synthetic composition played in-page, checks logged then asserted
+2026-11-01 · session F-027 · active
+- Decision: the flow plays the composition inside the page in UI Events order (keydown Process/229 → compositionstart → per candidate compositionupdate, beforeinput insertCompositionText, DOM text change, input → keydown Enter/229 → compositionend → keyup); each check prints `IME <webview> <case> <check>: ok|FAIL|observed` and one expect asserts them together. Behaviour the spec doesn't require of this card (normal-mode commit landing, early keyCode-229 key, `u` undoing it) is logged as observed, not asserted, and cleanup restores the text through the editor without relying on `u`.
+- Why: WebDriver can't drive a real IME; execCommand insertText would make CodeMirror's Safari path end the composition after 20 ms; one CI run shows every webview's failures; e2e-app on Linux gates every push to main.
+- Instead of: execCommand like restart.ts, or stopping at the first failure.
+
+## D-142 · Figure frame sandbox per webview: CSP alone can't keep WebView2 off the network
+2026-11-02 · orchestrator (F-028 spike, unmerged), decider: maintainer pending (Q-019) · active
+- Decision: measured in CI runs 41461890948 and 41472212630 (branch feat/F-028-figure-frame). Sandboxed frame (allow-scripts only), CSP sent as a header: on all three webviews the parent DOM, storage (local/session storage, cookie, indexedDB, caches, storage directory) and both IPC endpoints are blocked, and no frame call got a Tauri answer. Network: 15 of 16 vectors blocked everywhere; `<link rel=prefetch>` reaches the network from both frames on WebView2 (Edg 155; also Chromium 156 locally), so criterion 1 can't hold with the CSP alone. WebKitGTK and WKWebView never match `'self'` in an opaque-origin frame, so the spec's `script-src 'self' lecter-lib:` blocks a figure's own script (a frame naming its script origin explicitly ran on all three). Watchdog chosen: in-page heartbeat plus an outside-the-page (core-side) heartbeat, 250 ms beat, flagged after 1.5 s without one, detection = the earlier leg. WebView2 runs the frame on its own thread (in-page leg 1285/1452 ms); WebKitGTK and WKWebView run it on the parent's thread (parent gap 5091/5011 ms in a 5 s loop), so only the outside leg can detect it there; run 2's WebKit jobs passed the ≤ 2000 ms assertion (per-check lines are in the run's job summaries). Idle pings answered in ≤ 15 ms. On WebView2 the frame also holds `__TAURI_INTERNALS__` and invoke (wry injects init scripts into subframes); IPC is blocked only by connect-src and by wry not listening to subframe messages.
+- Why: spike evidence; reviewer agreed the WebView2 prefetch result makes criterion 1 impossible as written.
+- Instead of: relying on the CSP alone, or an in-page watchdog alone.
+
+## D-143 · Performance preset is `ui.performance`; Balanced highlights after 200 ms
+2026-11-02 · planning session, from the maintainer's D-081 (Q-006) · active
+- Decision: the D-081 preset is the setting `ui.performance` (`performance` | `balanced` default | `quality`), on a new Settings → Performance page and with `:set`; it applies to open lectures at once. Balanced runs Markdown highlighting after a 200 ms typing pause and loads KaTeX on the first math in view, outside the main chunk. Quality shows "Can add input lag on slower machines." Spec: `12-settings-theme-onboarding.md#performance-preset`, `09-ui.md#editing`. Criteria: F-030 (key), F-040 (`:set`), F-045 (page), new F-074 (buffer behaviour).
+- Why: D-081 fixed the three presets and the Balanced default; the key name and the pause length were the gaps. 200 ms keeps highlighting visibly prompt while leaving bursts of typing (≤ 150 ms between keys) parse-free.
+- Instead of: a `performance.preset` namespace (one key doesn't need its own group); a pause of 500 ms or more (highlighting would feel late).
+- Revisit if: F-074's trace shows parses inside typing bursts or highlighting feels late in the gate.
+
+## D-144 · Windows parse sandbox: accept the LPAC boundary
+2026-11-02 · planning session, decider: maintainer (Q-008) · active
+- Decision: SEC-01 on Windows is LPAC AppContainer + job object. Besides its input (passed as a handle), the worker may read only files whose ACL grants ALL RESTRICTED APPLICATION PACKAGES read/execute (OS and installed program files); everything else, including the whole user profile, is denied. The rest of SEC-01 is unchanged. F-005 criterion 1 now asserts a user-profile file is denied on Windows instead of win.ini; F-005 is unblocked to finish on feat/F-005-os-sandbox and merge.
+- Why: LPAC honours that grant by design (CI run 40154388308, 55/56 with only win.ini readable); the lockdown-token alternative (30934ba) failed to start (0xC0000135). OS files hold nothing of the student's.
+- Instead of: a lockdown token without AppContainer, which needs its start-up DLL loading solved first.
+- Revisit if: a parser exploit needs OS file contents to escalate, or the lockdown token is made to start.
+
+## D-145 · Figure frames: native request filter, scheme CSP, core-side watchdog
+2026-11-02 · planning session, decider: maintainer (Q-019) · active
+- Decision: 08-figures#sandbox-pages now requires (1) a native request filter refusing every figure-frame request not to lecter-fig:/lecter-lib: (WebView2 WebResourceRequested; WebKit content rule list or scheme-handler checks), built for real in F-141 and proven in F-028 criterion 1 together with the CSP; (2) CSP `script-src lecter-fig: lecter-lib:` instead of `'self'`, proven per webview in F-141; (3) a core-side watchdog (webview.eval heartbeat every 250 ms, flagged after 1.5 s) that kills the frame from the native side (F-142); (4) the core drops IPC not from a window's main frame (SEC-31, F-141). F-028 gets the filter as `app/src/figure_filter*`, compiled only with test-hooks until F-141 ships it, so it isn't written twice; F-028 and F-142 now take a security review.
+- Why: D-142: `<link rel=prefetch>` leaves the frame on WebView2 despite `default-src 'none'`; WebKit never matches `'self'` in an opaque-origin frame; WebKit runs the frame on the parent's thread; WebView2 injects Tauri's IPC into subframes.
+- Instead of: the CSP alone, or an in-page watchdog alone.
+
+## D-146 · Perf budgets: per-OS memory by PSS, keystroke gated off CI, idle draws nothing
+2026-11-02 · planning session, decider: maintainer (Q-017) · active
+- Decision: in 14-quality#performance-budgets, idle_rss_mb and rss_300_slides_mb get per-OS targets (`per_os`), counting Lecter's processes by RSS and the webview's by PSS (macOS phys_footprint, Windows private working set). Target = first release-build measurement + 10 %, rounded up to the next 10 MB; Linux from D-139 (414.6, 450.7 MB PSS) → 460 and 500 MB; macOS and Windows from F-025's dispatch run; targets only go down afterwards. keystroke_p99_ms stays 8 ms, but the real-app trace gates only with hardware rendering (local, at each milestone gate); with --ci it prints REPORT and the mocked-core trace gates. New M0.5 cards: F-029 (nothing redraws while idle; the caret blinks 10 s after the last input, then stays solid, as GTK does) and F-179 (cold open under 600 ms on CI). F-025 depends on both, is unblocked, and merges once its gate passes.
+- Why: WebKitWebProcess alone exceeds 150 MB RSS and shared libraries are counted once per process by RSS; idle CPU is 95 % llvmpipe redraw; Xvfb/llvmpipe keystroke timings measure software rendering, not Lecter (D-080 measured 11–12 ms on WebKit).
+- Instead of: one 150/250 MB total for every OS; a caret that never blinks (less visible) or blinks forever (redraws while idle); gating keystrokes on software-rendered CI.
+- Revisit if: F-029 lowers idle memory (tighten the Linux targets to the new measurement), or a CI runner with hardware rendering becomes available.
+
+## D-147 · F-005 spike: Windows/macOS-only mutants are covered by the cross-OS test job
+2026-11-02 · orchestrator, decider: maintainer · active
+- Decision: the 87 mutants that survive in spikes/os-sandbox's Windows-only (windows.rs, Windows probe lines) and macOS-only (macos.rs) code are accepted for F-005. The Linux mutation run compiles that code out; the CI `test` job on macOS and Windows is its proof. The card that ports the sandbox into the parse worker (SEC-01, F-052..F-054) gets its own mutation run.
+- Why: spikes don't ship, and mutants.py runs only on the Linux host, so these mutants can't be built there, let alone killed.
+- Instead of: blocking F-005 until mutation testing runs on macOS/Windows CI.
+- Revisit if: mutants.py gains a macOS/Windows CI run (Q-entry: run it for cross-OS crates before SEC-01 ships).
+
+## D-148 · Parse-worker OS sandboxes: GO on Linux, macOS and Windows (F-005)
+2026-11-02 · F-005 builder, recorded by the orchestrator · active
+- Decision: the parse worker's sandboxes are Linux seccomp + Landlock (+ RLIMIT_AS 1 GiB, closed fds, PDEATHSIG, Landlock signal scope), a macOS sandbox profile, and a Windows LPAC AppContainer + job object, picked by cfg(target_os). Go/no-go: Linux GO (21/21 on Fedora 44, kernel 7.2.11, Landlock ABI 10), macOS GO (CI run 41513695098), Windows GO under D-144 (CI run 41513695098, including a file under %USERPROFILE% being denied). On Windows, profile creation, the exe's DACL grant and CreateProcessW run under one named mutex (`Local\lecter.spike.os-sandbox.setup`) so parallel launches don't race; the children still run in parallel. The Landlock rules are a pure `ruleset(abi)` function tested per ABI against uapi landlock.h.
+- Why: parallel tests on a fresh Windows runner failed with 0x8007000a / ERROR_FILE_NOT_FOUND while another process was creating the shared profile (run 41504019480); the earlier green run won the race by luck.
+- Instead of: one AppContainer profile per run (races the read-modify-write on the shared exe DACL and weakens the "earlier run, same container" test); running the tests one at a time; the Windows lockdown token (failed with 0xC0000135); asserting win.ini stays readable (brittle).
+- Revisit if: the parse-worker port (F-052..F-054) creates the profile and exe ACE once at install or first start instead of taking the lock (spikes/os-sandbox/README.md requirement 10).
+
+## D-149 · F-029's idle CPU measurement moves to F-025
+2026-11-02 · orchestrator, decider: maintainer · active
+- Decision: F-029 merges with criterion 5's redraw source recorded in its D-entry. The other half, idle CPU per process after the fix on ubuntu-24.04, is measured by F-025's open-idle run when F-025 lands, and recorded in the same F-029 D-entry.
+- Why: F-025 depends on F-029, and its perf run stops at its own self-check until D-146's per-OS targets are applied (CI run 41521347359: `('lt', 150) != ('lt', 460.0)`), so F-029 can't take the measurement first.
+- Instead of: measuring on the author's Fedora machine (not the named runner, and hardware rendering); blocking F-029 until planning breaks the loop.
+- Revisit if: F-025's open-idle run shows idle CPU still above its budget; the redraw then has a second source.
+
+## D-150 · Idle redraw: a finite caret blink, and block widgets without vertical margins (F-029)
+2026-11-03 · F-029 builder, recorded by the orchestrator · active
+- Decision: the idle redraw source was CodeMirror's `steps(1) cm-blink 1.2s infinite` CSS animation on the focused caret layer. caret.ts turns that off (`animation: none !important`) and runs one Web Animation per caret layer (1.2 s cycle for 10 s, no fill), replayed on keydown, mousedown, cursor moves and focus. Under prefers-reduced-motion the caret stays solid and never blinks. `.slide-heading` spacing moved from margin into padding (same look), because CodeMirror's height map ignores block-widget margins, so clicks below a heading landed about 36 px (one line or more) too low. The e2e flow clicks with an in-page single click (pointer and mouse events, detail 1) aimed at a measured character of the target line.
+- Why: real WebKitGTK (author's run on b870703): animations end 10004–10011 ms after the last input, 0 running at 10 s, 0 mutations and 0 frame callbacks over 30.0 s, solid caret; CI run 41561874349 (fac10d7) green on Linux, macOS and Windows. tauri-plugin-wdio-webdriver 1.5.0's element click is a lone `el.click()` (no mousedown) and its pointer actions send detail 0, which CodeMirror reads as a triple click (line selected, Vim leaves normal mode).
+- Instead of: a 10 s timer toggling a class (a DOM mutation inside the idle window); toggling CodeMirror's blink names; compensating for the heading margin in the test; WebDriver element click or pointer actions in the flow.
+- Revisit if: F-025's open-idle run (D-149) shows idle CPU still above budget; or gloss/figure widgets keep vertical margins (same click offset, see PROGRESS Watch out).
+
+## D-151 · New IPC command `app_mark_startup` for startup paint phases (F-179)
+2026-11-03 · orchestrator, decider: maintainer · active
+- Decision: the IPC contract gains `app_mark_startup(paint: "shell_first_paint" | "buffer_first_paint")` in the app row of 18-contracts.md#ipc. The UI calls it after its first shell paint and its first buffer paint; the core timestamps the call on arrival and logs `startup <phase> <ms>` once per phase. It is a closed enum argument, changes no state, and has one capability permission (`allow-app-mark-startup`).
+- Why: F-179 criterion 1 needs the app itself to log every startup phase, and only the UI knows when it painted; events and plugin permissions aren't allowed (security review: sound, idempotent, no log spam).
+- Instead of: measuring paint phases only in the e2e flow (criterion 1 would need rewording).
+- Revisit if: startup logging moves to a tracing span the UI can emit through an existing command.
+
+## D-152 · cold_open_ms gets per-OS targets, measured as the median of 5 launches (F-179)
+2026-11-03 · orchestrator, decider: maintainer · active
+- Decision: cold_open_ms gets per-OS targets (`per_os`), as the memory budgets did in D-146. Each OS's target is the first release-build measurement on its CI runner (ubuntu-24.04, macos-15, windows-2025) plus 10 %, rounded up to the next 10 ms. A measurement is the median of 5 launches of the e2e-app `cold-open` flow on a quiet machine. Targets only go down afterwards. The Linux target comes from F-179's branch run. macOS and Windows targets come from F-025's dispatch run, together with its memory targets. Until an OS has a target, the flow prints REPORT for that OS. The median is gated at ×1 against the OS's target, locally and with --ci, as the memory budgets are. The median of 5 and the 10 % margin take the place of the ×1.5 allowance and its re-measure.
+- Why: the maintainer's machine shows the lecture about 400 ms after launch: frame 330–385 ms over 10 launches without the harness, plus a 63 ms open. About 300 ms of that is process and WebKit start-up before the page loads, which the app can't shorten (F-179 traced it, and an existing profile changed nothing). Single launches inside the harness measured 484 and 575 ms, so a one-run 400 ms gate failed most of the time without measuring Lecter.
+- Instead of: timing from window creation (leaves the ~125 ms before the window ungated); keeping 400 ms and blocking F-179 (cold_open_ms would stay PENDING and fail when M0.5 finishes); another profiling round (uncertain gain).
+- Revisit if: a Tauri or WebKitGTK upgrade shortens start-up (then tighten to the new measurement).
+
+## D-153 · Cold-open startup breakdown before and after F-179 (ubuntu-24.04)
+2026-11-03 · orchestrator (F-179) · active
+- Decision: F-179 criterion 1's breakdown, with the release build plus test-hooks on ubuntu-24.04 under Xvfb.
+  - Before: D-139 (CI run 41361813736) measured cold_open_ms 2906, then 973 on the re-measure. That build logged no startup phases, so there's no per-phase breakdown for it.
+  - After (CI run 41588635437, ae74039): median 973 over 5 launches (960–981). Per launch: window created 126–140 ms, page load started 716–741, shell first paint 757–785, then open 195–216 (lecture in the DOM 120–171). The Linux target is 1080 ms (D-152).
+  - Maintainer's machine (local, release build plus test-hooks): median 442 over 5 launches (407–462; one outlier at 2116 that stalled 1.7 s painting after the lecture was in the DOM). Without the harness, shell first paint was 310–385 ms over 20 launches. The test plugin adds about 15 ms, and reusing a profile changes nothing.
+  - What F-179 changed:
+    - The CodeMirror/Vim code moved into a lazy chunk, loaded after the shell paints. The entry chunk went from 144.04 to 10.71 KB gz.
+    - The editor is pre-warmed after the first paint. On the maintainer's machine, "lecture in the DOM" went from 68 to 41–56 ms.
+    - The app logs `startup <phase> <ms>` from the process start time in procfs.
+  - On CI, about 590 ms of the 973 falls between window creation and page load start. That is WebKitGTK starting its web and network processes under software rendering, which the app can't shorten.
+- Why: criterion 1 asks for the before and after breakdown in a D-entry. CI hides a passing job's output, so the flow writes its lines to the job summary.
+- Instead of: a before run on a measurement branch (the startup lines didn't exist before this card).
+
+## D-154 · e2e-app: no focus-check waits, parallel shards
+2026-11-03 · maintainer (CI speed, branch chore/ci-e2e-speed) · active
+- Decision: three changes to the real-app CI job, with no flow, assertion, timeout a test needs, or budget dropped or loosened.
+  - The 5 s stall: @wdio/tauri-service 1.5.0 checks window focus before every find, `$`, `$$`, click and getTitle by evaluating `window.__wdio_original_core__`, which only its own tauri-plugin-wdio defines (the app embeds tauri-plugin-wdio-webdriver), so each check waited 5 s. The service skips the check for a session that made an explicit `switchToWindow` (its `afterCommand` adds the session to `userSwitchedWindowCache`). wdio.conf.ts `before` now switches to the current window once per session (tests/e2e/support/window.ts); restart.ts repeats it after its `reloadSession`, and its 300 s suite timeout is back to the 120 s default. Stalls per run: 0 on all three OSes (the old local idle run had 20; ime.ts already switched, which is why it was 9 s before and after).
+  - Shards: new job `e2e-app-shard` (os × shard 1..3, `E2E_APP_SHARDS`), each with its own runner, build and app, running `scripts/verify.sh --stage e2e-app` with `LECTER_E2E_SHARD=<i>/3`. tests/e2e/support/shards.ts reads the flows from disk and balances them by measured seconds (longest first to the lightest shard; a flow with no time counts as the slowest), so every flow runs exactly once. Linux shard 1 is cold-open alone (D-152's quiet machine). `e2e-app (<os>)` keeps the status-check name (16-ci-cd.md rule 4): it needs the shards, runs unless the run was cancelled, and passes only when all 3 shards of its OS succeeded (scripts/e2e_app_gate.py over the run's jobs, `actions: read`). The shards are not status checks. `scripts/e2e-app.sh` with no flow still runs every flow; it also takes several flow names.
+  - Caches: the Rust cache is keyed on the job id, and a branch run reads only its branch's caches and main's. e2e-app never runs on main on macOS and Windows, so their dispatch runs always started cold (`init.sh` 4.7 min on macOS, 6.7 on Windows). Their shards now use the `test` job's cache (setup `rust-shared-key: test`), which main saves; Linux shards keep `e2e-app`, and Linux shard 1 gets `e2e-app-cold-open` for cold-open's release build in target/perf. The pnpm store and PDFium caches already hit on every OS.
+  - Every e2e-app shard writes each flow's seconds and focus-check stalls to the job summary and uploads `.verify/` (with timings.json) on every run, for 14 days.
+- Measured (wall clock per job, minutes; runs on ubuntu-24.04, macos-15, windows-2025):
+  - Before (main run 41632447433, dispatch 41588635437, baseline 41671342071 at cb923d2): e2e-app ubuntu 27.4 / 26.4 / 27.2, macOS 23.2 / 29.0, Windows 25.2 / 28.2. Per flow on Linux (s, baseline): buffer 193, cold-open 268, figure 100, find 147, gloss 121, idle 229, ime 9, open-course 137, open-folder 22, restart 225, shell 62.
+  - Stall fix only (41671347855): ubuntu 9.6, macOS 11.6, Windows 14.5. Per flow on Linux (s): buffer 2, cold-open 271 (261 of it the release build), figure 10, find 2, gloss 11, idle 129, ime 9, open-course 2, open-folder 1, restart 4, shell 2; macOS and Windows within 1-4 s of these, idle 129-131.
+  - Shards, dispatch (41674973425, Linux shard 1 cache still cold): shards ubuntu 8.5 / 4.2 / 3.5, macOS 5.1 / 3.1 / 3.7, Windows 7.6 / 6.5 / 4.2, gates 0.1-0.2; whole run 8.9 min.
+  - Shards, pull_request (41675016954, Linux only, the push layout): first attempt with no caches for its ref 10.9 / 4.0 / 2.6, whole run 11.3 min; re-run with its caches 3.9 / 4.7 / 2.9, jobs spanning 5.2 min.
+  - Debug test-hooks build per shard: Linux 9-14 s from the e2e-app cache (62-82 s cold), macOS 68-85 s and Windows 64-108 s from the borrowed test cache.
+- Why: the stall was ~95% of the flows' time, and after it e2e-app was still one serial job of idle (~130 s, three 40 s windows that stay), cold-open's release build and per-OS build time. Shards put idle and cold-open beside the rest; per-shard builds cost 9-14 s on Linux.
+- Instead of: building the app once per OS and handing it to the shards as an artifact (built, then removed unrun: it puts a whole job, an upload and a download before every shard, against a 9-14 s Linux build and about 1-2 min per shard on macOS/Windows that runs in parallel anyway); one shard per flow (idle and cold-open set the floor, and macOS allows 5 concurrent jobs); dropping or moving flows to nightly (not needed: under 10 min).
+- Revisit if: Linux shard 1 stays slow after the first push to main (that push is cold, ~11 min: main has no `e2e-app-cold-open` cache yet, so init.sh's workspace build and both app builds start from nothing; later pushes restore it, and a push that changes Rust code rebuilds the workspace crates in release, between the 3.9 min re-run and that); a flow's time moves a lot (refresh `SECONDS` in shards.ts from timings.json); or cold_open_ms keeps failing on CI (Linux medians 1082, 1071, 953, 1072 against 1080 in these runs; Q-023).
+
+## D-155 · cold_open_ms gates on the maintainer's machine, REPORT on CI
+2026-11-03 · orchestrator, decider: maintainer (Q-023) · active
+- Decision: budgets.sh gates the real-app cold_open_ms locally at each milestone gate, against a target from the maintainer's machine (median of 5 launches + 10 %); with --ci it prints REPORT, as keystroke_p99_ms does (D-146). 14-quality#performance-budgets and F-025's criteria change in the planning session together with D-152's wording.
+- Why: CI runners are GPU-less VMs; about 590 ms of the 973 ms Linux CI median is WebKitGTK starting under software rendering, so the 1080 ms CI target catches regressions but can't hold the spec's 400 ms goal. Locally a lecture shows in ~385 ms standalone, 442 ms median inside the harness.
+- Instead of: a flat local 400 ms target (fails today inside the harness); keeping D-152's CI gate as the only gate.
+- Revisit if: a CI runner with hardware rendering becomes available.
+
+
+## D-156 · Two cold_open_ms targets: CI regression net and the maintainer's local gate
+2026-11-03 · orchestrator, decider: maintainer · active
+- Decision: the e2e-app `cold-open` flow (F-179) keeps gating on CI at D-152's per-OS runner targets (Linux 1080 ms; macOS/Windows from F-025's dispatch run) as a regression net on every push; `budgets.json` `per_os` for cold_open_ms holds those. The local gate of D-155 uses a separate target from the maintainer's machine (median of 5 + 10 %), applied by budgets.sh without --ci at each milestone gate; budgets.sh --ci prints REPORT for the real-app value, as 14-quality says.
+- Why: 14-quality's "gates only locally" read alone would leave cold open unguarded between milestone gates; the CI flow already catches startup regressions.
+- Instead of: making the CI flow REPORT only (no per-push guard; needs a new card for F-179's flow).
+- Revisit if: the Linux CI median keeps failing near 1080 ms on slow runners (Q-023 context), or a CI runner gets hardware rendering.
+
+## D-157 · Figure-frame filter: sentinel-armed, a content rule list on WebKit, URL checks on WebView2 (F-028)
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: a test-hooks plugin (app/src/figure_filter/plugin.rs) cancels a sentinel navigation `<loopback>/__lecter-test/figure-filter?figure=…&page=…&next=…`, arms the filter, then loads `next?ff-filter=armed`. On WebKitGTK and WKWebView the filter is a content rule list that blocks every `load-context: child-frame` load, then lets `^data:` and each figure origin through (ignore-previous-rules). On WebView2 it's WebResourceRequested on `*` for all contexts and source kinds, checked by URL only: a refused request gets a 403 made in the app, and the page's own origins pass for frames too.
+- Why: the harness page can't use IPC and its ports are dynamic; the rule list is scoped to frames and blocked 16/16 vectors on its own on both WebKits; WebView2 can't tell which frame a request came from, and Referer/Sec-Fetch aren't reliably visible.
+- Instead of: a test IPC command (touches the contract, bindings and capabilities); scheme-handler checks on WebKit (can't see http); header heuristics on WebView2.
+- Revisit if: F-141 ships the filter for real lecter-fig:/lecter-lib: frames.
+
+## D-158 · Figure frames need the CSP and the native filter together (F-028)
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: F-141 keeps both guards. Root cause of D-142: Chromium checks `<link rel=prefetch>` against script-src, not default-src, so with D-145's `script-src lecter-fig: lecter-lib:` a figure can prefetch only from the figure schemes. With the filter alone and no CSP, WebKit blocked 16/16 vectors, but WebView2 blocked 15/16: WebSocket bypasses WebResourceRequested and only connect-src stops it. CI run 41694556626: WebKitGTK, WKWebView and WebView2 each 77/77 with filter + CSP, all 16 vectors blocked in the fig and lib frames, prefetch included.
+- Why: run 3's own-origin lines and local Chromium 156 show the prefetch rule; the bare-frame variant shows what each guard stops alone.
+- Instead of: the filter alone (WebView2 WebSocket leak); the CSP alone (WebView2 prefetch leak before D-145's script-src).
+- Revisit if: WebView2 exposes WebSocket requests to WebResourceRequested.
+
+## D-159 · Busy figure frames: per-webview watchdog results (F-028)
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: detection is the earlier of two legs. WebKitGTK and WKWebView run the frame on the parent's thread (parent gap ~5 s), so only the core-side eval heartbeat sees a busy loop: 1496 ms (WebKitGTK), 1498 ms (WKWebView). WebView2 runs the frame on its own thread, and the in-page ping leg sees it at 1548 ms (1.35–1.55 s across runs); idle pings answer within 15 ms everywhere (CI run 41694556626).
+- Why: criterion 2 asks for detection within 2 s and a per-webview record; this backs D-145's core-side watchdog for F-142.
+- Instead of: an in-page watchdog only (blind on WebKit, where the frame freezes the UI thread).
+- Revisit if: WebKit moves cross-origin frames to their own process or thread.
+
+## D-160 · F-028 dependencies
+2026-11-03 · F-028 builder, recorded by the orchestrator · active
+- Decision: `webkit2gtk` (Linux), `webview2-com` and `windows-core` (Windows), `objc2`, `objc2-foundation` and `block2` (macOS) added to lecter-app as optional, per-OS dependencies enabled only by `test-hooks`, at wry's versions (MIT; windows-core MIT OR Apache-2.0); 0 new crates in Cargo.lock.
+- Why: Dep-Added trailers on F-028 commit 66b03d8; check_deps OK.
+- Instead of: a WebKit web-process extension; raw COM vtables; the full windows crate; building NSStrings by hand.

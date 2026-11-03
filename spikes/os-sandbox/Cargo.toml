@@ -1,0 +1,15 @@
+[package]
+name = "lecter-spike-os-sandbox"
+description = "M0 spike (F-005): sandbox a child process per OS (no network, one readable file, 1 GB memory)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+libc = "0.2"
+windows-sys = { version = "0.61", default-features = false, features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Isolation", "Win32_Security_Authorization", "Win32_System_JobObjects", "Win32_System_Threading"] }

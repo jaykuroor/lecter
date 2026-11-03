@@ -4,7 +4,7 @@
 
 One schema (`settings.schema.json`, generated from Rust types), three ways in, all writing the same files:
 
-- **Settings window** (`Ctrl/Cmd-,`): searchable; pages Appearance, Keys, AI (harness), Providers, Courses, Notes and files, Privacy, Advanced. Fully keyboard-navigable.
+- **Settings window** (`Ctrl/Cmd-,`): searchable; pages Appearance, Keys, AI (harness), Providers, Courses, Notes and files, Performance, Privacy, Advanced. Fully keyboard-navigable.
 - **`:set key=value`** with completion and validation; `:set key?` shows the value and where it comes from (default, global, course).
 - **Files**: global `config.jsonc` and `keymaps.jsonc`; per course `.lecter/course.jsonc` → `settings`.
 
@@ -12,7 +12,17 @@ Global folder: `~/.config/lecter/` on Linux and macOS (`$XDG_CONFIG_HOME/lecter`
 
 Precedence: per prompt > role file > course > global > built-in default. Unknown keys are kept and reported, never deleted. Exception: global-only keys (`13-security.md` SEC-25) are ignored with a notice when a course or course role sets them.
 
-Key settings (non-exhaustive): `ai.defaultFast`, `ai.defaultStrong`, `ai.backupProvider`, `ai.hedgeAfterMs`, `ai.webSearch`, `ai.search.service`, `ai.search.maxPerAnswer`, `ai.search.allowDomains`, `ai.search.blockDomains`, `ai.budget.perLecture`, `ai.budget.daily`, `ai.budget.monthly`, `ai.budget.monthlyTokens`, `ai.search.allowFetch`, `ai.maxPrefixTokens`, `figures.mode.described`, `figures.mode.page`, `figures.maxLiveFrames`, `parsing.vision` (`provider` default | `local` | `auto` | `off`), `index.embeddings` (`local-small` default | `local-quality` | `provider` | `off`), `index.contextLines` (off), `lectures.namePattern`, `ui.hintBar` (`full` | `compact` | `off`), `ui.keystrokes`, `ui.theme`, `ui.accent`, `ui.docFont`, `privacy.shareFeedback`, `privacy.shareFeedbackText`, `feedback.endpoint`.
+Key settings (non-exhaustive): `ai.defaultFast`, `ai.defaultStrong`, `ai.backupProvider`, `ai.hedgeAfterMs`, `ai.webSearch`, `ai.search.service`, `ai.search.maxPerAnswer`, `ai.search.allowDomains`, `ai.search.blockDomains`, `ai.budget.perLecture`, `ai.budget.daily`, `ai.budget.monthly`, `ai.budget.monthlyTokens`, `ai.search.allowFetch`, `ai.maxPrefixTokens`, `figures.mode.described`, `figures.mode.page`, `figures.maxLiveFrames`, `parsing.vision` (`provider` default | `local` | `auto` | `off`), `index.embeddings` (`local-small` default | `local-quality` | `provider` | `off`), `index.contextLines` (off), `lectures.namePattern`, `ui.hintBar` (`full` | `compact` | `off`), `ui.keystrokes`, `ui.theme`, `ui.accent`, `ui.docFont`, `privacy.shareFeedback`, `privacy.shareFeedbackText`, `feedback.endpoint`, `ui.performance`.
+
+### Performance preset
+
+`ui.performance` picks one of three presets (D-081), in Settings → Performance and with `:set`. It applies to open lectures at once, without a restart.
+
+- **Performance**: no Markdown highlighting and no live math in notes and glosses; math shows as its source text.
+- **Balanced** (default): Markdown highlighting runs after typing pauses for 200 ms, never on the keystroke path. KaTeX loads lazily, on the first math in view, and is not in the main UI chunk.
+- **Quality**: highlighting and math update on every keystroke. Settings and `:set` show a note: "Can add input lag on slower machines."
+
+Every setting that trades speed for looks defaults to its Balanced value.
 
 ## Keys page
 

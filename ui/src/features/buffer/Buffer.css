@@ -93,15 +93,18 @@
 }
 
 /* Slide heading: gutter `SLIDE n / N` (type.label-mono, --faint), title (type.slide-title) and
-   source line (mono 10.5px --faint); bottom border --line2 with 8px below. */
+   source line (mono 10.5px --faint); bottom border --line2 with 8px below.
+   A block widget: CodeMirror's height map counts its border box, not its margins, so a vertical
+   margin would shift every click below the heading onto a later line (F-029). The 28px above and
+   8px below are padding, and the border is a 1px line drawn 8px above the bottom edge. */
 .slide-heading {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
   column-gap: 16px;
   align-items: baseline;
-  margin: 28px 0 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line2);
+  margin: 0;
+  padding: 28px 0 17px;
+  background: linear-gradient(var(--line2), var(--line2)) left bottom 8px / 100% 1px no-repeat;
 }
 
 .slide-heading-label {
@@ -132,8 +135,4 @@
   color: var(--faint);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .buffer-editor .cm-cursor {
-    animation: none;
-  }
-}
+/* The caret's blink, its 10 s limit and reduced motion are in caret.ts. */
