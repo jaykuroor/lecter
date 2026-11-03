@@ -105,7 +105,9 @@ Use `insta::assert_snapshot!` for structured outputs such as parsed slides or as
 
 1. Create `tests/e2e/flows/<flow>.ts`. Use the fixtures under `tests/fixtures/`, and `shot('<state>')` at each state the criteria name.
 2. Native dialogs are answered by `LECTER_TEST_PICK` and `LECTER_TEST_TRUST` (debug builds only).
-3. Run it: `xvfb-run -a scripts/e2e-app.sh <flow> --evidence F-0NN` (drop `xvfb-run -a` with a display). Details: `.claude/skills/drive-app/SKILL.md`.
+3. Run it: `xvfb-run -a scripts/e2e-app.sh <flow> --evidence F-0NN` (drop `xvfb-run -a` with a display; several flow names run together). Details: `.claude/skills/drive-app/SKILL.md`.
+4. CI runs the flows in parallel shards (`e2e-app-shard`, D-154). A new flow joins one by itself, counted as the slowest flow until it has a time; after its first CI run, add its seconds per OS (the job summary's flow table, or `timings.json` in the `e2e-app-<os>-<shard>` artifact) to `SECONDS` in `tests/e2e/support/shards.ts`. A flow that times something and needs a quiet machine goes in `ALONE` there (as cold-open does on Linux). `LECTER_E2E_SHARD=<i>/3 scripts/e2e-app.sh` runs one shard's flows locally.
+5. A flow that opens its own session (`browser.reloadSession()`) calls `skipFocusCheck(browser)` from `tests/e2e/support/window.ts` right after, or every find and click in it waits 5 s again (restart.ts does this). The job summary's "focus-check stalls" column must read 0.
 
 ### A fixture
 

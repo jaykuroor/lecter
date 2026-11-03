@@ -70,3 +70,4 @@ When the spec is silent or ambiguous:
 ## Learned (project-wide; one line each; keep ≤ 20)
 
 <!-- Area-specific lessons go in that folder's CLAUDE.md. -->
+- CI Rust cache: Swatinem/rust-cache keys on the job id and ignores `key` when `shared-key` is set; a branch run reads only its branch's and main's caches, so a job that never runs on main (e2e-app on macOS/Windows) starts cold unless it borrows a key main saves (setup `rust-shared-key: test`) (D-154)
