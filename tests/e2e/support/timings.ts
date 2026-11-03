@@ -58,7 +58,8 @@ export function timings(out: string | undefined, summary: string | undefined, ti
     onWorkerEnd(cid: string, exitCode: number): void {
       const s = started.get(cid);
       if (!s) return;
-      const log = out ? join(out, `wdio-${cid}.log`) : "";
+      // @wdio/local-runner names a worker's log `<spec>-<cid>.log` in outputDir.
+      const log = out ? join(out, `${s.flow}-${cid}.log`) : "";
       const stalls = log && existsSync(log) ? countStalls(readFileSync(log, "utf8")) : null;
       times.push({ flow: s.flow, seconds: Math.round((Date.now() - s.at) / 1000), passed: exitCode === 0, stalls });
     },

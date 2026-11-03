@@ -55,7 +55,8 @@ describe("e2e-app flow times (D-154)", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     const out = mkdtempSync(join(tmpdir(), "lecter-timings-"));
     const summary = join(out, "summary.md");
-    writeFileSync(join(out, "wdio-0-1.log"), `a ${STALL} b ${STALL}\n`);
+    writeFileSync(join(out, "idle-0-1.log"), `a ${STALL} b ${STALL}\n`);
+    writeFileSync(join(out, "wdio-0-0.log"), `${STALL}\n`); // not shell's log (shell-0-0.log)
     const t = timings(out, summary, "flows");
     vi.setSystemTime(1_000_000);
     t.onWorkerStart("0-0", {}, ["/w/tests/e2e/flows/shell.ts"]);
