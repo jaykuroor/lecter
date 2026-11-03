@@ -31,7 +31,7 @@ A violation returns `E_INVALID_ARGUMENT` and is logged without its content.
 
 | Area | Commands | Events / channels |
 |---|---|---|
-| app | `app_info`, `app_quit` | `app:ready` |
+| app | `app_info`, `app_quit`, `app_mark_startup` | `app:ready` |
 | settings | `settings_get`, `settings_set`, `settings_schema`, `settings_source` | `settings:changed` |
 | course | `course_list`, `course_open`, `course_trust`, `course_details_save`, `course_reorder` | `course:changed` |
 | lecture | `lecture_new`, `lecture_open`, `lecture_rename`, `lecture_apply_edits`, `lecture_close` | `lecture:external_change` |

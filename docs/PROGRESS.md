@@ -13,6 +13,7 @@
 <!-- LOG -->
 
 ## Log (newest first)
+- plan: Q-022 and Q-023 applied. 14-quality#performance-budgets now has the cold_open_ms median-of-5 rule, per-OS targets (D-152) and local-only gating with REPORT under --ci (D-155); 18-contracts#ipc lists `app_mark_startup` (D-151); F-025 criteria 1, 2 and 7 updated to match. Next feature unchanged.
 
 ### 2026-11-03 · chore/ci-e2e-speed · done
 - Built: CI's real-app e2e-app job no longer waits 5 s before every WebDriver find and click, and runs its flows in 3 parallel shards per OS; `e2e-app (<os>)` stays the status check. Linux push-style run 5.2 min warm (11.3 cold), all-OS dispatch 8.9 min, against 25-29 min per OS before.

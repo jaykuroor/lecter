@@ -830,13 +830,13 @@
     "tests/fixtures/lectures/**"
    ],
    "acceptance": [
-    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone, and per-OS targets (`per_os`) for idle_rss_mb and rss_300_slides_mb.",
-    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact).",
+    "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone, and per-OS targets (`per_os`) for idle_rss_mb, rss_300_slides_mb and cold_open_ms.",
+    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact; cold_open_ms is the median of 5 launches gated at ×1 with neither allowance).",
     "Budgets whose feature doesn't exist yet SHALL print PENDING and fail once their starting milestone is done.",
     "ci.yml SHALL gain the required `perf` job, and a deliberately slowed fixture SHALL make it fail (asserted in a test of budgets.sh).",
     "The first measurements SHALL be recorded in a D-entry.",
     "Memory budgets SHALL count Lecter's own processes by RSS and the webview's processes by PSS (macOS phys_footprint, Windows private working set); the Linux targets SHALL be 460 and 500 MB, and the macOS and Windows targets SHALL come from a workflow_dispatch release-build run on the branch (measurement + 10 %, rounded up to the next 10 MB), recorded in a D-entry.",
-    "WHEN budgets.sh runs with --ci THEN the real-app keystroke_p99_ms SHALL print REPORT and never fail while the mocked-core Playwright trace gates it; without --ci the real-app value SHALL gate (asserted in a test of budgets.sh)."
+    "WHEN budgets.sh runs with --ci THEN the real-app keystroke_p99_ms and cold_open_ms SHALL print REPORT and never fail (keystroke_p99_ms stays gated by the mocked-core Playwright trace); without --ci both real-app values SHALL gate, cold_open_ms against the per-OS target from the maintainer's machine (median of 5 + 10 %, D-155), and an OS without a target SHALL print REPORT (asserted in a test of budgets.sh)."
    ],
    "verify": [
     "tests/perf/budgets.sh"
