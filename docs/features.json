@@ -4881,8 +4881,9 @@
    ],
    "try": "Start the app and open a lecture: the window and the lecture appear in well under a second",
    "priority": 2020,
-   "status": "todo",
-   "notes": ""
+   "status": "in_progress",
+   "notes": "",
+   "base": "a42b4ccdc9b8a255f0c566866107abd76cf11922"
   }
  ]
 }
