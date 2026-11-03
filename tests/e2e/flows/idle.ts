@@ -19,6 +19,8 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { shot } from "../support/shot.ts";
+import { attribute, reporter, save } from "./idle-cpu/attribution.ts";
+import { diagnose } from "./idle-cpu/diagnose.ts";
 import {
   animationsEnd,
   caret,
@@ -291,5 +293,22 @@ describe("an idle lecture", function () {
     const buffer = await browser.execute(() => document.querySelector(".cm-content")?.textContent ?? "");
     expect(buffer).toContain(`**you asked:** ${QUESTION}`);
     await expectIdle("after a stream", ended);
+  });
+});
+
+// F-180: the idle attribution and idle_cpu_pct on the release app (idle-cpu/attribution.ts). Last
+// in this flow: it closes the service's debug app and starts its own.
+describe("an idle release build", function () {
+  // The release build (minutes the first time), a minute's settle and the 5-minute window.
+  this.timeout(40 * 60_000);
+
+  it("attributes the idle CPU per process and thread, and the page's own work", async () => {
+    const { report, lines } = reporter();
+    try {
+      const result = await attribute(report, (exe) => diagnose(exe, report));
+      report(`idle-attribution result: idle_cpu_pct ${result.pct.toFixed(2)} on ${process.platform}`);
+    } finally {
+      save(lines);
+    }
   });
 });
