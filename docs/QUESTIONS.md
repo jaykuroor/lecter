@@ -145,13 +145,13 @@ Should native carets in text inputs (the gloss prompt textarea) also stop blinki
 - Recommended: leave it native; the prompt is open only while the user is typing a question. Revisit if the open-idle run shows redraws with the prompt open.
 - Answer:
 
-## Q-022 · open · blocks: nothing
+## Q-022 · answered · blocks: nothing
 Add `app_mark_startup` to 18-contracts.md#ipc (app row), as approved in D-151.
 - Context: F-179 adds the command; the spec says a command missing from the IPC table is a Q-entry, and build sessions can't edit the spec.
 - Recommended: add the row as D-151 describes (closed enum `paint`, logged once per phase, no state change).
 - Answer: approved by the maintainer 2026-11-03 (D-151); for the planning session to apply.
 
-## Q-023 · open · blocks: F-025
+## Q-023 · answered · blocks: F-025
 Should cold_open_ms gate on the maintainer's machine and only REPORT on CI, as keystroke_p99_ms does (D-146)?
 - Context: D-152 set per-OS targets from CI, so Linux's is 1080 ms (CI median 973). CI runners are GPU-less VMs, and about 590 ms of that is WebKitGTK starting under software rendering. On the maintainer's machine the app shows a lecture in about 385 ms standalone, or a median of 442 inside the harness. The 1080 target catches regressions, but it doesn't hold the spec's 400 ms goal. The maintainer questioned the 1 s target.
 - Recommended: gate the real-app cold_open_ms locally at each milestone gate, against 400 ms or a target from the maintainer's machine (median of 5 + 10 %), and print REPORT with --ci. F-025's budgets.sh applies it, and the 14-quality wording changes together with D-152's.
