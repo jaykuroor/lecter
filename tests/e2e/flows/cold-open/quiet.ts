@@ -50,3 +50,18 @@ export function running(pid: number): boolean {
   const s = stat(pid);
   return s !== null && s.state !== "Z" && s.state !== "X";
 }
+
+/**
+ * Waits until every process in `snapshot` (taken while the app ran) has ended and no process of
+ * `binary`, or one it started, is left: the second check also catches processes started after
+ * the snapshot, as long as their parent still runs. Limit: a process the app started after the
+ * snapshot whose parent has already exited is reparented away and goes unseen; WebKit's helpers
+ * exit with their parent's connection, so that leaves at most a moment of teardown.
+ */
+export async function quiet(binary: string, snapshot: number[], what: string, ms = 30_000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (snapshot.some(running) || processTree(binary).some(running)) {
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}'s processes to end`);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}

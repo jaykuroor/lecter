@@ -1,18 +1,21 @@
-// F-179: cold open under budget (14-quality.md#performance-budgets, cold_open_ms < 400 ms).
+// F-179: cold open (14-quality.md#performance-budgets, cold_open_ms; per-OS targets, D-152).
 // The flow builds the release app with test hooks (cold-open/launch.ts), closes the service's
 // debug app and starts the release one itself, so it knows when the process started. Then, in
 // the page, it opens the course and the 200-slide fixture lecture with no time for the user's
 // clicks: cold_open_ms = process start → the shell's first paint, plus Open course folder → the
 // frame that shows the lecture's buffer (the measurement D-139 started from).
 //
-// Checked per launch:
+// A measurement is the median of 5 launches (D-152), each a fresh process with a fresh home and
+// course, started only once the previous app's processes have all ended (cold-open/quiet.ts).
+// Checked on every launch:
 // - criterion 1: the app logs `startup <phase> <ms>` once per phase, in order; on Linux, where it
 //   counts from the OS's process start, its shell line agrees with the page's own clock;
 // - criterion 3: every resource other than index.html's own script and stylesheet starts loading
-//   after the shell's first paint (the UI's IPC order is covered by ui/src/App.startup.test.tsx);
-// - criterion 2: locally under 400 ms on one launch; on CI under 400 × 1.5 = 600 ms, measured
-//   once more on a breach and failing only if both launches are over. Linux only (the criterion's
-//   ubuntu-24.04 runner): on macOS and Windows the flow builds and measures nothing and says so.
+//   after the shell's first paint (the UI's IPC order is covered by ui/src/App.startup.test.tsx).
+// Criterion 2: the median is gated at ×1 against its OS's target (cold-open/budget.ts), locally
+// and on CI; an OS without a target yet prints REPORT and passes. Only Linux builds and measures
+// (the criterion's ubuntu-24.04 runner); macOS and Windows targets come from F-025's perf run, so
+// there the flow builds nothing and says so.
 // The app's own buffer-first-paint line is checked for order only; the gated value is the page's.
 // Every launch prints its breakdown before anything is asserted, so a failing run still says
 // where the time went.
@@ -21,6 +24,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shot } from "../support/shot.ts";
+import { LAUNCHES, TARGETS, verdict } from "./cold-open/budget.ts";
 import {
   APP,
   alive,
@@ -35,15 +39,10 @@ import {
   waitFor,
 } from "./cold-open/launch.ts";
 import { openInPage, type PageTimes } from "./cold-open/page.ts";
-import { processTree, running } from "./cold-open/quiet.ts";
+import { processTree, quiet } from "./cold-open/quiet.ts";
 
-const BUDGET_MS = 400;
-/** 14-quality.md#performance-budgets: timing budgets get ×1.5 on shared CI runners. */
-const CI_ALLOWANCE = 1.5;
-const ON_CI = Boolean(process.env.CI);
-const LIMIT_MS = ON_CI ? BUDGET_MS * CI_ALLOWANCE : BUDGET_MS;
-/** cold_open_ms gates on the criterion's ubuntu-24.04 runner: Linux only. */
-const GATES = process.platform === "linux";
+/** Only Linux builds and measures here (the criterion's ubuntu-24.04 runner). */
+const MEASURES = process.platform === "linux";
 /** How far the app's shell line may sit from the page's own clock (start known to 10 ms; IPC). */
 const AGREE_MS = 100;
 
@@ -71,7 +70,7 @@ function breakdown(r: Run): string {
   const fmt = (t: number | null) => (t === null ? "n/a" : t.toFixed(0));
   const logged = PHASES.map((ph) => `${ph} ${r.lines[ph] ?? "missing"}`).join(", ");
   return (
-    `cold-open run ${r.n}: cold_open_ms ${r.coldOpenMs.toFixed(0)} (limit ${LIMIT_MS}) = ` +
+    `cold-open run ${r.n}/${LAUNCHES}: cold_open_ms ${r.coldOpenMs.toFixed(0)} = ` +
     `shell first paint ${r.shellMs.toFixed(0)} + open ${p.openMs.toFixed(0)} ` +
     `(course listed ${p.courseMs.toFixed(0)}, lecture in the DOM ${p.lectureDomMs.toFixed(0)}, ` +
     `painted ${(p.openMs - p.courseMs - p.lectureDomMs).toFixed(0)}); ` +
@@ -138,15 +137,15 @@ describe("cold open", function () {
   this.timeout(40 * 60_000);
 
   after(async () => {
-    if (current) await stop(current);
+    if (current) await stop(current, true);
     current = null;
   });
 
-  it("opens the 200-slide lecture under budget and logs each startup phase", async () => {
-    if (!GATES) {
-      // The budget gates on Linux only; a release build here would cost the job minutes for a
-      // number nothing reads. macOS and Windows values come from the perf stage (F-025).
-      console.log(`REPORT cold-open not measured on ${process.platform}: cold_open_ms gates on Linux only`);
+  it("opens the 200-slide lecture under its OS's target and logs each startup phase", async () => {
+    if (!MEASURES) {
+      // A release build here would cost the job minutes; this OS's value and target come from
+      // the perf stage (F-025, D-152).
+      console.log(`REPORT cold-open not measured on ${process.platform}: this flow measures on Linux only (D-152)`);
       return;
     }
     await buildRelease();
@@ -156,29 +155,32 @@ describe("cold open", function () {
     // The service started the debug app; closing its window quits it and frees the port. The
     // timed launch starts only once it and every process it started (WebKit's) have ended, so
     // its teardown doesn't share the CPU with the launch being measured.
-    const debugApp = processTree(join(root, "target", "debug", "lecter-app"));
+    const debugBinary = join(root, "target", "debug", "lecter-app");
+    const debugApp = processTree(debugBinary);
     expect(debugApp.length).toBeGreaterThan(0);
     const closed = Date.now();
     await browser.closeWindow().catch(() => undefined);
     await waitFor(async () => !(await alive()), 30_000, "the debug app to quit");
-    await waitFor(async () => !debugApp.some(running), 30_000, "the debug app's processes to end");
-    console.log(`cold-open: the debug app's ${debugApp.length} processes ended ${Date.now() - closed} ms after its window closed`);
-
-    const runs = [await measure(1)];
-    const first = runs[0] as Run;
-    if (ON_CI && first.coldOpenMs >= LIMIT_MS) {
-      // On CI a breach is measured once more; locally the budget gates at ×1 on one run
-      // (14-quality.md#performance-budgets).
-      await stop(current as Launch);
-      current = null;
-      runs.push(await measure(2));
-    }
+    await quiet(debugBinary, debugApp, "the debug app");
     console.log(
-      `cold_open_ms ${runs.map((r) => r.coldOpenMs.toFixed(0)).join(" / ")} (budget ${BUDGET_MS}, limit ${LIMIT_MS}${ON_CI ? " on CI" : ""}; ${APP})`,
+      `cold-open: the debug app's ${debugApp.length} processes ended ${Date.now() - closed} ms after its window closed`,
     );
+
+    // Five launches, one after the other; stop() waits for each one's processes to end.
+    const runs: Run[] = [];
+    for (let n = 1; n <= LAUNCHES; n++) {
+      runs.push(await measure(n));
+      await stop(current as Launch, n === LAUNCHES);
+      current = null;
+    }
+    const v = verdict(
+      runs.map((r) => r.coldOpenMs),
+      process.platform,
+    );
+    for (const line of v.lines) console.log(line);
+    console.log(`cold-open: ${APP}; targets ${JSON.stringify(TARGETS)}`);
     for (const r of runs) check(r, entry);
-    const best = Math.min(...runs.map((r) => r.coldOpenMs));
-    expect(Number.isFinite(best)).toBe(true);
-    expect(best).toBeLessThan(LIMIT_MS);
+    expect(runs.every((r) => Number.isFinite(r.coldOpenMs))).toBe(true);
+    expect(v.outcome).not.toBe("fail");
   });
 });

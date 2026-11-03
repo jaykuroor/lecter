@@ -24,7 +24,6 @@ describe("prewarmEditor", () => {
     expect(host.style.visibility).toBe("hidden");
     expect(host.style.position).toBe("fixed");
     expect(host.style.left).toBe("-10000px");
-    // A real lecture buffer: the decorations drew its slide heading and blocks.
     expect(host.querySelector(".cm-editor .cm-content")?.getAttribute("aria-label")).toBe("Warm-up");
     // A real lecture buffer: the decorations drew a flagged slide heading, a block and a flagged
     // block, and the saved gloss and note are in it.
