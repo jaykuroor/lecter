@@ -145,5 +145,11 @@ Should native carets in text inputs (the gloss prompt textarea) also stop blinki
 - Recommended: leave it native; the prompt is open only while the user is typing a question. Revisit if the open-idle run shows redraws with the prompt open.
 - Answer:
 
+## Q-022 · open · blocks: nothing
+Add `app_mark_startup` to 18-contracts.md#ipc (app row), as approved in D-151.
+- Context: F-179 adds the command; the spec says a command missing from the IPC table is a Q-entry, and build sessions can't edit the spec.
+- Recommended: add the row as D-151 describes (closed enum `paint`, logged once per phase, no state change).
+- Answer: approved by the maintainer 2026-11-03 (D-151); for the planning session to apply.
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

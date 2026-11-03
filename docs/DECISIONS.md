@@ -852,3 +852,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: real WebKitGTK (author's run on b870703): animations end 10004–10011 ms after the last input, 0 running at 10 s, 0 mutations and 0 frame callbacks over 30.0 s, solid caret; CI run 41561874349 (fac10d7) green on Linux, macOS and Windows. tauri-plugin-wdio-webdriver 1.5.0's element click is a lone `el.click()` (no mousedown) and its pointer actions send detail 0, which CodeMirror reads as a triple click (line selected, Vim leaves normal mode).
 - Instead of: a 10 s timer toggling a class (a DOM mutation inside the idle window); toggling CodeMirror's blink names; compensating for the heading margin in the test; WebDriver element click or pointer actions in the flow.
 - Revisit if: F-025's open-idle run (D-149) shows idle CPU still above budget; or gloss/figure widgets keep vertical margins (same click offset, see PROGRESS Watch out).
+
+## D-151 · New IPC command `app_mark_startup` for startup paint phases (F-179)
+2026-11-03 · orchestrator, decider: maintainer · active
+- Decision: the IPC contract gains `app_mark_startup(paint: "shell_first_paint" | "buffer_first_paint")` in the app row of 18-contracts.md#ipc. The UI calls it after its first shell paint and its first buffer paint; the core timestamps the call on arrival and logs `startup <phase> <ms>` once per phase. It is a closed enum argument, changes no state, and has one capability permission (`allow-app-mark-startup`).
+- Why: F-179 criterion 1 needs the app itself to log every startup phase, and only the UI knows when it painted; events and plugin permissions aren't allowed (security review: sound, idempotent, no log spam).
+- Instead of: measuring paint phases only in the e2e flow (criterion 1 would need rewording).
+- Revisit if: startup logging moves to a tracing span the UI can emit through an existing command.
