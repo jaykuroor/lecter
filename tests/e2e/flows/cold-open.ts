@@ -10,9 +10,10 @@
 //   counts from the OS's process start, its shell line agrees with the page's own clock;
 // - criterion 3: every resource other than index.html's own script and stylesheet starts loading
 //   after the shell's first paint (the UI's IPC order is covered by ui/src/App.startup.test.tsx);
-// - criterion 2: under 400 ms, or on CI under 400 × 1.5 = 600 ms, measured once more on a breach
-//   and failing only if both launches are over. It gates on Linux (the criterion's ubuntu-24.04
-//   runner); elsewhere the value is reported.
+// - criterion 2: locally under 400 ms on one launch; on CI under 400 × 1.5 = 600 ms, measured
+//   once more on a breach and failing only if both launches are over. Linux only (the criterion's
+//   ubuntu-24.04 runner): on macOS and Windows the flow builds and measures nothing and says so.
+// The app's own buffer-first-paint line is checked for order only; the gated value is the page's.
 // Every launch prints its breakdown before anything is asserted, so a failing run still says
 // where the time went.
 
@@ -40,6 +41,7 @@ const BUDGET_MS = 400;
 const CI_ALLOWANCE = 1.5;
 const ON_CI = Boolean(process.env.CI);
 const LIMIT_MS = ON_CI ? BUDGET_MS * CI_ALLOWANCE : BUDGET_MS;
+/** cold_open_ms gates on the criterion's ubuntu-24.04 runner: Linux only. */
 const GATES = process.platform === "linux";
 /** How far the app's shell line may sit from the page's own clock (start known to 10 ms; IPC). */
 const AGREE_MS = 100;
@@ -110,10 +112,8 @@ function check(r: Run, entry: string[]): void {
   const ms = PHASES.map((ph) => r.lines[ph] as number);
   expect(ms).toEqual([...ms].sort((a, b) => a - b));
   expect(r.page.shellMark).not.toBeNull();
-  if (GATES) {
-    // Counted from the OS's process start, the app's shell line is the page's shell paint.
-    expect(Math.abs((r.lines["shell-first-paint"] as number) - r.shellMs)).toBeLessThanOrEqual(AGREE_MS);
-  }
+  // Counted from the OS's process start (Linux), the app's shell line is the page's shell paint.
+  expect(Math.abs((r.lines["shell-first-paint"] as number) - r.shellMs)).toBeLessThanOrEqual(AGREE_MS);
 
   // Criterion 3: nothing but index.html's own files loads before the shell's first paint.
   const loaded = r.page.resources.map((x) => x.name);
@@ -139,6 +139,12 @@ describe("cold open", function () {
   });
 
   it("opens the 200-slide lecture under budget and logs each startup phase", async () => {
+    if (!GATES) {
+      // The budget gates on Linux only; a release build here would cost the job minutes for a
+      // number nothing reads. macOS and Windows values come from the perf stage (F-025).
+      console.log(`REPORT cold-open not measured on ${process.platform}: cold_open_ms gates on Linux only`);
+      return;
+    }
     await buildRelease();
     const entry = entryFiles();
     expect(entry.length).toBeGreaterThan(0);
@@ -149,8 +155,9 @@ describe("cold open", function () {
 
     const runs = [await measure(1)];
     const first = runs[0] as Run;
-    if (first.coldOpenMs >= LIMIT_MS) {
-      // A breach is measured once more (14-quality.md#performance-budgets).
+    if (ON_CI && first.coldOpenMs >= LIMIT_MS) {
+      // On CI a breach is measured once more; locally the budget gates at ×1 on one run
+      // (14-quality.md#performance-budgets).
       await stop(current as Launch);
       current = null;
       runs.push(await measure(2));
@@ -161,7 +168,6 @@ describe("cold open", function () {
     for (const r of runs) check(r, entry);
     const best = Math.min(...runs.map((r) => r.coldOpenMs));
     expect(Number.isFinite(best)).toBe(true);
-    if (GATES) expect(best).toBeLessThan(LIMIT_MS);
-    else console.log(`REPORT cold_open_ms ${best.toFixed(0)} on ${process.platform} (gates on Linux only)`);
+    expect(best).toBeLessThan(LIMIT_MS);
   });
 });
