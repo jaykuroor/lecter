@@ -4920,7 +4920,7 @@
    ],
    "priority": 2019,
    "status": "in_progress",
-   "notes": "",
+   "notes": "WIP 3cdecda: fix parks editor (caret blink). 3 commits unpushed. Next: idle shards of CI 41734804455 -> evidence idle-attribution.log, e2e-app.log; evidence.py check; verify; push; re-run CI.",
    "base": "e1ebd10bd118a3d1e484b8f683e4db37e3a1c7ab"
   }
  ]
