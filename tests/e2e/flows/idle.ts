@@ -165,30 +165,52 @@ async function expectFocused(): Promise<void> {
 }
 
 /**
- * Clicks `selector` once, as a mouse does: pointerdown, mousedown, pointerup, mouseup, click, all
- * with `detail: 1` (a single click), at a point near the start of its first line. The embedded
- * WebDriver can't do this: its element click (`$(…).click()`) sends only a lone `click`, which no
- * real mouse sends and which neither CodeMirror (selection on mousedown) nor the caret (restart on
- * mousedown) acts on; its pointer actions send `detail: 0`, which CodeMirror counts as a triple
- * click and turns into a whole-line selection, so Vim leaves normal mode.
+ * Clicks the editor line that reads `text` once, as a mouse does: pointerdown, mousedown,
+ * pointerup, mouseup, click, all with `detail: 1` (a single click), at the centre of the line's
+ * second character, measured in the page so it holds whatever the fonts make of the line. Before
+ * dispatching it checks that the element at that point is inside the line, and throws if not.
+ * The embedded WebDriver can't click like this: its element click (`$(…).click()`) sends only a
+ * lone `click`, which no real mouse sends and which neither CodeMirror (selection on mousedown)
+ * nor the caret (restart on mousedown) acts on; its pointer actions send `detail: 0`, which
+ * CodeMirror counts as a triple click and turns into a whole-line selection, so Vim leaves normal
+ * mode.
  */
-async function mouseClick(selector: string): Promise<boolean> {
-  return await browser.execute((sel: string) => {
-    const el = document.querySelector(sel);
-    if (!el) return false;
-    const box = el.getBoundingClientRect();
-    const x = box.left + Math.min(box.width / 2, 40);
-    const y = box.top + Math.min(box.height / 2, 10);
-    const target = document.elementFromPoint(x, y) ?? el;
+async function clickLine(text: string): Promise<void> {
+  const result = await browser.execute((want: string) => {
+    const line = [...document.querySelectorAll<HTMLElement>(".cm-line")].find((l) => l.textContent === want);
+    if (!line) return { error: `no editor line reads "${want}"` };
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    let textNode: Text | null = null;
+    for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
+      if (n instanceof Text && n.data.trim().length >= 3) {
+        textNode = n;
+        break;
+      }
+    }
+    if (!textNode) return { error: `the line "${want}" has no text to click` };
+    const range = document.createRange();
+    range.setStart(textNode, 1);
+    range.setEnd(textNode, 2);
+    const char = range.getBoundingClientRect();
+    const x = char.left + char.width / 2;
+    const y = char.top + char.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    const point = `(${Math.round(x)}, ${Math.round(y)})`;
+    if (!hit || !line.contains(hit)) {
+      const on = hit ? `${hit.nodeName.toLowerCase()}.${hit.className}` : "nothing";
+      return { error: `the point ${point} is on ${on}, not on the line "${want}"` };
+    }
     const at = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0, detail: 1 };
     const pointer = { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true };
-    target.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, buttons: 1 }));
-    target.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
-    target.dispatchEvent(new PointerEvent("pointerup", { ...pointer, buttons: 0 }));
-    target.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
-    target.dispatchEvent(new MouseEvent("click", { ...at, buttons: 0 }));
-    return true;
-  }, selector);
+    hit.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, buttons: 1 }));
+    hit.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+    hit.dispatchEvent(new PointerEvent("pointerup", { ...pointer, buttons: 0 }));
+    hit.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
+    hit.dispatchEvent(new MouseEvent("click", { ...at, buttons: 0 }));
+    return { point };
+  }, text);
+  if ("error" in result) throw new Error(`clickLine: ${result.error}`);
+  console.log(`IDLE click at ${result.point} on "${text}"`);
 }
 
 /** The buffer's Vim mode and the focused line's text. */
@@ -389,7 +411,7 @@ describe("an idle lecture", function () {
     await idleFor(BLINK_MS);
     expect(await running()).toEqual([]);
 
-    expect(await mouseClick(".cm-block")).toBe(true);
+    await clickLine(FIRST_BLOCK);
     await expectFocused();
     // A single click puts the cursor on the line; it doesn't select it.
     expect(await cursor()).toEqual({ mode: "normal", line: FIRST_BLOCK });
