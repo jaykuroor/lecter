@@ -42,3 +42,6 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - Run outside init.sh's environment, `add_dep.py ui` leaves a ~400 MB `.pnpm-store/` in the checkout that the secret scan then reads for 20+ minutes: set `pnpm_config_store_dir` to the home store first (F-020)
 - CodeMirror makes its own IntersectionObservers: a fake `IntersectionObserver` in a test must keep each instance's callback and targets, not one global (src/features/figures/figure.test.ts) (F-024)
 - Stryker's `--incremental` keeps old `Survived` results for module-level (static) mutants such as top-level regexes even after their tests change: delete `ui/reports/stryker-incremental.json` and rerun `scripts/mutants.py` (F-024)
+- CodeMirror's caret blink is an endless CSS animation; the buffer turns it off and runs a 10 s Web Animation instead (src/features/buffer/caret.ts). jsdom has no `Element.animate`: use the fake timeline in `src/features/buffer/__tests__/timeline.ts` (F-029)
+- CodeMirror reports a focus change (`update.focusChanged`) 10 ms after the DOM focus event, in a setTimeout: tests wait it out (F-029)
+- CodeMirror block widgets (slide heading, gloss card, figure) must not have vertical margins: its height map counts the border box only, so clicks below them land on later lines. Use padding (src/features/buffer/Buffer.css .slide-heading) (F-029)
