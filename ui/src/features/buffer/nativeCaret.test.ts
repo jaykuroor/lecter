@@ -59,6 +59,7 @@ afterEach(() => {
   opened = null;
   timeline.uninstall();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -226,8 +227,15 @@ describe("the native caret", () => {
     const at = { node: before?.startContainer, offset: before?.startOffset };
     expect(view.contentDOM.contains(at.node ?? null)).toBe(true);
     const cursor = view.state.selection;
+    // WebKit skips the caret's appearance update for a selection set to what it already is, so it
+    // must go through empty first. The spies pass every call through to jsdom.
+    const cleared = vi.spyOn(Selection.prototype, "removeAllRanges");
+    const set = vi.spyOn(Selection.prototype, "setBaseAndExtent");
     await wait(PARK_AFTER_MS);
     expect(editable()).toBe("false");
+    expect(cleared).toHaveBeenCalledTimes(1);
+    expect(set).toHaveBeenCalledTimes(1);
+    expect(cleared.mock.invocationCallOrder[0]).toBeLessThan(set.mock.invocationCallOrder[0] ?? 0);
     const after = sel?.getRangeAt(0);
     expect(after).not.toBe(before);
     expect({ node: after?.startContainer, offset: after?.startOffset }).toEqual(at);
