@@ -54,5 +54,5 @@ python3 spikes/figure-frame/summary.py "$LOG" >> "$OUT/summary.txt"
 STATUS=$?
 set -e
 cat "$OUT/summary.txt"
-echo "(a passing job's lines come only from a job summary file passed as an argument)"
+echo "(runs before D-154 uploaded failing jobs only: pass a passing job's summary block as a file)"
 exit "$STATUS"
