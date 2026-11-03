@@ -823,7 +823,8 @@
     "F-020",
     "F-023",
     "F-029",
-    "F-179"
+    "F-179",
+    "F-180"
    ],
    "paths": [
     "tests/perf/**",
@@ -831,12 +832,13 @@
    ],
    "acceptance": [
     "tests/perf/budgets.json SHALL list every budget in 14-quality.md#performance-budgets with its target, kind and starting milestone, and per-OS targets (`per_os`) for idle_rss_mb, rss_300_slides_mb and cold_open_ms.",
-    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over ×1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact; cold_open_ms is the median of 5 launches gated at ×1 with neither allowance).",
+    "`tests/perf/budgets.sh` SHALL measure keystroke_p99_ms, cold_open_ms, idle_rss_mb, rss_300_slides_mb, idle_cpu_pct, ttft_overhead_ms and ui_main_chunk_kb_gz on the real app and exit non-zero on a breach (with --ci, a timing value over x1.5 is measured once more and fails only if both runs are over; memory, size and token budgets are exact; cold_open_ms is the median of 5 launches gated at x1 with neither allowance).",
     "Budgets whose feature doesn't exist yet SHALL print PENDING and fail once their starting milestone is done.",
     "ci.yml SHALL gain the required `perf` job, and a deliberately slowed fixture SHALL make it fail (asserted in a test of budgets.sh).",
     "The first measurements SHALL be recorded in a D-entry.",
-    "Memory budgets SHALL count Lecter's own processes by RSS and the webview's processes by PSS (macOS phys_footprint, Windows private working set); the Linux targets SHALL be 460 and 500 MB, and the macOS and Windows targets SHALL come from a workflow_dispatch release-build run on the branch (measurement + 10 %, rounded up to the next 10 MB), recorded in a D-entry.",
-    "WHEN budgets.sh runs with --ci THEN the real-app keystroke_p99_ms and cold_open_ms SHALL print REPORT and never fail (keystroke_p99_ms stays gated by the mocked-core Playwright trace); without --ci both real-app values SHALL gate, cold_open_ms against the per-OS target from the maintainer's machine (median of 5 + 10 %, D-155), and an OS without a target SHALL print REPORT (asserted in a test of budgets.sh)."
+    "Memory budgets SHALL count every process, Lecter's own included, by its proportional share (Linux PSS, macOS phys_footprint, Windows private working set) with RSS of all as an info line; the Linux targets SHALL be 460 and 500 MB, and the macOS and Windows targets SHALL come from a workflow_dispatch release-build run on the branch (measurement + 10 %, rounded up to the next 10 MB, macOS 300-slide sample after the settle), recorded in a D-entry (D-161).",
+    "WHEN budgets.sh runs with --ci THEN the real-app keystroke_p99_ms and cold_open_ms SHALL print REPORT and never fail (keystroke_p99_ms stays gated by the mocked-core Playwright trace); without --ci both real-app values SHALL gate, cold_open_ms against the per-OS target from the maintainer's machine (median of 5 + 10 %, D-155), and an OS without a target SHALL print REPORT (asserted in a test of budgets.sh).",
+    "WHEN budgets.sh measures ttft_overhead_ms on macOS THEN it SHALL gate against a per-OS target (measurement + 10 %, recorded in a D-entry after checking the measure's one-frame quantisation), and a Windows per_os idle_cpu_pct target SHALL exist only if F-180 records that the WebView2 baseline can't be cut (D-161)."
    ],
    "verify": [
     "tests/perf/budgets.sh"
@@ -849,9 +851,9 @@
     ".github/workflows/ci.yml"
    ],
    "status": "in_progress",
-   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards) | Q-017 answered (D-146): after F-029 and F-179 merge, on feat/F-025-perf-budgets add per-OS PSS memory targets and keystroke REPORT under --ci, re-run CI (dispatch for macOS/Windows targets), merge. | D-149: also record idle CPU per process after F-029's fix (open-idle run, ubuntu-24.04) in F-029's D-entry (criterion 5 moved here). | D-156: two cold_open targets. per_os in budgets.json = D-152 CI runner targets (the e2e-app cold-open flow keeps gating on CI); budgets.sh without --ci gates against a separate local target from the maintainer's machine (median of 5 + 10 %, D-155); --ci prints REPORT.",
+   "notes": "BLOCKED: Gate works but app fails 5 budgets on Linux/WebKitGTK (D-139); branch feat/F-025-perf-budgets complete and reviewed; waiting on Q-017 planning (budgets + idle-redraw and cold-open cards) | Q-017 answered (D-146): after F-029 and F-179 merge, on feat/F-025-perf-budgets add per-OS PSS memory targets and keystroke REPORT under --ci, re-run CI (dispatch for macOS/Windows targets), merge. | D-149: also record idle CPU per process after F-029's fix (open-idle run, ubuntu-24.04) in F-029's D-entry (criterion 5 moved here). | D-156: two cold_open targets. per_os in budgets.json = D-152 CI runner targets (the e2e-app cold-open flow keeps gating on CI); budgets.sh without --ci gates against a separate local target from the maintainer's machine (median of 5 + 10 %, D-155); --ci prints REPORT. | IMPOSSIBLE (crit 6), branch 5b4fef4, CI 41708685261: Linux mem 469/528 MB vs 460/500 (app by RSS); fix: count all processes by share. idle_cpu fails on all OSes (needs a redraw card). NEXT: reviewer on the claim, then block + Q-entry. | BLOCKED: IMPOSSIBLE: crit 6 memory (Linux 469/528 vs 460/500, app counted by RSS double-counts shared pages) - count every process by share; idle_cpu_pct fails on all OSes (second idle redraw source) - new card; macOS ttft 31-39/30 - per-OS target. Reviewer agreed. Q-024. | Q-024 answered (D-161): planning session applies all-by-share memory, idle attribution + new idle-redraw card, per-OS macOS ttft / Windows idle CPU; then resume branch feat/F-025-perf-budgets (5b4fef4).",
    "priority": 2021,
-   "base": "4c34740e4fc3ba8b9fbd79725bec117611688da9"
+   "base": "ac377e6fb0d0ef566a49f20da161378802877fc6"
   },
   {
    "id": "F-026",
@@ -4884,6 +4886,42 @@
    "status": "done",
    "notes": "Code done at feat/F-179-cold-open (verify OK); waiting for review (SECURITY: new app_mark_startup IPC command outside owned paths) and the author's real-app run of scripts/e2e-app.sh cold-open in the builder worktree, then CI on ubuntu-24.04. | D-152: per-OS cold_open_ms target = CI median of 5 launches + 10 %, rounded up to 10 ms. Builder adds median-of-5 and REPORT for an OS without a target; Linux target from this branch's CI run; spec/features.json wording via the author's prompt.",
    "base": "a42b4ccdc9b8a255f0c566866107abd76cf11922"
+  },
+  {
+   "id": "F-180",
+   "milestone": "M0.5",
+   "kind": "feature",
+   "title": "Find and stop the remaining idle redraw",
+   "spec": [
+    "14-quality.md#performance-budgets",
+    "09-ui.md#editing"
+   ],
+   "depends_on": [
+    "F-029",
+    "F-179"
+   ],
+   "paths": [
+    "ui/src/**",
+    "tests/e2e/flows/idle*",
+    "tests/perf/idle*"
+   ],
+   "acceptance": [
+    "WHEN the idle run executes on a release build THEN it SHALL record per-thread CPU time series for every app process, and in-page requestAnimationFrame, MutationObserver and running-animation counters, and print them as the log `idle-attribution`.",
+    "WHEN a lecture is open and idle for 5 minutes THEN idle_cpu_pct counted over all app processes SHALL be below 0.5 % on Linux and macOS (budget in 14-quality.md#performance-budgets).",
+    "WHEN the idle redraw source found in `idle-attribution` is fixed THEN the e2e-app flow `idle` SHALL fail if that source is reintroduced.",
+    "IF the Windows WebView2 baseline alone exceeds 0.5 % with zero lecter-app CPU THEN the source and per-process numbers SHALL be recorded in a D-entry that proposes a per-OS idle_cpu_pct target for the maintainer."
+   ],
+   "verify": [
+    "scripts/e2e-app.sh idle --evidence F-180"
+   ],
+   "evidence": [
+    "log:idle-attribution",
+    "log:e2e-app"
+   ],
+   "priority": 2019,
+   "status": "done",
+   "notes": "WIP 3cdecda: fix parks editor (caret blink). 3 commits unpushed. Next: idle shards of CI 41734804455 -> evidence idle-attribution.log, e2e-app.log; evidence.py check; verify; push; re-run CI.",
+   "base": "e1ebd10bd118a3d1e484b8f683e4db37e3a1c7ab"
   }
  ]
 }

@@ -939,3 +939,31 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `webkit2gtk` (Linux), `webview2-com` and `windows-core` (Windows), `objc2`, `objc2-foundation` and `block2` (macOS) added to lecter-app as optional, per-OS dependencies enabled only by `test-hooks`, at wry's versions (MIT; windows-core MIT OR Apache-2.0); 0 new crates in Cargo.lock.
 - Why: Dep-Added trailers on F-028 commit 66b03d8; check_deps OK.
 - Instead of: a WebKit web-process extension; raw COM vtables; the full windows crate; building NSStrings by hand.
+
+## D-161 · Perf gate: memory counted by share, idle-redraw diagnosis then card, per-OS ttft and idle CPU
+2026-11-03 · orchestrator, decider: maintainer (Q-024) · active
+- Decision: (1) memory budgets count every process, Lecter's own included, by its proportional share (Linux PSS, macOS phys_footprint, Windows private working set); Linux targets stay 460/500 MB; macOS and Windows targets are re-derived the same way (measurement + 10 %, next 10 MB; the macOS 300-slide sample is taken after the settle); RSS of all stays an info line. Replaces D-146's "own processes by RSS". (2) F-025 first adds per-thread CPU time series and in-page rAF/MutationObserver/animation counters to the idle run; a new M0.5 card then fixes the idle redraw it finds, and F-025 depends on it. (3) macOS ttft_overhead_ms gets a per-OS target (measurement + 10 %) after checking the measure's one-frame quantisation; Windows idle_cpu_pct gets a per-OS target if the WebView2 baseline can't be cut. For the planning session: criterion 6 of F-025, 14-quality#performance-budgets, the new card.
+- Why: F-025 IMPOSSIBLE (reviewer agreed): counting lecter-app by RSS adds ~76 MB of pages shared with the web processes (Linux 469/528 MB by the mixed rule, 393/447 all by share, matching D-139's numbers the targets came from); idle CPU fails on all OSes (Linux 3.7 %, macOS 2.7 %, Windows 0.39-0.57 % in WebView2 only); macOS ttft 31-39 / 30 ms in three of three runs.
+- Instead of: keeping RSS for own processes and raising Linux targets; opening the redraw card without a known cause; moving idle_cpu_pct to a later milestone; REPORT-only on macOS/Windows CI.
+- Revisit if: a runner with hardware rendering becomes available, or the redraw card shows the idle CPU is the webview's own baseline.
+
+## D-162 · Idle redraw source: the webview's native caret (F-180)
+2026-11-03 · F-180 builder, recorded by the orchestrator · active
+- Decision: the redraw left after F-029 is the engine's native caret: CodeMirror's `caret-color: transparent` hides it, but WebKitGTK, WKWebView and WebView2 keep blinking and repainting it while the contenteditable is focused. Measured on CI (40 s phases, Linux / macOS / Windows %): editor focused 4.42 / 3.58 / 0.23; blurred 0.02 / 0.16 / 0.00; plain focused contenteditable div 4.70 / 4.32 / 0.23; same div contenteditable=false and focused 0.05 / 0.20 / 0.00. In-page rAF, mutation and animation counters were all 0.
+- Why: the attribution runs separate the caret from every in-page source.
+- Instead of: CSS `caret-animation: manual` alone (no effect in WebKit; kept for Chromium); changing GTK blink settings from Rust (Linux only, outside the card).
+- Revisit if: an engine adds caret-animation support or stops blinking hidden carets.
+
+## D-163 · Park the editor 9 s after the last input (F-180)
+2026-11-03 · F-180 builder, recorded by the orchestrator · active
+- Decision: in normal or visual mode, 9 s after the last key, click, focus or cursor move, EditorView.editable goes false; .cm-content keeps the focus (tabindex 0) and the selection is set again (removeAllRanges, then setBaseAndExtent with the same anchor and focus) because macOS re-checks the blink only on a selection change (1.57 → 0.16 %). A capture listener on keydown, mousedown, touchstart, dragenter and compositionstart makes it editable again before CodeMirror and Vim see the event. Insert mode never parks.
+- Why: 9 s lets the parking frame end before the protected 10 s caret window (caret.test, idle flow); insert mode stays editable so the first key after a pause goes through the IME and dead keys.
+- Instead of: removing the DOM selection (screen readers lose the caret); cloneRange (flips backward visual selections); parking in insert mode.
+- Revisit if: screen readers announce the parked editor badly, or WebKit's insert-mode blink matters for battery.
+
+## D-164 · Idle attribution runs on a release build in the idle flow (F-180)
+2026-11-03 · F-180 builder, recorded by the orchestrator · active
+- Decision: tests/e2e/flows/idle.ts reuses cold-open's release build and launch on all three OSes, samples per-process and per-thread CPU in a time series plus in-page counters, prints `idle-attribution`, and gates idle_cpu_pct < 0.5 % on Linux and macOS (×1), report-only on Windows (D-161).
+- Why: debug builds and single totals hid the source; the series separates a settle burst from a steady redraw.
+- Instead of: a separate perf job (F-025 owns budgets.sh).
+- Revisit if: the idle shard's ~13-15 min becomes the CI bottleneck (give it its own shard or move it to perf).
