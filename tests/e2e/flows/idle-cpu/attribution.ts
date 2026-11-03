@@ -45,13 +45,10 @@ export interface Attribution {
 }
 
 /**
- * Runs the whole measurement; `extra` runs after the window with the app still open (the
- * diagnosis phases while F-180 looks for the source).
+ * Runs the whole measurement: starts the release app, opens the lecture, settles, samples the
+ * window, reports, and stops the app.
  */
-export async function attribute(
-  report: (line: string) => void,
-  extra?: (exe: string) => Promise<void>,
-): Promise<Attribution> {
+export async function attribute(report: (line: string) => void): Promise<Attribution> {
   const app = await startRelease(report);
   try {
     await openInPage(LECTURE);
@@ -67,7 +64,6 @@ export async function attribute(
     );
     for (const line of cpuLines(s, STEP_MS / 1000)) report(line);
     for (const line of pageLines(page)) report(line);
-    if (extra) await extra(APP);
     return { pct: cpuPct(s), page };
   } finally {
     await stopRelease(app);

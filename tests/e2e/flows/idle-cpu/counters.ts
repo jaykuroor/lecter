@@ -72,7 +72,14 @@ export interface PageCounts {
   /** Per sample interval of `stepMs` from `from`: frames, mutations and animation events. */
   perSample: { frames: number[]; mutations: number[]; events: number[] };
   running: string[];
-  focus: { document: boolean; active: string; editorFocused: boolean; selection: string };
+  focus: {
+    document: boolean;
+    active: string;
+    editorFocused: boolean;
+    /** .cm-content's contenteditable: "false" while the editor is parked (nativeCaret.ts). */
+    editable: string | null;
+    selection: string;
+  };
   reducedMotion: boolean | null;
   userAgent: string;
 }
@@ -113,6 +120,7 @@ export function readCounters(from: number, to: number, stepMs: number): Promise<
           document: document.hasFocus(),
           active: active ? `${active.nodeName.toLowerCase()}.${active.className}` : "none",
           editorFocused: document.querySelector(".cm-editor")?.classList.contains("cm-focused") ?? false,
+          editable: document.querySelector(".cm-content")?.getAttribute("contenteditable") ?? null,
           selection: sel ? `${sel.type}, ${sel.rangeCount} range(s)` : "none",
         },
         reducedMotion: typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)").matches : null,

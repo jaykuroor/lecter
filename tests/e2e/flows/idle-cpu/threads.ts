@@ -74,7 +74,10 @@ export function series(samples: Snapshot[]): { procs: ProcSeries[]; seconds: num
       for (const t of after?.threads ?? []) {
         const entry = byName.get(t.name) ?? { tids: new Set<number>(), ms: new Array(samples.length - 1).fill(0) };
         entry.tids.add(t.tid);
-        entry.ms[i - 1] += (t.cpu_ns - (old.get(t.tid) ?? 0)) / 1e6;
+        // A thread id with less CPU than before is a new thread under a reused id (macOS reuses
+        // thread handles): it counts from zero.
+        const was = old.get(t.tid) ?? 0;
+        entry.ms[i - 1] += (t.cpu_ns >= was ? t.cpu_ns - was : t.cpu_ns) / 1e6;
         byName.set(t.name, entry);
       }
     }

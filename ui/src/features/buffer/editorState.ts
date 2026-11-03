@@ -13,6 +13,7 @@ import { cursorRules } from "./cursor";
 import { lectureDecorations } from "./decorations";
 import { sendEdits } from "./edits";
 import { nthElement } from "./elements";
+import { nativeCaret } from "./nativeCaret";
 import { visibleRange } from "./syntax";
 import { lectureBuffer } from "./vim";
 
@@ -29,6 +30,8 @@ function extensions(label: string, onEdits: (edits: Edit[]) => void, gloss: Glos
     drawSelection(),
     // After vim() and drawSelection(): it animates their caret layers.
     caretBlink,
+    // The webview's own (hidden) caret stops too: the editor parks when idle (F-180).
+    nativeCaret,
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({ "aria-label": label }),
     lectureDecorations,

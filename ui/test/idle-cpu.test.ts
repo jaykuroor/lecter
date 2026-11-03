@@ -96,6 +96,14 @@ describe("idle attribution series", () => {
     expect(series(two).procs[0]?.threads).toEqual([{ name: "tokio-runtime-worker", count: 2, ms: [20], total: 20 }]);
   });
 
+  it("counts a thread under a reused id from zero, never negative", () => {
+    const reused = [
+      snap(0, [proc(1, "app", 100, [[7, "CVDisplayLink", 40]])]),
+      snap(1000, [proc(1, "app", 103, [[7, "CVDisplayLink", 3]])]),
+    ];
+    expect(series(reused).procs[0]?.threads).toEqual([{ name: "CVDisplayLink", count: 1, ms: [3], total: 3 }]);
+  });
+
   it("refuses a series of fewer than two samples", () => {
     expect(() => series([samples[0] as Snapshot])).toThrow(/two samples/);
   });
