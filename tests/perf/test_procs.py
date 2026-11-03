@@ -34,11 +34,21 @@ class Group(unittest.TestCase):
     def test_the_app_its_descendants_and_what_it_is_responsible_for(self):
         ps = [proc(1, 0, "launchd", 0), proc(10, 1, "lecter-app", 1000, APP), proc(11, 10, "WebKitWebProcess", 1100),
               proc(12, 11, "helper", 1200), proc(20, 1, "com.apple.WebKit.WebContent", 1300, responsible=10),
-              proc(30, 1, "com.apple.WebKit.WebContent", 1300, responsible=99), proc(40, 1, "zsh", 50)]
+              proc(30, 1, "com.apple.WebKit.WebContent", 1300, responsible=40), proc(40, 1, "Safari", 50)]
         g = procs.group(ps, APP)
         self.assertEqual([p.pid for p in g][0], 10)
         self.assertEqual(sorted(p.pid for p in g), [10, 11, 12, 20])
         self.assertEqual({p.pid: p.role for p in g}, {10: "app", 11: "webview", 12: "app", 20: "webview"})
+
+    def test_macos_webkit_services_nobody_else_claims_are_adopted_if_started_after_the_app(self):
+        # The responsible-pid lookup may name nobody (0), launchd, the service itself or a gone pid.
+        ps = [proc(1, 0, "launchd", 0), proc(10, 1, "lecter-app", 1000, APP), proc(40, 1, "Safari", 50),
+              proc(21, 1, "com.apple.WebKit.WebContent", 1100), proc(22, 1, "com.apple.WebKit.Networking", 1100, responsible=1),
+              proc(23, 1, "com.apple.WebKit.GPU", 1100, responsible=23), proc(24, 1, "com.apple.WebKit.WebContent", 1100, responsible=77),
+              proc(25, 1, "com.apple.WebKit.WebContent", 999),  # started before the app
+              proc(26, 1, "com.apple.WebKit.WebContent", 1100, responsible=40),  # Safari's
+              proc(27, 1, "mdworker", 1100), proc(28, 5, "com.apple.WebKit.WebContent", 1100)]  # not launchd's
+        self.assertEqual(sorted(p.pid for p in procs.group(ps, APP)), [10, 21, 22, 23, 24])
 
     def test_a_reused_pid_older_than_its_parent_is_not_a_child(self):
         ps = [proc(10, 1, "lecter-app.exe", 1000, APP), proc(11, 10, "msedgewebview2.exe", 999),

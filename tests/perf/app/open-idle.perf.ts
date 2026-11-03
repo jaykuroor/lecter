@@ -7,7 +7,7 @@
 // Linux, per thread), to find what runs while idle (D-149).
 // The waits send no WebDriver commands, so the embedded WebDriver server is idle too.
 
-import { cpuUsed, memoryMb, snapshot } from "./procs.ts";
+import { cpuUsed, memoryMb, requireWebview, snapshot } from "./procs.ts";
 import { idle, lecture, openLecture, record, wanted } from "./support.ts";
 
 const RSS_AFTER_MS = 60_000;
@@ -21,8 +21,7 @@ describe("open and idle", function () {
 
     await idle(RSS_AFTER_MS);
     const now = snapshot();
-    // The webview runs in processes of its own: a group of one would miss most of the memory.
-    expect(now.procs.some((p) => p.role === "webview")).toBe(true);
+    requireWebview(now);
     const mem = memoryMb(now);
     if (wanted("idle_rss_mb"))
       record("idle_rss_mb", mem.total, `${now.procs.length} processes 60 s after open: ${mem.parts}`);

@@ -3,7 +3,7 @@
 // (D-146: the app's RSS plus the webview's share; procs.ts). Read right after the scroll and
 // again 5 s later; the larger value counts.
 
-import { memoryMb, snapshot } from "./procs.ts";
+import { memoryMb, requireWebview, snapshot } from "./procs.ts";
 import { idle, lecture, openLecture, record } from "./support.ts";
 
 describe("memory with 300 slides", function () {
@@ -43,9 +43,12 @@ describe("memory with 300 slides", function () {
     expect(scrolled.atEnd).toBe(true);
     expect(scrolled.steps).toBeGreaterThan(1);
 
-    const first = memoryMb(snapshot());
+    const then = snapshot();
+    requireWebview(then);
+    const first = memoryMb(then);
     await idle(5_000);
     const now = snapshot();
+    requireWebview(now);
     const second = memoryMb(now);
     const top = first.total >= second.total ? first : second;
     record(

@@ -53,20 +53,35 @@ def same_path(a: str, b: str) -> bool:
         return False
 
 
+WEBKIT_XPC = re.compile(r"^com\.apple\.WebKit\.")
+
+
+def adopted(p: Proc, app: Proc, apps: set[int]) -> bool:
+    """macOS: a WebKit XPC service (parent launchd) that works for the app. Charged to the app
+    when the responsible-pid lookup says so; when it names nobody else (0, launchd, itself or
+    no live process), any WebKit service started after the app counts: the measurement runs one
+    app at a time on a machine with no other webview."""
+    if p.responsible == app.pid:
+        return True
+    unclaimed = p.responsible in (0, 1, p.pid) or p.responsible not in apps
+    return p.ppid == 1 and bool(WEBKIT_XPC.match(p.name)) and unclaimed
+
+
 def group(procs: list[Proc], exe: str) -> list[Proc]:
-    """The app process for `exe` (exactly one), then its descendants and the processes it is
-    responsible for. A child must not have started before its parent (pids are reused)."""
+    """The app process for `exe` (exactly one), then its descendants and the WebKit services it
+    uses (`adopted`). A child must not have started before its parent (pids are reused)."""
     apps = [p for p in procs if p.path and same_path(p.path, exe)]
     if len(apps) != 1:
         raise RuntimeError(f"expected one process running {exe}, found {len(apps)}")
     app = apps[0]
+    live = {p.pid for p in procs}
     out, seen, todo = [app], {app.pid}, [app]
     while todo:
         parent = todo.pop()
         for p in procs:
             if p.pid in seen or p.start_ms < parent.start_ms:
                 continue
-            if p.ppid == parent.pid or (parent is app and p.responsible == app.pid):
+            if p.ppid == parent.pid or (parent is app and adopted(p, app, live)):
                 seen.add(p.pid)
                 out.append(p)
                 todo.append(p)
@@ -335,11 +350,17 @@ def reader():
 
 def snapshot(exe: str, r=None) -> dict:
     r = r or reader()
-    procs = group(r.snapshot(), exe)
+    every = r.snapshot()
+    procs = group(every, exe)
     r.fill(procs)
     for p in procs:
         p.counted = counted(p)
-    return {"os": sys.platform, "now_ms": time.time() * 1000, "procs": [asdict(p) for p in procs]}
+    mine = {p.pid for p in procs}
+    # Webview-named processes left out of the group, so a measurement that misses one says why.
+    others = [{"pid": p.pid, "ppid": p.ppid, "name": p.name, "responsible": p.responsible,
+               "after_app_ms": round(p.start_ms - procs[0].start_ms)}
+              for p in every if p.pid not in mine and WEBVIEW.search(p.name)]
+    return {"os": sys.platform, "now_ms": time.time() * 1000, "procs": [asdict(p) for p in procs], "others": others}
 
 
 def alive(pids: set[int], r=None) -> set[int]:

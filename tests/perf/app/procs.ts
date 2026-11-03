@@ -25,6 +25,20 @@ export interface Snapshot {
   os: string;
   now_ms: number;
   procs: Proc[];
+  /** Webview-named processes left out of the group (a diagnostic). */
+  others: { pid: number; ppid: number; name: string; responsible: number; after_app_ms: number }[];
+}
+
+/**
+ * The webview runs in processes of its own: a memory figure without them would miss most of the
+ * memory, so it is no measurement. The error lists what was seen but not grouped.
+ */
+export function requireWebview(s: Snapshot): void {
+  if (s.procs.some((p) => p.role === "webview")) return;
+  throw new Error(
+    `no webview process in the app's group (${s.procs.map((p) => p.name).join(", ")}); ` +
+      `webview-named processes outside it: ${JSON.stringify(s.others)}`,
+  );
 }
 
 function env(name: string): string {
