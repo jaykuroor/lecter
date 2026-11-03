@@ -50,6 +50,16 @@ class Group(unittest.TestCase):
               proc(27, 1, "mdworker", 1100), proc(28, 5, "com.apple.WebKit.WebContent", 1100)]  # not launchd's
         self.assertEqual(sorted(p.pid for p in procs.group(ps, APP)), [10, 21, 22, 23, 24])
 
+    def test_macos_webkit_services_charged_to_the_apps_own_responsible_process_are_adopted(self):
+        # CI run 41705588536: the app and its services were all charged to the launcher (915).
+        ps = [proc(1, 0, "launchd", 0), proc(915, 1, "Runner.Worker", 10), proc(900, 915, "node", 20),
+              proc(10, 900, "lecter-app", 1000, APP, responsible=915),
+              proc(21, 1, "com.apple.WebKit.WebContent", 1186, responsible=915),
+              proc(22, 1, "com.apple.WebKit.Networking", 1212, responsible=915),
+              proc(23, 1, "com.apple.WebKit.WebContent", 900, responsible=915),  # an earlier launch's
+              proc(24, 1, "mdworker", 1100, responsible=915)]  # not a WebKit service
+        self.assertEqual(sorted(p.pid for p in procs.group(ps, APP)), [10, 21, 22])
+
     def test_a_reused_pid_older_than_its_parent_is_not_a_child(self):
         ps = [proc(10, 1, "lecter-app.exe", 1000, APP), proc(11, 10, "msedgewebview2.exe", 999),
               proc(12, 10, "msedgewebview2.exe", 1001)]

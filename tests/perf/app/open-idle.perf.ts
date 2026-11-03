@@ -22,6 +22,7 @@ describe("open and idle", function () {
     await idle(RSS_AFTER_MS);
     const now = snapshot();
     requireWebview(now);
+    expect(now.procs.filter((p) => p.role === "webview").length).toBeGreaterThan(0);
     const mem = memoryMb(now);
     if (wanted("idle_rss_mb"))
       record("idle_rss_mb", mem.total, `${now.procs.length} processes 60 s after open: ${mem.parts}`);
@@ -32,6 +33,9 @@ describe("open and idle", function () {
     await idle(CPU_WINDOW_MS);
     const after = snapshot();
     const seconds = (Date.now() - t0) / 1000;
+    // The whole 5-minute window was sampled, and the same processes are still there.
+    expect(seconds).toBeGreaterThanOrEqual(CPU_WINDOW_MS / 1000);
+    expect(after.procs.some((p) => p.role === "webview")).toBe(true);
     const cpu = cpuUsed(before, after);
     record(
       "idle_cpu_pct",

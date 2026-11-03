@@ -57,14 +57,18 @@ WEBKIT_XPC = re.compile(r"^com\.apple\.WebKit\.")
 
 
 def adopted(p: Proc, app: Proc, apps: set[int]) -> bool:
-    """macOS: a WebKit XPC service (parent launchd) that works for the app. Charged to the app
-    when the responsible-pid lookup says so; when it names nobody else (0, launchd, itself or
-    no live process), any WebKit service started after the app counts: the measurement runs one
-    app at a time on a machine with no other webview."""
+    """macOS: a WebKit XPC service (parent launchd) that works for the app. It is charged to the
+    app's responsible process: the app itself, or whatever the app is charged to (an app started
+    from a shell or a test runner is charged to that, and so are its services: CI run
+    41705588536). When the lookup names nobody else (0, launchd, itself or no live process), any
+    WebKit service started after the app counts: one app is measured at a time."""
     if p.responsible == app.pid:
         return True
+    if not (p.ppid == 1 and WEBKIT_XPC.match(p.name)):
+        return False
+    shared = app.responsible > 1 and p.responsible == app.responsible
     unclaimed = p.responsible in (0, 1, p.pid) or p.responsible not in apps
-    return p.ppid == 1 and bool(WEBKIT_XPC.match(p.name)) and unclaimed
+    return shared or unclaimed
 
 
 def group(procs: list[Proc], exe: str) -> list[Proc]:
