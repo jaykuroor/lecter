@@ -15,6 +15,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shot } from "../support/shot.ts";
+import { skipFocusCheck } from "../support/window.ts";
 
 const NAME = "2026-10-26-l08-restart.md";
 const STEM = "2026-10-26-l08-restart";
@@ -92,6 +93,8 @@ async function relaunch(): Promise<void> {
   if (typeof log === "number") closeSync(log);
   await waitFor(alive, 60_000, "the relaunched app's WebDriver server");
   await browser.reloadSession();
+  // A new session: switch the service's focus check off again (wdio.conf.ts did the first one).
+  await skipFocusCheck(browser);
 }
 
 /** Opens the course (the dialog answers LECTER_TEST_PICK) and the lecture, with the mouse. */
@@ -119,11 +122,7 @@ async function insertMode(): Promise<void> {
   await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "insert");
 }
 
-describe("typing survives a restart", function () {
-  // Each test launches the app again, and the service's window-focus check adds up to ~10 s of
-  // "core.invoke not available" waits before every find and click: 120 s isn't enough.
-  this.timeout(300_000);
-
+describe("typing survives a restart", () => {
   before(() => {
     mkdirSync(join(course(), "lectures"), { recursive: true });
     writeFileSync(join(course(), "lectures", NAME), LECTURE);

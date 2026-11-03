@@ -8,6 +8,7 @@ import type { GlossBackend } from "../../core/gloss";
 import type { Edit } from "../../core/lecture";
 import { figureExtension } from "../figures/extension";
 import { glossExtension } from "../gloss/controller";
+import { caretBlink } from "./caret";
 import { cursorRules } from "./cursor";
 import { lectureDecorations } from "./decorations";
 import { sendEdits } from "./edits";
@@ -26,6 +27,8 @@ function extensions(label: string, onEdits: (edits: Edit[]) => void, gloss: Glos
     lectureBuffer.of(true),
     history(),
     drawSelection(),
+    // After vim() and drawSelection(): it animates their caret layers.
+    caretBlink,
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({ "aria-label": label }),
     lectureDecorations,

@@ -95,6 +95,59 @@ fn ci_yml_has_lint_test_and_e2e_jobs_that_call_verify_stages() -> Result<(), Str
     Ok(())
 }
 
+/// The value of `key: <value>` on a line of `body`, trimmed.
+fn value<'a>(body: &'a str, key: &str) -> Option<&'a str> {
+    body.lines().find_map(|l| l.trim().strip_prefix(key)?.strip_prefix(':').map(str::trim))
+}
+
+#[test]
+fn e2e_app_runs_in_shards_and_keeps_its_status_check() -> Result<(), String> {
+    // D-154: e2e-app-shard runs the flows in parallel; e2e-app (<os>) stays the status check
+    // (16-ci-cd.md rule 4) and passes only when every shard of its OS passed.
+    let ci = read(".github/workflows/ci.yml")?;
+    let shard = job(&ci, "e2e-app-shard").ok_or("ci.yml has no `e2e-app-shard` job")?;
+    let gate = job(&ci, "e2e-app").ok_or("ci.yml has no `e2e-app` job")?;
+    for needle in [
+        "scripts/verify.sh --stage e2e-app",
+        "runs-on: ${{ matrix.os }}",
+        "LECTER_E2E_SHARD: ${{ matrix.shard }}/${{ env.E2E_APP_SHARDS }}",
+        "if: always()",
+        "include-hidden-files: true",
+    ] {
+        assert!(shard.contains(needle), "job `e2e-app-shard` lacks `{needle}`");
+    }
+    for body in [shard, gate] {
+        for os in ["ubuntu-24.04", "macos-15", "windows-2025"] {
+            assert!(body.contains(os), "an e2e-app job doesn't run for {os}");
+        }
+    }
+    let list = value(shard, "shard").ok_or("e2e-app-shard has no `shard:` matrix")?;
+    let shards: Vec<u32> = list
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .map(|n| n.trim().parse::<u32>().map_err(|e| format!("shard `{n}`: {e}")))
+        .collect::<Result<_, _>>()?;
+    let n = u32::try_from(shards.len()).map_err(|e| e.to_string())?;
+    assert_eq!(shards, (1..=n).collect::<Vec<_>>(), "the shard matrix must read [1, …, n]");
+    let count = n.to_string();
+    assert_eq!(value(shard, "E2E_APP_SHARDS"), Some(count.as_str()), "e2e-app-shard's count");
+    assert_eq!(value(gate, "E2E_APP_SHARDS"), Some(count.as_str()), "the e2e-app gate's count");
+    for needle in [
+        "needs: [changes, e2e-app-shard]",
+        "!cancelled()",
+        "actions: read",
+        "scripts/e2e_app_gate.py \"$OS\" \"$E2E_APP_SHARDS\"",
+    ] {
+        assert!(gate.contains(needle), "job `e2e-app` lacks `{needle}`");
+    }
+    assert!(
+        !gate.lines().any(|l| l.starts_with("    name:")),
+        "job `e2e-app` overrides its name; status checks rely on the job id"
+    );
+    Ok(())
+}
+
 #[test]
 fn ci_yml_triggers_on_main_pull_requests_and_dispatch() -> Result<(), String> {
     let ci = read(".github/workflows/ci.yml")?;

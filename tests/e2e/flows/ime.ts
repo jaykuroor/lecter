@@ -284,13 +284,9 @@ describe("Vim and IME composition", function () {
   // The service's window-focus check can add ~10 s of waits before finds and clicks.
   this.timeout(300_000);
 
-  before(async () => {
+  before(() => {
     mkdirSync(join(course(), "lectures"), { recursive: true });
     writeFileSync(file(), LECTURE);
-    // An explicit window switch turns off the service's focus check for this session.
-    await browser
-      .switchToWindow(await browser.getWindowHandle())
-      .catch((e: unknown) => console.log(`IME window switch failed, flows run slower: ${String(e)}`));
   });
 
   // Other flows list this course's lectures exactly; the page keeps no IME player.
