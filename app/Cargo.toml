@@ -31,6 +31,21 @@ tauri-specta = { version = "=2.0.0-rc.25", default-features = false, features = 
 tracing = "0.1.44"
 serde_json.workspace = true
 
+# The figure frames' native request filter (src/figure_filter/, 08-figures.md#sandbox-pages): each
+# OS's webview API below the page. All are in the tree already through wry, at wry's versions so the
+# types match Tauri's; optional, with `test-hooks`, until F-141 ships the filter (D-145).
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2.0.2", features = ["v2_24"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6.5", optional = true }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"], optional = true }
+block2 = { version = "0.6.2", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+webview2-com = { version = "0.39.1", optional = true }
+windows-core = { version = "0.62.2", optional = true }
+
 [dev-dependencies]
 lecter-core = { path = "../crates/core", features = ["test-hooks"] }
 tauri = { version = "2", default-features = false, features = ["test"] }
@@ -41,7 +56,8 @@ tauri = { version = "2", default-features = false, features = ["test"] }
 custom-protocol = ["tauri/custom-protocol"]
 # The test hooks in any profile, plus the embedded WebDriver server (D-091). Never on in a release
 # or packaging build: scripts/check_release_binary.sh fails a binary that has them.
-test-hooks = ["dep:tauri-plugin-wdio-webdriver"]
+# (One line: app/tests/test_hooks.rs reads it.) The rest are the figure filter's per-OS webview APIs.
+test-hooks = ["dep:tauri-plugin-wdio-webdriver", "dep:webkit2gtk", "dep:objc2", "dep:objc2-foundation", "dep:block2", "dep:webview2-com", "dep:windows-core"]
 
 # Writes ui/src/core/bindings.ts from the IPC contract in src/ipc/; `-- --check` fails on stale
 # bindings (verify.sh bindings-stale). Its logic is tested in the app's own test target (ipc::export).
