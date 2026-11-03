@@ -124,7 +124,14 @@ describe("the native caret", () => {
     view.contentDOM.addEventListener(type, () => {
       during = editable();
     });
-    const event = new Event(type, { bubbles: true, cancelable: true });
+    const init = { bubbles: true, cancelable: true };
+    // Esc in normal mode: a key Vim takes and that moves nothing.
+    const event =
+      type === "keydown"
+        ? new KeyboardEvent(type, { ...init, key: "Escape" })
+        : type === "mousedown"
+          ? new MouseEvent(type, { ...init, button: 0 })
+          : new Event(type, init);
     // CodeMirror's touch observer reads the first touch.
     Object.defineProperty(event, "targetTouches", { value: [{ clientX: 1, clientY: 1 }] });
     view.contentDOM.dispatchEvent(event);
@@ -176,6 +183,26 @@ describe("the native caret", () => {
     expect(editable()).toBe("true");
     await wait(1);
     expect(editable()).toBe("false");
+  });
+
+  it("stops listening once the editor is gone: a key on its old element wakes nothing", async () => {
+    await open();
+    await wait(PARK_AFTER_MS);
+    expect(view.state.field(parked)).toBe(true);
+    view.destroy();
+    key("j");
+    expect(view.state.field(parked)).toBe(true);
+  });
+
+  it("stops counting once the editor is gone: a pending count never parks it", async () => {
+    await open();
+    key("j");
+    await wait(1_000);
+    view.destroy();
+    // Even were it still focused, the count it had running is gone.
+    Object.defineProperty(view, "hasFocus", { get: () => true });
+    await wait(60_000);
+    expect(view.state.field(parked)).toBe(false);
   });
 
   it("keeps the text cursor over the editor and turns Chromium's own blink off", async () => {
