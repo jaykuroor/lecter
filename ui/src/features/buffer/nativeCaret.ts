@@ -8,7 +8,7 @@
 // So 9 s after the last key, click, focus change or cursor move (PARK_AFTER_MS), in normal or
 // visual mode, the editor "parks": its content stops being contenteditable while it keeps the
 // focus (tabindex) and the selection. A focused element that isn't editable has no blinking caret in WebKit or
-// Chromium. Any key, click, touch, drag or composition wakes it first: a capture listener on the
+// Chromium, once the selection is set again (WebKit on macOS looks only then). Any key, click, touch, drag or composition wakes it first: a capture listener on the
 // editor makes it editable again before CodeMirror and Vim see the event. Insert mode never parks,
 // so a first key after a pause still goes through the input method (an IME or dead key).
 // Chromium (WebView2) also gets `caret-animation: manual`, which stops its blink in every mode.
@@ -65,6 +65,22 @@ class NativeCaret {
     const insert = getCM(this.view)?.state.vim?.insertMode === true;
     if (!this.view.hasFocus || insert || this.view.state.field(parked)) return;
     this.view.dispatch({ effects: setParked.of(true) });
+    this.reselect();
+  }
+
+  /**
+   * Sets the webview's selection again, unchanged. WebKit on macOS decides whether the caret blinks
+   * when the selection changes, not when the editability does: a parked editor whose selection
+   * stayed put kept its blink (1.57 % of a core on CI; 0.20 % once the selection was set again).
+   * Anchor and focus are kept, so a backward visual selection stays backward and CodeMirror,
+   * reading the same selection back, dispatches nothing.
+   */
+  private reselect(): void {
+    const sel = this.view.dom.ownerDocument.getSelection();
+    if (!sel?.anchorNode || !sel.focusNode) return;
+    const { anchorNode, anchorOffset, focusNode, focusOffset } = sel;
+    sel.removeAllRanges();
+    sel.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
   }
 
   destroy(): void {

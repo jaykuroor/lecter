@@ -215,6 +215,50 @@ describe("the native caret", () => {
     expect(editable()).toBe("false");
   });
 
+  // macOS WebKit decides whether the caret blinks when the selection changes, not when the
+  // editability does: a parked editor whose selection stayed put kept blinking (1.57 % on CI).
+  it("sets the webview's selection again as it parks, at the same place", async () => {
+    await open();
+    key("j");
+    await wait(20);
+    const sel = document.getSelection();
+    const before = sel?.getRangeAt(0);
+    const at = { node: before?.startContainer, offset: before?.startOffset };
+    expect(view.contentDOM.contains(at.node ?? null)).toBe(true);
+    const cursor = view.state.selection;
+    await wait(PARK_AFTER_MS);
+    expect(editable()).toBe("false");
+    const after = sel?.getRangeAt(0);
+    expect(after).not.toBe(before);
+    expect({ node: after?.startContainer, offset: after?.startOffset }).toEqual(at);
+    expect(after?.collapsed).toBe(true);
+    await wait(20);
+    expect(view.state.selection.eq(cursor)).toBe(true);
+    expect(focused()).toBe(true);
+  });
+
+  it("keeps a backward selection's direction when it sets it again", async () => {
+    await open();
+    key("j");
+    key("j");
+    key("v");
+    key("k");
+    await wait(20);
+    const sel = document.getSelection();
+    const before = { anchor: [sel?.anchorNode, sel?.anchorOffset], focus: [sel?.focusNode, sel?.focusOffset] };
+    expect(sel?.isCollapsed).toBe(false);
+    const range = sel?.getRangeAt(0);
+    // Backward: the focus is the range's start.
+    expect([range?.startContainer, range?.startOffset]).toEqual(before.focus);
+    const cursor = view.state.selection;
+    await wait(PARK_AFTER_MS);
+    expect(editable()).toBe("false");
+    expect(sel?.getRangeAt(0)).not.toBe(range);
+    expect({ anchor: [sel?.anchorNode, sel?.anchorOffset], focus: [sel?.focusNode, sel?.focusOffset] }).toEqual(before);
+    await wait(20);
+    expect(view.state.selection.eq(cursor)).toBe(true);
+  });
+
   it("doesn't park without the focus, and parks 9 s after it comes back", async () => {
     await open();
     view.contentDOM.blur();
