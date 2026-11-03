@@ -44,6 +44,7 @@ describe("startup", () => {
       return invoke(cmd, args);
     };
     frames = [];
+    performance.clearMarks();
     vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f));
   });
   afterEach(() => {
@@ -56,6 +57,7 @@ describe("startup", () => {
     await settle();
     expect(asked).toEqual([]);
     expect(container.querySelector(".lecture-buffer")).toBeNull();
+    expect(performance.getEntriesByName("startup:shell_first_paint", "mark")).toHaveLength(0);
     expect(screen.getByRole("status", { name: "Status line" }).textContent).toBe("Connecting to core…");
 
     paint();
@@ -63,6 +65,8 @@ describe("startup", () => {
     // The mark is the first call, right after the paint; then the version, then the buffer.
     expect(asked[0]).toEqual(["app_mark_startup", { paint: "shell_first_paint" }]);
     expect(asked[1]?.[0]).toBe("app_info");
+    // The page keeps a mark for the cold-open flow (tests/e2e/flows/cold-open.ts).
+    expect(performance.getEntriesByName("startup:shell_first_paint", "mark")).toHaveLength(1);
     expect(await screen.findByText("v0.0.1")).toBeTruthy();
     await waitFor(() => expect(container.querySelector(".lecture-buffer")).not.toBeNull());
     expect(calls("app_mark_startup")).toHaveLength(1);
