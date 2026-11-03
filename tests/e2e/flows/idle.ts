@@ -250,13 +250,55 @@ async function toFirstSlideLine(): Promise<void> {
   expect(await cursor()).toEqual(want);
 }
 
-/** Waits briefly (2 s) for the caret to blink after an input, then asserts it does. */
+/**
+ * What decides whether the caret can blink, read in the page: the reduced-motion preference
+ * (caret.ts never blinks under it), the caret layers CodeMirror made, whether the webview has
+ * `Element.animate`, and every animation `document.getAnimations()` lists.
+ */
+function caretDiagnosis(): Promise<{
+  reducedMotion: boolean | null;
+  layers: string[];
+  animate: boolean;
+  animations: string[];
+}> {
+  return browser.execute(() => ({
+    reducedMotion: typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)").matches : null,
+    layers: [...document.querySelectorAll(".cm-scroller > .cm-cursorLayer")].map((l) => l.className),
+    animate: typeof Element.prototype.animate === "function",
+    animations: document.getAnimations().map((a) => {
+      const target = a.effect instanceof KeyframeEffect ? a.effect.target : null;
+      const on = target instanceof Element ? target.className : "?";
+      return `${a.constructor.name} ${a.playState} on ${on}`;
+    }),
+  }));
+}
+
+/**
+ * After an input: the caret blinks (polled for up to 2 s), or, where the webview reports
+ * `prefers-reduced-motion: reduce`, it stays solid and visible with nothing animating, because
+ * caret.ts never blinks under reduced motion (ui/CLAUDE.md: reduced-motion support). Logs what
+ * decided it either way.
+ */
 async function expectBlinking(after: string): Promise<void> {
+  const before = await caretDiagnosis();
+  if (before.reducedMotion === true) {
+    const blinks = await caretBlinks();
+    const solid = await caret();
+    console.log(
+      `IDLE caret after ${after}: reduced motion is on, so the blink half is skipped; caret ${JSON.stringify(solid)}; ${JSON.stringify(before)}`,
+    );
+    expect(blinks).toBe(0);
+    expect(solid?.opacity).toBe("1");
+    expect(solid?.display).not.toBe("none");
+    expect(solid?.width ?? 0).toBeGreaterThan(0);
+    expect(solid?.height ?? 0).toBeGreaterThan(0);
+    return;
+  }
   await browser
     .waitUntil(async () => (await caretBlinks()) > 0, { timeout: 2_000, interval: 50 })
     .catch(() => undefined);
   const blinks = await caretBlinks();
-  console.log(`IDLE caret animations right after ${after}: ${blinks}`);
+  console.log(`IDLE caret animations right after ${after}: ${blinks}; ${JSON.stringify(await caretDiagnosis())}`);
   expect(blinks).toBeGreaterThan(0);
 }
 
