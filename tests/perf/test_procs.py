@@ -5,7 +5,6 @@ group is the app, its descendants and on macOS the WebKit services it is respons
 Linux reader runs on a fake /proc; the macOS and Windows struct layouts are checked on packed
 bytes laid out as their headers declare them (the CI dispatch run checks them on the real OS)."""
 
-import os
 import struct
 import sys
 import tempfile
@@ -81,7 +80,7 @@ class FakeProc:
         (d / "smaps_rollup").write_text(f"00400000-ffffffff ---p 00000000 00:00 0 [rollup]\nRss:  {rss_kb} kB\nPss:  {pss_kb} kB\n")
         target = self.exe_dir / exe
         target.touch()
-        os.symlink(target, d / "exe")
+        (d / "exe").write_text(str(target))  # the link target; the test reads it in place of readlink
         for tid, name, u in threads:
             (d / "task" / str(tid)).mkdir()
             trest = ["S", str(ppid)] + ["0"] * 9 + [str(u), "0"] + ["0"] * 27
@@ -96,6 +95,7 @@ class LinuxReader(unittest.TestCase):
         fake.add(11, 10, "WebKitWebProces", 90_100, 1000, 0, 300_000, 180_000, "WebKitWebProcess")
         fake.add(12, 1, "lecter-app", 1, 0, 0, 1, 1, "other-lecter")  # same name, another executable
         r = procs.Linux(str(fake.root))
+        r.readlink = lambda p: Path(p).read_text()
         r.hz = 100
         snap = procs.snapshot(app, r)
         by = {p["pid"]: p for p in snap["procs"]}

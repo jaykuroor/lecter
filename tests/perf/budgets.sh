@@ -18,6 +18,7 @@ done
 
 if [ "${1:-}" = "--self-test" ] || [ "${LECTER_PERF_SELFTEST:-1}" != 0 ]; then
   if ! out=$("$PY" -m unittest discover -q -s tests/perf -p 'test_*.py' 2>&1); then
+    printf '%s\n' "$out" | grep -E '^(FAIL|ERROR): ' # every failing test by name, then the end of the output
     printf '%s\n' "$out" | tail -n 40
     echo "SELFTEST FAILED (tests/perf/test_*.py)"
     exit 1

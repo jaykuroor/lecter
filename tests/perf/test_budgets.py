@@ -7,6 +7,7 @@ milestone is done. Run by budgets.sh itself before it measures (and alone with -
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,8 @@ BUDGETS_SH = HERE / "budgets.sh"
 SPEC = ROOT / "docs" / "spec" / "14-quality.md"
 TIMED = "tests/perf/fixtures/timed_work.py"
 FIXED = "tests/perf/fixtures/fixed.py"
+# Found on PATH: on Windows a bare "bash" starts System32's WSL launcher, not Git Bash.
+BASH = shutil.which("bash") or "bash"
 
 
 def spec_rows() -> dict[str, str]:
@@ -60,7 +63,7 @@ class Run:
         self.env["LECTER_PERF_SELFTEST"] = "0"
 
     def __call__(self, *args: str) -> subprocess.CompletedProcess:
-        cmd = ["bash", str(BUDGETS_SH), "--budgets", str(self.budgets), "--features", str(self.features),
+        cmd = [BASH, str(BUDGETS_SH), "--budgets", str(self.budgets), "--features", str(self.features),
                "--report", str(self.report), "--logs", self.dir, *args]
         return subprocess.run(cmd, cwd=ROOT, env=self.env, capture_output=True, text=True, timeout=120)
 

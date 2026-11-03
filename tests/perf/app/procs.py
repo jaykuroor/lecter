@@ -91,6 +91,7 @@ class Linux:
     def __init__(self, root: str = "/proc"):
         self.root = Path(root)
         self.hz = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+        self.readlink = os.readlink  # the tests' fake /proc replaces it (no symlinks needed)
 
     def _read(self, *parts: str) -> str | None:
         try:
@@ -119,7 +120,7 @@ class Linux:
                 continue
             name, f = self._stat(stat)
             try:
-                path = os.readlink(d / "exe").removesuffix(" (deleted)")
+                path = str(self.readlink(d / "exe")).removesuffix(" (deleted)")
             except OSError:
                 path = ""
             p = Proc(int(d.name), int(f[1]), name, now - (uptime - int(f[19]) / self.hz) * 1000, path)
