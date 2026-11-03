@@ -107,9 +107,10 @@ class RealAppReportsOnCi(unittest.TestCase):
         r = slow("--ci")
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertRegex(r.stdout, r"(?m)^REPORT k_ms 1 / 8 ")
-        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms 2\d\d\.\d+, 2\d\d\.\d+ / 12 ")
+        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms \d{3,}\.\d+, \d{3,}\.\d+ / 12 ")
         report = json.loads(slow.report.read_text())["budgets"]
         self.assertEqual([(e["source"], e["status"]) for e in report], [("script", "report"), ("quick", "fail")])
+        self.assertTrue(all(v >= 250 for v in report[1]["values"]), report[1]["values"])
 
     def test_without_ci_the_real_app_value_gates_at_x1_and_the_quick_check_does_not_run(self):
         for v, code, status in ((7.9, 0, "PASS"), (8.5, 1, "FAIL")):
@@ -123,7 +124,7 @@ class RealAppReportsOnCi(unittest.TestCase):
         run = Run(self.keystroke(), env={**values(k_ms=[40]), "PERF_FIXTURE_DELAY_MS": "250"})
         r = run("--quick")
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms 2\d\d\.\d+ / 8$")
+        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms \d{3,}\.\d+ / 8$")
         self.assertNotIn("REPORT", r.stdout)
 
 
