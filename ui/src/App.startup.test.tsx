@@ -100,7 +100,7 @@ describe("startup", () => {
     expect(calls("app_mark_startup")).toHaveLength(2);
   });
 
-  it("a lecture opened while the buffer's chunk is still loading is marked once it shows", async () => {
+  it("a lecture opened straight after the first paint is marked once it shows", async () => {
     const { container } = render(() => <App />);
     paint();
     // Straight away, without waiting for the buffer.
@@ -114,6 +114,18 @@ describe("startup", () => {
         { paint: "buffer_first_paint" },
       ]),
     );
+  });
+
+  it("an app gone before its lecture is painted doesn't mark it", async () => {
+    const { container } = render(() => <App />);
+    paint();
+    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
+    await waitFor(() => expect(container.querySelector(".cm-block")).not.toBeNull());
+    cleanup();
+    paint();
+    await settle();
+    expect(calls("app_mark_startup").map(([, a]) => a)).toEqual([{ paint: "shell_first_paint" }]);
   });
 
   it("an app gone before its first paint asks nothing", async () => {
