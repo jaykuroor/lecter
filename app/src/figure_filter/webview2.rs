@@ -54,7 +54,7 @@ fn attach(platform: &PlatformWebview, policy: Policy) -> windows_core::Result<&'
         if policy.allows(&uri, Source::Any) {
             return Ok(());
         }
-        tracing::info!(%uri, "figure filter refused a request");
+        eprintln!("figure filter refused {uri}");
         unsafe {
             let refused = env.CreateWebResourceResponse(None, 403, w!("Forbidden"), w!(""))?;
             args.SetResponse(&refused)

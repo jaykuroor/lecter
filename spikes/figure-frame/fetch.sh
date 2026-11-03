@@ -4,11 +4,11 @@
 # Start the run with `gh workflow run ci.yml --ref <branch>` (workflow_dispatch adds macOS and
 # Windows to the e2e-app matrix); it must have finished.
 #
-# Where the flow's `FRAME ...` lines are: verify.sh keeps e2e-app's output in .verify/, and CI
-# uploads .verify/ as the artifact e2e-app-<os> only when that job fails. A passing job has them
-# only in its job summary (run page, "F-028 figure-frame checks"), which gh can't download: copy
-# that block into a text file and pass it as an extra argument. A directory argument holds
-# artifacts already downloaded (`gh run download <run-id> -p 'e2e-app-*' -D <dir>`).
+# Where the flow's `FRAME ...` lines are: verify.sh keeps e2e-app's output in .verify/e2e-app/, and
+# CI uploads .verify/ after every shard, passing or not, as the artifact e2e-app-<os>-<shard>
+# (D-154; runs before that uploaded only failing jobs, whose lines a job summary file can supply:
+# copy the run page's "F-028 figure-frame checks" block into a text file and pass it). A directory
+# argument holds artifacts already downloaded (`gh run download <run-id> -p 'e2e-app-*' -D <dir>`).
 # This script joins the artifacts' logs, the e2e-app job logs and those files into
 # .evidence/F-028/e2e-app.log (after any local lines already there), then prints the per-webview
 # tally from spikes/figure-frame/summary.py and saves it as summary.txt.
@@ -34,7 +34,12 @@ for extra in "$@"; do [ -d "$extra" ] && DIRS+=("$extra"/e2e-app-*); done
 for dir in "${DIRS[@]}"; do
   [ -d "$dir" ] || continue
   f="$dir/e2e-app/e2e-app.log"; [ -f "$f" ] || f="$dir/e2e-app.log"
-  [ -f "$f" ] && { echo "== artifact $(basename "$dir")"; cat "$f"; } >> "$LOG"
+  # Only the shard that ran the figure-frame flow has its lines.
+  [ -f "$f" ] && grep -q "FRAME " "$f" || continue
+  { echo "== artifact $(basename "$dir")"; cat "$f"; } >> "$LOG"
+  # The app's own lines about the filter (armed; on WebView2 each refused URL), from its log.
+  a="$dir/e2e-app/app.log"; [ -f "$a" ] || a="$dir/app.log"
+  [ -f "$a" ] && { echo "== app log $(basename "$dir"): figure filter lines"; grep -a "figure filter" "$a" || echo "(none)"; } >> "$LOG"
 done
 # Job logs ("<job>\t<step>\t<line>"): the verify summary, and the failure tail.
 { echo "== job logs"; gh run view "$RUN" --log 2>/dev/null | grep -a '^e2e-app' || true; } >> "$LOG"

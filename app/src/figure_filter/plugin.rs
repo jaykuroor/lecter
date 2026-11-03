@@ -26,7 +26,7 @@ fn start(webview: Webview, request: Result<arm::Arm, String>) {
         Ok(r) => r,
         Err(e) => {
             // No valid `next` to report to: the page stays, and the flow's wait for the harness fails.
-            tracing::warn!(error = %e, "figure filter: arm request refused");
+            eprintln!("figure filter: arm request refused: {e}");
             return;
         }
     };
@@ -38,11 +38,11 @@ fn start(webview: Webview, request: Result<arm::Arm, String>) {
             request.policy,
             Box::new(move |outcome| {
                 match &outcome {
-                    Ok(kind) => tracing::info!(kind, "figure filter armed"),
-                    Err(e) => tracing::warn!(error = %e, "figure filter failed to arm"),
+                    Ok(kind) => eprintln!("figure filter armed: {kind}"),
+                    Err(e) => eprintln!("figure filter failed to arm: {e}"),
                 }
                 if let Err(e) = target.navigate(arm::report(&next, &outcome)) {
-                    tracing::warn!(error = %e, "figure filter: could not go on to the harness");
+                    eprintln!("figure filter: could not go on to the harness: {e}");
                 }
             }),
         );
