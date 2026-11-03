@@ -45,7 +45,7 @@
         "darwin": 170,
         "win32": 120
       },
-      "how": "Memory of all app processes 60 s after opening the fixture lecture: Lecter's by RSS, the webview's by PSS (macOS phys_footprint, Windows private working set) (D-146)",
+      "how": "Memory of all app processes 60 s after opening the fixture lecture, every one by its share, Lecter's own included: Linux PSS, macOS phys_footprint, Windows private working set; RSS of all as an info line (D-161)",
       "script": "tests/perf/app/run.sh"
     },
     {
@@ -60,7 +60,7 @@
         "darwin": 710,
         "win32": 200
       },
-      "how": "Memory of all app processes with the 300-slide fixture lecture open and scrolled end to end: Lecter's by RSS, the webview's by PSS (macOS phys_footprint, Windows private working set) (D-146)",
+      "how": "Memory of all app processes with the 300-slide fixture lecture open and scrolled end to end, every one by its share, Lecter's own included: Linux PSS, macOS phys_footprint, Windows private working set; RSS of all as an info line; on macOS the sample after the 5 s settle counts, elsewhere the larger of the two (D-161)",
       "script": "tests/perf/app/run.sh"
     },
     {
@@ -70,7 +70,7 @@
       "unit": "%",
       "kind": "cpu",
       "from": "M0.5",
-      "how": "Average CPU of all app processes (percent of one core) over a 5-minute idle sample",
+      "how": "Average CPU of all app processes (percent of one core) over a 5-minute idle sample after a 60 s settle, sampled per process and thread every 15 s as F-180's idle flow does (tests/e2e/flows/idle-cpu/), the editor focused and parked; no per-OS target: F-180 cut the WebView2 baseline (D-161, D-164)",
       "script": "tests/perf/app/run.sh"
     },
     {

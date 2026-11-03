@@ -6,10 +6,10 @@
 The app is the one process whose executable is <app executable>; the group adds its descendants
 and, on macOS, the WebKit XPC services it is responsible for (their parent is launchd). A
 process's role is `webview` when its name is the platform webview's (WebKit*, com.apple.WebKit.*,
-msedgewebview2.exe) and `app` otherwise. Memory (D-146): an app process counts its resident set
-(RSS); a webview process counts its proportional share instead, because shared WebKit and system
-libraries would otherwise be counted once per process: Linux PSS (smaps_rollup), macOS
-phys_footprint, Windows private working set. CPU is user + system time in ns; start is epoch ms.
+msedgewebview2.exe) and `app` otherwise. Memory (D-161): every process, Lecter's own included,
+counts its proportional share, because shared WebKit and system libraries would otherwise be
+counted once per process: Linux PSS (smaps_rollup), macOS phys_footprint, Windows private working
+set; the RSS of all is an information line. CPU is user + system time in ns; start is epoch ms.
 Each platform's reader is a class with the same `snapshot` method; the pure parts (`group`,
 `counted`, the struct layouts) are what tests/perf/test_procs.py checks.
 """
@@ -25,6 +25,9 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import idle_threads  # noqa: E402  (tests/perf/idle_threads.py: F-180's process group)
 
 WEBVIEW = re.compile(r"WebKit|msedgewebview2", re.IGNORECASE)
 
@@ -46,61 +49,28 @@ class Proc:
 
 
 def same_path(a: str, b: str) -> bool:
-    norm = os.path.normcase if os.name == "nt" else (lambda p: p)
-    try:
-        return norm(os.path.realpath(a)) == norm(os.path.realpath(b))
-    except OSError:
-        return False
-
-
-WEBKIT_XPC = re.compile(r"^com\.apple\.WebKit\.")
-
-
-def adopted(p: Proc, app: Proc, apps: set[int]) -> bool:
-    """macOS: a WebKit XPC service (parent launchd) that works for the app. It is charged to the
-    app's responsible process: the app itself, or whatever the app is charged to (an app started
-    from a shell or a test runner is charged to that, and so are its services: CI run
-    41705588536). When the lookup names nobody else (0, launchd, itself or no live process), any
-    WebKit service started after the app counts: one app is measured at a time."""
-    if p.responsible == app.pid:
-        return True
-    if not (p.ppid == 1 and WEBKIT_XPC.match(p.name)):
-        return False
-    shared = app.responsible > 1 and p.responsible == app.responsible
-    unclaimed = p.responsible in (0, 1, p.pid) or p.responsible not in apps
-    return shared or unclaimed
+    return idle_threads.same_path(a, b)
 
 
 def group(procs: list[Proc], exe: str) -> list[Proc]:
-    """The app process for `exe` (exactly one), then its descendants and the WebKit services it
-    uses (`adopted`). A child must not have started before its parent (pids are reused)."""
-    apps = [p for p in procs if p.path and same_path(p.path, exe)]
-    if len(apps) != 1:
-        raise RuntimeError(f"expected one process running {exe}, found {len(apps)}")
-    app = apps[0]
-    live = {p.pid for p in procs}
-    out, seen, todo = [app], {app.pid}, [app]
-    while todo:
-        parent = todo.pop()
-        for p in procs:
-            if p.pid in seen or p.start_ms < parent.start_ms:
-                continue
-            if p.ppid == parent.pid or (parent is app and adopted(p, app, live)):
-                seen.add(p.pid)
-                out.append(p)
-                todo.append(p)
+    """The app process for `exe` (exactly one), then its descendants and, on macOS, the WebKit XPC
+    services it uses: F-180's grouping (tests/perf/idle_threads.py `group`), so the memory and the
+    idle CPU measure the same processes. A child must not have started before its parent."""
+    by = {p.pid: p for p in procs}
+    picked = idle_threads.group([asdict(p) for p in procs], exe, same=lambda a, b: same_path(a, b))
+    out = [by[d["pid"]] for d in picked]
     for p in out:
         p.role = "webview" if WEBVIEW.search(p.name) else "app"
     return out
 
 
 def counted(p: Proc) -> int:
-    """What a process adds to the memory budget (D-146): RSS for the app, the share for the webview."""
-    if p.role == "webview":
-        if p.share is None:
-            raise RuntimeError(f"{p.name}[{p.pid}]: its memory share is unreadable")
-        return p.share
-    return p.rss
+    """What a process adds to the memory budget (D-161): its proportional share, Lecter's own
+    processes and the webview's alike (Linux PSS, macOS phys_footprint, Windows private working
+    set). RSS would count the WebKit and system libraries the processes share once per process."""
+    if p.share is None:
+        raise RuntimeError(f"{p.name}[{p.pid}]: its memory share is unreadable")
+    return p.share
 
 
 # --- Linux: /proc ---------------------------------------------------------------------------

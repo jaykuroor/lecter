@@ -1,10 +1,18 @@
 // rss_300_slides_mb on the real app (14-quality.md#performance-budgets): the 300-slide fixture
-// lecture open and scrolled end to end, then the memory of the app and its webview processes
-// (D-146: the app's RSS plus the webview's share; procs.ts). Read right after the scroll and
-// again 5 s later; the larger value counts.
+// lecture open and scrolled end to end, then the memory of the app and its webview processes,
+// every one by its share (D-161; procs.ts). Read right after the scroll and again after the
+// settle, 5 s later. On macOS the sample after the settle counts (D-161): WebContent's
+// phys_footprint right after the scroll holds a transient (531 MB at the scroll, the total 398 MB
+// 5 s later in CI run 41708685261). Elsewhere the larger of the two counts.
 
 import { memoryMb, requireWebview, snapshot } from "./procs.ts";
 import { idle, lecture, openLecture, record } from "./support.ts";
+
+/** The settle between the two samples. */
+const SETTLE_MS = 5_000;
+
+/** The OSes whose sample after the settle counts, not the larger of the two (D-161). */
+const afterSettle = (os: string) => os === "darwin";
 
 describe("memory with 300 slides", function () {
   this.timeout(300_000);
@@ -46,16 +54,19 @@ describe("memory with 300 slides", function () {
     const then = snapshot();
     requireWebview(then);
     const first = memoryMb(then);
-    await idle(5_000);
+    await idle(SETTLE_MS);
     const now = snapshot();
     requireWebview(now);
     const second = memoryMb(now);
-    const top = first.total >= second.total ? first : second;
+    const os = process.platform;
+    const counts = afterSettle(os) || second.total >= first.total ? second : first;
     record(
       "rss_300_slides_mb",
-      top.total,
+      counts.total,
       `${slides}-slide fixture scrolled end to end in ${scrolled.steps} pages (${scrolled.height} px); ` +
-        `${first.total.toFixed(1)} then ${second.total.toFixed(1)} MB 5 s later; ${now.procs.length} processes: ${top.parts}`,
+        `${first.total.toFixed(1)} then ${second.total.toFixed(1)} MB ${SETTLE_MS / 1000} s later ` +
+        `(${afterSettle(os) ? `${os}: the sample after the settle counts` : "the larger counts"}); ` +
+        `${now.procs.length} processes: ${counts.parts}`,
     );
   });
 });

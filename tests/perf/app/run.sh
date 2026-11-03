@@ -86,6 +86,7 @@ measure() {
   LECTER_TEST_HOME="$(native "$dir/home")" LECTER_TEST_PICK="$(native "$dir/courses/Perf Course")" LECTER_TEST_TRUST=1 \
     LECTER_PERF_IDS="${mine[*]}" LECTER_PERF_SPEC="$spec" LECTER_PERF_APP="$(native "$APP")" LECTER_PERF_LECTURE="$name" \
     LECTER_PERF_OUT="$(native "$OUT")" LECTER_PERF_PIDS="$(native "$PIDS")" LECTER_PERF_PY="$(native "$PY")" \
+    LECTER_PY="$(native "$PY")" \
     LECTER_E2E_OUT="$(native "$dir/out")" \
     pnpm --silent -C ui exec wdio run ../tests/perf/app/wdio.conf.ts >&2
   local status=$?

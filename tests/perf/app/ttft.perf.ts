@@ -3,6 +3,13 @@
 // SAMPLE_FIRST_TOKEN before its first word, so the overhead is Enter in the prompt → the first
 // answer text painted, minus that delay (read from crates/ai, so the two can't drift apart). Five
 // asks on the first block, each stopped with Esc once its first words show; the median counts.
+// Each ask is broken down (D-161: check the one-frame quantisation): the card batches stream text
+// to one write per animation frame (ui/src/features/gloss/frame.ts), so the page wraps
+// requestAnimationFrame for the ask and notes when the frame that wrote the first words was
+// requested (the text reached the page), when that frame's write was done, and when it was
+// painted. "to page" is the core and IPC part, "frame" the wait for the next frame (up to one
+// refresh interval) and "paint" the rendering; the gated value is still their sum, as a user
+// sees it.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,6 +26,21 @@ function providerDelayMs(): number {
   return Number(m[1]);
 }
 
+/** One ask: the total and its parts (null when the batcher's frame wasn't seen). */
+interface Part {
+  total: number;
+  toPage: number | null;
+  frame: number | null;
+  paint: number | null;
+}
+
+/** Each ask as "to page (minus the provider's delay) + frame wait + paint", in ms. */
+function breakdown(parts: Part[], delay: number): string {
+  const ms = (x: number | null, minus = 0) => (x === null ? "?" : (x - minus).toFixed(1));
+  const each = parts.map((p) => `${ms(p.toPage, delay)} + ${ms(p.frame)} + ${ms(p.paint)}`);
+  return `per ask, to page (core and IPC, minus the delay) + frame wait + paint: ${each.join(", ")}`;
+}
+
 describe("time to first token", function () {
   this.timeout(300_000);
 
@@ -27,6 +49,7 @@ describe("time to first token", function () {
     const { name } = lecture();
     await openLecture(name);
     const totals: number[] = [];
+    const parts: Part[] = [];
     for (let i = 0; i < ASKS; i++) {
       await pressKeys(["a"]);
       const total = await browser.execute(async (q: string) => {
@@ -58,6 +81,19 @@ describe("time to first token", function () {
           "the prompt",
         );
         input.value = q;
+        // The frame that writes the first words: when it was requested and when its write was done.
+        const raf = window.requestAnimationFrame;
+        const words = () =>
+          (document.querySelector('.gloss[data-state="streaming"] .gloss-body')?.textContent ?? "").trim();
+        let first: { requested: number; wrote: number } | null = null;
+        window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+          const requested = performance.now();
+          return raf.call(window, (frame: number) => {
+            const before = words();
+            cb(frame);
+            if (first === null && before === "" && words() !== "") first = { requested, wrote: performance.now() };
+          });
+        };
         const t0 = performance.now();
         input.dispatchEvent(
           new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true, cancelable: true }),
@@ -77,6 +113,8 @@ describe("time to first token", function () {
           };
           ch.port2.postMessage(0);
         });
+        window.requestAnimationFrame = raf;
+        const at = first as { requested: number; wrote: number } | null;
         // Stop the stream (D-133: Esc keeps what arrived) and wait for the card to go.
         document
           .querySelector(".cm-content")
@@ -91,19 +129,27 @@ describe("time to first token", function () {
               : true,
           "the stopped card to close",
         );
-        return painted - t0;
+        return {
+          total: painted - t0,
+          toPage: at ? at.requested - t0 : null,
+          frame: at ? at.wrote - at.requested : null,
+          paint: at ? painted - at.wrote : null,
+        };
       }, QUESTION);
-      totals.push(total);
+      totals.push(total.total);
+      parts.push(total);
     }
     // No first word can show before the provider sent it.
     expect(totals).toHaveLength(ASKS);
     expect(Math.min(...totals)).toBeGreaterThanOrEqual(delay);
+    // Each ask's breakdown was found: the first words came in a frame of the card's batcher.
+    expect(parts.filter((p) => p.toPage === null)).toEqual([]);
     const overheads = totals.map((t) => t - delay);
     record(
       "ttft_overhead_ms",
       percentile(overheads, 50),
       `median of ${ASKS} asks: Enter → first words painted ${totals.map((t) => t.toFixed(1)).join(", ")} ms, ` +
-        `minus the sample provider's ${delay} ms first-token delay; ${name}`,
+        `minus the sample provider's ${delay} ms first-token delay; ${breakdown(parts, delay)}; ${name}`,
     );
   });
 });

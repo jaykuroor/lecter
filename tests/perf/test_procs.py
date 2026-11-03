@@ -1,6 +1,6 @@
 """Tests of the real-app process reader (tests/perf/app/procs.py) and result collector
-(tests/perf/app/collect.py), F-025 criterion 6 (D-146): the app's processes count their RSS and
-the webview's their share (Linux PSS, macOS phys_footprint, Windows private working set); the
+(tests/perf/app/collect.py), F-025 criterion 6 (D-161): every process, Lecter's own included,
+counts its share (Linux PSS, macOS phys_footprint, Windows private working set); the
 group is the app, its descendants and on macOS the WebKit services it is responsible for. The
 Linux reader runs on a fake /proc; the macOS and Windows struct layouts are checked on packed
 bytes laid out as their headers declare them (the CI dispatch run checks them on the real OS)."""
@@ -71,15 +71,29 @@ class Group(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "found 2"):
             procs.group([proc(10, 1, "a", path=APP), proc(11, 1, "b", path=APP)], APP)
 
-    def test_the_app_counts_rss_and_the_webview_its_share(self):
+    def test_every_process_counts_its_share_lecters_own_included(self):
+        # D-161: Lecter's processes count their share too, not their RSS (which double-counts the
+        # pages they share with the web processes).
         app = proc(10, 1, "lecter-app", rss=100, share=60)
         app.role = "app"
         web = proc(11, 10, "WebKitWebProcess", rss=300, share=120)
         web.role = "webview"
-        self.assertEqual((procs.counted(app), procs.counted(web)), (100, 120))
-        web.share = None
-        with self.assertRaisesRegex(RuntimeError, "unreadable"):
-            procs.counted(web)
+        self.assertEqual((procs.counted(app), procs.counted(web)), (60, 120))
+        for p in (app, web):
+            p.share = None
+            with self.assertRaisesRegex(RuntimeError, "unreadable"):
+                procs.counted(p)
+
+    def test_the_group_is_the_one_the_idle_cpu_measure_uses(self):
+        # The memory and F-180's idle CPU (tests/perf/idle_threads.py) measure the same processes.
+        ps = [proc(1, 0, "launchd", 0), proc(10, 1, "lecter-app", 1000, APP, responsible=915),
+              proc(11, 10, "WebKitWebProcess", 1100), proc(13, 10, "reused", 900),
+              proc(21, 1, "com.apple.WebKit.WebContent", 1186, responsible=915), proc(40, 1, "Safari", 50),
+              proc(26, 1, "com.apple.WebKit.WebContent", 1100, responsible=40)]
+        ours = [p.pid for p in procs.group(ps, APP)]
+        theirs = [d["pid"] for d in procs.idle_threads.group([procs.asdict(p) for p in ps], APP, same=lambda a, b: a == b)]
+        self.assertEqual(ours, theirs)
+        self.assertEqual(sorted(ours), [10, 11, 21])
 
 
 class FakeProc:
@@ -120,7 +134,7 @@ class LinuxReader(unittest.TestCase):
         snap = procs.snapshot(app, r)
         by = {p["pid"]: p for p in snap["procs"]}
         self.assertEqual(sorted(by), [10, 11])
-        self.assertEqual((by[10]["role"], by[10]["rss"], by[10]["share"], by[10]["counted"]), ("app", 204_800_000, 122_880_000, 204_800_000))
+        self.assertEqual((by[10]["role"], by[10]["rss"], by[10]["share"], by[10]["counted"]), ("app", 204_800_000, 122_880_000, 122_880_000))
         self.assertEqual((by[11]["role"], by[11]["counted"]), ("webview", 184_320_000))
         self.assertEqual((by[10]["cpu_ns"], by[11]["cpu_ns"]), (2_000_000_000, 10_000_000_000))
         self.assertEqual(by[10]["threads"], [{"tid": 10, "name": "main", "cpu_ns": 1_500_000_000},

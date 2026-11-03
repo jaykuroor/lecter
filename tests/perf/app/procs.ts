@@ -1,8 +1,9 @@
 // The app's processes for the real-app budgets (14-quality.md#performance-budgets), on Linux,
 // macOS and Windows: tests/perf/app/procs.py reads them (procfs, libproc, the Win32 process API)
 // and this file does the sums. The app is the process running this run's executable
-// (LECTER_PERF_APP); its group adds the webview's processes (D-146: the app counts its RSS, the
-// webview its share: Linux PSS, macOS phys_footprint, Windows private working set).
+// (LECTER_PERF_APP); its group adds the webview's processes. Memory counts every process by its
+// share, Lecter's own included (D-161: Linux PSS, macOS phys_footprint, Windows private working
+// set). Idle CPU is measured with F-180's per-thread series (tests/e2e/flows/idle-cpu/threads.ts).
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
@@ -68,44 +69,19 @@ export function appStartedMs(s: Snapshot): number {
 }
 
 /**
- * The memory budget's number in MB (10^6 bytes): each app process's RSS plus each webview
- * process's share (D-146). `parts` lists every process with both figures and which one counted.
+ * The memory budget's number in MB (10^6 bytes): every process's share (D-161). `parts` lists every
+ * process with its RSS and share; the RSS of all is an information line.
  */
 export function memoryMb(s: Snapshot): { total: number; parts: string } {
   let total = 0;
   const parts = s.procs.map((p) => {
     total += p.counted;
     const share = p.share === null ? "?" : mb(p.share).toFixed(1);
-    const which = p.role === "webview" ? "share" : "rss";
-    return `${p.name}[${p.role}] rss ${mb(p.rss).toFixed(1)} share ${share} (counts ${which})`;
+    return `${p.name}[${p.role}] share ${share} (rss ${mb(p.rss).toFixed(1)})`;
   });
   const rssAll = s.procs.reduce((a, p) => a + p.rss, 0);
-  return { total: mb(total), parts: `${parts.join(", ")}; ${s.os}; rss of all ${mb(rssAll).toFixed(1)} (information only)` };
-}
-
-/**
- * CPU used between two snapshots, in ms: the total (a process that started in between counts
- * from zero; one that ended takes its time with it and is counted in `ended`), and a breakdown per
- * process, busiest first, with its busiest threads where the OS lists them (Linux).
- */
-export function cpuUsed(before: Snapshot, after: Snapshot, topThreads = 4): { ms: number; ended: number; parts: string } {
-  const was = new Map(before.procs.map((p) => [p.pid, p]));
-  let ns = 0;
-  const rows = after.procs.map((p) => {
-    const b = was.get(p.pid);
-    const d = p.cpu_ns - (b?.cpu_ns ?? 0);
-    ns += d;
-    const old = new Map((b?.threads ?? []).map((t) => [t.tid, t.cpu_ns]));
-    const threads = p.threads
-      .map((t) => ({ name: t.name, d: t.cpu_ns - (old.get(t.tid) ?? 0) }))
-      .filter((t) => t.d > 0)
-      .sort((x, y) => y.d - x.d)
-      .slice(0, topThreads)
-      .map((t) => `${t.name} ${(t.d / 1e6).toFixed(0)}`);
-    return { d, text: `${p.name}[${p.pid}] ${(d / 1e6).toFixed(0)} ms${threads.length ? ` (${threads.join(", ")})` : ""}` };
-  });
-  const now = new Set(after.procs.map((p) => p.pid));
-  const ended = before.procs.filter((p) => !now.has(p.pid)).length;
-  rows.sort((x, y) => y.d - x.d);
-  return { ms: ns / 1e6, ended, parts: rows.map((r) => r.text).join("; ") };
+  return {
+    total: mb(total),
+    parts: `${parts.join(", ")}; ${s.os}; counted by share; rss of all ${mb(rssAll).toFixed(1)} (information only)`,
+  };
 }
