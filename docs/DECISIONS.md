@@ -866,3 +866,17 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the maintainer's machine shows the lecture about 400 ms after launch: frame 330–385 ms over 10 launches without the harness, plus a 63 ms open. About 300 ms of that is process and WebKit start-up before the page loads, which the app can't shorten (F-179 traced it, and an existing profile changed nothing). Single launches inside the harness measured 484 and 575 ms, so a one-run 400 ms gate failed most of the time without measuring Lecter.
 - Instead of: timing from window creation (leaves the ~125 ms before the window ungated); keeping 400 ms and blocking F-179 (cold_open_ms would stay PENDING and fail when M0.5 finishes); another profiling round (uncertain gain).
 - Revisit if: a Tauri or WebKitGTK upgrade shortens start-up (then tighten to the new measurement).
+
+## D-153 · Cold-open startup breakdown before and after F-179 (ubuntu-24.04)
+2026-11-03 · orchestrator (F-179) · active
+- Decision: F-179 criterion 1's breakdown, with the release build plus test-hooks on ubuntu-24.04 under Xvfb.
+  - Before: D-139 (CI run 41361813736) measured cold_open_ms 2906, then 973 on the re-measure. That build logged no startup phases, so there's no per-phase breakdown for it.
+  - After (CI run 41588635437, ae74039): median 973 over 5 launches (960–981). Per launch: window created 126–140 ms, page load started 716–741, shell first paint 757–785, then open 195–216 (lecture in the DOM 120–171). The Linux target is 1080 ms (D-152).
+  - Maintainer's machine (local, release build plus test-hooks): median 442 over 5 launches (407–462; one outlier at 2116 that stalled 1.7 s painting after the lecture was in the DOM). Without the harness, shell first paint was 310–385 ms over 20 launches. The test plugin adds about 15 ms, and reusing a profile changes nothing.
+  - What F-179 changed:
+    - The CodeMirror/Vim code moved into a lazy chunk, loaded after the shell paints. The entry chunk went from 144.04 to 10.71 KB gz.
+    - The editor is pre-warmed after the first paint. On the maintainer's machine, "lecture in the DOM" went from 68 to 41–56 ms.
+    - The app logs `startup <phase> <ms>` from the process start time in procfs.
+  - On CI, about 590 ms of the 973 falls between window creation and page load start. That is WebKitGTK starting its web and network processes under software rendering, which the app can't shorten.
+- Why: criterion 1 asks for the before and after breakdown in a D-entry. CI hides a passing job's output, so the flow writes its lines to the job summary.
+- Instead of: a before run on a measurement branch (the startup lines didn't exist before this card).
