@@ -50,9 +50,8 @@ class NativeCaret {
   }
 
   update(update: ViewUpdate): void {
-    // A cursor move counts from now; a focus change only starts a count when none is running (the
-    // focus a key or click gave already counts from that input).
-    if (update.selectionSet || (update.focusChanged && this.timer === undefined)) this.arm();
+    // A cursor move or a focus change counts as input, as for the drawn caret (caret.ts).
+    if (update.selectionSet || update.focusChanged) this.arm();
   }
 
   /** Parks the editor PARK_AFTER_MS from now, unless something wakes it first. */

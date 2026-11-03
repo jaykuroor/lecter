@@ -4,7 +4,7 @@
 // tests run the real lecture buffer and check what the webview would see: whether .cm-content is
 // editable, focused and focusable, and that every kind of input makes it editable again before
 // CodeMirror and Vim act on it.
-import { EditorState } from "@codemirror/state";
+import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,6 +95,61 @@ describe("the native caret", () => {
     await wait(6_000);
     expect(editable()).toBe("true");
     await wait(PARK_AFTER_MS - 6_000);
+    expect(editable()).toBe("false");
+  });
+
+  it("counts from a key that moves nothing (Esc in normal mode)", async () => {
+    await open();
+    key("j");
+    await wait(6_000);
+    key("Escape");
+    await wait(PARK_AFTER_MS - 1);
+    expect(editable()).toBe("true");
+    await wait(1);
+    expect(editable()).toBe("false");
+  });
+
+  it("doesn't count a document change that moves no cursor (a gloss arriving)", async () => {
+    await open();
+    key("j");
+    await wait(5_000);
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nMore text." } });
+    await wait(PARK_AFTER_MS - 5_000);
+    expect(editable()).toBe("false");
+  });
+
+  it("costs an awake editor's keys nothing: no transaction for a key that changes nothing", async () => {
+    await open();
+    const transactions: number[] = [];
+    const listen = EditorView.updateListener.of((u) => transactions.push(u.transactions.length));
+    view.dispatch({ effects: StateEffect.appendConfig.of(listen) });
+    // The listener hears the transaction that added it.
+    transactions.length = 0;
+    key("Escape");
+    expect(transactions.reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it("parks 9 s after the editor first gets the focus", async () => {
+    edits = [];
+    view = new EditorView({ state: lectureState(sampleLecture, "Lecture l07.md"), parent: document.body });
+    opened = view;
+    await wait(20_000);
+    expect(editable()).toBe("true");
+    view.focus();
+    await wait(100);
+    expect(editable()).toBe("true");
+    await wait(PARK_AFTER_MS);
+    expect(editable()).toBe("false");
+  });
+
+  it("parks 9 s after another lecture opens into the same focused editor", async () => {
+    await open();
+    await wait(5_000);
+    view.setState(lectureState(sampleLecture, "Lecture l08.md"));
+    expect(focused()).toBe(true);
+    await wait(PARK_AFTER_MS - 1);
+    expect(editable()).toBe("true");
+    await wait(1);
     expect(editable()).toBe("false");
   });
 
