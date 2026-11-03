@@ -4882,7 +4882,7 @@
    "try": "Start the app and open a lecture: the window and the lecture appear in well under a second",
    "priority": 2020,
    "status": "in_progress",
-   "notes": "Code done at feat/F-179-cold-open (verify OK); waiting for review (SECURITY: new app_mark_startup IPC command outside owned paths) and the author's real-app run of scripts/e2e-app.sh cold-open in the builder worktree, then CI on ubuntu-24.04.",
+   "notes": "Code done at feat/F-179-cold-open (verify OK); waiting for review (SECURITY: new app_mark_startup IPC command outside owned paths) and the author's real-app run of scripts/e2e-app.sh cold-open in the builder worktree, then CI on ubuntu-24.04. | D-152: per-OS cold_open_ms target = CI median of 5 launches + 10 %, rounded up to 10 ms. Builder adds median-of-5 and REPORT for an OS without a target; Linux target from this branch's CI run; spec/features.json wording via the author's prompt.",
    "base": "a42b4ccdc9b8a255f0c566866107abd76cf11922"
   }
  ]

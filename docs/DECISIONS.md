@@ -859,3 +859,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: F-179 criterion 1 needs the app itself to log every startup phase, and only the UI knows when it painted; events and plugin permissions aren't allowed (security review: sound, idempotent, no log spam).
 - Instead of: measuring paint phases only in the e2e flow (criterion 1 would need rewording).
 - Revisit if: startup logging moves to a tracing span the UI can emit through an existing command.
+
+## D-152 · cold_open_ms gets per-OS targets, measured as the median of 5 launches (F-179)
+2026-11-03 · orchestrator, decider: maintainer · active
+- Decision: cold_open_ms gets per-OS targets (`per_os`), as the memory budgets did in D-146. Each OS's target is the first release-build measurement on its CI runner (ubuntu-24.04, macos-15, windows-2025) plus 10 %, rounded up to the next 10 ms. A measurement is the median of 5 launches of the e2e-app `cold-open` flow on a quiet machine. Targets only go down afterwards. The Linux target comes from F-179's branch run. macOS and Windows targets come from F-025's dispatch run, together with its memory targets. Until an OS has a target, the flow prints REPORT for that OS.
+- Why: the maintainer's machine shows the lecture about 400 ms after launch: frame 330–385 ms over 10 launches without the harness, plus a 63 ms open. About 300 ms of that is process and WebKit start-up before the page loads, which the app can't shorten (F-179 traced it, and an existing profile changed nothing). Single launches inside the harness measured 484 and 575 ms, so a one-run 400 ms gate failed most of the time without measuring Lecter.
+- Instead of: timing from window creation (leaves the ~125 ms before the window ungated); keeping 400 ms and blocking F-179 (cold_open_ms would stay PENDING and fail when M0.5 finishes); another profiling round (uncertain gain).
+- Revisit if: a Tauri or WebKitGTK upgrade shortens start-up (then tighten to the new measurement).
