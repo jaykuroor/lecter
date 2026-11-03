@@ -53,6 +53,19 @@ class BudgetsFilePerOs(unittest.TestCase):
                 for os_name, t in self.listed[bid]["per_os"].items():
                     self.assertEqual(t % 10, 0, f"{os_name}: targets are rounded up to the next 10")
 
+    def test_macos_and_windows_targets_are_their_first_dispatch_measurement_plus_10_percent(self):
+        # The first release-build measurements on the CI runners (F-025's dispatch runs; D-146, D-152):
+        # Windows run 41701063503, macOS memory run 41708685261 (the first in which its WebKit
+        # services were counted), macOS cold open run 41702437408.
+        first = {("idle_rss_mb", "win32"): (107.4, 120), ("rss_300_slides_mb", "win32"): (180.12, 200),
+                 ("idle_rss_mb", "darwin"): (152.1, 170), ("rss_300_slides_mb", "darwin"): (639.62, 710),
+                 ("cold_open_ms", "win32"): (523.15, 580), ("cold_open_ms", "darwin"): (2671.93, 2940)}
+        for (bid, os_name), (measured, target) in first.items():
+            with self.subTest(budget=bid, os=os_name):
+                self.assertEqual(target_from(measured, 10), target)
+                self.assertEqual(self.listed[bid]["per_os"][os_name], target)
+        self.assertEqual(target_from(300, 10), 330)  # + 10 % exactly on a boundary stays there
+
     def test_keystroke_and_cold_open_report_under_ci_and_nothing_else_does(self):
         self.assertEqual({k for k, b in self.listed.items() if b.get("on_ci") == "report"}, {"keystroke_p99_ms", "cold_open_ms"})
         self.assertEqual(self.listed["keystroke_p99_ms"]["quick"], "tests/perf/measure/keystroke_mock.py")

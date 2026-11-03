@@ -21,7 +21,9 @@
       "kind": "timing",
       "from": "M0.5",
       "per_os": {
-        "linux": 1080
+        "linux": 1080,
+        "darwin": 2940,
+        "win32": 580
       },
       "local": {
         "linux": 490
@@ -39,7 +41,9 @@
       "kind": "memory",
       "from": "M0.5",
       "per_os": {
-        "linux": 460
+        "linux": 460,
+        "darwin": 170,
+        "win32": 120
       },
       "how": "Memory of all app processes 60 s after opening the fixture lecture: Lecter's by RSS, the webview's by PSS (macOS phys_footprint, Windows private working set) (D-146)",
       "script": "tests/perf/app/run.sh"
@@ -52,7 +56,9 @@
       "kind": "memory",
       "from": "M0.5",
       "per_os": {
-        "linux": 500
+        "linux": 500,
+        "darwin": 710,
+        "win32": 200
       },
       "how": "Memory of all app processes with the 300-slide fixture lecture open and scrolled end to end: Lecter's by RSS, the webview's by PSS (macOS phys_footprint, Windows private working set) (D-146)",
       "script": "tests/perf/app/run.sh"
