@@ -101,13 +101,13 @@ class RealAppReportsOnCi(unittest.TestCase):
         r = run("--ci")
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertRegex(r.stdout, r"(?m)^REPORT k_ms 40 / 8 \(real app under --ci: reported, never fails; the quick check gates\)$")
-        self.assertRegex(r.stdout, r"(?m)^PASS k_ms \d+\.\d+ / 12 \(8 x1\.5 CI allowance\)  \[quick check ")
+        self.assertRegex(r.stdout, r"(?m)^PASS k_ms \d+(?:\.\d+)? / 12 \(8 x1\.5 CI allowance\)  \[quick check ")
         # A deliberately slowed quick check fails, measured twice under --ci.
         slow = Run(self.keystroke(), env={**values(k_ms=[1]), "PERF_FIXTURE_DELAY_MS": "250"})
         r = slow("--ci")
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertRegex(r.stdout, r"(?m)^REPORT k_ms 1 / 8 ")
-        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms \d{3,}\.\d+, \d{3,}\.\d+ / 12 ")
+        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms \d{3,}(?:\.\d+)?, \d{3,}(?:\.\d+)? / 12 ")
         report = json.loads(slow.report.read_text())["budgets"]
         self.assertEqual([(e["source"], e["status"]) for e in report], [("script", "report"), ("quick", "fail")])
         self.assertTrue(all(v >= 250 for v in report[1]["values"]), report[1]["values"])
@@ -124,7 +124,7 @@ class RealAppReportsOnCi(unittest.TestCase):
         run = Run(self.keystroke(), env={**values(k_ms=[40]), "PERF_FIXTURE_DELAY_MS": "250"})
         r = run("--quick")
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms \d{3,}\.\d+ / 8$")
+        self.assertRegex(r.stdout, r"(?m)^FAIL k_ms \d{3,}(?:\.\d+)? / 8$")
         self.assertNotIn("REPORT", r.stdout)
 
 

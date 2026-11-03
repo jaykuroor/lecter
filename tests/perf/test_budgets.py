@@ -136,12 +136,12 @@ class Gate(unittest.TestCase):
         fast = Run([timing()])
         r = fast()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertRegex(r.stdout, r"(?m)^PASS work_ms \d+\.\d+ / 100$")
+        self.assertRegex(r.stdout, r"(?m)^PASS work_ms \d+(?:\.\d+)? / 100$")
         self.assertRegex(r.stdout, r"(?m)^PERF OK$")
         slow = Run([timing()], env={"PERF_FIXTURE_DELAY_MS": "250"})
         r = slow()
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertRegex(r.stdout, r"(?m)^FAIL work_ms \d{3,}\.\d+ / 100$")
+        self.assertRegex(r.stdout, r"(?m)^FAIL work_ms \d{3,}(?:\.\d+)? / 100$")
         self.assertRegex(r.stdout, r"(?m)^PERF FAILED$")
         entry = slow.entries()["work_ms"]
         self.assertEqual(entry["status"], "fail")
@@ -155,7 +155,7 @@ class Gate(unittest.TestCase):
         entry = run.entries()["work_ms"]
         self.assertEqual((entry["status"], entry["limit"], len(entry["values"])), ("fail", 150, 2))
         self.assertTrue(all(v >= 250 for v in entry["values"]), entry["values"])  # a slow runner may sleep longer
-        self.assertRegex(r.stdout, r"(?m)^FAIL work_ms \d{3,}\.\d+, \d{3,}\.\d+ / 150 \(100 x1\.5 CI allowance\)$")
+        self.assertRegex(r.stdout, r"(?m)^FAIL work_ms \d{3,}(?:\.\d+)?, \d{3,}(?:\.\d+)? / 150 \(100 x1\.5 CI allowance\)$")
 
     def test_ci_env_turns_on_the_ci_rule(self):
         run = Run([timing()], env={"PERF_FIXTURE_DELAY_MS": "250"})
