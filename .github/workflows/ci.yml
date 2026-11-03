@@ -175,7 +175,11 @@ jobs:
           if-no-files-found: ignore
           include-hidden-files: true
 
-  e2e-app:
+  # D-154: the real-app flows run in parallel shards, each on its own runner with its own build and
+  # app. tests/e2e/support/shards.ts picks each shard's flows from their measured seconds; Linux
+  # shard 1 is cold-open alone (it times cold starts on a quiet machine, D-152). The `e2e-app (<os>)`
+  # job after them keeps the status-check name (16-ci-cd.md rule 4).
+  e2e-app-shard:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     strategy:
@@ -183,27 +187,70 @@ jobs:
       matrix:
         # macOS and Windows only on manual runs (and nightly); every push and PR runs Linux.
         os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-24.04","macos-15","windows-2025"]') || fromJSON('["ubuntu-24.04"]') }}
+        # 1..E2E_APP_SHARDS (the e2e-app job checks the same count; crates/harness/tests/ci.rs).
+        shard: [1, 2, 3]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    env:
+      E2E_APP_SHARDS: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Linux: e2e-app's own cache, which main saves (cold-open's release build gets one of its
+      # own). macOS and Windows: main never runs e2e-app there, so borrow the test job's.
       - uses: ./.github/actions/setup
-      # Debug build with the embedded WebDriver server, then the WebdriverIO flows in tests/e2e/.
+        with:
+          rust-shared-key: ${{ matrix.os != 'ubuntu-24.04' && 'test' || matrix.shard == 1 && 'e2e-app-cold-open' || 'e2e-app' }}
+      # Debug build with the embedded WebDriver server, then this shard's WebdriverIO flows.
       - name: Real-app flows (under xvfb-run on Linux)
+        env:
+          LECTER_E2E_SHARD: ${{ matrix.shard }}/${{ env.E2E_APP_SHARDS }}
         run: |
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a -s "-screen 0 1280x800x24" scripts/verify.sh --stage e2e-app
           else scripts/verify.sh --stage e2e-app; fi
-      - name: Upload screenshots and logs
-        if: failure()
+      # Every run, passing too: a passing stage prints only PASS, and the logs and timings.json
+      # (seconds per flow) are where its detail is (D-154).
+      - name: Upload screenshots, logs and flow times
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-app-${{ matrix.os }}
+          name: e2e-app-${{ matrix.os }}-${{ matrix.shard }}
           path: .verify/
           include-hidden-files: true
           retention-days: 14
           if-no-files-found: ignore
+
+  # The `e2e-app (<os>)` status check: passes only when every shard of its OS passed
+  # (scripts/e2e_app_gate.py reads this run's jobs). Skipped, like the shards, on docs-only pushes.
+  e2e-app:
+    needs: [changes, e2e-app-shard]
+    # Also after a failed shard (that's what it reports), but not in a cancelled run.
+    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-24.04","macos-15","windows-2025"]') || fromJSON('["ubuntu-24.04"]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    env:
+      E2E_APP_SHARDS: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/e2e_app_gate.py
+          sparse-checkout-cone-mode: false
+      - name: Every e2e-app shard on ${{ matrix.os }} passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OS: ${{ matrix.os }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
+            --jq '.jobs[] | {name, conclusion}' | python3 scripts/e2e_app_gate.py "$OS" "$E2E_APP_SHARDS"
 
   release-check:
     needs: changes

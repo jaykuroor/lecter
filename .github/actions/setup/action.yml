@@ -3,6 +3,14 @@
 # Logic stays in scripts (16-ci-cd.md#rules); this file only wires them up.
 name: Setup
 description: Toolchains, caches, system packages, cargo tools and gitleaks, then scripts/init.sh
+inputs:
+  # D-154: the Rust cache is keyed on the job id by default. A branch run reads only its own
+  # branch's caches and main's, so a job that never runs on main (e2e-app on macOS and Windows)
+  # always starts cold unless it borrows a key that main saves, such as `test`.
+  rust-shared-key:
+    description: Swatinem/rust-cache shared-key, used instead of the job id (empty keeps the job id)
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -15,6 +23,8 @@ runs:
 
     - name: Rust cache
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        shared-key: ${{ inputs.rust-shared-key }}
 
     - name: Tauri 2 system packages (Linux)
       if: runner.os == 'Linux'

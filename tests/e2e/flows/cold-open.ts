@@ -152,7 +152,9 @@ describe("cold open", function () {
       report(`REPORT cold-open not measured on ${process.platform}: this flow measures on Linux only (D-152)`);
       return;
     }
+    const building = Date.now();
     await buildRelease();
+    report(`cold-open: the release app built in ${Math.round((Date.now() - building) / 1000)} s`);
     const entry = entryFiles();
     expect(entry.length).toBeGreaterThan(0);
 
