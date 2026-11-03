@@ -897,3 +897,11 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the stall was ~95% of the flows' time, and after it e2e-app was still one serial job of idle (~130 s, three 40 s windows that stay), cold-open's release build and per-OS build time. Shards put idle and cold-open beside the rest; per-shard builds cost 9-14 s on Linux.
 - Instead of: building the app once per OS and handing it to the shards as an artifact (built, then removed unrun: it puts a whole job, an upload and a download before every shard, against a 9-14 s Linux build and about 1-2 min per shard on macOS/Windows that runs in parallel anyway); one shard per flow (idle and cold-open set the floor, and macOS allows 5 concurrent jobs); dropping or moving flows to nightly (not needed: under 10 min).
 - Revisit if: Linux shard 1 stays slow after the first push to main (that push is cold, ~11 min: main has no `e2e-app-cold-open` cache yet, so init.sh's workspace build and both app builds start from nothing; later pushes restore it, and a push that changes Rust code rebuilds the workspace crates in release, between the 3.9 min re-run and that); a flow's time moves a lot (refresh `SECONDS` in shards.ts from timings.json); or cold_open_ms keeps failing on CI (Linux medians 1082, 1071, 953, 1072 against 1080 in these runs; Q-023).
+
+## D-155 · cold_open_ms gates on the maintainer's machine, REPORT on CI
+2026-11-03 · orchestrator, decider: maintainer (Q-023) · active
+- Decision: budgets.sh gates the real-app cold_open_ms locally at each milestone gate, against a target from the maintainer's machine (median of 5 launches + 10 %); with --ci it prints REPORT, as keystroke_p99_ms does (D-146). 14-quality#performance-budgets and F-025's criteria change in the planning session together with D-152's wording.
+- Why: CI runners are GPU-less VMs; about 590 ms of the 973 ms Linux CI median is WebKitGTK starting under software rendering, so the 1080 ms CI target catches regressions but can't hold the spec's 400 ms goal. Locally a lecture shows in ~385 ms standalone, 442 ms median inside the harness.
+- Instead of: a flat local 400 ms target (fails today inside the harness); keeping D-152's CI gate as the only gate.
+- Revisit if: a CI runner with hardware rendering becomes available.
+
