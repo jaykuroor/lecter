@@ -4,6 +4,7 @@
 // tests run the real lecture buffer and check what the webview would see: whether .cm-content is
 // editable, focused and focusable, and that every kind of input makes it editable again before
 // CodeMirror and Vim act on it.
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +13,7 @@ import type { Edit } from "../../core/lecture";
 import { installTimeline, type Timeline } from "./__tests__/timeline";
 import { BLINK_FOR_MS } from "./caret";
 import { lectureState } from "./editorState";
-import { PARK_AFTER_MS, parked, WAKE } from "./nativeCaret";
+import { nativeCaret, PARK_AFTER_MS, parked, WAKE } from "./nativeCaret";
 
 let timeline: Timeline;
 let view: EditorView;
@@ -203,6 +204,19 @@ describe("the native caret", () => {
     Object.defineProperty(view, "hasFocus", { get: () => true });
     await wait(60_000);
     expect(view.state.field(parked)).toBe(false);
+  });
+
+  it("parks an editor without Vim too", async () => {
+    view = new EditorView({
+      state: EditorState.create({ doc: "plain text", extensions: [nativeCaret] }),
+      parent: document.body,
+    });
+    opened = view;
+    view.focus();
+    await wait(20);
+    await wait(PARK_AFTER_MS);
+    expect(editable()).toBe("false");
+    expect(focused()).toBe(true);
   });
 
   it("keeps the text cursor over the editor and turns Chromium's own blink off", async () => {
