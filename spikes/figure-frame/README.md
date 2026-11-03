@@ -2,31 +2,58 @@
 
 **Question.** In the real app's webview on each OS (WebKitGTK on Linux, WKWebView on macOS,
 WebView2 on Windows), is a `sandbox="allow-scripts"` iframe under the CSP of
-`08-figures.md#sandbox-pages` (`default-src 'none'; script-src 'self' lecter-lib:; style-src
-'unsafe-inline'; img-src data:`) unable to reach the network, read the parent's DOM, use storage
-or call Tauri's IPC? Which watchdog detects a busy frame within 2 s on each?
+`08-figures.md#sandbox-pages` (`default-src 'none'; script-src lecter-fig: lecter-lib:;
+style-src 'unsafe-inline'; img-src data:`), with the app's native request filter below it, unable
+to reach the network, read the parent's DOM, use storage or call Tauri's IPC? Which watchdog
+detects a busy frame within 2 s on each? (Runs 1 and 2 tested the CSP alone, with
+`script-src 'self' lecter-lib:`; D-142 → D-145 added the filter and the scheme sources.)
 
 ## Method
 
 The app doesn't serve `lecter-fig:` or `lecter-lib:` yet (F-141) and its CSP frames only
 `lecter-fig:`, so the flow `tests/e2e/flows/figure-frame.ts` points the app's main webview (debug
-build with the embedded WebDriver, CI's `e2e-app` job) at a harness from a local server
-(`server.ts`), then back at the app:
+build with the embedded WebDriver, CI's `e2e-app` job) at a harness from local servers
+(`server.ts`), then back at the app. Three loopback origins:
+
+- **page**: the harness and the probe frames. It is the frame origin, standing in for
+  `lecter-fig:` (same URL origin as the parent, so only the sandbox separates them);
+- **lib**: standing in for `lecter-lib:`;
+- **net**: the network. Every probe request aims here, outside both figure origins.
+
+**Native request filter** (`app/src/figure_filter/`, test-hooks builds only until F-141): before
+the harness loads, the flow navigates the webview to
+`<page>/__lecter-test/figure-filter?figure=<page>&figure=<lib>&page=<app origins>&next=<harness>`.
+The app's test-hooks plugin cancels that navigation, arms the filter with those origins and loads
+the harness with the outcome in its query (`ff-filter=armed&ff-filter-kind=…`), which the harness
+grades (`harness filter native request filter armed`).
+
+- WebKitGTK and WKWebView: a content rule list (`WebKitUserContentFilter`, `WKContentRuleList`):
+  block every load whose `load-context` is `child-frame`, then `ignore-previous-rules` for
+  `^data:` and each figure origin. The page itself is left alone.
+- WebView2: a `WebResourceRequested` handler on `*`, every context, every source kind
+  (`ICoreWebView2_22`); a refused request gets a 403 made in the app and never leaves. WebView2
+  doesn't say which frame a request comes from, so the page's own origins (the app's, its IPC)
+  pass as well; a frame's request to them is left to the CSP.
+
+The pages:
 
 - **Parent** (`pages/harness.js`): the main window's CSP (SEC-30) with `frame-src` scoped to the
   frame's folder. It stores secrets in its DOM, a global, localStorage, sessionStorage and a cookie,
   and calls the core (`app_info`) itself: Tauri injects its IPC into any page, and the core's answer
   (a rejection, since the page isn't local) is the control that the IPC is reachable from this
   webview.
-- **Two frames** (`pages/probe.js`), same URL origin as the parent so only the sandbox separates
-  them: `self` has the spec's exact CSP and loads its probe from `'self'`; `lib` loads it from a
-  second origin added to `script-src`, standing in for `lecter-lib:`.
-- **Network:** fetch (same and cross origin), XHR, sendBeacon, WebSocket, EventSource, image, CSS
-  background, link prefetch, link preload (image, fetch), link stylesheet, nested iframe,
-  `window.open`, then form submit and self-navigation. Every one aims at `/beacon/<variant>-<name>`
-  on the server, which logs it and answers 204 with `Access-Control-Allow-Origin: *`; a check
-  passes only if the beacon never arrived (and a fetch/XHR didn't get a status). Script loads are
-  left out: in the app `'self'` and `lecter-lib:` serve only bundled or hash-named files (SEC-33).
+- **Three frames** (`pages/probe.js`): `fig` loads its probe from the page origin and `lib` from
+  the lib origin, each under the spec's CSP with its stand-in named next to the scheme
+  (`script-src lecter-fig: <page> lecter-lib:` and `… lecter-lib: <lib>`); both must run.
+  `bare` has no CSP: its network results are only observed and show what the filter stops alone.
+- **Network (16 vectors):** fetch, fetch no-cors, XHR, sendBeacon, WebSocket, EventSource, image,
+  CSS background, link prefetch, link preload (image, fetch), link stylesheet, nested iframe,
+  `window.open`, then form submit and self-navigation, all at `<net>/beacon/<variant>-<name>`; the
+  servers log every `/beacon/` request and answer 204 with `Access-Control-Allow-Origin: *`. A
+  check passes only if the beacon never arrived and the call got no answer. Observed only: a
+  prefetch to the frame's own origin (`own-origin`; the filter lets that origin through, and in
+  the app it serves only hash-named files, SEC-33). Script loads are left out: the CSP names only
+  the two schemes.
 - **Parent:** `parent.document`, `top.document`, `frameElement`, a parent global,
   `parent.location.href` must throw or be empty.
 - **Storage:** localStorage, sessionStorage, IndexedDB, CacheStorage, `storage.getDirectory` must
@@ -49,27 +76,25 @@ build with the embedded WebDriver, CI's `e2e-app` job) at a harness from a local
 
 Every check prints `FRAME <webview> <scope> <area> <check>: ok|FAIL|observed (<detail>)`, then the
 flow asserts none failed. `measure.mjs` runs the same harness in ui/'s Playwright browsers (no
-Tauri, so the IPC control is only observed) to check the harness itself.
+Tauri and no filter, so the IPC control and the filter are only observed) to check the harness.
 
 ## Rerun
 
 - All three webviews (CI): push the branch, then `gh workflow run ci.yml --ref <branch>`
   (workflow_dispatch adds macos-15 and windows-2025 to `e2e-app`). When it has finished:
-  `spikes/figure-frame/fetch.sh <run-id> [job-summary.txt ...]` appends the logs to
-  `.evidence/F-028/e2e-app.log` and prints the tally (`summary.txt`).
+  `spikes/figure-frame/fetch.sh <run-id>` appends the shard that ran this flow (per OS) to
+  `.evidence/F-028/e2e-app.log`, with the app log's `figure filter` lines, and prints the tally
+  (`summary.txt`).
 - One webview (outside the Claude sandbox): `scripts/e2e-app.sh figure-frame --evidence F-028`,
   then `python3 spikes/figure-frame/summary.py .evidence/F-028/e2e-app.log`.
 - The harness alone: `node spikes/figure-frame/measure.mjs [--engines chromium,webkit]`.
 
 ## Where the lines are
 
-The lines go to the wdio output and, on GitHub Actions, to the job summary (run page, "F-028
-figure-frame checks"); when `GITHUB_STEP_SUMMARY` is missing in the worker the flow falls back to
-the newest `step_summary_*` in `$RUNNER_TEMP/_runner_file_commands/`, and it logs which of those it
-saw (`harness info env`). verify.sh keeps e2e-app's output in `.verify/`, and `ci.yml` uploads that
-only when the job fails, so a passing job's lines are only in its job summary, which gh can't
-download. The kit change that makes every OS's lines downloadable: the e2e-app upload step's
-`if: failure()` → `if: always()` (not in this card's paths).
+The lines go to the wdio output (`e2e-app.log`) and, on GitHub Actions, to the job summary (run
+page, "F-028 figure-frame checks"). Since D-154 every `e2e-app-shard` job uploads `.verify/`
+(artifact `e2e-app-<os>-<shard>`), passing or not, so `fetch.sh` finds every OS's lines; runs 1
+and 2 uploaded only failing jobs.
 
 ## Results
 
@@ -131,4 +156,43 @@ failed, so all three uploaded their logs. `fetch.sh 41461890948 <artifacts>` giv
    250 ms heartbeat plus the 1500 ms stale limit, the worst case for a loop that starts just after
    a ping. Run 2 measures it on WebKit.
 
-**Run 2** (the out-of-page fix): pending; `fetch.sh <run-id>` fills it in.
+
+**Run 2: CI run 41472212630** (head edcfe29, the out-of-page fix). WebKitGTK and WKWebView passed
+(criterion 2 within 2 s; lines only in their job summaries); WebView2 failed only `<link
+rel=prefetch>` again (both frames, beacon hit). `.evidence/F-028/run2-41472212630-summary.txt`.
+
+**Run 3: CI run 41692656232** (head 32c50f6: native filter, D-145's scheme CSP, network origin,
+`bare` frame; e2e-app in shards, D-154). Every `e2e-app-shard` job passed; the flow ran in shard 2
+on Linux and shard 1 on macOS and Windows. `fetch.sh 41692656232` → `.evidence/F-028/summary.txt`:
+
+| | WebKitGTK (ubuntu-24.04) | WKWebView (macos-15) | WebView2 (windows-2025, Edg 156) |
+|---|---|---|---|
+| Checks ok | 77/77 | 77/77 | 77/77 |
+| Filter armed | content rule list (`WebKitUserContentFilter`) | content rule list (`WKContentRuleList`) | `WebResourceRequested`, all source kinds (`ICoreWebView2_22`) |
+| Probe ran in `fig` and `lib` (scheme CSP) | yes, both | yes, both | yes, both |
+| Network, `fig` and `lib` (16 vectors each) | all blocked | all blocked | all blocked, `<link rel=prefetch>` included |
+| Network, `bare` (no CSP: filter + sandbox only) | 16/16 blocked | 16/16 blocked | 14/16 blocked: **WebSocket reached the server**; `fetch no-cors` resolved (opaque) on the filter's own 403, nothing reached the server |
+| Prefetch to the frame's own origin (observed) | not sent | not sent | sent from `fig` and `bare` (that origin is a figure origin; `lib` didn't send it) |
+| Parent DOM, storage, IPC | as runs 1–2: all blocked | all blocked | all blocked |
+| Watchdog: in-page / out-of-page leg | 5000 / **1497 ms** | 5000 / **1527 ms** | **1354** / null ms |
+| Frame on the parent's thread | yes (gap 5040 ms) | yes (5032 ms) | no (105 ms) |
+| Idle baseline, slowest ping | 16 ms | 12 ms | 6 ms |
+
+**What run 3 shows:**
+
+1. **Criterion 1 holds in all three webviews** with the filter armed and the spec's CSP.
+2. **Why WebView2 prefetched in runs 1–2:** Chromium checks `<link rel=prefetch>` against
+   `script-src`, not `default-src`. In runs 1–2 the beacon was on the frame's own origin and
+   `script-src` had `'self'`; locally (Chromium 156) a prefetch from a frame whose `script-src`
+   names only another origin is blocked, and one to an origin `script-src` names goes out (the
+   `own-origin` lines: `fig` names the page origin and sent it, `lib` doesn't and didn't). With
+   D-145's `script-src lecter-fig: lecter-lib:` a figure can prefetch only from the two figure
+   schemes, which serve only bundled or hash-named files. The filter is the second guard.
+3. **What each guard covers:** on WebKit the content rule list alone stops all 16 vectors
+   (`bare`). On WebView2 `WebResourceRequested` stops 15 of 16 alone; it doesn't see WebSocket
+   handshakes, which only the CSP's `connect-src` (none) blocks. F-141 keeps both guards.
+4. **Attribution:** WebView2's handler can't tell a frame's request from the page's, so the page's
+   own origins (the app's, its IPC) pass for frames too; a frame request to them is left to the
+   CSP. WebKit's `load-context: child-frame` scopes the rule list to frames exactly.
+5. **Watchdog (criterion 2):** the out-of-page leg flags the busy WebKit frames at ~1.5 s, the
+   in-page leg the WebView2 frame at 1.35 s; detection = the earlier leg, within 2 s everywhere.
