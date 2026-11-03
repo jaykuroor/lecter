@@ -1,0 +1,152 @@
+"""Tests of the real-app process reader (tests/perf/app/procs.py) and result collector
+(tests/perf/app/collect.py), F-025 criterion 6 (D-146): the app's processes count their RSS and
+the webview's their share (Linux PSS, macOS phys_footprint, Windows private working set); the
+group is the app, its descendants and on macOS the WebKit services it is responsible for. The
+Linux reader runs on a fake /proc; the macOS and Windows struct layouts are checked on packed
+bytes laid out as their headers declare them (the CI dispatch run checks them on the real OS)."""
+
+import os
+import struct
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "app"))
+import collect  # noqa: E402
+import procs  # noqa: E402
+from procs import Proc  # noqa: E402
+
+APP = "/opt/lecter/lecter-app"
+
+
+def proc(pid, ppid, name, start=1000.0, path="", responsible=0, rss=0, share=None) -> Proc:
+    return Proc(pid, ppid, name, start, path, responsible, rss, share)
+
+
+class Group(unittest.TestCase):
+    def setUp(self):
+        self.same = procs.same_path
+        procs.same_path = lambda a, b: a == b  # the paths here don't exist on disk
+
+    def tearDown(self):
+        procs.same_path = self.same
+
+    def test_the_app_its_descendants_and_what_it_is_responsible_for(self):
+        ps = [proc(1, 0, "launchd", 0), proc(10, 1, "lecter-app", 1000, APP), proc(11, 10, "WebKitWebProcess", 1100),
+              proc(12, 11, "helper", 1200), proc(20, 1, "com.apple.WebKit.WebContent", 1300, responsible=10),
+              proc(30, 1, "com.apple.WebKit.WebContent", 1300, responsible=99), proc(40, 1, "zsh", 50)]
+        g = procs.group(ps, APP)
+        self.assertEqual([p.pid for p in g][0], 10)
+        self.assertEqual(sorted(p.pid for p in g), [10, 11, 12, 20])
+        self.assertEqual({p.pid: p.role for p in g}, {10: "app", 11: "webview", 12: "app", 20: "webview"})
+
+    def test_a_reused_pid_older_than_its_parent_is_not_a_child(self):
+        ps = [proc(10, 1, "lecter-app.exe", 1000, APP), proc(11, 10, "msedgewebview2.exe", 999),
+              proc(12, 10, "msedgewebview2.exe", 1001)]
+        self.assertEqual([p.pid for p in procs.group(ps, APP)], [10, 12])
+
+    def test_none_or_two_app_processes_is_an_error(self):
+        with self.assertRaisesRegex(RuntimeError, "found 0"):
+            procs.group([proc(10, 1, "other", path="/bin/other")], APP)
+        with self.assertRaisesRegex(RuntimeError, "found 2"):
+            procs.group([proc(10, 1, "a", path=APP), proc(11, 1, "b", path=APP)], APP)
+
+    def test_the_app_counts_rss_and_the_webview_its_share(self):
+        app = proc(10, 1, "lecter-app", rss=100, share=60)
+        app.role = "app"
+        web = proc(11, 10, "WebKitWebProcess", rss=300, share=120)
+        web.role = "webview"
+        self.assertEqual((procs.counted(app), procs.counted(web)), (100, 120))
+        web.share = None
+        with self.assertRaisesRegex(RuntimeError, "unreadable"):
+            procs.counted(web)
+
+
+class FakeProc:
+    """A /proc with the files the Linux reader reads."""
+
+    def __init__(self):
+        self.root = Path(tempfile.mkdtemp(prefix="lecter-fakeproc-"))
+        (self.root / "uptime").write_text("1000.00 50.00\n")
+        self.exe_dir = self.root / "bin"
+        self.exe_dir.mkdir()
+
+    def add(self, pid, ppid, comm, start_ticks, utime, stime, rss_kb, pss_kb, exe, threads=()):
+        d = self.root / str(pid)
+        (d / "task").mkdir(parents=True)
+        rest = ["S", str(ppid)] + ["0"] * 9 + [str(utime), str(stime)] + ["0"] * 6 + [str(start_ticks)] + ["0"] * 20
+        (d / "stat").write_text(f"{pid} ({comm}) {' '.join(rest)}\n")
+        (d / "status").write_text(f"Name:\t{comm}\nVmRSS:\t{rss_kb} kB\nThreads:\t1\n")
+        (d / "smaps_rollup").write_text(f"00400000-ffffffff ---p 00000000 00:00 0 [rollup]\nRss:  {rss_kb} kB\nPss:  {pss_kb} kB\n")
+        target = self.exe_dir / exe
+        target.touch()
+        os.symlink(target, d / "exe")
+        for tid, name, u in threads:
+            (d / "task" / str(tid)).mkdir()
+            trest = ["S", str(ppid)] + ["0"] * 9 + [str(u), "0"] + ["0"] * 27
+            (d / "task" / str(tid) / "stat").write_text(f"{tid} ({name}) {' '.join(trest)}\n")
+        return str(target)
+
+
+class LinuxReader(unittest.TestCase):
+    def test_reads_tree_memory_cpu_threads_and_start_from_proc(self):
+        fake = FakeProc()
+        app = fake.add(10, 1, "lecter-app", 90_000, 150, 50, 200_000, 120_000, "lecter-app", [(10, "main", 150), (13, "tokio-rt", 7)])
+        fake.add(11, 10, "WebKitWebProces", 90_100, 1000, 0, 300_000, 180_000, "WebKitWebProcess")
+        fake.add(12, 1, "lecter-app", 1, 0, 0, 1, 1, "other-lecter")  # same name, another executable
+        r = procs.Linux(str(fake.root))
+        r.hz = 100
+        snap = procs.snapshot(app, r)
+        by = {p["pid"]: p for p in snap["procs"]}
+        self.assertEqual(sorted(by), [10, 11])
+        self.assertEqual((by[10]["role"], by[10]["rss"], by[10]["share"], by[10]["counted"]), ("app", 204_800_000, 122_880_000, 204_800_000))
+        self.assertEqual((by[11]["role"], by[11]["counted"]), ("webview", 184_320_000))
+        self.assertEqual((by[10]["cpu_ns"], by[11]["cpu_ns"]), (2_000_000_000, 10_000_000_000))
+        self.assertEqual(by[10]["threads"], [{"tid": 10, "name": "main", "cpu_ns": 1_500_000_000},
+                                             {"tid": 13, "name": "tokio-rt", "cpu_ns": 70_000_000}])
+        # Started 900 s after boot, 100 s before "now" (uptime 1000 s): within the run's clock.
+        self.assertAlmostEqual(snap["now_ms"] - by[10]["start_ms"], 100_000, delta=1000)
+        self.assertAlmostEqual(by[11]["start_ms"] - by[10]["start_ms"], 1000, delta=1)
+        self.assertEqual(procs.alive({10, 11, 99}, r), {10, 11})
+
+
+class MacAndWindowsLayouts(unittest.TestCase):
+    def test_proc_bsdinfo_fields_at_their_offsets(self):
+        buf = bytearray(procs.BSDINFO_SIZE)
+        struct.pack_into("<12I", buf, 0, 0, 2, 0, 4242, 1, 501, 20, 501, 20, 501, 20, 0)
+        buf[48:56] = b"lecter-a"
+        buf[64:91] = b"com.apple.WebKit.WebContent"
+        struct.pack_into("<QQ", buf, 120, 1_793_000_000, 250_000)
+        self.assertEqual(procs.mac_bsdinfo(bytes(buf)), (4242, 1, "com.apple.WebKit.WebContent", 1_793_000_000_250.0))
+        buf[64:96] = bytes(32)
+        self.assertEqual(procs.mac_bsdinfo(bytes(buf))[2], "lecter-a")
+
+    def test_rusage_v2_phys_footprint_after_eight_counters(self):
+        buf = bytearray(160)
+        struct.pack_into("<16x8Q", buf, 0, 1, 2, 3, 4, 5, 6, 7, 123_456_789)
+        self.assertEqual(procs.mac_footprint(bytes(buf)), 123_456_789)
+
+    def test_ps_cpu_time_and_windows_filetime(self):
+        self.assertEqual(procs.ps_time_ns("0:01.25"), 1_250_000_000)
+        self.assertEqual(procs.ps_time_ns("12:00.00"), 720_000_000_000)
+        self.assertEqual(procs.ps_time_ns("1:00:00.50"), 3_600_500_000_000)
+        self.assertEqual(procs.ps_time_ns("2-00:00:01.00"), 172_801_000_000_000)
+        self.assertEqual(procs.filetime_ms(116_444_736_000_000_000), 0)
+        self.assertAlmostEqual(procs.filetime_ms(116_444_736_000_000_000 + 12_345_670), 1234.567, delta=0.01)
+
+
+class Collect(unittest.TestCase):
+    def test_one_line_per_id_samples_for_several_and_an_error_for_none(self):
+        lines = ['{"id": "cold_open_ms", "value": 480, "detail": "run 1"}', "not json",
+                 '{"id": "cold_open_ms", "value": 470.5, "detail": "run 2"}', '{"id": "idle_rss_mb", "value": 400, "detail": "d"}',
+                 '{"id": "idle_cpu_pct", "error": "x"}', '{"id": "other", "value": 1}']
+        out = {r["id"]: r for r in collect.collect(lines, ["cold_open_ms", "idle_rss_mb", "idle_cpu_pct"])}
+        self.assertEqual(out["cold_open_ms"], {"id": "cold_open_ms", "samples": [480, 470.5], "details": ["run 1", "run 2"]})
+        self.assertEqual(out["idle_rss_mb"], {"id": "idle_rss_mb", "value": 400, "detail": "d"})
+        self.assertIn("measured nothing", out["idle_cpu_pct"]["error"])
+        self.assertEqual(len(out), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()

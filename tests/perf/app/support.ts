@@ -21,9 +21,6 @@ function env(name: string): string {
 /** The ids this run should measure. */
 export const wanted = (id: string): boolean => env("LECTER_PERF_IDS").split(" ").includes(id);
 
-/** The test home the app runs with (its process is found by it). */
-export const home = (): string => env("LECTER_TEST_HOME");
-
 /** The fixture lecture's file name and text in this run's course. */
 export function lecture(): { name: string; text: string } {
   const name = env("LECTER_PERF_LECTURE");

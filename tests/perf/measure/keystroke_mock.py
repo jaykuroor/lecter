@@ -6,6 +6,7 @@ only decides the exit status Playwright returns. Prints one JSON line."""
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -27,7 +28,7 @@ def p99_from(output: str) -> tuple[float, str] | None:
 
 def main() -> int:
     ids = sys.argv[1:] or ["keystroke_p99_ms"]
-    proc = subprocess.run(["pnpm", "-C", "ui", "run", "test:perf", "--reporter=line"], cwd=ROOT, capture_output=True, text=True)
+    proc = subprocess.run([shutil.which("pnpm") or "pnpm", "-C", "ui", "run", "test:perf", "--reporter=line"], cwd=ROOT, capture_output=True, text=True)
     sys.stderr.write(proc.stdout + proc.stderr)
     found = p99_from(proc.stdout)
     for bid in ids:

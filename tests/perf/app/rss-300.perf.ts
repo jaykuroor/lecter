@@ -1,15 +1,15 @@
 // rss_300_slides_mb on the real app (14-quality.md#performance-budgets): the 300-slide fixture
-// lecture open and scrolled end to end, then the RSS sum of the app and its webview processes.
-// Read right after the scroll and again 5 s later; the larger value counts.
+// lecture open and scrolled end to end, then the memory of the app and its webview processes
+// (D-146: the app's RSS plus the webview's share; procs.ts). Read right after the scroll and
+// again 5 s later; the larger value counts.
 
-import { appPid, rssMb, tree } from "./procs.ts";
-import { home, idle, lecture, openLecture, record } from "./support.ts";
+import { memoryMb, snapshot } from "./procs.ts";
+import { idle, lecture, openLecture, record } from "./support.ts";
 
 describe("memory with 300 slides", function () {
   this.timeout(300_000);
 
-  it("measures RSS after scrolling the 300-slide lecture end to end", async () => {
-    const pid = appPid(home());
+  it("measures memory after scrolling the 300-slide lecture end to end", async () => {
     const { name, text } = lecture();
     const slides = (text.match(/^::: \{\.slide /gm) ?? []).length;
     await openLecture(name);
@@ -43,16 +43,16 @@ describe("memory with 300 slides", function () {
     expect(scrolled.atEnd).toBe(true);
     expect(scrolled.steps).toBeGreaterThan(1);
 
-    const first = rssMb(tree(pid));
+    const first = memoryMb(snapshot());
     await idle(5_000);
-    const procs = tree(pid);
-    const second = rssMb(procs);
+    const now = snapshot();
+    const second = memoryMb(now);
     const top = first.total >= second.total ? first : second;
     record(
       "rss_300_slides_mb",
       top.total,
       `${slides}-slide fixture scrolled end to end in ${scrolled.steps} pages (${scrolled.height} px); ` +
-        `${first.total.toFixed(1)} then ${second.total.toFixed(1)} MB 5 s later; ${procs.length} processes: ${top.parts}`,
+        `${first.total.toFixed(1)} then ${second.total.toFixed(1)} MB 5 s later; ${now.procs.length} processes: ${top.parts}`,
     );
   });
 });

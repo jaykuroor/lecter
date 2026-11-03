@@ -3,8 +3,20 @@
 // and no re-measure for this budget: the median and the 10 % margin in each target replace them.
 // Plain functions, so ui/test/cold-open-budget.test.ts can check them without the app.
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 /** Launches per measurement (D-152). */
 export const LAUNCHES = 5;
+
+/** The CI runner targets live with the other budgets: tests/perf/budgets.json, cold_open_ms `per_os` (D-156). */
+function ciTargets(): Partial<Record<NodeJS.Platform, number>> {
+  const file = fileURLToPath(new URL("../../../perf/budgets.json", import.meta.url));
+  const data = JSON.parse(readFileSync(file, "utf8")) as { budgets: { id: string; per_os?: Record<string, number> }[] };
+  const targets = data.budgets.find((b) => b.id === "cold_open_ms")?.per_os;
+  if (!targets) throw new Error(`${file}: cold_open_ms has no per_os targets`);
+  return targets;
+}
 
 /**
  * The cold_open_ms target per OS (`process.platform`), in ms. Each is the first release-build
@@ -12,7 +24,7 @@ export const LAUNCHES = 5;
  * only go down afterwards. Linux: median 973 on ubuntu-24.04 (F-179, CI run 41588635437) → 1080.
  * macOS's and Windows's come from F-025's dispatch run (D-152).
  */
-export const TARGETS: Partial<Record<NodeJS.Platform, number>> = { linux: 1080 };
+export const TARGETS: Partial<Record<NodeJS.Platform, number>> = ciTargets();
 
 /** The median of `xs` (an odd count, as LAUNCHES is; for an even count, the mean of the middle two). */
 export function median(xs: number[]): number {

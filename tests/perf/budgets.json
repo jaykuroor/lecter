@@ -1,5 +1,5 @@
 {
-  "about": "Performance budgets (docs/spec/14-quality.md#performance-budgets). Protected: never loosen a value to pass (a loosened budget needs the maintainer's D-entry and a Budget-Changed trailer). Fields: budget = the target; cmp = lt (value < budget) or le (value <= budget); kind = timing (x1.5 CI allowance, one re-measure) or memory, size, tokens, cpu (exact); from = the milestone it starts gating; script = the measurement (run with the ids it should measure; prints one JSON line per id); quick = the fast check that --quick runs instead; job = nightly for budgets measured only there; no script = PENDING (fails once its milestone is done). MB and KB are decimal (10^6, 10^3 bytes).",
+  "about": "Performance budgets (docs/spec/14-quality.md#performance-budgets). Protected: never loosen a value to pass (a loosened budget needs the maintainer's D-entry and a Budget-Changed trailer). Fields: budget = the target; cmp = lt (value < budget) or le (value <= budget); kind = timing (x1.5 CI allowance, one re-measure) or memory, size, tokens, cpu (exact); from = the milestone it starts gating; script = the measurement (run with the ids it should measure; prints one JSON line per id); quick = the fast check that --quick runs instead; job = nightly for budgets measured only there; no script = PENDING (fails once its milestone is done); per_os = the target per OS (linux, darwin, win32) in place of budget, an OS not listed prints REPORT; on_ci = report: with --ci the real-app value prints REPORT and its quick check gates (D-146, D-155); local = per-OS targets from the maintainer's machine, used without --ci; median_of = the script reports that many samples and their median is gated at x1 (D-152). Targets per OS only go down. MB and KB are decimal (10^6, 10^3 bytes).",
   "budgets": [
     {
       "id": "keystroke_p99_ms",
@@ -8,7 +8,8 @@
       "unit": "ms",
       "kind": "timing",
       "from": "M0.5",
-      "how": "500 keystrokes (after 50 warm-up) in the 200-slide fixture lecture, real app via WebDriver; mocked core in Playwright as the quick check",
+      "on_ci": "report",
+      "how": "500 keystrokes (after 50 warm-up) in the 200-slide fixture lecture, real app via WebDriver (gates only locally, with hardware rendering: D-146); mocked core in Playwright as the quick check, which gates under --ci",
       "script": "tests/perf/app/run.sh",
       "quick": "tests/perf/measure/keystroke_mock.py"
     },
@@ -19,27 +20,41 @@
       "unit": "ms",
       "kind": "timing",
       "from": "M0.5",
-      "how": "Process start to first buffer paint of the 200-slide fixture lecture",
+      "per_os": {
+        "linux": 1080
+      },
+      "local": {
+        "linux": 490
+      },
+      "on_ci": "report",
+      "median_of": 5,
+      "how": "Process start to first buffer paint of the 200-slide fixture lecture, median of 5 launches. budget = the spec's 400 ms goal; per_os = the CI runner targets (D-152), gated by the e2e-app cold-open flow; local = the maintainer's machine (D-155, D-156), gated by budgets.sh without --ci",
       "script": "tests/perf/app/run.sh"
     },
     {
       "id": "idle_rss_mb",
-      "budget": 150,
+      "budget": 460,
       "cmp": "lt",
       "unit": "MB",
       "kind": "memory",
       "from": "M0.5",
-      "how": "RSS sum of all app processes (webview included) 60 s after opening the fixture lecture",
+      "per_os": {
+        "linux": 460
+      },
+      "how": "Memory of all app processes 60 s after opening the fixture lecture: Lecter's by RSS, the webview's by PSS (macOS phys_footprint, Windows private working set) (D-146)",
       "script": "tests/perf/app/run.sh"
     },
     {
       "id": "rss_300_slides_mb",
-      "budget": 250,
+      "budget": 500,
       "cmp": "lt",
       "unit": "MB",
       "kind": "memory",
       "from": "M0.5",
-      "how": "RSS sum of all app processes with the 300-slide fixture lecture open and scrolled end to end",
+      "per_os": {
+        "linux": 500
+      },
+      "how": "Memory of all app processes with the 300-slide fixture lecture open and scrolled end to end: Lecter's by RSS, the webview's by PSS (macOS phys_footprint, Windows private working set) (D-146)",
       "script": "tests/perf/app/run.sh"
     },
     {
@@ -105,7 +120,7 @@
       "unit": "KB",
       "kind": "size",
       "from": "M0.5",
-      "how": "Size of the main UI chunk after vite build, gzipped",
+      "how": "Size of the UI's JavaScript after vite build, gzipped: the entry module plus every chunk it can load (lazy ones included), each gzipped on its own and summed",
       "script": "tests/perf/measure/bundle.py",
       "quick": "tests/perf/measure/bundle.py"
     },

@@ -130,7 +130,9 @@ jobs:
   # `verify.sh --stage perf`, which turns on the CI rule because CI is set (timing x1.5 with one
   # re-measure; memory, size and token budgets exact). It builds a release-profile app (in target/perf/, D-138) with the embedded
   # WebDriver server and measures it under xvfb-run, so it needs the shared Setup (Rust, the Tauri
-  # packages, Xvfb). The budget lines go to the job summary; report.json is uploaded on every run.
+  # packages, Xvfb). Under --ci the real-app keystroke_p99_ms and cold_open_ms print REPORT and the
+  # mocked-core keystroke trace (Playwright Chromium) gates (D-146, D-155). The budget lines go to
+  # the job summary; report.json is uploaded on every run.
   perf:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -141,6 +143,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      - name: Playwright Chromium (the mocked-core keystroke check)
+        run: pnpm -C ui exec playwright install --with-deps chromium
       - name: Performance budgets (real app under xvfb-run)
         run: xvfb-run -a -s "-screen 0 1280x800x24" scripts/verify.sh --stage perf
       - name: Upload the budget report
@@ -148,6 +152,43 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-report
+          path: |
+            tests/perf/report.json
+            tests/perf/logs/
+            .verify/perf.log
+          retention-days: 14
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+  # The same budgets on macOS and Windows, on manual runs only (and nightly from F-174): the
+  # per-OS memory and cold-open targets come from these runs' release-build measurements (D-146,
+  # D-152), and an OS without a target yet prints REPORT. Not a required check: `perf` above is.
+  perf-os:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' && needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # main never runs this job, so borrow the test job's Rust cache, which main saves (D-154).
+      - uses: ./.github/actions/setup
+        with:
+          rust-shared-key: test
+      - name: Playwright Chromium (the mocked-core keystroke check)
+        run: pnpm -C ui exec playwright install --with-deps chromium
+      - name: Performance budgets (real app)
+        run: scripts/verify.sh --stage perf
+      - name: Upload the budget report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-report-${{ matrix.os }}
           path: |
             tests/perf/report.json
             tests/perf/logs/
