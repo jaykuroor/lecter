@@ -3,17 +3,25 @@
 // the embedded WebDriver server (`--features test-hooks`), makes the throwaway test home and
 // course, and sets LECTER_TEST_HOME / LECTER_TEST_PICK / LECTER_TEST_TRUST for the app.
 //
-// Only node: imports here: this folder has no node_modules, so packages (the service, the
-// framework, the reporter) are named as strings and resolve from ui/, where the script runs wdio.
+// Only node: imports and support/ files here: this folder has no node_modules, so packages (the
+// service, the framework, the reporter) are named as strings and resolve from ui/, where the
+// script runs wdio.
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { timings } from "./support/timings";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
 const exe = process.platform === "win32" ? "lecter-app.exe" : "lecter-app";
 // One flow (`scripts/e2e-app.sh shell`) or every flow.
 const flow = process.env.LECTER_E2E_FLOW;
+// Per-flow wall time to the run's output and the CI job summary (support/timings.ts, D-154).
+const times = timings(
+  process.env.LECTER_E2E_OUT,
+  process.env.GITHUB_STEP_SUMMARY,
+  `e2e-app flow times (${process.platform}${process.env.LECTER_E2E_SHARD ? `, shard ${process.env.LECTER_E2E_SHARD}` : ""})`,
+);
 
 export const config = {
   runner: "local",
@@ -51,4 +59,7 @@ export const config = {
   outputDir: process.env.LECTER_E2E_OUT,
   waitforTimeout: 15_000,
   bail: 0,
+  onWorkerStart: times.onWorkerStart,
+  onWorkerEnd: times.onWorkerEnd,
+  onComplete: times.onComplete,
 };

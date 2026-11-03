@@ -41,9 +41,15 @@ mkdir -p "$RUN/home" "$RUN/out" "$RUN/shots" "$RUN/courses/Sample Course/slides"
 LOG="$RUN/e2e-app.log"
 say() { echo "$*" | tee -a "$LOG"; }
 
+# A line for the CI job summary too: a passing stage prints only PASS (D-154).
+summary() { [ -z "${GITHUB_STEP_SUMMARY:-}" ] || echo "$*" >> "$GITHUB_STEP_SUMMARY"; }
+
 say "== build: ui/dist and the debug app with test hooks"
+BUILD_START=$SECONDS
 { pnpm --silent -C ui run build && cargo build -p lecter-app --locked --features custom-protocol,test-hooks; } >>"$LOG" 2>&1 \
   || { tail -n 40 "$LOG"; echo "build failed (full log above)"; exit 1; }
+say "== build took $((SECONDS - BUILD_START)) s"
+summary "e2e-app ($(uname -s)): ui/dist and the debug app built in $((SECONDS - BUILD_START)) s"
 say "== typecheck: tests/e2e"
 pnpm -C ui exec tsc -p ../tests/e2e/tsconfig.json >>"$LOG" 2>&1 || { tail -n 40 "$LOG"; exit 1; }
 
@@ -62,14 +68,15 @@ pnpm --silent -C ui run test:e2e:app 2>&1 | tee -a "$LOG"
 STATUS=${PIPESTATUS[0]}
 
 # keep <dir>: the run's screenshots, app.log (the wdio logs, which hold the app's stdout and
-# stderr through captureBackendLogs) and e2e-app.log.
+# stderr through captureBackendLogs), timings.json (seconds per flow, support/timings.ts) and e2e-app.log.
 keep() {
   mkdir -p "$1"
   cp "$RUN"/shots/*.png "$1"/ 2>/dev/null || true
   cat "$RUN"/out/*.log > "$1/app.log" 2>/dev/null || echo "(no wdio log: the app did not start)" > "$1/app.log"
+  cp "$RUN"/out/timings.json "$1"/ 2>/dev/null || true
   cp "$LOG" "$1/e2e-app.log"
 }
-# Always in .verify/e2e-app/ (git-ignored; CI uploads it when the job fails).
+# Always in .verify/e2e-app/ (git-ignored; CI uploads it after every run).
 rm -rf .verify/e2e-app && keep .verify/e2e-app
 if [ -n "$EVIDENCE" ]; then
   keep ".evidence/$EVIDENCE"
