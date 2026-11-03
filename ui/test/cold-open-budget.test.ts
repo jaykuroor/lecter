@@ -18,9 +18,12 @@ describe("cold_open_ms gate (D-152)", () => {
     expect(() => median([])).toThrow();
   });
 
-  it("no OS has a target yet: Linux, macOS and Windows report and pass", () => {
-    expect(TARGETS).toEqual({});
-    for (const os of ["linux", "darwin", "win32"]) {
+  it("Linux gates at 1080 ms (CI median 973 + 10 %, D-152); macOS and Windows report until F-025", () => {
+    expect(TARGETS).toEqual({ linux: targetFrom(973) });
+    expect(TARGETS.linux).toBe(1080);
+    expect(verdict([1079, 1200, 900, 1000, 1050], "linux").outcome).toBe("pass");
+    expect(verdict([1080, 1200, 900, 1000, 1090], "linux").outcome).toBe("fail");
+    for (const os of ["darwin", "win32"]) {
       const v = verdict([484, 575, 420, 430, 440], os);
       expect(v.outcome).toBe("report");
       expect(v.lines).toEqual([

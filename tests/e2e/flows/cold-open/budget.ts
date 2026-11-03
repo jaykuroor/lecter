@@ -9,10 +9,10 @@ export const LAUNCHES = 5;
 /**
  * The cold_open_ms target per OS (`process.platform`), in ms. Each is the first release-build
  * median on that OS's CI runner plus 10 %, rounded up to the next 10 ms (`targetFrom`); targets
- * only go down afterwards. None is set yet: Linux's comes from F-179's CI branch run, macOS's and
- * Windows's from F-025's dispatch run. The maintainer sets them (D-152).
+ * only go down afterwards. Linux: median 973 on ubuntu-24.04 (F-179, CI run 41588635437) → 1080.
+ * macOS's and Windows's come from F-025's dispatch run (D-152).
  */
-export const TARGETS: Partial<Record<NodeJS.Platform, number>> = {};
+export const TARGETS: Partial<Record<NodeJS.Platform, number>> = { linux: 1080 };
 
 /** The median of `xs` (an odd count, as LAUNCHES is; for an even count, the mean of the middle two). */
 export function median(xs: number[]): number {
