@@ -32,7 +32,7 @@ export interface PageTimes {
  */
 export async function openInPage(file: string): Promise<PageTimes> {
   return await browser.execute(async (name: string) => {
-    function until<T>(get: () => T | null | undefined, what: string, ms = 60_000): Promise<T> {
+    function until<T>(get: () => T | null | undefined, what: string, ms = 20_000): Promise<T> {
       return new Promise((resolve, reject) => {
         const now = get();
         if (now) return resolve(now);
@@ -63,7 +63,7 @@ export async function openInPage(file: string): Promise<PageTimes> {
       );
     }
     const mark = () => performance.getEntriesByName("startup:shell_first_paint", "mark")[0]?.startTime ?? null;
-    await until(() => mark() !== null || null, "the shell's first paint mark", 30_000).catch(() => undefined);
+    await until(() => mark() !== null || null, "the shell's first paint mark", 5_000).catch(() => undefined);
 
     const open = await until(
       () => document.querySelector<HTMLButtonElement>("button.course-open"),
