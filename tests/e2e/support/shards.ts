@@ -8,16 +8,16 @@
 // the least time so far (longest-processing-time, ties by name, so the plan is the same everywhere).
 
 /**
- * Seconds per flow and OS, worker start to end, from CI run 41671347855 (D-154). Linux cold-open
+ * Seconds per flow and OS, worker start to end, from CI run 41767214228 (D-154; the linux cold-open and the figure/skeleton lines were measured there too). Linux cold-open
  * includes its own release build (261 s of it). Refresh from a run's timings.json when a flow's
  * time moves a lot; the job summary shows them.
  */
 export const SECONDS: Record<string, Record<string, number>> = {
   linux: {
     "cold-open": 271,
-    idle: 129,
-    // F-026's estimate (the flow builds lecter-harness first) until a run measures it.
-    skeleton: 90,
+    idle: 751,
+    "figure-frame": 20,
+    skeleton: 49,
     gloss: 11,
     figure: 10,
     ime: 9,
@@ -29,8 +29,9 @@ export const SECONDS: Record<string, Record<string, number>> = {
     "open-folder": 1,
   },
   darwin: {
-    idle: 129,
-    skeleton: 90,
+    idle: 801,
+    "figure-frame": 22,
+    skeleton: 52,
     gloss: 12,
     figure: 10,
     ime: 10,
@@ -43,8 +44,9 @@ export const SECONDS: Record<string, Record<string, number>> = {
     "open-folder": 1,
   },
   win32: {
-    idle: 131,
-    skeleton: 90,
+    idle: 903,
+    "figure-frame": 20,
+    skeleton: 76,
     gloss: 13,
     figure: 12,
     ime: 7,
