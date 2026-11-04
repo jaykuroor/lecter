@@ -21,6 +21,8 @@ mod tests;
 mod tests_files;
 #[cfg(test)]
 mod tests_sec25;
+#[cfg(test)]
+mod tests_watch;
 
 pub use jsonc::FileError;
 pub use layer::{Layer, Source};

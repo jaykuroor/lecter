@@ -80,6 +80,10 @@ fn settings_sec25_hostile_course_keeps_its_allowed_overrides() {
     assert_eq!(from("ui.performance"), Some((json!("quality"), Source::Course)));
     assert_eq!(from("ai.budget.daily"), Some((json!(0.5), Source::Course)));
     assert_eq!(from("ai.budget.perLecture"), Some((json!(0.25), Source::Course)));
+    let settings = store.settings();
+    assert_eq!(settings.ui.performance, schema::Performance::Quality);
+    assert_eq!((settings.ai.budget.daily, settings.ai.budget.per_lecture), (0.5, Some(0.25)));
+    assert_eq!(settings.ai.web_search, schema::WebSearch::Off);
 }
 
 /// Criterion 5: one notice lists every ignored key; reloading doesn't repeat it.

@@ -1,18 +1,15 @@
-//! Settings files on disk: unknown keys kept and reported once (criterion 3), changes applied
-//! without a restart (criterion 4), and the file edge cases.
+//! Settings files on disk: unknown keys kept and reported once (criterion 3), and the file edge
+//! cases. Changes applied without a restart (criterion 4) are in `tests_watch.rs`.
 #![allow(clippy::disallowed_methods, reason = "tests write files on test threads")]
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::mpsc;
-use std::time::{Duration, Instant};
 
 use serde_json::json;
 
 use super::*;
 use crate::testenv::TestEnv;
 
-fn write(path: &Path, text: &str) {
+pub(super) fn write(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
     std::fs::write(path, text).expect("write");
 }
@@ -22,7 +19,7 @@ fn read(path: &Path) -> String {
 }
 
 /// A test home with a global config and a course folder holding `.lecter/`.
-fn setup(global: &str, course: Option<&str>) -> (TestEnv, PathBuf, PathBuf) {
+pub(super) fn setup(global: &str, course: Option<&str>) -> (TestEnv, PathBuf, PathBuf) {
     let env = TestEnv::new().expect("test home");
     let global_path = env.dirs().config().join(GLOBAL_FILE);
     write(&global_path, global);
@@ -202,52 +199,38 @@ fn settings_deeply_nested_files_do_not_overflow_the_stack() {
     assert!(store.take_notices().iter().any(|n| matches!(n, Notice::Unreadable { .. })));
 }
 
-/// Criterion 4: an edit on disk applies within 1 s, with no restart and no call from the app.
 #[test]
-fn settings_change_on_disk_applies_within_one_second() {
-    let (env, global, root) = setup(r#"{ "ui": { "performance": "balanced" } }"#, Some(r#"{ "settings": {} }"#));
-    let store = Arc::new(SettingsStore::open(&env.dirs(), Some(&root)));
-    let (tx, rx) = mpsc::channel();
-    let _watcher = SettingsWatcher::start(Arc::clone(&store), move |notices| {
-        let _ = tx.send(notices);
-    })
-    .expect("watch");
-
-    // An in-place rewrite of the global file.
-    let start = Instant::now();
-    write(&global, r#"{ "ui": { "performance": "performance" } }"#);
-    rx.recv_timeout(Duration::from_secs(1)).expect("change seen within 1 s");
-    assert!(start.elapsed() < Duration::from_secs(1), "{:?}", start.elapsed());
-    assert_eq!(store.get("ui.performance").map(|r| (r.value, r.source)), Some((json!("performance"), Source::Global)));
-
-    // An editor-style save of the course file: write a temp file, rename it over.
-    let course = root.join(".lecter").join(COURSE_FILE);
-    let tmp = root.join(".lecter").join("course.jsonc.swp");
-    let start = Instant::now();
-    write(&tmp, r#"{ "settings": { "ui": { "performance": "quality" } } }"#);
-    std::fs::rename(&tmp, &course).expect("rename");
-    let deadline = start + Duration::from_secs(1);
-    while store.get("ui.performance").map(|r| r.source) != Some(Source::Course) {
-        let left = deadline.saturating_duration_since(Instant::now());
-        rx.recv_timeout(left).expect("course change seen within 1 s");
+fn settings_long_key_paths_are_cut_short_and_never_walked() {
+    let long = "k".repeat(300);
+    let mut object = json!({ "privacy": { "shareFeedback": true } });
+    for _ in 0..3 {
+        object = json!({ long.clone(): object });
     }
-    assert_eq!(store.get("ui.performance").map(|r| r.value), Some(json!("quality")));
-    assert!(start.elapsed() < Duration::from_secs(1), "{:?}", start.elapsed());
+    let layer = Layer::from_value(Source::Course, &json!({ "ok": object, "ui": { "performance": "quality" } }));
+    // The global-only key is past the limit: never looked at, so the group is just unknown.
+    assert_eq!(layer.unknown, ["ok"]);
+    assert!(layer.ignored.is_empty(), "{:?}", layer.ignored);
+    assert_eq!(layer.get("ui.performance"), Some(&json!("quality")));
+    let layer = Layer::from_value(Source::Global, &json!({ long.clone(): 1 }));
+    assert_eq!(layer.unknown, [format!("{}…", "k".repeat(256))]);
+    // A multi-byte character at the cut stays whole.
+    let layer = Layer::from_value(Source::Global, &json!({ "é".repeat(200): 1 }));
+    assert_eq!(layer.unknown, [format!("{}…", "é".repeat(128))]);
+    // Just under the limit is still walked: a global-only key there is ignored, not unknown.
+    let name = "m".repeat(super::layer::MAX_KEY_LEN - "baseUrl".len() - 1);
+    let layer = Layer::from_value(Source::Course, &json!({ name.clone(): { "baseUrl": "https://x.example" } }));
+    assert_eq!(layer.ignored, [format!("{name}.baseUrl")]);
 }
 
 #[test]
-fn settings_watcher_reports_new_notices_and_ignores_other_files() {
-    let (env, global, _) = setup("{}", None);
-    let store = Arc::new(SettingsStore::open(&env.dirs(), None));
-    let (tx, rx) = mpsc::channel();
-    let _watcher = SettingsWatcher::start(Arc::clone(&store), move |n| {
-        let _ = tx.send(n);
-    })
-    .expect("watch");
-    write(&env.dirs().config().join("keymaps.jsonc"), "{}");
-    write(&global, r#"{ "mystery": 1 }"#);
-    let notices = rx.recv_timeout(Duration::from_secs(1)).expect("seen");
-    assert_eq!(notices, vec![Notice::UnknownKeys { file: global, keys: vec!["mystery".into()] }]);
+fn settings_course_global_only_key_deep_under_unknown_groups_is_ignored() {
+    let mut object = json!({ "feedback": { "endpoint": "https://x.example" } });
+    for _ in 0..40 {
+        object = json!({ "a": object });
+    }
+    let layer = Layer::from_value(Source::Course, &object);
+    assert_eq!(layer.ignored, [format!("{}feedback.endpoint", "a.".repeat(40))]);
+    assert!(layer.unknown.is_empty(), "{:?}", layer.unknown);
 }
 
 #[cfg(unix)]
@@ -326,4 +309,17 @@ fn settings_course_lecter_folder_linked_out_of_the_course_is_not_read() {
     std::os::unix::fs::symlink(&outside, root.join(".lecter")).expect("link");
     let store = SettingsStore::open(&env.dirs(), Some(&root));
     assert_eq!(store.get("ui.performance").map(|r| r.source), Some(Source::Default));
+
+    // With no course.jsonc behind the link, a write still can't create one out there.
+    let root3 = env.home().join("course3");
+    let empty_outside = env.home().join("outside-empty");
+    std::fs::create_dir_all(&root3).expect("mkdir");
+    std::fs::create_dir_all(&empty_outside).expect("mkdir");
+    std::os::unix::fs::symlink(&empty_outside, root3.join(".lecter")).expect("link");
+    let store = SettingsStore::open(&env.dirs(), Some(&root3));
+    assert!(matches!(
+        store.set(Scope::Course, "ui.performance", json!("quality")),
+        Err(SetError::File { error: FileError::OutsideCourse, .. })
+    ));
+    assert!(!empty_outside.join(COURSE_FILE).exists());
 }

@@ -15,9 +15,9 @@ use super::store::{Notice, SettingsStore};
 
 /// How long events must stop before a reload: one editor save is often several events
 /// (truncate, write, rename).
-const QUIET: Duration = Duration::from_millis(50);
+pub(super) const QUIET: Duration = Duration::from_millis(50);
 /// The longest a burst of events delays a reload.
-const MAX_DELAY: Duration = Duration::from_millis(300);
+pub(super) const MAX_DELAY: Duration = Duration::from_millis(300);
 
 /// Why watching couldn't start.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -84,13 +84,8 @@ fn run(
         if !touches(&event, names) {
             continue;
         }
-        let start = Instant::now();
-        loop {
-            match rx.recv_timeout(QUIET) {
-                Ok(_) if start.elapsed() < MAX_DELAY => {}
-                Ok(_) | Err(RecvTimeoutError::Timeout) => break,
-                Err(RecvTimeoutError::Disconnected) => return,
-            }
+        if !settle(rx) {
+            return;
         }
         let changed = store.reload();
         let notices = store.take_notices();
@@ -100,9 +95,22 @@ fn run(
     }
 }
 
+/// Waits until events stop for [`QUIET`], or [`MAX_DELAY`] has passed since the first; the events
+/// are dropped. False when the watcher is gone.
+pub(super) fn settle<T>(rx: &Receiver<T>) -> bool {
+    let start = Instant::now();
+    loop {
+        match rx.recv_timeout(QUIET) {
+            Ok(_) if start.elapsed() < MAX_DELAY => {}
+            Ok(_) | Err(RecvTimeoutError::Timeout) => return true,
+            Err(RecvTimeoutError::Disconnected) => return false,
+        }
+    }
+}
+
 /// Whether the event is about one of the settings files. An error from the OS (a lost event
 /// queue) counts, since the files may have changed unseen.
-fn touches(event: &notify::Result<Event>, names: &BTreeSet<OsString>) -> bool {
+pub(super) fn touches(event: &notify::Result<Event>, names: &BTreeSet<OsString>) -> bool {
     match event {
         Ok(event) => event.paths.iter().any(|p| named(p, names)),
         Err(_) => true,

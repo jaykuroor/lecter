@@ -30,9 +30,8 @@ impl Source {
     }
 }
 
-/// How deep a settings object is walked. Known keys are at most four levels deep; anything
-/// deeper is an unknown key's inside and is kept in the file untouched.
-const MAX_DEPTH: usize = 16;
+/// The longest dotted key looked at, in bytes; longer ones are unknown, reported cut short.
+pub(crate) const MAX_KEY_LEN: usize = 256;
 
 /// The values one source sets, plus what it set that Lecter can't use.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -53,14 +52,22 @@ impl Layer {
         let mut layer = Self::default();
         if let Value::Object(map) = object {
             for (k, v) in map {
-                layer.walk(source, &join("", k), k, v, 0);
+                layer.walk(source, &join("", k), k, v);
             }
         }
         layer
     }
 
     /// One entry at `path` (the dotted key so far; `segment` is its last part).
-    fn walk(&mut self, source: Source, path: &str, segment: &str, value: &Value, depth: usize) {
+    /// The parser caps nesting (512 levels), which bounds the recursion.
+    fn walk(&mut self, source: Source, path: &str, segment: &str, value: &Value) {
+        // No setting has a long name. Stopping here keeps a hostile file from making Lecter build
+        // a long path for every key under a long-named, deeply nested object.
+        if path.len() > MAX_KEY_LEN {
+            let cut = (0..=MAX_KEY_LEN).rev().find(|&i| path.is_char_boundary(i)).unwrap_or(0);
+            self.unknown.push(format!("{}…", &path[..cut]));
+            return;
+        }
         if source.is_course_level() && is_global_only(path) {
             self.ignored.push(path.to_owned());
             return;
@@ -80,12 +87,12 @@ impl Layer {
             return;
         }
         match value {
-            Value::Object(map) if depth < MAX_DEPTH && (is_group(path) || source.is_course_level()) => {
-                // Course levels look inside unknown groups too, so a global-only key can't hide
-                // under a misspelt parent; global levels report the first unknown name.
+            Value::Object(map) => {
+                // Unknown groups are walked too, so a course can't hide a global-only key under a
+                // misspelt parent; an unknown group is then reported by its own name.
                 let before = self.unknown.len();
                 for (k, v) in map {
-                    self.walk(source, &join(path, k), k, v, depth + 1);
+                    self.walk(source, &join(path, k), k, v);
                 }
                 if !is_group(path) && self.unknown.len() > before {
                     self.unknown.truncate(before);
