@@ -8,7 +8,15 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
+#[cfg(test)]
 use crate::identity::APP_DIR_NAME;
+use crate::identity::{self, Identity};
+
+mod first_run;
+#[cfg(test)]
+mod tests_identity;
+
+pub use first_run::RunState;
 
 /// The environment variable that moves every config, data and cache folder under one directory.
 /// Debug builds and the `test-hooks` feature only; release builds don't contain it.
@@ -39,7 +47,7 @@ impl Os {
     }
 }
 
-/// The OS base folders the app folders are placed in, before [`APP_DIR_NAME`] is added.
+/// The OS base folders the app folders are placed in, before [`identity::APP_DIR_NAME`] is added.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BaseDirs {
     /// The user's home directory.
@@ -108,7 +116,12 @@ impl AppDirs {
 
     /// The folders of the table in `01-architecture.md#app-identity-and-migration` for `os`.
     pub fn for_os(os: Os, base: &BaseDirs) -> Self {
-        let app = |p: &Path| p.join(APP_DIR_NAME);
+        Self::derive(&identity::CURRENT, os, base)
+    }
+
+    /// The folders `id` gets on `os`: named by `id.dir_name` alone, never by `id.app_id`.
+    pub fn derive(id: &Identity, os: Os, base: &BaseDirs) -> Self {
+        let app = |p: &Path| p.join(id.dir_name);
         match os {
             Os::Linux => Self { config: app(&base.config), data: app(&base.data), cache: app(&base.cache) },
             Os::MacOs => {
