@@ -138,6 +138,31 @@ fn missing_and_overlong_paths() {
     assert_eq!(course_file(&c, &long).map_err(|e| e.code()), Err(ErrorCode::NotTrusted));
 }
 
+/// The length limit is 4096 bytes: a path of exactly that is looked up (here: not found), one
+/// byte more is refused.
+#[test]
+fn a_path_of_exactly_the_limit_is_looked_up() {
+    let env = env();
+    let (c, _) = fixture(&env);
+    let at_limit = "a/".repeat(2045) + "ff.txt";
+    assert_eq!(at_limit.len(), 4096);
+    let e = course_file(&c, &at_limit).err().unwrap_or_else(|| panic!("accepted"));
+    assert!(matches!(e, Error::ReadFailed { .. }), "{e:?}");
+    let over = at_limit + "x";
+    assert_eq!(course_file(&c, &over).err().map(|e| e.code()), Some(ErrorCode::NotTrusted));
+}
+
+/// A link to nowhere names a place, maybe outside the course: refused as escaping, not reported
+/// as a missing file.
+#[test]
+fn a_dangling_link_is_refused_as_escaping() {
+    let env = env();
+    let (c, outside) = fixture(&env);
+    link(&outside.join("gone.txt"), &c.join("a/gone.txt"));
+    let e = course_file(&c, "a/gone.txt").err().unwrap_or_else(|| panic!("accepted"));
+    assert_eq!(e, Error::OutsideCourse("a/gone.txt".into()));
+}
+
 /// One part of a generated path: names in the fixture (links in and out included), `.`, `..`,
 /// empty parts, and drive-like names.
 fn part() -> impl Strategy<Value = &'static str> {

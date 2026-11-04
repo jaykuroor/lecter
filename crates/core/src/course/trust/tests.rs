@@ -10,11 +10,11 @@ use crate::ErrorCode;
 use crate::course::open;
 use crate::testenv::TestEnv;
 
-fn env() -> TestEnv {
+pub(super) fn env() -> TestEnv {
     TestEnv::new().unwrap_or_else(|e| panic!("{e}"))
 }
 
-fn write(dir: &Path, rel: &str, text: &str) -> PathBuf {
+pub(super) fn write(dir: &Path, rel: &str, text: &str) -> PathBuf {
     let p = dir.join(rel);
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).unwrap_or_else(|e| panic!("{e}"));
@@ -23,13 +23,13 @@ fn write(dir: &Path, rel: &str, text: &str) -> PathBuf {
     p
 }
 
-fn store(env: &TestEnv) -> TrustStore {
+pub(super) fn store(env: &TestEnv) -> TrustStore {
     TrustStore::new(&env.dirs())
 }
 
 /// A course with 2 lectures, 3 slides, 3 sources (one in `past-papers/`, plus a hidden file that
 /// doesn't count), an `AGENTS.md`, one role, one skill and two settings overrides.
-fn course(env: &TestEnv, name: &str) -> PathBuf {
+pub(super) fn course(env: &TestEnv, name: &str) -> PathBuf {
     let c = env.home().join(name);
     for rel in ["lectures/l01.md", "lectures/l02.md"] {
         write(&c, rel, "::: {.slide #s1 n=1}\n:::\n");
@@ -51,18 +51,18 @@ fn course(env: &TestEnv, name: &str) -> PathBuf {
     c
 }
 
-fn reviewed(store: &TrustStore, course: &Path) -> Review {
+pub(super) fn reviewed(store: &TrustStore, course: &Path) -> Review {
     let listing = open(course).unwrap_or_else(|e| panic!("{e:?}"));
     review(store, &listing, "Sample (offline)").unwrap_or_else(|e| panic!("{e:?}"))
 }
 
-fn trust(store: &TrustStore, course: &Path, choice: TrustChoice) {
+pub(super) fn trust(store: &TrustStore, course: &Path, choice: TrustChoice) {
     let r = reviewed(store, course);
     let path = open(course).unwrap_or_else(|e| panic!("{e:?}")).path;
     decide(store, &path, choice, &r.fingerprint).unwrap_or_else(|e| panic!("{e:?}"));
 }
 
-fn state_of(store: &TrustStore, course: &Path) -> TrustState {
+pub(super) fn state_of(store: &TrustStore, course: &Path) -> TrustState {
     state(store, course).unwrap_or_else(|e| panic!("{e:?}"))
 }
 

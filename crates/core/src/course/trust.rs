@@ -173,3 +173,5 @@ fn count(n: usize) -> u32 {
 mod tests;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_paths;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_survey;
