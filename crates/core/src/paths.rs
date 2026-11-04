@@ -243,9 +243,10 @@ mod tests {
         assert_eq!(all(&d), [Path::new("/r/cfg/lecter"), Path::new("/r/data/lecter"), Path::new("/r/cache/lecter")]);
     }
 
-    /// Set only in the child process that `resolve_reads_the_test_home_from_the_environment` starts.
+    /// Set only in the child processes that `resolve_reads_the_test_home_from_the_environment` and
+    /// `tests_identity::the_real_folders_follow_the_table` start.
     #[cfg(any(debug_assertions, feature = "test-hooks"))]
-    const CHILD_MARK: &str = "LECTER_PATHS_RESOLVE_CHILD";
+    pub(super) const CHILD_MARK: &str = "LECTER_PATHS_RESOLVE_CHILD";
 
     /// The real `AppDirs::resolve()`, reading the real environment, in a child copy of this test
     /// binary started with `TestEnv` (so no test mutates its own process environment).

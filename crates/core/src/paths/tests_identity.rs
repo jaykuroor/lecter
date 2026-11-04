@@ -2,7 +2,6 @@
 //! identifier (`01-architecture.md#app-identity-and-migration`).
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use super::{AppDirs, BaseDirs, Os};
 use crate::identity::{self, Identity, KEYCHAIN_SERVICE};
@@ -61,34 +60,33 @@ fn the_folder_name_comes_from_dir_name() {
     assert_eq!(AppDirs::derive(&other, Os::Linux, &base("/r", None)).cache(), Path::new("/r/cache/elsewhere"));
 }
 
-/// Set only in the child processes `the_real_folders_follow_the_table` starts.
-const CHILD_MARK: &str = "LECTER_PATHS_TABLE_CHILD";
-const CHILD_TEST: &str = "paths::tests_identity::resolve_for_parent";
-
-/// `AppDirs::resolve()` in a child copy of this test binary with `envs` set, without a test home.
-#[cfg(not(windows))]
+/// `AppDirs::resolve()` in a child copy of this test binary (the child half is
+/// `paths::tests::resolve_in_child_process`) with `envs` set and `removed` unset, and no test
+/// home, so no test changes its own process environment.
+#[cfg(any(debug_assertions, feature = "test-hooks"))]
 fn resolve_in_child(envs: &[(&str, &Path)], removed: &[&str]) -> Vec<PathBuf> {
-    let mut cmd = Command::new(std::env::current_exe().expect("test binary"));
-    cmd.env(CHILD_MARK, "1").args(["--exact", CHILD_TEST, "--nocapture", "--test-threads=1"]);
-    #[cfg(any(debug_assertions, feature = "test-hooks"))]
-    cmd.env_remove(super::TEST_HOME_VAR);
+    let mut cmd = std::process::Command::new(std::env::current_exe().expect("test binary"));
+    cmd.env(super::tests::CHILD_MARK, "1").env_remove(super::TEST_HOME_VAR).args([
+        "--exact",
+        "paths::tests::resolve_in_child_process",
+        "--nocapture",
+        "--test-threads=1",
+    ]);
     for k in removed {
         cmd.env_remove(k);
     }
     for (k, v) in envs {
         cmd.env(k, v);
     }
-    parse_child(&cmd.output().expect("child runs"))
-}
-
-fn parse_child(out: &std::process::Output) -> Vec<PathBuf> {
+    let out = cmd.output().expect("child runs");
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "child failed:\n{text}\n{}", String::from_utf8_lossy(&out.stderr));
     text.lines().filter_map(|l| l.split_once("RESOLVED ").map(|(_, p)| PathBuf::from(p))).collect()
 }
 
-/// Criterion 1 end to end: the `directories` crate's folders for a home, through `resolve()`.
-#[cfg(not(windows))]
+/// Criterion 1 end to end on Linux and macOS: the `directories` crate's folders for a home,
+/// through `resolve()`.
+#[cfg(all(not(windows), any(debug_assertions, feature = "test-hooks")))]
 #[test]
 #[allow(clippy::disallowed_methods, reason = "a test makes its fake home on a plain test thread")]
 fn the_real_folders_follow_the_table() {
@@ -115,27 +113,11 @@ fn the_real_folders_follow_the_table() {
 }
 
 /// Criterion 1 on Windows: `%APPDATA%\lecter`, `%LOCALAPPDATA%\lecter\data` and `\cache`.
-#[cfg(windows)]
+#[cfg(all(windows, any(debug_assertions, feature = "test-hooks")))]
 #[test]
 fn the_real_folders_follow_the_table() {
-    let mut cmd = Command::new(std::env::current_exe().expect("test binary"));
-    cmd.env(CHILD_MARK, "1").args(["--exact", CHILD_TEST, "--nocapture", "--test-threads=1"]);
-    #[cfg(any(debug_assertions, feature = "test-hooks"))]
-    cmd.env_remove(super::TEST_HOME_VAR);
-    let got = parse_child(&cmd.output().expect("child runs"));
+    let got = resolve_in_child(&[], &[]);
     let appdata = PathBuf::from(std::env::var_os("APPDATA").expect("APPDATA"));
     let local = PathBuf::from(std::env::var_os("LOCALAPPDATA").expect("LOCALAPPDATA")).join("lecter");
     assert_eq!(got, [appdata.join("lecter"), local.join("data"), local.join("cache")]);
-}
-
-/// The child half of `the_real_folders_follow_the_table`; does nothing unless it started it.
-#[test]
-fn resolve_for_parent() {
-    if std::env::var_os(CHILD_MARK).is_none() {
-        return;
-    }
-    let d = AppDirs::resolve().expect("resolves");
-    for p in all(&d) {
-        println!("RESOLVED {}", p.display());
-    }
 }

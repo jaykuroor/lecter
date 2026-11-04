@@ -122,6 +122,25 @@ mod tests {
         assert_eq!(dirs.run_state(), RunState::Returning);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_config_folder_that_cannot_be_searched_is_not_a_first_run() {
+        use std::os::unix::fs::PermissionsExt;
+        let env = env();
+        let dirs = env.dirs();
+        // An empty folder, so a killed run still leaves a removable test home.
+        std::fs::create_dir_all(dirs.config()).expect("mkdir");
+        std::fs::set_permissions(dirs.config(), std::fs::Permissions::from_mode(0o000)).expect("chmod");
+        let root = std::fs::read_dir(dirs.config()).is_ok();
+        let got = dirs.run_state();
+        std::fs::set_permissions(dirs.config(), std::fs::Permissions::from_mode(0o755)).expect("chmod back");
+        if root {
+            // Running as root: permissions don't apply, so there is nothing to observe.
+            return;
+        }
+        assert_eq!(got, RunState::Returning, "an unreadable setup is not a new one");
+    }
+
     #[test]
     fn detection_checks_the_file_the_settings_read_and_write() {
         let env = env();
