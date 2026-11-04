@@ -42,8 +42,8 @@
       "from": "M0.5",
       "per_os": {
         "linux": 460,
-        "darwin": 170,
-        "win32": 120
+        "darwin": 90,
+        "win32": 90
       },
       "how": "Memory of all app processes 60 s after opening the fixture lecture, every one by its share, Lecter's own included: Linux PSS, macOS phys_footprint, Windows private working set; RSS of all as an info line (D-161)",
       "script": "tests/perf/app/run.sh"
@@ -57,8 +57,8 @@
       "from": "M0.5",
       "per_os": {
         "linux": 500,
-        "darwin": 710,
-        "win32": 200
+        "darwin": 390,
+        "win32": 170
       },
       "how": "Memory of all app processes with the 300-slide fixture lecture open and scrolled end to end, every one by its share, Lecter's own included: Linux PSS, macOS phys_footprint, Windows private working set; RSS of all as an info line; on macOS the sample after the 5 s settle counts, elsewhere the larger of the two (D-161)",
       "script": "tests/perf/app/run.sh"
@@ -80,7 +80,12 @@
       "unit": "ms",
       "kind": "timing",
       "from": "M0.5",
-      "how": "Gloss request (Enter) to the first answer text painted, minus the provider's own first-token delay",
+      "per_os": {
+        "linux": 20,
+        "darwin": 42,
+        "win32": 20
+      },
+      "how": "Gloss request (Enter) to the first answer text painted, minus the provider's own first-token delay; each ask broken down into to-page, frame wait and paint. per_os: the spec's 20 ms on Linux and Windows; macOS from its CI measurement + 10 %, its frame wait checked (D-161)",
       "script": "tests/perf/app/run.sh"
     },
     {

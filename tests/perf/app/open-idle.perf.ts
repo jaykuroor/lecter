@@ -43,8 +43,11 @@ describe("open and idle", function () {
     const page = await readCounters(from, to, STEP_MS);
     requireWebview(snapshot());
     const s = series(samples);
-    // The whole 5-minute window was sampled, in the state F-180 gates: the editor focused and parked.
-    expect(s.seconds).toBeGreaterThanOrEqual(CPU_WINDOW_MS / 1000);
+    // The whole 5-minute window was sampled, every 15 s, in the state F-180 gates: the editor
+    // focused and parked. (The first and last snapshots' own clocks can be a few ms short of the
+    // window: each is read after its reader process started, CI run 41742947222 on macOS.)
+    expect(to - from).toBeGreaterThanOrEqual(CPU_WINDOW_MS);
+    expect(samples).toHaveLength(CPU_WINDOW_MS / STEP_MS + 1);
     expect(page.focus.editorFocused).toBe(true);
     expect(page.focus.editable).toBe("false");
     const lines = [...cpuLines(s, STEP_MS / 1000), ...pageLines(page)].map((l) => l.replace(/^idle-attribution /, ""));

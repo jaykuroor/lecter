@@ -1,4 +1,4 @@
-"""Tests of tests/perf/budgets.sh's per-OS and real-app rules (F-025 criteria 1, 2, 6 and 7;
+"""Tests of tests/perf/budgets.sh's per-OS and real-app rules (F-025 criteria 1, 2, 6, 7 and 8;
 14-quality.md#performance-budgets, D-146, D-152, D-155, D-156): memory and cold_open_ms targets
 per OS, an OS without a target prints REPORT, the real-app keystroke and cold-open values print
 REPORT under --ci (the mocked-core quick check gates instead) and gate without it, cold_open_ms
@@ -54,11 +54,12 @@ class BudgetsFilePerOs(unittest.TestCase):
                     self.assertEqual(t % 10, 0, f"{os_name}: targets are rounded up to the next 10")
 
     def test_macos_and_windows_targets_are_their_first_dispatch_measurement_plus_10_percent(self):
-        # The first release-build measurements on the CI runners (F-025's dispatch runs; D-146, D-152):
-        # Windows run 41701063503, macOS memory run 41708685261 (the first in which its WebKit
-        # services were counted), macOS cold open run 41702437408.
-        first = {("idle_rss_mb", "win32"): (107.4, 120), ("rss_300_slides_mb", "win32"): (180.12, 200),
-                 ("idle_rss_mb", "darwin"): (152.1, 170), ("rss_300_slides_mb", "darwin"): (639.62, 710),
+        # Memory: the first release-build measurements with every process counted by its share
+        # (D-161), dispatch run 41742947222; macOS 300 slides is the sample after the 5 s settle
+        # (527.5 MB right after the scroll, 345.8 after the settle). Cold open: Windows run
+        # 41701063503, macOS run 41702437408 (D-152).
+        first = {("idle_rss_mb", "win32"): (75.8, 90), ("rss_300_slides_mb", "win32"): (150.88, 170),
+                 ("idle_rss_mb", "darwin"): (80.39, 90), ("rss_300_slides_mb", "darwin"): (345.82, 390),
                  ("cold_open_ms", "win32"): (523.15, 580), ("cold_open_ms", "darwin"): (2671.93, 2940)}
         for (bid, os_name), (measured, target) in first.items():
             with self.subTest(budget=bid, os=os_name):
@@ -66,10 +67,54 @@ class BudgetsFilePerOs(unittest.TestCase):
                 self.assertEqual(self.listed[bid]["per_os"][os_name], target)
         self.assertEqual(target_from(300, 10), 330)  # + 10 % exactly on a boundary stays there
 
+    def test_memory_targets_only_went_down_when_counted_by_share(self):
+        # The mixed method's targets (D-146: Lecter's processes by RSS) were macOS 170/710 and
+        # Windows 120/200 MB; D-161 re-derives them, and targets only go down.
+        for bid, before in (("idle_rss_mb", {"darwin": 170, "win32": 120}), ("rss_300_slides_mb", {"darwin": 710, "win32": 200})):
+            for os_name, old in before.items():
+                with self.subTest(budget=bid, os=os_name):
+                    self.assertLess(self.listed[bid]["per_os"][os_name], old)
+
     def test_keystroke_and_cold_open_report_under_ci_and_nothing_else_does(self):
         self.assertEqual({k for k, b in self.listed.items() if b.get("on_ci") == "report"}, {"keystroke_p99_ms", "cold_open_ms"})
         self.assertEqual(self.listed["keystroke_p99_ms"]["quick"], "tests/perf/measure/keystroke_mock.py")
         self.assertNotIn("quick", self.listed["cold_open_ms"])
+
+
+class TtftAndIdleCpuPerOs(unittest.TestCase):
+    """Criterion 8 (D-161): macOS ttft_overhead_ms gates against its own target (measurement + 10 %),
+    the other OSes against the spec's 20 ms; idle_cpu_pct has no Windows target, because F-180 cut
+    WebView2's idle baseline (0.07 %, D-164) instead of recording that it can't be cut."""
+
+    def setUp(self):
+        self.listed = {b["id"]: b for b in json.loads((HERE / "budgets.json").read_text())["budgets"]}
+
+    def test_ttft_has_a_macos_target_and_the_spec_target_elsewhere(self):
+        ttft = self.listed["ttft_overhead_ms"]
+        self.assertRegex(spec_rows()["ttft_overhead_ms"], r"< 20 ms")
+        self.assertEqual((ttft["budget"], ttft["kind"]), (20, "timing"))
+        # Dispatch run 41742947222: 35 then 38 ms on macos-15 (the larger + 10 %, to the next ms).
+        self.assertEqual(target_from(38, 1), 42)
+        self.assertEqual(ttft.get("per_os"), {"linux": 20, "darwin": 42, "win32": 20})
+
+    def test_idle_cpu_has_no_per_os_target(self):
+        cpu = self.listed["idle_cpu_pct"]
+        self.assertNotIn("per_os", cpu)
+        self.assertEqual((cpu["budget"], cpu["kind"]), (0.5, "cpu"))
+
+    def test_the_macos_ttft_target_gates_there_and_20_ms_elsewhere(self):
+        b = [budget("t_ms", 20, kind="timing", per_os={"linux": 20, "darwin": 42, "win32": 20})]
+        for os_name, v, code in (("darwin", 41, 0), ("darwin", 42, 1), ("linux", 21, 1), ("win32", 21, 1), ("linux", 19, 0)):
+            with self.subTest(os=os_name, value=v):
+                run = Run(b, env=values(t_ms=[v]))
+                r = run("--os", os_name)
+                self.assertEqual(r.returncode, code, r.stdout)
+                self.assertEqual(run.entries()["t_ms"]["limit"], 42 if os_name == "darwin" else 20)
+        # Under --ci the x1.5 allowance applies to the per-OS target: 63 ms on macOS.
+        run = Run(b, env=values(t_ms=[62]))
+        r = run("--os", "darwin", "--ci")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(run.entries()["t_ms"]["limit"], 63)
 
 
 class PerOsGate(unittest.TestCase):

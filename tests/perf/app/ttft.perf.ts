@@ -48,6 +48,13 @@ describe("time to first token", function () {
     const delay = providerDelayMs();
     const { name } = lecture();
     await openLecture(name);
+    // The webview's frame interval (the median of 30 frames): the most a write can wait for its frame.
+    const frameMs = await browser.execute(async () => {
+      const at: number[] = [];
+      for (let i = 0; i <= 30; i++) at.push(await new Promise<number>((r) => requestAnimationFrame(r)));
+      const gaps = at.slice(1).map((t, i) => t - (at[i] as number));
+      return gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)] ?? Number.NaN;
+    });
     const totals: number[] = [];
     const parts: Part[] = [];
     for (let i = 0; i < ASKS; i++) {
@@ -149,7 +156,7 @@ describe("time to first token", function () {
       "ttft_overhead_ms",
       percentile(overheads, 50),
       `median of ${ASKS} asks: Enter → first words painted ${totals.map((t) => t.toFixed(1)).join(", ")} ms, ` +
-        `minus the sample provider's ${delay} ms first-token delay; ${breakdown(parts, delay)}; ${name}`,
+        `minus the sample provider's ${delay} ms first-token delay; ${breakdown(parts, delay)}; frame interval ${frameMs.toFixed(1)} ms; ${name}`,
     );
   });
 });
