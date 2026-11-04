@@ -1,13 +1,14 @@
 //! `lecter-harness search <dir> <words…>`: opens the course folder, indexes each of its lectures
 //! as opening it in the app does, and prints the hits for the words as JSON: the same `Hit`s, best
 //! first and at most `MAX_HITS`, as the app's `search_find` (F-022).
+//! A course that is read-only or not trusted is `E_NOT_TRUSTED`, with nothing indexed (F-033).
 
 use std::path::Path;
 
 use lecter_core::{course, lecture};
 use lecter_index::{CourseIndex, Hit, MAX_HITS};
 
-use super::{Command, Reply};
+use super::{Command, Reply, gate};
 use crate::error::{ErrorCode, HarnessError};
 
 /// The `search` command.
@@ -33,6 +34,8 @@ fn search(dir: &Path, query: &str) -> Result<Reply, HarnessError> {
     })?;
     let core = |e: lecter_core::Error| HarnessError::new(e.code(), e.to_string());
     let listing = course::open(&abs).map_err(core)?;
+    // SEC-27: a course that is read-only or not trusted is never indexed.
+    gate::require_trusted(Path::new(&listing.path))?;
     let index = CourseIndex::open(Path::new(&listing.path)).map_err(index_error)?;
     for file in &listing.lectures {
         // A lecture the app couldn't open either (too large, not UTF-8) has nothing to search.
