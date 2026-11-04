@@ -890,9 +890,10 @@
     "log:e2e-app"
    ],
    "try": "Walk the whole path: open course, open lecture, edit, restart, search, ask, see a plot",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 2022
+   "priority": 2022,
+   "base": "0c7e1d67040a47dbca8c2f231e0f21c418bddc2e"
   },
   {
    "id": "F-027",
