@@ -1059,7 +1059,7 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3027,
    "base": "6b6eae72cd1074ae9e511c1d18bcad69f8eb2d12"

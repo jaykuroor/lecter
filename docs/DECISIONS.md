@@ -1060,3 +1060,23 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the settings watcher creates the config folder on every start (D-175), so the folder's existence says nothing; a broken setup must not be treated as a new one.
 - Instead of: checking whether the config folder exists.
 - Revisit if: onboarding (F-160) needs another signal; it must write config.jsonc when onboarding ends or is skipped.
+
+## D-178 · App-wide state lives in `<data>/state.db` (F-032)
+2026-11-04 · orchestrator, decider: maintainer · active
+- Decision: app-wide state (first: the identity migration record) lives in `<data>/state.db` in Lecter's data folder (e.g. ~/.local/share/lecter/state.db): SQLite, WAL mode, table `meta(key TEXT PRIMARY KEY, value TEXT)`, user_version left at 0. Course state stays in `<course>/.lecter/state.db` (18-contracts).
+- Why: 01-architecture says the migration is "recorded in state.db", but 18-contracts defines only the per-course file and the migration is app-wide; the same name can later hold other app-wide state (e.g. per-model latency averages, 07-providers).
+- Instead of: `<data>/app.db`; a marker file.
+- Revisit if: F-071's migration runner adopts it (Q-028); its first migration must use CREATE TABLE IF NOT EXISTS meta and move user_version from 0.
+
+## D-179 · Identity migration: legacy locations, clashes, keychain first, run once per identity (F-032)
+2026-11-04 · F-032 builder, recorded by the orchestrator · active
+- Decision: legacy locations are Tauri's id-named folders `<data|data_local|config|cache>/<id>`, plus `~/Library/WebKit/<id>` and `HTTPStorages/<id>` on macOS; webview stores (WebKitGTK names, EBWebView, macOS WebKit cache) are dropped, everything else moves into the matching stable folder. Symlinks are never followed. On a clash the stable copy wins and the legacy file stays and is reported; an existing "lecter" keychain item wins and the stale legacy item is deleted (SEC-40). The keychain goes first: if it can't be reached, nothing moves and the run retries next start; a single item's failure is reported and the run is still recorded. The record is `migrated_identity` = APP_ID (a later rename migrates again); an empty LEGACY_APP_IDS returns NothingToMigrate without opening SQLite. BEGIN IMMEDIATE serialises concurrent starts. The `Keychain` trait (get/set/delete over bytes) takes caller-given accounts, since a service can't be listed; the real backend is F-084.
+- Why: matches where Tauri actually writes; nothing on the v0 startup path opens a database.
+- Instead of: AppDirs::derive with the old id; a boolean flag; a marker file.
+- Revisit if: F-084 brings a keychain that can list accounts.
+
+## D-180 · F-032 dependencies
+2026-11-04 · F-032 builder, recorded by the orchestrator · active
+- Decision: `rusqlite` (MIT, bundled SQLite; libsqlite3-sys pre-approved; 5 new crates) in lecter-core.
+- Why: Dep-Added trailer on F-032 commits; check_deps OK; the spec records the migration in state.db.
+- Instead of: a marker file.

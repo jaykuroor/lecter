@@ -184,6 +184,12 @@ Should F-061 switch the skeleton flow's parse step (tests/e2e/flows/skeleton.ts,
 - Recommended: yes; add it to F-061's criteria at the next planning session.
 - Answer:
 
+## Q-028 · later · blocks: nothing
+Should F-071's state.db migration runner also manage the app-wide `<data>/state.db` (D-178), or treat it as separate from course databases?
+- Context: F-032 created `<data>/state.db` with only a `meta` table at user_version 0; 18-contracts' schema is per course at user_version 1.
+- Recommended: one runner with two schema sets (app and course); its first app migration uses CREATE TABLE IF NOT EXISTS meta and sets user_version 1. Decide in planning before F-071.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 
