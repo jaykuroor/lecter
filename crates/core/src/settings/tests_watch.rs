@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 use std::time::{Duration, Instant};
 
+use notify::event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind};
 use notify::{Event, EventKind};
 use serde_json::json;
 
@@ -102,6 +103,17 @@ fn settings_watch_events_count_only_for_the_settings_files() {
     let rename =
         Ok(Event::new(EventKind::Any).add_path("/c/lecter/x.tmp".into()).add_path("/c/lecter/config.jsonc".into()));
     assert!(touches(&rename, &names));
+    // Opening or reading a file changes nothing (the reload's own reads would loop forever).
+    let access = |kind| Ok(Event::new(EventKind::Access(kind)).add_path("/c/lecter/config.jsonc".into()));
+    assert!(!touches(&access(AccessKind::Open(AccessMode::Any)), &names));
+    assert!(!touches(&access(AccessKind::Close(AccessMode::Read)), &names));
+    assert!(!touches(&access(AccessKind::Read), &names));
+    assert!(touches(&access(AccessKind::Close(AccessMode::Write)), &names));
+    for kind in
+        [EventKind::Create(CreateKind::File), EventKind::Modify(ModifyKind::Any), EventKind::Remove(RemoveKind::File)]
+    {
+        assert!(touches(&Ok(Event::new(kind).add_path("/c/lecter/config.jsonc".into())), &names), "{kind:?}");
+    }
     // A lost event queue may hide a change.
     assert!(touches(&Err(notify::Error::generic("overflow")), &names));
 }

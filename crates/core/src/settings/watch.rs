@@ -9,7 +9,8 @@ use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::event::{AccessKind, AccessMode};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
 use super::store::{Notice, SettingsStore};
 
@@ -80,10 +81,7 @@ fn run(
     store: &SettingsStore,
     mut on_change: impl FnMut(Vec<Notice>),
 ) {
-    while let Ok(event) = rx.recv() {
-        if !touches(&event, names) {
-            continue;
-        }
+    for _change in rx.iter().filter(|event| touches(event, names)) {
         if !settle(rx) {
             return;
         }
@@ -108,11 +106,17 @@ pub(super) fn settle<T>(rx: &Receiver<T>) -> bool {
     }
 }
 
-/// Whether the event is about one of the settings files. An error from the OS (a lost event
-/// queue) counts, since the files may have changed unseen.
+/// Whether the event may have changed one of the settings files. Opening or reading one doesn't
+/// (closing it after a write does):
+/// the reload itself reads them, so counting reads would reload forever. An error from the OS (a
+/// lost event queue) counts, since the files may have changed unseen.
 pub(super) fn touches(event: &notify::Result<Event>, names: &BTreeSet<OsString>) -> bool {
     match event {
-        Ok(event) => event.paths.iter().any(|p| named(p, names)),
+        Ok(event) => {
+            let read_only =
+                matches!(event.kind, EventKind::Access(kind) if kind != AccessKind::Close(AccessMode::Write));
+            !read_only && event.paths.iter().any(|p| named(p, names))
+        }
         Err(_) => true,
     }
 }
