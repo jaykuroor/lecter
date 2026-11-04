@@ -6,10 +6,9 @@ import {
   type IpcError,
   type TrustChoice,
   type TrustScreen,
-  type TrustState,
 } from "./bindings";
 
-export type { CourseFile, CourseOpened, CourseTrusted, TrustChoice, TrustScreen, TrustState };
+export type { CourseFile, CourseOpened, TrustChoice, TrustScreen };
 
 /** What opening a course came to: the course, a cancelled dialog (`null`), or the core's error. */
 export type CourseOpenResult = { status: "ok"; data: CourseOpened | null } | { status: "error"; error: IpcError };
