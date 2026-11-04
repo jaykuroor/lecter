@@ -1059,9 +1059,10 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3027
+   "priority": 3027,
+   "base": "6b6eae72cd1074ae9e511c1d18bcad69f8eb2d12"
   },
   {
    "id": "F-033",
