@@ -967,3 +967,13 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: debug builds and single totals hid the source; the series separates a settle burst from a steady redraw.
 - Instead of: a separate perf job (F-025 owns budgets.sh).
 - Revisit if: the idle shard's ~13-15 min becomes the CI bottleneck (give it its own shard or move it to perf).
+
+## D-165 · Perf gate: first measurements and per-OS targets by share (F-025)
+2026-11-03 · F-025 builder, recorded by the orchestrator · active
+- Decision: tests/perf/budgets.json per_os memory targets come from dispatch run 41742947222 (release build, every process by share), measurement +10 % rounded up to the next 10 MB: macOS idle_rss_mb 80.39 → 90, rss_300_slides_mb 345.82 (after the 5 s settle) → 390; Windows 75.8 → 90, 150.88 → 170; Linux 460/500 as specced. macOS ttft_overhead_ms per_os 42 ms (38, the larger of 35/38, +10 %); Linux and Windows keep 20 ms. No Windows per_os idle_cpu_pct: F-180 cut the WebView2 baseline (D-164; CI 0.16-0.21 %).
+- First measurements (green CI run 41762048574, 43dbd0d): Linux 413.24 / 451.41 MB, idle CPU 0.02 %, ttft 16 ms, cold_open 778 ms (REPORT); macOS 78.55 / 315.58 MB, 0.17 %, ttft 47 ms (passes through the --ci ×1.5 allowance); Windows 75.75 / 148.39 MB, 0.16 %, ttft 9.9 ms.
+- ttft quantisation check: macOS waits 16-34 ms for a frame per ask against a 17 ms frame interval (at least one whole frame every time), Linux 1-14 ms, Windows < 1 ms; to-page is 6-27 ms everywhere. The macOS extra is one systematic WebKit frame, so the target includes it.
+- Why: D-161's rule (measurement + 10 %, next 10 MB) applied to one counting method on all three OSes.
+- Instead of: the earlier mixed-method targets (macOS 170/710, Windows 120/200 MB); subtracting the frame from macOS ttft.
+- Revisit if: macOS ttft keeps rising (36, 44, 47 ms in later runs; Q-025), or run 41742947222's raw report is needed (it isn't saved in .evidence/F-025/).
+

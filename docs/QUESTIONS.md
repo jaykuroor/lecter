@@ -166,5 +166,17 @@ How should the memory rule change, and which card fixes idle CPU, so F-025's per
 - Recommended: (1) count every process by its proportional share (Linux PSS, macOS phys_footprint, Windows private working set) in criterion 6, 14-quality#performance-budgets and D-146; keep Linux 460/500; re-derive macOS and Windows targets the same way (reviewer's estimate: Windows ~80 / ~170, macOS ~90 / ~620, with the macOS 300-slide sample taken after the settle); RSS of all stays as an info line. (2) A new M0.5 idle-redraw card (second source after F-029), F-025 depending on it; F-025 first adds per-thread CPU time series and in-page rAF/MutationObserver/animation counters to the idle run so the card starts from a known cause. (3) A per-OS macOS ttft_overhead_ms target (measurement + 10 %), after checking the measure's one-frame quantisation. (4) If the WebView2 idle baseline can't be cut, a per-OS Windows idle_cpu_pct target.
 - Answer: follow the recommendation (maintainer 2026-11-03, D-161): (1) count every process by share, Linux 460/500, re-derive macOS/Windows; (2) F-025 adds the idle attribution first, then a new M0.5 idle-redraw card that F-025 depends on; (3) per-OS macOS ttft target, and a per-OS Windows idle CPU target if the WebView2 baseline can't be cut. For the planning session to apply.
 
+## Q-025 · later · blocks: nothing
+Should the macOS ttft_overhead_ms target (42 ms, D-165) be re-measured?
+- Context: macOS ttft across 5 CI runs: 31-39, 35/38, 36, 44, 47 ms. The latest passes only through the --ci ×1.5 allowance (limit 63). Each ask waits at least one 17 ms WebKit frame.
+- Recommended: keep 42 ms; re-measure if two consecutive main runs need the allowance.
+- Answer:
+
+## Q-026 · later · blocks: nothing
+The macOS mocked-core keystroke check (keystroke_p99_ms 12 ms, Playwright) failed in 3 of 5 CI runs (34.2/23.3, 16.3/16.3, 17.9/16.5). The spec allows no per_os target for keystroke. Should it get one, or run only on Linux?
+- Context: F-025 attempt 1 of dispatch 41762048574 failed on it and passed on re-run. The nightly perf job on macOS (F-174) will often be red.
+- Recommended: gate the mocked-core keystroke check on Linux and report it on macOS/Windows (runner noise, mocked core); decide in planning before F-174.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

@@ -22,5 +22,6 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - `:find` finds hits again after the course's cache folder is deleted while Lecter is open (CI-f9e26bc)
 - The caret stops blinking 10 s after you stop typing (and never blinks with reduced motion on), so an open lecture uses no CPU while idle; clicking a slide line now puts the cursor on that line (F-029)
 - An open lecture left idle no longer keeps the CPU busy: the editor's hidden text caret stops blinking 9 s after your last key or click (F-180)
+- Performance budgets (speed, memory, size) now gate every push on Linux, macOS and Windows, counting each process's memory by its fair share (F-025)
 - The app window and the first lecture appear sooner after launch, and the app logs how long each startup step took (F-179)
 
