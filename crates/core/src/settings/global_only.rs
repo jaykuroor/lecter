@@ -12,7 +12,8 @@ use serde_json::Value;
 const GLOBAL_GROUPS: [&str; 3] = ["privacy", "log", "limits"];
 
 /// Words in a key segment that make it name a network destination.
-const DESTINATION_WORDS: [&str; 9] = ["url", "urls", "baseurl", "uri", "host", "hosts", "hostname", "endpoint", "endpoints"];
+const DESTINATION_WORDS: [&str; 9] =
+    ["url", "urls", "baseurl", "uri", "host", "hosts", "hostname", "endpoint", "endpoints"];
 
 /// Whether a course may never set `key` (dotted, as written in the file). Case-insensitive, so
 /// `"Privacy"` can't slip past as a different key.
