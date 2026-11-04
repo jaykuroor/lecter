@@ -1029,7 +1029,7 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3026,
    "base": "36b7219a861db94d0895306b6f09774ff2960efa"

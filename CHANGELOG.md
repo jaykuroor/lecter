@@ -26,4 +26,5 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - The walking skeleton (open a course, parse slides, edit, restart, search, ask, see a plot) is tested end to end in the real app on Linux, macOS and Windows (F-026)
 - The app window and the first lecture appear sooner after launch, and the app logs how long each startup step took (F-179)
 - Settings live in JSONC files (global and per course) and apply as soon as you save them; a course folder can't change your privacy, logging, limits or spend caps (F-030)
+- Lecter keeps its settings, data and cache in stable "lecter" folders on Linux, macOS and Windows, and knows when it is starting for the first time (F-031)
 

@@ -1046,3 +1046,17 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: criterion 4 (apply within 1 s, rename-style saves included); read events caused a reload loop that mutation testing found. Dep-Added trailers on F-030 commits; check_deps OK (the proptest trailer cites D-021; it means D-028).
 - Instead of: polling (no polling, AGENTS.md); watching the files themselves (lost on rename).
 - Revisit if: a `.lecter/` created after the watcher starts must apply live (review minor).
+
+## D-176 · Global folders derive from an Identity value (F-031)
+2026-11-04 · F-031 builder, recorded by the orchestrator · active
+- Decision: `identity::{KEYCHAIN_SERVICE = "lecter", Identity, CURRENT}`; `AppDirs::derive(&Identity, os, base)` builds the folders and `for_os` uses CURRENT. Folder and keychain names come from the stable dir name "lecter", never the app identifier. Linux keeps the `directories` crate's config base, which already applies an absolute $XDG_CONFIG_HOME.
+- Why: APP_ID is a compile-time constant; passing the identity in is the only way a test can change it and show nothing moves. The child-process test proves the real XDG handling.
+- Instead of: rebuilding with another tauri.conf.json; duplicating the XDG rules.
+- Revisit if: the app id or folder name ever changes (F-032's migration hook).
+
+## D-177 · First run means `<config>/config.jsonc` is missing (F-031)
+2026-11-04 · F-031 builder, recorded by the orchestrator · active
+- Decision: `AppDirs::run_state()` returns FirstRun only when looking up `<config>/config.jsonc` gives NotFound (a dangling symlink counts as missing, as the settings read it); any other error (permission denied) counts as Returning. It only reads metadata.
+- Why: the settings watcher creates the config folder on every start (D-175), so the folder's existence says nothing; a broken setup must not be treated as a new one.
+- Instead of: checking whether the config folder exists.
+- Revisit if: onboarding (F-160) needs another signal; it must write config.jsonc when onboarding ends or is skipped.
