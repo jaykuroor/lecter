@@ -8,6 +8,7 @@ pub const COMMANDS: &[&str] = &[
     "app_info",
     "app_mark_startup",
     "course_open",
+    "course_trust",
     "lecture_open",
     "lecture_apply_edits",
     "search_find",

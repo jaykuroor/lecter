@@ -18,7 +18,8 @@ use super::session::{OpenLectures, OpenedCourses};
 /// edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
 /// file E_NOT_FOUND and a link out of the course E_NOT_TRUSTED. Opening a lecture saves and
 /// closes the one open before it. The opened lecture's blocks are then indexed for `:find`, in
-/// the background (F-022).
+/// the background (F-022), unless the course is read-only or not trusted (SEC-27): notes open
+/// either way.
 #[tauri::command]
 #[specta::specta]
 pub async fn lecture_open(
@@ -30,7 +31,8 @@ pub async fn lecture_open(
 ) -> Result<Lecture, IpcError> {
     let lecture = open(&courses, &lectures, course.clone(), path).await?;
     // Not awaited: search_find indexes the open lectures itself, so nothing depends on it.
-    drop(index_in_background(&indexes, course, lecture.path.clone(), lecture.text.clone()));
+    let trust = courses.trust().clone();
+    drop(index_in_background(&indexes, trust, course, lecture.path.clone(), lecture.text.clone()));
     Ok(lecture)
 }
 
@@ -130,6 +132,7 @@ pub fn close_all(lectures: &OpenLectures) {
 mod tests {
     #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
 
+    use lecter_core::course::trust::TrustStore;
     use lecter_core::testenv::TestEnv;
 
     use super::*;
@@ -173,8 +176,8 @@ mod tests {
     fn opens_a_lecture_of_an_opened_course() {
         let env = TestEnv::new().unwrap_or_else(|e| panic!("{e}"));
         let path = course(&env);
-        let courses = OpenedCourses::default();
-        courses.remember(&path);
+        let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+        courses.remember(&path, "");
         let lecture =
             call(&OpenLectures::default(), &courses, &path, "lectures/l07.md").unwrap_or_else(|e| panic!("{e:?}"));
         assert_eq!(lecture, Lecture { path: "lectures/l07.md".into(), name: "l07.md".into(), text: TEXT.into() });
@@ -186,8 +189,8 @@ mod tests {
     fn a_course_not_opened_this_session_is_refused() {
         let env = TestEnv::new().unwrap_or_else(|e| panic!("{e}"));
         let path = course(&env);
-        let courses = OpenedCourses::default();
-        courses.remember(&format!("{path}-other"));
+        let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+        courses.remember(&format!("{path}-other"), "");
         let lectures = OpenLectures::default();
         let e = call(&lectures, &courses, &path, "lectures/l07.md").err().unwrap_or_else(|| panic!("opened"));
         assert_eq!((e.code, e.message.as_str()), (ErrorCode::InvalidArgument, "Open the course before its lectures."));
@@ -202,8 +205,8 @@ mod tests {
     fn core_errors_reach_the_ui_with_their_codes() {
         let env = TestEnv::new().unwrap_or_else(|e| panic!("{e}"));
         let path = course(&env);
-        let courses = OpenedCourses::default();
-        courses.remember(&path);
+        let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+        courses.remember(&path, "");
         let lectures = OpenLectures::default();
         let e = call(&lectures, &courses, &path, "lectures/l09.md").err().unwrap_or_else(|| panic!("opened"));
         assert_eq!((e.code, e.message.as_str()), (ErrorCode::NotFound, "lectures/l09.md no longer exists."));
@@ -222,8 +225,8 @@ mod tests {
     fn edits_go_to_the_open_lecture_and_quit_saves_them() {
         let env = TestEnv::new().unwrap_or_else(|e| panic!("{e}"));
         let path = course(&env);
-        let courses = OpenedCourses::default();
-        courses.remember(&path);
+        let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+        courses.remember(&path, "");
         let lectures = OpenLectures::default();
         call(&lectures, &courses, &path, "lectures/l07.md").unwrap_or_else(|e| panic!("{e:?}"));
         edit(&lectures, &courses, &path, "lectures/l07.md", insert(0, "% mine\n")).unwrap_or_else(|e| panic!("{e:?}"));
@@ -238,8 +241,8 @@ mod tests {
     fn editing_a_lecture_that_is_not_open_is_refused() {
         let env = TestEnv::new().unwrap_or_else(|e| panic!("{e}"));
         let path = course(&env);
-        let courses = OpenedCourses::default();
-        courses.remember(&path);
+        let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+        courses.remember(&path, "");
         let e = edit(&OpenLectures::default(), &courses, &path, "lectures/l07.md", insert(0, "x"))
             .err()
             .unwrap_or_else(|| panic!("edited"));
@@ -252,8 +255,8 @@ mod tests {
     fn opening_another_lecture_saves_and_closes_the_first() {
         let env = TestEnv::new().unwrap_or_else(|e| panic!("{e}"));
         let path = course(&env);
-        let courses = OpenedCourses::default();
-        courses.remember(&path);
+        let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+        courses.remember(&path, "");
         let lectures = OpenLectures::default();
         call(&lectures, &courses, &path, "lectures/l07.md").unwrap_or_else(|e| panic!("{e:?}"));
         edit(&lectures, &courses, &path, "lectures/l07.md", insert(0, "x")).unwrap_or_else(|e| panic!("{e:?}"));

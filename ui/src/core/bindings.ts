@@ -10,7 +10,8 @@ export const commands = {
 	 *  Asks `question` about block `block` (`s3b2`) of the open lecture `path` of `course` and returns
 	 *  the new gloss's id; the answer streams on `on_event`. A course not opened this session, a
 	 *  lecture not open, a malformed block id, an empty question or one over 16 KB is
-	 *  E_INVALID_ARGUMENT; a block the lecture doesn't have is E_NOT_FOUND.
+	 *  E_INVALID_ARGUMENT; a course that is read-only or not trusted is E_NOT_TRUSTED; a block the
+	 *  lecture doesn't have is E_NOT_FOUND.
 	 */
 	glossRequest: (course: string, path: string, block: string, question: string, onEvent: Channel<GlossStream_Deserialize>) => typedError<string, IpcError_Serialize>(__TAURI_INVOKE("gloss_request", { course, path, block, question, onEvent })),
 	/**
@@ -32,20 +33,29 @@ export const commands = {
 	appMarkStartup: (paint: StartupPaint) => __TAURI_INVOKE<void>("app_mark_startup", { paint }),
 	/**
 	 *  Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
-	 *  listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
-	 *  never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
-	 *  The course is remembered for this session, so its lectures can be opened.
+	 *  listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
+	 *  comes from the dialog, never from the UI (SEC-32, SEC-35). A file linked out of the course
+	 *  fails with E_NOT_TRUSTED. The course is remembered for this session, so its lectures can be
+	 *  opened and its trust question answered.
 	 */
 	courseOpen: () => typedError<({
-	trust: Trust,
+	trust: TrustState,
+	screen: TrustScreen,
 }) & (CourseListing) | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
+	/**
+	 *  Answers the trust screen of `course` (a course `course_open` returned this session) with
+	 *  `choice`: Trust, or Open read-only. The answer is stored in `trusted.jsonc` with the AI files
+	 *  the screen showed; if they changed since, the result asks again with the new screen.
+	 */
+	courseTrust: (course: string, choice: TrustChoice) => typedError<CourseTrusted, IpcError_Serialize>(__TAURI_INVOKE("course_trust", { course, choice })),
 	/**
 	 *  Opens `path` (`lectures/<name>.md`, relative to the course) in `course`, which must be a
 	 *  course `course_open` returned this session, and returns the whole file with any journal
 	 *  edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
 	 *  file E_NOT_FOUND and a link out of the course E_NOT_TRUSTED. Opening a lecture saves and
 	 *  closes the one open before it. The opened lecture's blocks are then indexed for `:find`, in
-	 *  the background (F-022).
+	 *  the background (F-022), unless the course is read-only or not trusted (SEC-27): notes open
+	 *  either way.
 	 */
 	lectureOpen: (course: string, path: string) => typedError<Lecture, IpcError_Serialize>(__TAURI_INVOKE("lecture_open", { course, path })),
 	/**
@@ -58,7 +68,8 @@ export const commands = {
 	/**
 	 *  The hits for the words of `query` in the blocks of the lectures opened in `course` (a course
 	 *  `course_open` returned this session), best BM25 score first, at most 50. A query over 1 KB is
-	 *  E_INVALID_ARGUMENT; one with no words finds nothing.
+	 *  E_INVALID_ARGUMENT; one with no words finds nothing. A course that is read-only or not trusted
+	 *  has no index: E_NOT_TRUSTED (SEC-27).
 	 */
 	searchFind: (course: string, query: string) => typedError<FindHit[], IpcError_Serialize>(__TAURI_INVOKE("search_find", { course, query })),
 };
@@ -92,11 +103,22 @@ export type CourseListing = {
 
 /**
  *  `course_open`'s result: the folder the user picked, its listing (the same JSON the
- *  command-line harness prints for `course open`) and whether trust is still to be asked.
+ *  command-line harness prints for `course open`), where its trust stands, and what its trust
+ *  screen shows.
  */
 export type CourseOpened = {
-	trust: Trust,
+	trust: TrustState,
+	screen: TrustScreen,
 } & CourseListing;
+
+/**
+ *  `course_trust`'s result: where the course's trust stands after the answer, and its screen as
+ *  it is now (asked again, with `changed`, when its AI files changed while the screen was open).
+ */
+export type CourseTrusted = {
+	trust: TrustState,
+	screen: TrustScreen,
+};
 
 /**
  *  One edit from the buffer: replace `from..to` with `text`. Positions are UTF-16 code units
@@ -263,8 +285,45 @@ export type StartupPaint =
 /**  The first lecture opened this session is on screen in the buffer. */
 "buffer_first_paint";
 
-/**  Whether the folder-trust question (02-course-folder.md#trust) still has to be asked. */
-export type Trust = "ask" | "trusted";
+/**  The user's answer on the trust screen. */
+export type TrustChoice = 
+/**  Full features. */
+"trusted" | 
+/**  Notes and slides only: no AI, no figures with scripts, no indexing. */
+"read_only";
+
+/**  What the trust screen shows. Paths are course-relative with `/` separators. */
+export type TrustScreen = {
+	/**  Lecture files in `lectures/`. */
+	lectures: number,
+	/**  Slide files in `slides/`. */
+	slides: number,
+	/**  Files in `sources/` and its subfolders (textbooks, papers, past exams). */
+	sources: number,
+	/**  The provider that receives excerpts of the course. */
+	provider: string,
+	/**  Whether answers may search the web (`ai.webSearch` is not `off` for this course). */
+	web_search: boolean,
+	/**  The course's `AGENTS.md`, if it has one. */
+	agents: string[],
+	/**  Role files: `.lecter/agents/<role>.md`. */
+	roles: string[],
+	/**  Skills: `.lecter/skills/<name>`. */
+	skills: string[],
+	/**  The settings `.lecter/course.jsonc` overrides, as dotted keys. */
+	overrides: string[],
+	/**  The question is asked again because the files above changed since the last answer. */
+	changed: boolean,
+};
+
+/**  Where a course stands: the question still to ask, or the answer in force. */
+export type TrustState = 
+/**  No answer for this path, or the course's AI files changed since: show the trust screen. */
+"ask" | 
+/**  Trusted as the course is now. */
+"trusted" | 
+/**  Opened read-only as the course is now. */
+"read_only";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
@@ -303,6 +362,11 @@ export type Commands = {
     args: Record<string, never>;
     result: CommandOk<Awaited<ReturnType<typeof commands.courseOpen>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.courseOpen>>>;
+  };
+  course_trust: {
+    args: { course: Parameters<typeof commands.courseTrust>[0]; choice: Parameters<typeof commands.courseTrust>[1] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.courseTrust>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.courseTrust>>>;
   };
   lecture_open: {
     args: { course: Parameters<typeof commands.lectureOpen>[0]; path: Parameters<typeof commands.lectureOpen>[1] };

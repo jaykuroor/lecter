@@ -43,8 +43,18 @@ fn main() {
     let lectures = ipc::session::OpenLectures::default();
     // The running gloss streams; quitting stops them (F-023).
     let glosses = ipc::ai::Glosses::default();
+    // Folder trust answers live in the config folder's trusted.jsonc (F-033). Resolving the
+    // folders only reads the environment; without a home there is nowhere to keep anything.
+    let dirs = match lecter_core::paths::AppDirs::resolve() {
+        Ok(dirs) => dirs,
+        Err(e) => {
+            eprintln!("Lecter could not start: {e}");
+            std::process::exit(1);
+        }
+    };
+    let trust = lecter_core::course::trust::TrustStore::new(&dirs);
     let built = builder
-        .manage(ipc::session::OpenedCourses::default())
+        .manage(ipc::session::OpenedCourses::new(trust))
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())
