@@ -16,6 +16,8 @@ export const SECONDS: Record<string, Record<string, number>> = {
   linux: {
     "cold-open": 271,
     idle: 129,
+    // F-026's estimate (the flow builds lecter-harness first) until a run measures it.
+    skeleton: 90,
     gloss: 11,
     figure: 10,
     ime: 9,
@@ -28,6 +30,7 @@ export const SECONDS: Record<string, Record<string, number>> = {
   },
   darwin: {
     idle: 129,
+    skeleton: 90,
     gloss: 12,
     figure: 10,
     ime: 10,
@@ -41,6 +44,7 @@ export const SECONDS: Record<string, Record<string, number>> = {
   },
   win32: {
     idle: 131,
+    skeleton: 90,
     gloss: 13,
     figure: 12,
     ime: 7,
