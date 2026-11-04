@@ -18,3 +18,4 @@ Applies to every crate. Crate-specific rules are in each crate's `CLAUDE.md`.
 ## Learned
 - Bumping `rust-toolchain.toml` → the next cargo call makes rustup download that toolchain, which needs network to static.rust-lang.org (F-010)
 - Clippy uses the nearest `clippy.toml` above a crate's manifest and never merges it with the root one; an unresolvable disallowed path warns only in crates that depend on its crate (F-014)
+- In the Claude Code sandbox a C build (libsqlite3-sys, bundled) fails with "ccache: Read-only file system" because Fedora's `cc` is the ccache wrapper: prefix cargo with `CCACHE_DISABLE=1` (F-032)

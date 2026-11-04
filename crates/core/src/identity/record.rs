@@ -29,16 +29,31 @@ pub(super) fn open(path: &Path) -> rusqlite::Result<Connection> {
 /// of them "busy" at once rather than waiting; that one waits for the other's write lock (which
 /// does wait, up to the busy timeout) and tries again, by when the file is in WAL already.
 fn wal(conn: &Connection) -> rusqlite::Result<()> {
-    let mut tries = 0;
-    loop {
+    retry_busy(
+        WAL_RETRIES,
         // `journal_mode` answers with the mode it set, so it is read as a query.
-        match conn.query_row("PRAGMA journal_mode = WAL", [], |r| r.get::<_, String>(0)) {
-            Ok(_) => return Ok(()),
-            Err(e) if tries < 3 && e.sqlite_error_code() == Some(rusqlite::ErrorCode::DatabaseBusy) => {
-                tries += 1;
-                conn.execute_batch("BEGIN IMMEDIATE; ROLLBACK;")?;
+        || conn.query_row("PRAGMA journal_mode = WAL", [], |r| r.get::<_, String>(0)).map(drop),
+        || conn.execute_batch("BEGIN IMMEDIATE; ROLLBACK;"),
+    )
+}
+
+/// How often the WAL switch is retried after answering "busy".
+const WAL_RETRIES: u32 = 3;
+
+/// Runs `op`; each time it answers "busy", runs `wait` and tries again, at most `retries` times.
+fn retry_busy<T>(
+    retries: u32,
+    mut op: impl FnMut() -> rusqlite::Result<T>,
+    mut wait: impl FnMut() -> rusqlite::Result<()>,
+) -> rusqlite::Result<T> {
+    let mut left = retries;
+    loop {
+        match op() {
+            Err(e) if left > 0 && e.sqlite_error_code() == Some(rusqlite::ErrorCode::DatabaseBusy) => {
+                left -= 1;
+                wait()?;
             }
-            Err(e) => return Err(e),
+            other => return other,
         }
     }
 }
@@ -76,4 +91,82 @@ pub(super) enum OnceError<E> {
     Db(rusqlite::Error),
     /// The work failed; nothing was recorded.
     Work(E),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+
+    use rusqlite::ffi;
+
+    use super::retry_busy;
+
+    fn err(code: i32) -> rusqlite::Error {
+        rusqlite::Error::SqliteFailure(ffi::Error::new(code), None)
+    }
+
+    /// An op that answers each code in turn (0 = success); returns its result, calls and waits.
+    fn run(codes: &[i32], retries: u32) -> (rusqlite::Result<u8>, usize, usize) {
+        let (calls, waits) = (Cell::new(0), Cell::new(0));
+        let got = retry_busy(
+            retries,
+            || {
+                let code = codes[calls.get()];
+                calls.set(calls.get() + 1);
+                if code == 0 { Ok(7) } else { Err(err(code)) }
+            },
+            || {
+                waits.set(waits.get() + 1);
+                Ok(())
+            },
+        );
+        (got, calls.get(), waits.get())
+    }
+
+    fn code(r: rusqlite::Result<u8>) -> Option<rusqlite::ErrorCode> {
+        r.err().and_then(|e| e.sqlite_error_code())
+    }
+
+    #[test]
+    fn busy_answers_wait_and_retry_until_it_works() {
+        let (got, calls, waits) = run(&[ffi::SQLITE_BUSY, ffi::SQLITE_BUSY, 0], 3);
+        assert_eq!((got.ok(), calls, waits), (Some(7), 3, 2));
+        let (got, calls, waits) = run(&[0], 3);
+        assert_eq!((got.ok(), calls, waits), (Some(7), 1, 0));
+    }
+
+    #[test]
+    fn retries_stop_at_the_limit() {
+        let busy = [ffi::SQLITE_BUSY; 5];
+        let (got, calls, waits) = run(&busy, 3);
+        assert_eq!(code(got), Some(rusqlite::ErrorCode::DatabaseBusy));
+        assert_eq!((calls, waits), (4, 3));
+        let (got, calls, waits) = run(&busy, 0);
+        assert_eq!(code(got), Some(rusqlite::ErrorCode::DatabaseBusy));
+        assert_eq!((calls, waits), (1, 0));
+    }
+
+    #[test]
+    fn other_errors_are_not_retried() {
+        for c in [ffi::SQLITE_NOTADB, ffi::SQLITE_LOCKED, ffi::SQLITE_IOERR, ffi::SQLITE_CANTOPEN] {
+            let (got, calls, waits) = run(&[c, 0], 3);
+            assert_eq!(code(got), Some(ffi::Error::new(c).code), "{c}");
+            assert_eq!((calls, waits), (1, 0), "{c}");
+        }
+    }
+
+    #[test]
+    fn a_failing_wait_ends_the_retries_with_its_error() {
+        let calls = Cell::new(0);
+        let got: rusqlite::Result<u8> = retry_busy(
+            3,
+            || {
+                calls.set(calls.get() + 1);
+                Err(err(ffi::SQLITE_BUSY))
+            },
+            || Err(err(ffi::SQLITE_IOERR)),
+        );
+        assert_eq!(code(got), Some(rusqlite::ErrorCode::SystemIoFailure));
+        assert_eq!(calls.get(), 1);
+    }
 }
