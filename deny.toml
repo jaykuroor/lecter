@@ -7,6 +7,12 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+# Reviewed by the maintainer 2026-11-04 (D-169): "unmaintained" notices, not vulnerabilities, for
+# build-time-only proc-macro helpers pulled in transitively, with no maintained upgrade path.
+ignore = [
+  { id = "RUSTSEC-2024-0436", reason = "paste: unmaintained proc-macro, build-time only, via specta (IPC bindings); revisit when specta drops it" },
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: unmaintained proc-macro, build-time only, via glib-macros in Tauri's gtk3 stack (Linux); revisit when Tauri leaves gtk-rs 0.18" },
+]
 
 [licenses]
 version = 2
