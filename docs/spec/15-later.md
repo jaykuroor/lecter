@@ -10,6 +10,7 @@ Listed so the v0 design leaves room for them. An agent must not implement anythi
 - Board photos (paste, watched folder; later phone pairing by QR code).
 - More formats: ODP, Keynote (macOS export), Google Slides, Beamer source, Marp, reveal.js, Quarto, Typst, Jupyter, DjVu, old PPT via LibreOffice.
 - Floating terminal (`Ctrl /`) and the `lecter` CLI (`export`, `doubts`, `ask`).
+- Import someone else's course: a mode that scans their course files for anything unsafe before they are trusted (maintainer, M0.5 gate).
 - Symbolic CAS checks for steps; compare two providers side by side (`␣aM`).
 
 ## Later

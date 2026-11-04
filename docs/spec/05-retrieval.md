@@ -45,12 +45,12 @@ Concept map (free): definitions, theorems and their lecture ↔ book-section lin
 
 | Role | Tier 0 | Tier 1 | Tools | Web search |
 |---|---|---|---|---|
-| define (`K`) | yes | top 3 + exact glossary hit | `search_course` | inherit |
-| ask (`a`) | yes | top 5 | all read tools | inherit |
+| define (`t`) | yes | top 3 + exact glossary hit | `search_course` | inherit |
+| ask (`Enter`) | yes | top 5 | all read tools | inherit |
 | steps (`s`) | yes | top 3 + matching book section | read tools, `compute` | inherit |
-| example (`x`) | yes | top 3 | `compute`, `figure` | inherit |
-| doubt (`D`) | yes | top 5 | all read tools | inherit |
-| write (`>`) | yes | top 8 | all | inherit |
+| example (`'`) | yes | top 3 | `compute`, `figure` | inherit |
+| doubt (`q`) | yes | top 5 | all read tools | inherit |
+| write (`Tab`) | yes | top 8 | all | inherit |
 | gap finder (`␣ag`) | yes + concept map | top 5 | read tools | inherit |
 | revise session | yes | flags + doubts + past questions for the topic | read tools | inherit |
 

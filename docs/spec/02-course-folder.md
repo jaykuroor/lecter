@@ -30,7 +30,7 @@ Subfolder names are defaults. `course.jsonc` can point `slides`, `sources`, `lec
 - **Trust**: full features. **Open read-only**: notes and slides only; no AI, no figures with scripts, no indexing.
 - Trust is stored per absolute path and device in the global config (`trusted.jsonc`). Moving the folder asks again.
 - The trust screen also lists the course's own `AGENTS.md`, role files, skills and settings overrides. When any of them changes, trust is asked again. A course can't loosen global settings (`13-security.md` SEC-25), and the core enforces read-only (SEC-27).
-- Files outside the course folder are never read by the AI.
+- Files outside the course folder are never read by the AI, with one exception: a file or folder linked from `slides/` (for example a symlink to `~/Downloads/week3.pdf`) belongs to the course once the user trusts the folder. The trust screen lists such links, and opening a trusted course never skips or fails on them (D-167). Hidden files and Lecter's own `.lecter/` internals, and anything else that isn't course material, are never treated as slides or sources. Opening read-only keeps links listed but unread.
 
 ## Course details (`course.jsonc`)
 

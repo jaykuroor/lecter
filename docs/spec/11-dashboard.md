@@ -9,7 +9,7 @@ Opening a course without a lecture shows its dashboard: everything still owed fo
 | Up next | Next lecture number, Later items due before the next class (from the course card), "What it assumes" primer (fast model, cached until lectures change) | New lecture `␣fn`; open primer `↵` |
 | Open doubts | Doubts with `status` open or uncertain, newest first | Jump `↵`; resolve `x`; move to office hours `o` |
 | Office hours | `course.md` → Office hours + doubts with `status=office-hours` | Reorder `J/K`; copy list `yy`; mark asked `x` |
-| Flags | Every flag across lectures | Jump `↵`; unflag `mm`; add to revise `r` |
+| Flags | Every flag across lectures | Jump `↵`; unflag `m`; add to revise `r` |
 | Revise | `course.md` → Revise, oldest first | Start session `↵` |
 | Lectures | All lectures: date, title, counts of open doubts and flags | Open `↵`; rename `␣fR`; link slides |
 | Ask the course | Chat box for course-wide questions | Send `↵`; save answer to `course.md` → Notes `S` |

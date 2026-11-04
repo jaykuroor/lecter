@@ -46,7 +46,7 @@ Rules:
 
 - `src` uses letters for slide files in front-matter order (`A3` = first file, slide 3).
 - Every slide block is a bracketed span with an id. `.flag` marks a flagged block; a slide-level flag goes on the `.slide` div.
-- A gloss's first line is always the prompt (`**you asked:** …`) unless it is a note. Feedback for `R` is added as `**feedback:** …` under it.
+- A gloss's first line is always the prompt (`**you asked:** …`) unless it is a note. A gloss is saved with `draft=1` until the user keeps it (`10-keymap.md#on-a-gloss`); no `draft` attribute means kept, so older lectures keep every gloss. Closing a lecture deletes its drafts after the user confirms (D-168). Feedback for `r` is added as `**feedback:** …` under it.
 - Gloss kinds: `ask`, `steps`, `doubt`, `define`, `example`, `write`, `tidy`, `figure`, `source`, `later`. Doubts carry `status=open|answered|uncertain|resolved|office-hours`. Later items carry `due=YYYY-MM-DD`.
 - Thread replies are nested `.gloss` divs inside their parent, with `target=thread`.
 - Variants are stored in `.lecter/state.db`; the file holds the current variant only.

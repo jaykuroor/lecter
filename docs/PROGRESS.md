@@ -23,6 +23,8 @@
 <!-- LOG -->
 
 ## Log (newest first)
+### 2026-11-04 · plan · M0.5 gate notes, Q-012, Q-015, Q-018
+- plan: M0.5 gate keymap approved and applied. 10-keymap rewritten (Vim subset kept, given-up keys listed; Enter asks, s steps, q doubt, t define, ' example, = plot, Tab write, m/M flag, `.` repeats the last action; gloss keys Enter/r/-/=/</>; figure card 1/2/Esc/a; leader `␣a` keeps only g m f c; global shortcuts with Ctrl-p switcher, Alt-←/→ jump list); the same keys fixed in 05, 06, 09, 11, 12. Q-012 (D-167): 02#trust and SEC-35 let a trusted course open linked files; new F-047. Q-015 (D-168): 03#body gets `draft=1` (absent = kept), 10-keymap defines kept/unkept and the close prompt; new F-112 (M3). Q-018 (D-170): IME drop added to F-062. Also new F-048 (M1, ask moves from `a` to Enter, on own notes too) and F-075 (M2, global shortcuts). Edited todo cards F-037, F-041, F-062, F-066, F-067, F-095, F-101, F-102, F-103, F-143, F-162. 15-later notes the "scan someone else's course" idea. Next feature unchanged. Gate note not planned: `:find` skipping own notes stays with F-120 (M4). Watch out: lectures made before F-112 have no `draft`, so their glosses count as kept.
 ### 2026-11-03 · garden · M0.5 gate
 - garden: shard timings refreshed from run 41767214228 (idle 751/801/903 s, figure-frame, skeleton measured); mutants.py skips the generated bindings.ts; prewarm.ts no longer touches a torn-down page; Watch out condensed. verify --full: 25 of 26 pass, `cargo deny` advisories fail on `paste` and `proc-macro-error` (unmaintained, transitive, deny.toml is protected). Perf not re-measured (no GUI in the sandbox). Log has 39 entries: no archive yet. Folder Learned lists are within limits.
 ### 2026-11-03 · F-026 · done

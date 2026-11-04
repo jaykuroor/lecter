@@ -1210,7 +1210,9 @@
     "The engine SHALL support modes, multi-key sequences and counts, with bindings that depend on the focused element type.",
     "␣ SHALL open which-key with all groups after 300 ms.",
     "Bindings SHALL load from defaults then keymaps.jsonc; WHEN two bindings clash in one context THEN a warning SHALL list both.",
-    "Key handling SHALL never await the core; the keystroke_p99_ms budget SHALL hold on the 200-slide fixture."
+    "Key handling SHALL never await the core; the keystroke_p99_ms budget SHALL hold on the 200-slide fixture.",
+    "The default keymap SHALL keep only the Vim subset listed in 10-keymap.md#vim-subset-kept and SHALL NOT bind the given-up keys (s S q t T marks = Tab Enter-as-line-down R H M L #) to their Vim meaning.",
+    "WHEN the focus is a slide line or an own-note line THEN the Lecter keys of 10-keymap.md#on-a-slide-line SHALL resolve to the same command on both, and in insert mode they SHALL type text."
    ],
    "verify": [
     "pnpm -C ui exec vitest run src/keys",
@@ -1337,7 +1339,7 @@
    ],
    "acceptance": [
     "Ctrl/Cmd-Shift-P SHALL list every command with its key.",
-    "Ctrl/Cmd-K SHALL fuzzy-jump to courses, lectures, lists and sources."
+    "Ctrl/Cmd-P SHALL fuzzy-jump to courses, lectures, lists and sources (Ctrl/Cmd-K is not bound)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- palette"
@@ -1345,7 +1347,7 @@
    "evidence": [
     "screenshot:palette"
    ],
-   "try": "Press Ctrl-K and jump to a lecture by typing part of its name",
+   "try": "Press Ctrl-P and jump to a lecture by typing part of its name",
    "status": "todo",
    "notes": "",
    "priority": 3036
@@ -1920,7 +1922,8 @@
     "Slide blocks SHALL render KaTeX math (MathML output, trust false) and figures via lecter://.",
     "Blocks SHALL show confidence borders by tier, with a text badge on low confidence, per docs/design/components.md#block.",
     "Only visible blocks SHALL be rendered; the keystroke_p99_ms and rss_300_slides_mb budgets SHALL hold.",
-    "The XSS fixture set tests/fixtures/xss/ (SVG onload, javascript: link, KaTeX \\href, Mermaid click handler, raw HTML in slide text) SHALL render inert in slide blocks: no script runs, no request leaves and a CSP-violation listener stays silent (SEC-22, SEC-30)."
+    "The XSS fixture set tests/fixtures/xss/ (SVG onload, javascript: link, KaTeX \\href, Mermaid click handler, raw HTML in slide text) SHALL render inert in slide blocks: no script runs, no request leaves and a CSP-violation listener stays silent (SEC-22, SEC-30).",
+    "WHEN an input method commits text in normal mode THEN the editor SHALL drop it (slide lines stay read-only), via the D-140 inputHandler and keydown guard, asserted by tests/e2e/flows/ime.ts on each webview (D-170)."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- buffer",
@@ -2049,7 +2052,7 @@
     "crates/core/src/doc/flags*"
    ],
    "acceptance": [
-    "mm SHALL toggle a flag on the block and ms on the slide.",
+    "m SHALL toggle a flag on the block and M on the slide, on slide lines and own-note lines alike.",
     "Flags SHALL be stored as .flag in the lecture file and survive a restart."
    ],
    "verify": [
@@ -2058,7 +2061,7 @@
    "evidence": [
     "screenshot:flagged-block"
    ],
-   "try": "Flag a line with mm",
+   "try": "Flag a line with m",
    "status": "todo",
    "notes": "",
    "priority": 4058
@@ -2079,7 +2082,8 @@
    ],
    "acceptance": [
     "]f and [f SHALL jump between flags.",
-    "]d [d and ]g [g SHALL jump between doubts and glosses."
+    "]d [d and ]g [g SHALL jump between doubts and glosses.",
+    "Ctrl-j and Ctrl-k SHALL go to the next and previous slide (]] and [[ too), and Alt-Left and Alt-Right SHALL move back and forward in the jump list."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- jumps"
@@ -2831,10 +2835,10 @@
     "crates/ai/src/variants*"
    ],
    "acceptance": [
-    "r SHALL regenerate and R SHALL regenerate with feedback.",
+    "r SHALL regenerate; feedback SHALL be asked through the reply prompt.",
     "zg and zw SHALL rate the gloss, stored in state.db ratings.",
-    "g- and g+ SHALL switch between variants stored in state.db variants.",
-    "Ctrl-a and Ctrl-x SHALL ask for more or less detail."
+    "< and > SHALL switch between variants stored in state.db variants.",
+    "- and = SHALL ask for less or more detail."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- gloss-actions"
@@ -2842,7 +2846,7 @@
    "evidence": [
     "screenshot:gloss-variants"
    ],
-   "try": "On a gloss: r to regenerate, g- / g+ to switch versions, zg to rate",
+   "try": "On a gloss: r to regenerate, < / > to switch versions, zg to rate",
    "status": "todo",
    "notes": "",
    "priority": 5081
@@ -3015,7 +3019,7 @@
     "ui/src/features/doubts/**"
    ],
    "acceptance": [
-    "D SHALL park a doubt that runs in the background and shows its status.",
+    "q SHALL park a doubt that runs in the background and shows its status.",
     "A parked doubt SHALL survive an app restart and finish."
    ],
    "verify": [
@@ -3045,9 +3049,10 @@
     "crates/ai/src/roles/builtin*"
    ],
    "acceptance": [
-    "K SHALL define the terms in the line.",
-    "x SHALL give a worked example.",
-    "> SHALL write the requested text into a gloss."
+    "t SHALL define the terms in the line.",
+    "The apostrophe key SHALL give a worked example.",
+    "Tab SHALL write the requested text into a gloss.",
+    "= SHALL plot the line as a figure-only gloss."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- roles"
@@ -3076,7 +3081,7 @@
    ],
    "acceptance": [
     "gq SHALL tidy a note, keeping the original folded.",
-    "v…a SHALL ask about the selected text only.",
+    "v…Enter SHALL ask about the selected text only.",
     "␣ag SHALL ask about the whole slide."
    ],
    "verify": [
@@ -3916,7 +3921,7 @@
    ],
    "acceptance": [
     "propose_figure SHALL produce a card with kind, tier, token and time estimates.",
-    "y, 2, n and A, and their keycap buttons, SHALL act on the card."
+    "1, 2, Esc and a, and their keycap buttons, SHALL pick the first option, pick the second, skip and always allow this kind on the card."
    ],
    "verify": [
     "pnpm -C ui run test:e2e -- figure-ask"
@@ -4221,7 +4226,7 @@
     "ui/src/features/tutorial/**"
    ],
    "acceptance": [
-    "The checklist SHALL tick itself as each task is done: open slides, a, s, D, mm, ask about a figure, zg, open the dashboard.",
+    "The checklist SHALL tick itself as each task is done: open slides, Enter (ask), s, q (park a doubt), m (flag), ask about a figure, zg, open the dashboard.",
     "Each task SHALL show the click way and the key way."
    ],
    "verify": [
@@ -4923,6 +4928,160 @@
    "status": "done",
    "notes": "WIP 3cdecda: fix parks editor (caret blink). 3 commits unpushed. Next: idle shards of CI 41734804455 -> evidence idle-attribution.log, e2e-app.log; evidence.py check; verify; push; re-run CI.",
    "base": "e1ebd10bd118a3d1e484b8f683e4db37e3a1c7ab"
+  },
+  {
+   "id": "F-047",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "A trusted course opens its linked files",
+   "spec": [
+    "02-course-folder.md#trust",
+    "13-security.md#folder-access"
+   ],
+   "depends_on": [
+    "F-018",
+    "F-033"
+   ],
+   "paths": [
+    "crates/core/src/course/**",
+    "ui/src/features/trust/**",
+    "tests/e2e/flows/open-course*"
+   ],
+   "acceptance": [
+    "WHEN a trusted course has a link in slides/ to a file or folder outside the course folder THEN course_open SHALL list it as a slide source and SHALL NOT fail or skip it (D-167; supersedes the E_NOT_TRUSTED failure of D-106).",
+    "The trust screen SHALL list every link that leaves the course folder, and WHEN the user picks Open read-only THEN those links SHALL stay listed but never be read.",
+    "Hidden files and .lecter/ internals SHALL never be listed as slides or sources, including when a link points at one (fixture with a link into another course s .lecter/ and a dotfile).",
+    "WHEN a course is not yet trusted THEN no linked file outside it SHALL be read; only its name SHALL be shown on the trust screen.",
+    "AI file tools SHALL still reject every path outside the course root except a file reached through a listed slides/ link (property test with .., symlinks, UNC and Windows separators, SEC-35)."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core course",
+    "scripts/e2e-app.sh open-course --evidence F-047"
+   ],
+   "evidence": [
+    "screenshot:trust-links"
+   ],
+   "reviews": [
+    "security"
+   ],
+   "try": "Link a PDF from ~/Downloads into slides/ and open the course: the trust screen lists it and it opens",
+   "status": "todo",
+   "notes": "",
+   "priority": 8141
+  },
+  {
+   "id": "F-048",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "Ask with Enter on slide and own-note lines",
+   "spec": [
+    "10-keymap.md#on-a-slide-line",
+    "06-ai-harness.md#roles-built-in-defaults"
+   ],
+   "depends_on": [
+    "F-023",
+    "F-037"
+   ],
+   "paths": [
+    "ui/src/features/gloss/**",
+    "ui/src/keys/**",
+    "tests/e2e/flows/ask*"
+   ],
+   "acceptance": [
+    "WHEN Enter is pressed on a slide line in normal mode THEN the ask prompt SHALL open, and a typed question plus Enter SHALL stream a gloss under that line as F-023 did with a.",
+    "WHEN Enter is pressed on an own-note line THEN a gloss SHALL stream anchored to that note id and be saved per 03-lecture-files.md#body.",
+    "a SHALL no longer open ask: on a slide line it does nothing and on an own-note line it is Vim append.",
+    "The skeleton flow, the harness prompt command and every test or doc that pressed a to ask SHALL use Enter."
+   ],
+   "verify": [
+    "pnpm -C ui run test",
+    "scripts/e2e-app.sh skeleton --evidence F-048"
+   ],
+   "evidence": [
+    "screenshot:ask-enter"
+   ],
+   "try": "On a slide line or in your own note press Enter, type a question, press Enter again",
+   "status": "todo",
+   "notes": "",
+   "priority": 8142
+  },
+  {
+   "id": "F-075",
+   "milestone": "M2",
+   "kind": "feature",
+   "title": "Global shortcuts",
+   "spec": [
+    "10-keymap.md#global-os-conventions"
+   ],
+   "depends_on": [
+    "F-037",
+    "F-041",
+    "F-045",
+    "F-035",
+    "F-061",
+    "F-062"
+   ],
+   "paths": [
+    "ui/src/keys/global*",
+    "app/src/shortcuts*",
+    "tests/e2e/flows/shortcuts*"
+   ],
+   "acceptance": [
+    "Ctrl (macOS Cmd) with z, Shift-z or y, s, f, a, x, c, v SHALL undo, redo, save, find, select all, cut, copy and paste in every mode and element.",
+    "Ctrl/Cmd-w SHALL close the lecture, Ctrl/Cmd-o open, Ctrl/Cmd-n create a new lecture, Ctrl/Cmd-, open settings, Ctrl/Cmd-1 to 9 pick a course, Ctrl/Cmd-Shift-P open the palette and Ctrl/Cmd-p the switcher.",
+    "WHEN a global shortcut replaces a Vim meaning on Windows or Linux THEN the replacement SHALL work: Ctrl-Backspace deletes a word in insert, Esc leaves insert, v and V block-select, Alt-Left and Alt-Right move in the jump list; Ctrl-r stays redo.",
+    "The webview reload and zoom shortcuts SHALL be disabled in a release build.",
+    "Any clash found between a global shortcut and an element key SHALL be written to PROGRESS Watch out."
+   ],
+   "verify": [
+    "pnpm -C ui run test",
+    "scripts/e2e-app.sh shortcuts --evidence F-075"
+   ],
+   "evidence": [
+    "harness:shortcuts"
+   ],
+   "try": "Press Ctrl-Z in a note to undo, Ctrl-W to close the lecture, Ctrl-N for a new one",
+   "status": "todo",
+   "notes": "",
+   "priority": 8143
+  },
+  {
+   "id": "F-112",
+   "milestone": "M3",
+   "kind": "feature",
+   "title": "Unkept glosses and the close prompt",
+   "spec": [
+    "10-keymap.md#on-a-gloss",
+    "03-lecture-files.md#body"
+   ],
+   "depends_on": [
+    "F-094",
+    "F-075"
+   ],
+   "paths": [
+    "ui/src/features/gloss/drafts*",
+    "crates/core/src/doc/drafts*",
+    "app/src/ipc/lecture_close*",
+    "tests/e2e/flows/close-lecture*"
+   ],
+   "acceptance": [
+    "WHEN a gloss is created THEN it SHALL be saved with draft=1 and stay in the lecture until kept (D-168); a gloss stopped part-way SHALL stay a draft.",
+    "WHEN the user presses Enter on a draft, edits it, replies to it or rates it zg THEN draft=1 SHALL be removed.",
+    "WHEN a lecture with N unkept glosses is closed (Ctrl-w, tab close or app quit) THEN the app SHALL ask Closing deletes N unkept glosses and SHALL delete them only after confirm; WHEN cancelled THEN nothing SHALL change.",
+    "WHEN a lecture has no unkept glosses THEN closing it or quitting SHALL NOT ask.",
+    "WHEN the app is killed and reopened THEN unkept glosses SHALL still be there (journal replay), and a gloss without draft SHALL always count as kept."
+   ],
+   "verify": [
+    "cargo nextest run -p lecter-core drafts",
+    "scripts/e2e-app.sh close-lecture --evidence F-112"
+   ],
+   "evidence": [
+    "screenshot:close-prompt"
+   ],
+   "try": "Ask something, then close the lecture: it warns that the unkept answer will be deleted; press Enter on the answer first and it closes silently",
+   "status": "todo",
+   "notes": "",
+   "priority": 8144
   }
  ]
 }

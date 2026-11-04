@@ -14,20 +14,20 @@ Every gloss is a short agent run, like Claude Cowork or ChatGPT. The model reads
 
 | Key | Role | Model default | max_steps | Output style |
 |---|---|---|---|---|
-| `a` | ask | default-fast | 4 | Direct answer first, then detail |
+| `Enter` | ask | default-fast | 4 | Direct answer first, then detail |
 | `s` | steps | default-strong | 4 | Structured: numbered steps, each `{latex, reason}` |
-| `D` | doubt | default-fast | 4 | Background job; result appears when ready; sets `status` |
-| `K` | define | default-fast | 1 | ≤ 60 words per term |
-| `x` | example | default-fast | 2 | Worked example with numbers |
-| `>` | write | default-strong | 8 | Note written to the user's description |
+| `q` | doubt | default-fast | 4 | Background job; result appears when ready; sets `status` |
+| `t` | define | default-fast | 1 | ≤ 60 words per term |
+| `'` | example | default-fast | 2 | Worked example with numbers |
+| `Tab` | write | default-strong | 8 | Note written to the user's description |
 | `gq` | tidy | default-fast | 0 | Rewrite of the user's note; original kept |
-| `v…a` | selection ask | inherits `a` | 4 | Answer about the selection |
+| `v…Enter` | selection ask | inherits ask | 4 | Answer about the selection |
 | `␣ag` | gap finder | default-strong | 4 | Two short diagnostic questions, then explanation |
-| `␣ap` | plot | default-fast | 1 | Figure only |
+| `=` | plot | default-fast | 1 | Figure only |
 | — | revise | default-fast | 6 | Interactive session (`11-dashboard.md`) |
 | — | course chat | default-fast | 6 | "Ask the course" on the dashboard |
 
-`Ctrl-a` / `Ctrl-x` on a gloss regenerate at detail level +1 / −1 (levels 1–4 map to output caps of 150, 400, 900 and 1,800 tokens plus a style line in the prompt). `r` regenerates; `R` regenerates with feedback; `g-` / `g+` switch variants; `zg` / `zw` rate (with a reason picker on `zw`).
+`=` / `-` on a gloss regenerate at detail level +1 / −1 (levels 1–4 map to output caps of 150, 400, 900 and 1,800 tokens plus a style line in the prompt). `r` regenerates (feedback goes through the reply prompt); `<` / `>` switch variants; `zg` / `zw` rate (with a reason picker on `zw`).
 
 ## Tools
 

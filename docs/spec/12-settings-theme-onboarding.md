@@ -46,6 +46,6 @@ Lists every binding by context; rebind by pressing the new key; clash warnings; 
 7. **Tutorial course**: a bundled sample course, "Lecter 101", whose one lecture ("Taking notes with Lecter") teaches the app itself.
    - The lecture is a few slides of plain English, generated from Markdown at build time, with no course material and no maths.
    - Every AI answer in the tutorial is a canned placeholder labelled "Sample answer". The tutorial needs no provider, no key and no network.
-   - A checklist ticks itself as you go: open the slides, ask about a line with `a`, expand steps with `s`, park a doubt with `D`, flag with `mm`, ask about a figure, rate with `zg`, open the dashboard. Each task shows the click way and the key way.
+   - A checklist ticks itself as you go: open the slides, ask about a line with `Enter`, expand steps with `s`, park a doubt with `q`, flag with `m`, ask about a figure, rate with `zg`, open the dashboard. Each task shows the click way and the key way.
    - Real lecture files are never used as tutorial or sample content.
 8. **Your first course**: pick or create a folder, trust it, fill in details.

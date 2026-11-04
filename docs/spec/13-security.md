@@ -52,7 +52,7 @@ Every requirement below has an id (`SEC-nn`). Features cite the ids they impleme
 - **SEC-32 Every command validates its input in Rust** (`18-contracts.md#validation`): types, string lengths, list sizes, payload size (1 MB per call by default; larger data goes through `lecter://` or channels), path canonicalisation. The UI is never trusted.
 - **SEC-33 `lecter://` serves only the content-hash cache.** The handler accepts `lecter://cache/<blake3>.<ext>` and nothing else: no paths, no `..`, no other folders. The same rule holds for `lecter-fig:` (hash-named figure files only) and `lecter-lib:` (bundled, version-pinned libraries only); anything else gets a 404.
 - **SEC-34 Devtools are off in release builds.** The WebDriver plugin (`tauri-plugin-wdio-webdriver`) and the test hooks exist only in debug builds; CI checks release binaries for their symbols (`16-ci-cd.md`).
-- **SEC-35 Dropped and opened paths are validated:** canonicalised, must be a regular file or folder the user chose, symlinks resolved and re-checked against the course root.
+- **SEC-35 Dropped and opened paths are validated:** canonicalised, must be a regular file or folder the user chose, symlinks resolved and re-checked against the course root. A link from `slides/` that leaves the root is allowed only after the user trusts the course and its trust screen listed it (D-167); hidden files and `.lecter/` internals are never course content, and the AI file tools still reject every other path outside the root.
 - **SEC-36 Isolation pattern.** Decide in the walking skeleton whether to enable Tauri's isolation pattern (it adds an IPC hop per call; measure it against the keystroke budget) and record a D-entry.
 
 ## Secrets
