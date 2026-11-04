@@ -994,7 +994,7 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006. | Q-006 applied (D-143): ui.performance criterion added.",
    "priority": 3025,
    "reviews": [

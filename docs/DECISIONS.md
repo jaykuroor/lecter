@@ -1012,3 +1012,37 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: keeping codemirror-vim's one-character IME-as-key support.
 - Revisit if: users who type with an IME find Vim keys unreachable.
 
+## D-171 · Settings schema holds spec-given keys only; opt-in privacy is off (F-030)
+2026-11-04 · F-030 builder, recorded by the orchestrator · active
+- Decision: the Rust settings types (and settings.schema.json) hold only keys whose type and default the spec states: ai.*, budgets, figures.mode, parsing.vision, index.*, ui.performance, privacy.*, feedback.endpoint, log.content and two limits. privacy.shareFeedback and privacy.shareFeedbackText default to false, feedback.endpoint is unset, ai.budget.perLecture is unset (no cap).
+- Why: no invented defaults; 06-ai-harness calls feedback sharing "opted-in".
+- Instead of: guessing hintBar, theme or provider keys now.
+- Revisit if: a later card owns those keys (it adds them with their spec defaults).
+
+## D-172 · Settings files: nested keys, JSONC comments and trailing commas only, size caps (F-030)
+2026-11-04 · F-030 builder, recorded by the orchestrator · active
+- Decision: files nest keys; a dotted key name inside a file is unknown and is never read as a path. The dialect is JSONC (comments, trailing commas), not JSON5. Files are capped at 1 MiB, keys at 256 bytes, nesting at 512. Unknown keys are kept on write and reported once per store; a broken file keeps its last good values.
+- Why: the spec writes `settings.ai.webSearch`; one spelling closes a loophole; caps follow 13-security's untrusted-input rules.
+- Instead of: also accepting flat dotted keys; JSON5.
+- Revisit if: users hand-write dotted keys and expect them to work.
+
+## D-173 · SEC-25: global-only keys by group and destination word; course overrides may only tighten (F-030)
+2026-11-04 · F-030 builder, recorded by the orchestrator · active
+- Decision: a course file can't set privacy.*, log.*, limits.*, feedback.endpoint, or any key with a segment word url/uri/host/hostname/endpoint(s)/baseurl (any case), unknown groups included. Budgets may only be ≤ the global value (null, which removes the cap, is refused); webSearch and allowFetch can't turn on what global turns off; blockDomains must contain the global list; allowDomains must be a non-empty subset of it. The same rules apply to role layers. Ignored and loosening keys share one notice per file.
+- Why: SEC-25; a pattern catches misspellings an exact list would miss.
+- Instead of: an exact key list; checking budgets only.
+- Revisit if: provider or search-URL keys land (list or tag them explicitly; the word pattern misses names like `searxngurl`, review minor).
+
+## D-174 · course.jsonc must resolve inside the course (F-030)
+2026-11-04 · F-030 builder, recorded by the orchestrator · active
+- Decision: a `course.jsonc` that is a symlink, or sits in a `.lecter/` linked from elsewhere, is refused.
+- Why: SEC-35; a course must not pull settings from outside its folder.
+- Instead of: following links.
+- Revisit if: never planned.
+
+## D-175 · Settings live reload: notify on the folders, 50 ms quiet, 300 ms at most; F-030 dependencies (F-030)
+2026-11-04 · F-030 builder, recorded by the orchestrator · active
+- Decision: `notify` watches the config folder (created if missing) and `<course>/.lecter/`, ignores read events, and reloads after 50 ms of quiet or 300 ms at most. Dependencies: `schemars` (MIT, 0 new crates), `jsonc-parser` 0.34 with cst+serde (MIT, 1), `notify` 8.2.1 (CC0-1.0, 7), dev `proptest` with std (MIT/Apache-2.0, 5).
+- Why: criterion 4 (apply within 1 s, rename-style saves included); read events caused a reload loop that mutation testing found. Dep-Added trailers on F-030 commits; check_deps OK (the proptest trailer cites D-021; it means D-028).
+- Instead of: polling (no polling, AGENTS.md); watching the files themselves (lost on rename).
+- Revisit if: a `.lecter/` created after the watcher starts must apply live (review minor).
