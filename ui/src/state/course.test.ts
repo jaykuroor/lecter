@@ -89,6 +89,7 @@ describe("course state", () => {
     const s = state();
     await s.answer("trusted");
     expect(sent).toEqual([]);
+    expect(s.error()).toBeNull();
     await s.open();
     await s.answer("trusted");
     expect(sent[1]).toEqual(["course_trust", { course: "/courses/Algebra", choice: "trusted" }]);
@@ -113,6 +114,38 @@ describe("course state", () => {
     expect(s.error()).toBe("Lecter could not reach the core to save your answer.");
     expect(s.course()?.trust).toBe("ask");
     expect(s.busy()).toBe(false);
+  });
+
+  // One call at a time: no answer while the dialog is open, and the answer holds `busy` until the
+  // core replies; a saved answer clears the error of one that couldn't be saved.
+  it("answers once at a time and clears an earlier error", async () => {
+    let reply: (v: unknown) => void = () => {};
+    const sent: string[] = [];
+    const answers: unknown[] = [
+      algebra,
+      { code: "E_IO", message: "Lecter could not save your answer for this folder.", retryable: true },
+    ];
+    const w = window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } };
+    w.__TAURI_INTERNALS__.invoke = (cmd) => {
+      sent.push(cmd);
+      const a = answers.shift();
+      if (a === undefined) return new Promise((resolve) => (reply = resolve));
+      return "code" in (a as object) ? Promise.reject(a) : Promise.resolve(a);
+    };
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    expect(s.error()).toBe("Lecter could not save your answer for this folder.");
+    const pending = s.answer("read_only");
+    expect(s.busy()).toBe(true);
+    await s.answer("trusted");
+    await s.open();
+    expect(sent).toEqual(["course_open", "course_trust", "course_trust"]);
+    reply({ trust: "read_only", screen: trustScreen });
+    await pending;
+    expect(s.busy()).toBe(false);
+    expect(s.error()).toBeNull();
+    expect(s.course()?.trust).toBe("read_only");
   });
 
   it("reports a broken IPC bridge without losing the open course", async () => {

@@ -43,6 +43,21 @@ describe("CoursePanel", () => {
     expect(screen.queryByRole("region", { name: /^Course / })).toBeNull();
   });
 
+  // F-033: a course opened read-only says so beside its name; any other is just its name.
+  it("marks a read-only course beside its name", async () => {
+    for (const [trust, heading] of [
+      ["read_only", "STAT311 Read-only"],
+      ["trusted", "STAT311"],
+      ["ask", "STAT311"],
+    ] as const) {
+      installMockCore({ ...defaultFixture, courseOpen: { ...stat311, trust } });
+      fireEvent.click(mount());
+      const course = await screen.findByRole("region", { name: "Course STAT311" });
+      expect(within(course).getByRole("heading", { level: 2 }).textContent, trust).toBe(heading);
+      cleanup();
+    }
+  });
+
   it("lists the opened course's lectures and slides by name, in the core's order", async () => {
     installMockCore({ ...defaultFixture, courseOpen: stat311 });
     fireEvent.click(mount());

@@ -23,22 +23,24 @@ export function TrustScreen(props: {
   busy: boolean;
   onAnswer: (choice: TrustChoice) => void;
 }): JSX.Element {
-  let readOnly: HTMLButtonElement | undefined;
+  // Set by its `ref` during render, before any effect runs.
+  let readOnly!: HTMLButtonElement;
   // Focus moves to Open read-only once it can be pressed: the screen may appear while the open that
   // brought it is still finishing (busy, buttons disabled), and a disabled button takes no focus.
   let focused = false;
   createEffect(() => {
-    if (focused || props.busy || !readOnly) return;
+    if (focused || props.busy) return;
     focused = true;
     readOnly.focus();
   });
   // Enter and Space are handled here, not left to the browser's button activation: that runs only
   // for trusted key events, so a synthetic key (the embedded WebDriver, assistive tools) would do
-  // nothing. preventDefault stops a real keypress from also clicking.
+  // nothing. preventDefault stops a real keypress from also clicking. While an answer is saved
+  // both buttons are disabled, and Solid runs no handler of a disabled button.
   const keys = (choice: TrustChoice) => (e: KeyboardEvent) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    if (!props.busy) props.onAnswer(choice);
+    props.onAnswer(choice);
   };
   return (
     <section class="trust" role="dialog" aria-labelledby="trust-title" aria-describedby="trust-inside">

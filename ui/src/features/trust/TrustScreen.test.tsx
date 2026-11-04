@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { TrustScreen as Screen, TrustChoice } from "../../core/course";
 import { count, inside } from "./summary";
@@ -76,10 +77,31 @@ describe("the trust screen", () => {
     expect(document.activeElement).toBe(readOnly);
     fireEvent.click(trust);
     fireEvent.click(readOnly);
-    fireEvent.keyDown(readOnly, { key: "Enter" });
-    fireEvent.keyDown(trust, { key: " " });
-    fireEvent.keyDown(trust, { key: "a" });
+    expect(answers).toEqual(["trusted", "read_only"]);
+    // Each key on its own: Enter and Space answer, and keep the browser from clicking as well
+    // (fireEvent returns false when the default was prevented); any other key does nothing.
+    expect(fireEvent.keyDown(readOnly, { key: "Enter" })).toBe(false);
+    expect(answers).toEqual(["trusted", "read_only", "read_only"]);
+    expect(fireEvent.keyDown(trust, { key: " " })).toBe(false);
     expect(answers).toEqual(["trusted", "read_only", "read_only", "trusted"]);
+    expect(fireEvent.keyDown(trust, { key: "a" })).toBe(true);
+    expect(answers).toEqual(["trusted", "read_only", "read_only", "trusted"]);
+  });
+
+  // Focus goes to Open read-only once, when it can first be pressed; later saves don't pull it
+  // back from where the user moved it.
+  it("focuses Open read-only once it is enabled, and only once", () => {
+    const [busy, setBusy] = createSignal(true);
+    render(() => <TrustScreen name="STAT311" path="/c/STAT311" screen={full} busy={busy()} onAnswer={() => {}} />);
+    const readOnly = screen.getByRole("button", { name: "Open read-only" });
+    const trust = screen.getByRole("button", { name: "Trust" });
+    expect(document.activeElement).not.toBe(readOnly);
+    setBusy(false);
+    expect(document.activeElement).toBe(readOnly);
+    trust.focus();
+    setBusy(true);
+    setBusy(false);
+    expect(document.activeElement).toBe(trust);
   });
 
   it("takes no second answer while one is being saved", () => {

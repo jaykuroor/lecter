@@ -49,7 +49,8 @@ export function createCourse(): CourseState {
       const result = await answerTrust(current.path, choice);
       if (result.status === "error") {
         setError(result.error.message);
-      } else if (course()?.path === current.path) {
+      } else {
+        // `open` waits while busy, so the course is still `current`.
         setCourse({ ...current, trust: result.data.trust, screen: result.data.screen });
         setError(null);
       }
