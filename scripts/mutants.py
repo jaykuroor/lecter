@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / ".verify" / "mutants"
 UI_SRC = re.compile(r"^ui/src/.*\.(ts|tsx)$")
 UI_TEST = re.compile(r"\.(test|spec)\.(ts|tsx)$|/__tests__/|/e2e/")
+# Generated from the Rust commands; `export-bindings --check` (bindings-stale) is its test (D-101 trial, F-017).
+UI_GENERATED = re.compile(r"^ui/src/core/bindings\.ts$")
 SURVIVED_UI = ("Survived", "NoCoverage")
 
 def run_capped(cmd, seconds, cwd, env=None):
@@ -112,10 +114,10 @@ def ui_survivors(base, seconds, full):
     if not (ROOT / "ui" / "node_modules" / "@stryker-mutator" / "core").exists():
         return [], 0, 0
     if full:
-        targets = ["src/**/*.ts", "src/**/*.tsx", "!src/**/*.test.ts", "!src/**/*.test.tsx"]
+        targets = ["src/**/*.ts", "src/**/*.tsx", "!src/**/*.test.ts", "!src/**/*.test.tsx", "!src/core/bindings.ts"]
     else:
         ranges = changed_ranges(git(ROOT, "diff", "-U0", base, "--", "ui/src").stdout)
-        targets = [f"{p[3:]}:{a}-{b}" for p, rs in sorted(ranges.items()) if UI_SRC.match(p) and not UI_TEST.search(p)
+        targets = [f"{p[3:]}:{a}-{b}" for p, rs in sorted(ranges.items()) if UI_SRC.match(p) and not UI_TEST.search(p) and not UI_GENERATED.match(p)
                    for a, b in rs]
         if not targets:
             return [], 0, 0
