@@ -1,0 +1,511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lecter settings",
+  "description": "Lecter's settings. Files nest keys (`{\"ui\": {\"performance\": \"quality\"}}`); the dotted name\n`ui.performance` is the same key. A course's `course.jsonc` puts them under `\"settings\"`.",
+  "type": "object",
+  "properties": {
+    "ai": {
+      "description": "AI models, web search and spend caps.",
+      "$ref": "#/$defs/Ai",
+      "default": {
+        "backupProvider": null,
+        "budget": {
+          "daily": 1.0,
+          "monthly": 5.0,
+          "monthlyTokens": 2000000,
+          "perLecture": null
+        },
+        "defaultFast": null,
+        "defaultStrong": null,
+        "hedgeAfterMs": 2500,
+        "maxPrefixTokens": 30000,
+        "search": {
+          "allowDomains": [],
+          "allowFetch": false,
+          "blockDomains": [],
+          "maxPerAnswer": 3,
+          "service": null
+        },
+        "webSearch": "native"
+      }
+    },
+    "feedback": {
+      "description": "Where opted-in feedback goes. Only the global config.jsonc may set these.",
+      "$ref": "#/$defs/Feedback",
+      "default": {
+        "endpoint": null
+      }
+    },
+    "figures": {
+      "description": "When Lecter turns figures into live plots.",
+      "$ref": "#/$defs/Figures",
+      "default": {
+        "mode": {
+          "described": "auto",
+          "page": "ask"
+        }
+      }
+    },
+    "index": {
+      "description": "The course search index.",
+      "$ref": "#/$defs/Index",
+      "default": {
+        "contextLines": false,
+        "embeddings": "local-small"
+      }
+    },
+    "limits": {
+      "description": "Size limits on what Lecter reads. Only the global config.jsonc may set these.",
+      "$ref": "#/$defs/Limits",
+      "default": {
+        "providerLineBytes": 1048576,
+        "providerResponseBytes": 16777216
+      }
+    },
+    "log": {
+      "description": "What the logs may hold. Only the global config.jsonc may set these.",
+      "$ref": "#/$defs/Log",
+      "default": {
+        "content": false
+      }
+    },
+    "parsing": {
+      "description": "How slides are read.",
+      "$ref": "#/$defs/Parsing",
+      "default": {
+        "vision": "provider"
+      }
+    },
+    "privacy": {
+      "description": "What leaves this machine. Only the global config.jsonc may set these.",
+      "$ref": "#/$defs/Privacy",
+      "default": {
+        "shareFeedback": false,
+        "shareFeedbackText": false
+      }
+    },
+    "ui": {
+      "description": "The window and the editor.",
+      "$ref": "#/$defs/Ui",
+      "default": {
+        "performance": "balanced"
+      }
+    }
+  },
+  "$defs": {
+    "Ai": {
+      "description": "`ai.*`.",
+      "type": "object",
+      "properties": {
+        "backupProvider": {
+          "description": "The provider a hedged request goes to; unset turns hedging off.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "budget": {
+          "description": "Spend caps. A course may lower them, never raise them.",
+          "$ref": "#/$defs/Budget",
+          "default": {
+            "daily": 1.0,
+            "monthly": 5.0,
+            "monthlyTokens": 2000000,
+            "perLecture": null
+          }
+        },
+        "defaultFast": {
+          "description": "The fast default model (a model id); unset picks the provider's.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "defaultStrong": {
+          "description": "The strong default model (a model id); unset picks the provider's.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "hedgeAfterMs": {
+          "description": "Milliseconds without a first token before a hedged request is sent.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 2500,
+          "minimum": 0
+        },
+        "maxPrefixTokens": {
+          "description": "The largest cached prompt prefix, in tokens.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 30000,
+          "minimum": 0
+        },
+        "search": {
+          "description": "How web search runs.",
+          "$ref": "#/$defs/Search",
+          "default": {
+            "allowDomains": [],
+            "allowFetch": false,
+            "blockDomains": [],
+            "maxPerAnswer": 3,
+            "service": null
+          }
+        },
+        "webSearch": {
+          "description": "Web search in answers.",
+          "$ref": "#/$defs/WebSearch",
+          "default": "native"
+        }
+      }
+    },
+    "Budget": {
+      "description": "`ai.budget.*`.",
+      "type": "object",
+      "properties": {
+        "daily": {
+          "description": "US dollars per day.",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "monthly": {
+          "description": "US dollars per month.",
+          "type": "number",
+          "format": "double",
+          "default": 5.0
+        },
+        "monthlyTokens": {
+          "description": "Tokens per month for models with no catalog price.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 2000000,
+          "minimum": 0
+        },
+        "perLecture": {
+          "description": "US dollars per lecture; unset means no per-lecture cap.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "default": null
+        }
+      }
+    },
+    "Embeddings": {
+      "description": "`index.embeddings`.",
+      "oneOf": [
+        {
+          "description": "A small local model.",
+          "type": "string",
+          "const": "local-small"
+        },
+        {
+          "description": "A larger local model.",
+          "type": "string",
+          "const": "local-quality"
+        },
+        {
+          "description": "The provider's embeddings, stored locally.",
+          "type": "string",
+          "const": "provider"
+        },
+        {
+          "description": "Keyword search only.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    },
+    "Feedback": {
+      "description": "`feedback.*`. Global only.",
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "description": "Where opted-in feedback is sent; unset keeps it on this machine.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "FigureMode": {
+      "description": "One `figures.mode.*` value.",
+      "oneOf": [
+        {
+          "description": "Make the figure without asking.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Offer it first.",
+          "type": "string",
+          "const": "ask"
+        },
+        {
+          "description": "Never.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    },
+    "FigureModes": {
+      "description": "`figures.mode.*`.",
+      "type": "object",
+      "properties": {
+        "described": {
+          "description": "Figures described in a slide's text.",
+          "$ref": "#/$defs/FigureMode",
+          "default": "auto"
+        },
+        "page": {
+          "description": "Figures that need the page image.",
+          "$ref": "#/$defs/FigureMode",
+          "default": "ask"
+        }
+      }
+    },
+    "Figures": {
+      "description": "`figures.*`.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "When figures become live plots.",
+          "$ref": "#/$defs/FigureModes",
+          "default": {
+            "described": "auto",
+            "page": "ask"
+          }
+        }
+      }
+    },
+    "Index": {
+      "description": "`index.*`.",
+      "type": "object",
+      "properties": {
+        "contextLines": {
+          "description": "Model-written one-line context per passage (costs money).",
+          "type": "boolean",
+          "default": false
+        },
+        "embeddings": {
+          "description": "How passages are embedded.",
+          "$ref": "#/$defs/Embeddings",
+          "default": "local-small"
+        }
+      }
+    },
+    "Limits": {
+      "description": "`limits.*`. Global only.",
+      "type": "object",
+      "properties": {
+        "providerLineBytes": {
+          "description": "The largest SSE line or JSON event from a provider, in bytes.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 1048576,
+          "minimum": 0
+        },
+        "providerResponseBytes": {
+          "description": "The largest response from a provider, in bytes.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 16777216,
+          "minimum": 0
+        }
+      }
+    },
+    "Log": {
+      "description": "`log.*`. Global only.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "Logs may hold prompt, answer and note text.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "Parsing": {
+      "description": "`parsing.*`.",
+      "type": "object",
+      "properties": {
+        "vision": {
+          "description": "Who reads images and scanned slides.",
+          "$ref": "#/$defs/Vision",
+          "default": "provider"
+        }
+      }
+    },
+    "Performance": {
+      "description": "`ui.performance`.",
+      "oneOf": [
+        {
+          "description": "No Markdown highlighting and no live math.",
+          "type": "string",
+          "const": "performance"
+        },
+        {
+          "description": "Highlighting after a 200 ms typing pause; math loads lazily.",
+          "type": "string",
+          "const": "balanced"
+        },
+        {
+          "description": "Highlighting and math on every keystroke. Can add input lag on slower machines.",
+          "type": "string",
+          "const": "quality"
+        }
+      ]
+    },
+    "Privacy": {
+      "description": "`privacy.*`. Global only.",
+      "type": "object",
+      "properties": {
+        "shareFeedback": {
+          "description": "Share ratings, model and latency (opt-in).",
+          "type": "boolean",
+          "default": false
+        },
+        "shareFeedbackText": {
+          "description": "Also share question and answer text (a second opt-in).",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "Search": {
+      "description": "`ai.search.*`.",
+      "type": "object",
+      "properties": {
+        "allowDomains": {
+          "description": "Only these domains are searched; empty means any.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowFetch": {
+          "description": "Lets Anthropic's `web_fetch` open pages a result names.",
+          "type": "boolean",
+          "default": false
+        },
+        "blockDomains": {
+          "description": "These domains are never searched.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxPerAnswer": {
+          "description": "The most searches one answer may make.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 3,
+          "minimum": 0
+        },
+        "service": {
+          "description": "The search service for `ai.webSearch = service`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchService"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      }
+    },
+    "SearchService": {
+      "description": "`ai.search.service`.",
+      "oneOf": [
+        {
+          "description": "Brave Search.",
+          "type": "string",
+          "const": "brave"
+        },
+        {
+          "description": "Tavily.",
+          "type": "string",
+          "const": "tavily"
+        },
+        {
+          "description": "Exa.",
+          "type": "string",
+          "const": "exa"
+        },
+        {
+          "description": "A SearXNG instance.",
+          "type": "string",
+          "const": "searxng"
+        }
+      ]
+    },
+    "Ui": {
+      "description": "`ui.*`.",
+      "type": "object",
+      "properties": {
+        "performance": {
+          "description": "The speed-or-looks preset.",
+          "$ref": "#/$defs/Performance",
+          "default": "balanced"
+        }
+      }
+    },
+    "Vision": {
+      "description": "`parsing.vision`.",
+      "oneOf": [
+        {
+          "description": "The AI provider.",
+          "type": "string",
+          "const": "provider"
+        },
+        {
+          "description": "A local model.",
+          "type": "string",
+          "const": "local"
+        },
+        {
+          "description": "The local model when it is good enough, else the provider.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Text layers only.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    },
+    "WebSearch": {
+      "description": "`ai.webSearch`.",
+      "oneOf": [
+        {
+          "description": "The provider's own search tool.",
+          "type": "string",
+          "const": "native"
+        },
+        {
+          "description": "A search service with the user's key or URL.",
+          "type": "string",
+          "const": "service"
+        },
+        {
+          "description": "No web search.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    }
+  }
+}
