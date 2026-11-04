@@ -998,3 +998,17 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: a `stopped` attribute on part-way glosses (Q-015's recommendation).
 - Revisit if: users lose wanted glosses to the close prompt.
 
+## D-169 · Ignore two unmaintained build-time advisories in cargo deny
+2026-11-04 · maintainer · active
+- Decision: deny.toml ignores RUSTSEC-2024-0436 (`paste`, via specta) and RUSTSEC-2024-0370 (`proc-macro-error`, via glib-macros in Tauri's gtk3 stack), each with its reason.
+- Why: both are "unmaintained" notices, not vulnerabilities; both are proc-macros that run only at build time and ship nothing in the app; neither has a maintained upgrade path.
+- Instead of: leaving `verify.sh --full` red, or dropping specta / Tauri.
+- Revisit if: specta or Tauri drop them, or either crate gets a real vulnerability advisory.
+
+## D-170 · Drop IME text committed in normal mode (Q-018)
+2026-11-04 · maintainer · active
+- Decision: text an input method commits while in normal mode is dropped (slide lines stay read-only, 09-ui#editing); typing with an IME needs insert mode. The D-140 inputHandler + keydown guard goes to the next card that owns ui/src/features/buffer/editorState.ts, with tests/e2e/flows/ime.ts asserting it.
+- Why: the commit otherwise lands in a read-only slide line and `u` can't undo it.
+- Instead of: keeping codemirror-vim's one-character IME-as-key support.
+- Revisit if: users who type with an IME find Vim keys unreachable.
+
