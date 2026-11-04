@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Text } from "@codemirror/state";
 import { type Browser, chromium, expect, test } from "@playwright/test";
 import { frontMatterEnd, isElement, lineKind } from "../src/features/buffer/syntax";
-import { defaultFixture, type MockFixture } from "./mock-core";
+import { defaultFixture, type MockFixture, trustScreen } from "./mock-core";
 import { installMockCore } from "./mock-core/install";
 import { fixtureLecture } from "./mock-core/lectures";
 import { exclusive } from "./perf/exclusive";
@@ -49,6 +49,7 @@ const fixture: MockFixture = {
     lectures: [{ name: "2026-10-23-l07-fixture.md", path: lecturePath }],
     slides: [],
     trust: "trusted",
+    screen: trustScreen,
   },
   lectures: { [lecturePath]: { path: lecturePath, name: "2026-10-23-l07-fixture.md", text } },
 };

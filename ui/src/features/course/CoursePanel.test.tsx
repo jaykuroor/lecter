@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { defaultFixture } from "../../../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
 import type { CourseOpened, IpcError } from "../../core/bindings";
 import { createCourse } from "../../state/course";
@@ -15,6 +15,7 @@ const stat311: CourseOpened = {
   ],
   slides: [{ name: "07-covariance.pdf", path: "slides/07-covariance.pdf" }],
   trust: "ask",
+  screen: trustScreen,
 };
 
 function mount(onOpenLecture: (course: string, path: string) => void = () => {}, openLecture: string | null = null) {

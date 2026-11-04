@@ -66,6 +66,7 @@ impl From<TrustChoice> for TrustState {
 /// What the trust screen shows. Paths are course-relative with `/` separators.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct TrustScreen {
     /// Lecture files in `lectures/`.
     pub lectures: u32,

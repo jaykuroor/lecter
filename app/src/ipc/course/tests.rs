@@ -75,7 +75,7 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
             "slides": [{ "name": "01.pdf", "path": "slides/01.pdf" }],
             "trust": "read_only",
             "screen": {
-                "lectures": 1, "slides": 1, "sources": 0, "provider": "sample", "web_search": true,
+                "lectures": 1, "slides": 1, "sources": 0, "provider": "sample", "webSearch": true,
                 "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [], "changed": false
             },
         })

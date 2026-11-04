@@ -2,7 +2,7 @@
 // unless a lecture is already open, which has warmed it for real. Frames are stepped by hand.
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultFixture } from "../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../e2e/mock-core/fixture";
 import { installMockCore } from "../e2e/mock-core/install";
 import { App } from "./App";
 
@@ -20,7 +20,14 @@ describe("editor pre-warm", () => {
   beforeEach(() => {
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [l07], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [l07],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [l07.path]: l07 },
     });
     (window as unknown as { __mockStartup?: unknown[] }).__mockStartup = [];

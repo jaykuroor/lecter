@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultFixture } from "../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../e2e/mock-core/fixture";
 import { installMockCore } from "../e2e/mock-core/install";
 import { App } from "./App";
 
@@ -27,7 +27,14 @@ describe("App shell", () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [lecture],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [lecture.path]: lecture },
     });
     const asked: unknown[] = [];
@@ -61,7 +68,14 @@ describe("App shell", () => {
     };
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [lecture],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [lecture.path]: lecture },
       find: { variables: [hit] },
     });
@@ -85,7 +99,14 @@ describe("App shell", () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [lecture],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [lecture.path]: lecture },
     });
     const asked: [string, unknown][] = [];

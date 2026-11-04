@@ -54,7 +54,7 @@ fn a_first_open_shows_the_trust_screen() {
         json!({
             "trust": "ask",
             "screen": {
-                "lectures": 1, "slides": 2, "sources": 1, "provider": "sample", "web_search": true,
+                "lectures": 1, "slides": 2, "sources": 1, "provider": "sample", "webSearch": true,
                 "agents": ["AGENTS.md"], "roles": [".lecter/agents/tutor.md"], "skills": [], "overrides": [],
                 "changed": false
             }

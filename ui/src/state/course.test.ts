@@ -1,6 +1,6 @@
 import { createRoot } from "solid-js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { defaultFixture } from "../../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../../e2e/mock-core/fixture";
 import { installMockCore } from "../../e2e/mock-core/install";
 import type { CourseOpened } from "../core/bindings";
 import { type CourseState, createCourse } from "./course";
@@ -11,6 +11,7 @@ const algebra: CourseOpened = {
   lectures: [{ name: "l01.md", path: "lectures/l01.md" }],
   slides: [],
   trust: "ask",
+  screen: trustScreen,
 };
 
 type Invoke = (cmd: string, args?: unknown) => Promise<unknown>;
@@ -67,6 +68,50 @@ describe("course state", () => {
     await s.open();
     expect(calls()).toBe(1);
     await first;
+    expect(s.busy()).toBe(false);
+  });
+
+  // F-033: the answer goes to `course_trust` for the open course; the core's state and screen
+  // replace the course's, including when it asks again because the AI files changed.
+  it("answers the trust screen and takes the core's state and screen", async () => {
+    const changed = { ...trustScreen, changed: true, agents: ["AGENTS.md"] };
+    const sent: unknown[] = [];
+    const answers: unknown[] = [
+      algebra,
+      { trust: "ask", screen: changed },
+      { trust: "read_only", screen: trustScreen },
+    ];
+    const w = window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } };
+    w.__TAURI_INTERNALS__.invoke = (cmd, args) => {
+      sent.push([cmd, args]);
+      return Promise.resolve(answers.shift());
+    };
+    const s = state();
+    await s.answer("trusted");
+    expect(sent).toEqual([]);
+    await s.open();
+    await s.answer("trusted");
+    expect(sent[1]).toEqual(["course_trust", { course: "/courses/Algebra", choice: "trusted" }]);
+    expect(s.course()).toEqual({ ...algebra, trust: "ask", screen: changed });
+    await s.answer("read_only");
+    expect(s.course()).toEqual({ ...algebra, trust: "read_only", screen: trustScreen });
+    expect(s.busy()).toBe(false);
+  });
+
+  it("keeps the question open when the answer can't be saved", async () => {
+    scriptCore([
+      algebra,
+      { code: "E_IO", message: "Lecter could not save your answer for this folder.", retryable: true },
+      new Error("IPC bridge gone"),
+    ]);
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    expect(s.error()).toBe("Lecter could not save your answer for this folder.");
+    expect(s.course()?.trust).toBe("ask");
+    await s.answer("trusted");
+    expect(s.error()).toBe("Lecter could not reach the core to save your answer.");
+    expect(s.course()?.trust).toBe("ask");
     expect(s.busy()).toBe(false);
   });
 

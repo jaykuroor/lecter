@@ -38,6 +38,23 @@ export function installMockCore(fixture: MockFixture): void {
       return undefined;
     },
     course_open: () => fixture.courseOpen,
+    // The course's trust becomes the answer, with its screen; each call is kept for the test to
+    // read back (window.__mockTrust). Only the course course_open returned can be answered.
+    course_trust: (args) => {
+      const w = window as unknown as { __mockTrust?: (typeof args)[] };
+      w.__mockTrust ??= [];
+      w.__mockTrust.push(args);
+      const opened = fixture.courseOpen;
+      if (!opened || opened.path !== args.course) {
+        const error: IpcError = {
+          code: "E_INVALID_ARGUMENT",
+          message: "Open the course before its lectures.",
+          retryable: false,
+        };
+        throw error;
+      }
+      return { trust: args.choice, screen: { ...opened.screen, changed: false } };
+    },
     lecture_open: ({ path }) => {
       const lecture = fixture.lectures[path];
       if (lecture) return lecture;

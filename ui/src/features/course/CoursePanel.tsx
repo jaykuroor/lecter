@@ -1,12 +1,13 @@
 import { For, type JSX, Show } from "solid-js";
 import type { CourseFile } from "../../core/course";
 import type { CourseState } from "../../state/course";
+import { ReadOnlyChip } from "../trust/TrustScreen";
 import "./CoursePanel.css";
 
 /**
  * The opened course in the rail (02-course-folder.md, 09-ui.md#layout): an Open button, then the
- * course's name and its `lectures/` and `slides/` files. The course rail (F-035) and the trust
- * screen (F-033) replace this skeleton.
+ * course's name (with a Read-only chip when it was opened read-only, F-033) and its `lectures/`
+ * and `slides/` files. The course rail (F-035) replaces this skeleton.
  */
 export function CoursePanel(props: {
   state: CourseState;
@@ -43,6 +44,10 @@ export function CoursePanel(props: {
           <section class="course" aria-label={`Course ${course().name}`}>
             <h2 class="course-name" title={course().path}>
               {course().name}
+              <Show when={course().trust === "read_only"}>
+                {" "}
+                <ReadOnlyChip />
+              </Show>
             </h2>
             <FileList
               label="Lectures"

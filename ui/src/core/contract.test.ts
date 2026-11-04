@@ -3,17 +3,31 @@
 // tsc fails on the unused directive, so these cases are enforced by the type check itself.
 import { describe, expect, it } from "vitest";
 import type { MockHandlers } from "../../e2e/mock-core/install";
-import type { CommandName, Commands, IpcError } from "./bindings";
+import type { CommandName, Commands, IpcError, TrustScreen } from "./bindings";
+
+const screen: TrustScreen = {
+  lectures: 0,
+  slides: 0,
+  sources: 0,
+  provider: "sample",
+  webSearch: false,
+  agents: [],
+  roles: [],
+  skills: [],
+  overrides: [],
+  changed: false,
+};
 
 const matching: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
-  course_open: () => ({ path: "/courses/Algebra", name: "Algebra", lectures: [], slides: [], trust: "ask" }),
+  course_open: () => ({ path: "/courses/Algebra", name: "Algebra", lectures: [], slides: [], trust: "ask", screen }),
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  course_trust: ({ choice }) => ({ trust: choice, screen }),
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -32,18 +46,20 @@ const wrongResult: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  course_trust: ({ choice }) => ({ trust: choice, screen }),
 };
 
 const wrongEnum: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
   // @ts-expect-error a trust value the contract doesn't have
-  course_open: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "maybe" }),
+  course_open: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "maybe", screen }),
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  course_trust: ({ choice }) => ({ trust: choice, screen }),
 };
 
 const extra: MockHandlers = {
@@ -55,6 +71,7 @@ const extra: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  course_trust: ({ choice }) => ({ trust: choice, screen }),
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -68,6 +85,7 @@ const commandNames: CommandName[] = [
   "app_info",
   "app_mark_startup",
   "course_open",
+  "course_trust",
   "lecture_open",
   "lecture_apply_edits",
   "search_find",

@@ -48,6 +48,8 @@ body,
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
+  /* The trust screen (features/trust) floats over the document. */
+  position: relative;
 }
 
 .buffer {

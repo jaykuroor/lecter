@@ -1,0 +1,174 @@
+/* The trust screen, a popover over the document (docs/design/components.md: Compare parse for the
+   popover, Nudge for the "changed" notice, Buttons and chips). Colours, radii and shadows are
+   theme tokens only; hover is mix.hover, keyboard focus a 2px --accent outline with 2px offset. */
+.trust {
+  position: absolute;
+  inset: 14px 16px auto;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+  max-height: calc(100% - 28px);
+  margin: 0 auto;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  overflow: auto;
+  border: 1px solid var(--borders, GrayText);
+  border-radius: 12px;
+  /* Until the theme (F-042) defines the tokens, the system colours keep the popover opaque. */
+  background: var(--popover-bg, Canvas);
+  color: var(--view-fg, CanvasText);
+  box-shadow: var(--shadow-popover);
+  font-size: 13px;
+}
+
+.trust-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trust-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.trust-path {
+  margin: 0;
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nudge: color-mix(--k-doubt 14%, --popover-bg), border color-mix(--k-doubt 45%, --borders). */
+.trust-changed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 13px;
+  border: 1px solid color-mix(in srgb, var(--k-doubt) 45%, var(--borders));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--k-doubt) 14%, var(--popover-bg));
+  box-shadow: var(--shadow-nudge);
+}
+
+.trust-changed-icon {
+  font-weight: 800;
+  color: var(--k-doubt);
+}
+
+.trust-inside {
+  margin: 0;
+  font-weight: 600;
+}
+
+.trust-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.trust-facts dt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+  align-self: baseline;
+}
+
+.trust-facts dd {
+  margin: 0;
+}
+
+.trust-files {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.trust-group-label {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--dim);
+}
+
+.trust-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust-item,
+.trust-none {
+  margin: 0;
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.trust-none {
+  color: var(--faint);
+}
+
+.trust-choices {
+  margin: 0;
+  color: var(--dim);
+}
+
+.trust-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Button: radius 8px, padding 6px 12px, 12.5px 600, color-mix(--view-fg 8%); suggested
+   --accent-bg / --accent-fg. */
+.trust .btn {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--view-fg, CanvasText) 8%, transparent);
+  color: var(--view-fg, CanvasText);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trust .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--view-fg, CanvasText) 14%, transparent);
+}
+
+.trust .btn.sug {
+  background: var(--accent-bg, AccentColor);
+  color: var(--accent-fg, AccentColorText);
+}
+
+.trust .btn:focus-visible {
+  outline: 2px solid var(--accent, AccentColor);
+  outline-offset: 2px;
+}
+
+.trust .btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* Chip: radius 999px, padding 1px 9px, 11px 600, colour --c on mix.chip-bg. */
+.trust-chip {
+  --c: var(--k-doubt);
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  color: var(--c);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}

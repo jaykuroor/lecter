@@ -303,7 +303,7 @@ export type TrustScreen = {
 	/**  The provider that receives excerpts of the course. */
 	provider: string,
 	/**  Whether answers may search the web (`ai.webSearch` is not `off` for this course). */
-	web_search: boolean,
+	webSearch: boolean,
 	/**  The course's `AGENTS.md`, if it has one. */
 	agents: string[],
 	/**  Role files: `.lecter/agents/<role>.md`. */
