@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use proptest::prelude::*;
 use proptest::test_runner::{Config, TestCaseError, TestRunner};
 
+use super::tests::link;
 use super::*;
 use crate::ErrorCode;
 use crate::course::within;
@@ -21,21 +22,6 @@ fn write(dir: &Path, rel: &str) -> PathBuf {
     }
     std::fs::write(&p, "x").unwrap_or_else(|e| panic!("{e}"));
     p
-}
-
-#[cfg(unix)]
-fn link(target: &Path, at: &Path) {
-    std::os::unix::fs::symlink(target, at).unwrap_or_else(|e| panic!("{e}"));
-}
-
-#[cfg(windows)]
-fn link(target: &Path, at: &Path) {
-    let made = if target.is_dir() {
-        std::os::windows::fs::symlink_dir(target, at)
-    } else {
-        std::os::windows::fs::symlink_file(target, at)
-    };
-    made.unwrap_or_else(|e| panic!("symlinks need developer mode on Windows: {e}"));
 }
 
 /// The fixture: `<home>/c` is the course; `<home>/outside` is not.

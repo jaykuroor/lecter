@@ -16,9 +16,6 @@ use crate::settings::{COURSE_FILE, Layer, Source, jsonc};
 /// The most bytes of one file the fingerprint reads; past that, its length stands in for the rest.
 const MAX_HASHED_BYTES: u64 = 16 * 1024 * 1024;
 
-/// How deep the walks under `.lecter/skills/` and `sources/` go.
-const MAX_DEPTH: usize = 16;
-
 /// The most names one list on the screen shows; the last line then says how many more there are.
 pub(super) const MAX_LISTED: usize = 200;
 
@@ -210,33 +207,37 @@ fn skill_folders(print: &mut Print, root: &Path) -> Result<Vec<String>> {
         return Ok(Vec::new());
     };
     let skills = entries(&dir, DIR, false)?.into_iter().map(|(name, _)| format!("{DIR}/{name}")).collect();
-    let mut seen = 0;
-    walk_skills(print, root, &dir, DIR, 0, &mut seen)?;
+    walk_skills(print, root, dir, DIR)?;
     Ok(skills)
 }
 
-/// Adds every entry under `dir` (course-relative `rel`), hidden ones too: a skill may carry
-/// scripts. Links are added by name and target, never walked into.
-fn walk_skills(print: &mut Print, root: &Path, dir: &Path, rel: &str, depth: usize, seen: &mut usize) -> Result<()> {
-    if depth > MAX_DEPTH {
-        print.part("too-deep", rel.as_bytes());
-        return Ok(());
-    }
-    for (name, kind) in entries(dir, ".lecter/skills", true)? {
-        *seen += 1;
-        if *seen > MAX_ENTRIES {
-            return Err(Error::TooManyEntries { folder: ".lecter/skills", limit: MAX_ENTRIES });
+/// Adds every entry under `dir` (course-relative `rel`) at any depth, hidden ones too: a skill
+/// may carry scripts. Links are added by name and target, never walked into, so the walk can't
+/// loop; it stops with [`Error::TooManyEntries`] past [`MAX_ENTRIES`] entries in all.
+fn walk_skills(print: &mut Print, root: &Path, dir: PathBuf, rel: &str) -> Result<()> {
+    // Depth first, each folder's entries in name order. A stack, not recursion: no depth limit
+    // to hide a deep file behind, and no stack to overflow.
+    let mut stack = vec![(dir, rel.to_owned())];
+    let mut seen = 0;
+    while let Some((dir, rel)) = stack.pop() {
+        let mut folders = Vec::new();
+        for (name, kind) in entries(&dir, ".lecter/skills", true)? {
+            seen += 1;
+            if seen > MAX_ENTRIES {
+                return Err(Error::TooManyEntries { folder: ".lecter/skills", limit: MAX_ENTRIES });
+            }
+            let child = format!("{rel}/{name}");
+            if kind.is_dir() {
+                print.part("dir", child.as_bytes());
+                folders.push((dir.join(&name), child));
+            } else if kind.is_symlink() {
+                print.part("link", child.as_bytes());
+                link_target(print, root, &child)?;
+            } else {
+                file(print, root, &child)?;
+            }
         }
-        let child = format!("{rel}/{name}");
-        if kind.is_dir() {
-            print.part("dir", child.as_bytes());
-            walk_skills(print, root, &dir.join(&name), &child, depth + 1, seen)?;
-        } else if kind.is_symlink() {
-            print.part("link", child.as_bytes());
-            link_target(print, root, &child)?;
-        } else {
-            file(print, root, &child)?;
-        }
+        stack.extend(folders.into_iter().rev());
     }
     Ok(())
 }
@@ -287,40 +288,37 @@ fn settings_overrides(print: &mut Print, root: &Path) -> Vec<String> {
     keys
 }
 
-/// The files in `sources/` and its subfolders, hidden ones left out. Links are counted only when
-/// they lead to a file inside the course (links out are F-047's), and never walked into. The count
-/// stops at [`MAX_ENTRIES`] entries looked at.
+/// The files in `sources/` and its subfolders at any depth, hidden ones left out. Links are
+/// counted only when they lead to a file inside the course (links out are F-047's), and never
+/// walked into. The count stops at [`MAX_ENTRIES`] entries looked at.
+#[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
 fn count_sources(root: &Path) -> Result<u32> {
     let Place::Inside(dir) = inside(root, "sources")? else { return Ok(0) };
-    let mut seen = 0;
-    let mut count = 0;
-    count_in(root, &dir, 0, &mut seen, &mut count)?;
-    Ok(count)
-}
-
-#[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
-fn count_in(root: &Path, dir: &Path, depth: usize, seen: &mut usize, count: &mut u32) -> Result<()> {
-    if depth > MAX_DEPTH || !dir.is_dir() {
-        return Ok(());
+    if !dir.is_dir() {
+        return Ok(0);
     }
     let io = |e: std::io::Error| Error::Io(e.kind());
-    for entry in std::fs::read_dir(dir).map_err(io)? {
-        *seen += 1;
-        if *seen > MAX_ENTRIES {
-            return Ok(());
-        }
-        let entry = entry.map_err(io)?;
-        if entry.file_name().to_string_lossy().starts_with('.') {
-            continue;
-        }
-        let kind = entry.file_type().map_err(io)?;
-        if kind.is_dir() {
-            count_in(root, &entry.path(), depth + 1, seen, count)?;
-        } else if kind.is_file()
-            || (kind.is_symlink() && std::fs::canonicalize(entry.path()).is_ok_and(|t| within(root, &t) && t.is_file()))
-        {
-            *count += 1;
+    let (mut stack, mut seen, mut count) = (vec![dir], 0, 0);
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).map_err(io)? {
+            seen += 1;
+            if seen > MAX_ENTRIES {
+                return Ok(count);
+            }
+            let entry = entry.map_err(io)?;
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let kind = entry.file_type().map_err(io)?;
+            if kind.is_dir() {
+                stack.push(entry.path());
+            } else if kind.is_file()
+                || (kind.is_symlink()
+                    && std::fs::canonicalize(entry.path()).is_ok_and(|t| within(root, &t) && t.is_file()))
+            {
+                count += 1;
+            }
         }
     }
-    Ok(())
+    Ok(count)
 }

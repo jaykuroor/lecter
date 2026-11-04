@@ -295,12 +295,12 @@ fn long_lists_are_cut_with_a_count_of_the_rest() {
 }
 
 #[cfg(unix)]
-fn link(target: &Path, at: &Path) {
+pub(super) fn link(target: &Path, at: &Path) {
     std::os::unix::fs::symlink(target, at).unwrap_or_else(|e| panic!("{e}"));
 }
 
 #[cfg(windows)]
-fn link(target: &Path, at: &Path) {
+pub(super) fn link(target: &Path, at: &Path) {
     let made = if target.is_dir() {
         std::os::windows::fs::symlink_dir(target, at)
     } else {

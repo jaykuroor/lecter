@@ -4,8 +4,9 @@
 
 #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
 
-use super::tests::{course, env, reviewed, state_of, store, trust, write};
+use super::tests::{course, env, link, reviewed, state_of, store, trust, write};
 use super::*;
+use crate::course::MAX_ENTRIES;
 
 /// Criterion 3: an answer is in force on the next open while nothing changed: the screen isn't
 /// shown again and doesn't say "changed".
@@ -89,4 +90,86 @@ fn an_unreadable_lecter_folder_fails_the_review_instead_of_looking_empty() {
     let result = review(&store(&env), &listing, "sample").map(|r| r.screen);
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(result, Err(Error::Io(std::io::ErrorKind::PermissionDenied)));
+}
+
+/// Criterion 5 at any depth: a file deep inside a skill is covered like any other.
+#[test]
+fn a_file_deep_inside_a_skill_still_asks_again() {
+    let env = env();
+    let c = course(&env, "STAT311");
+    let deep = format!(".lecter/skills/flashcards/{}run.sh", "d/".repeat(40));
+    write(&c, &deep, "echo one\n");
+    let st = store(&env);
+    trust(&st, &c, TrustChoice::Trusted);
+    write(&c, &deep, "echo two\n");
+    assert_eq!(state_of(&st, &c), TrustState::Ask);
+}
+
+/// The skills walk looks at MAX_ENTRIES entries in all, then fails rather than skip the rest.
+#[test]
+fn the_skills_walk_stops_past_max_entries() {
+    let env = env();
+    let c = env.home().join("Big");
+    std::fs::create_dir_all(c.join("lectures")).unwrap_or_else(|e| panic!("{e}"));
+    // The skill folder itself and MAX_ENTRIES - 1 files in it: MAX_ENTRIES entries.
+    for i in 0..MAX_ENTRIES - 1 {
+        write(&c, &format!(".lecter/skills/s/f{i:05}"), "");
+    }
+    let st = store(&env);
+    assert_eq!(reviewed(&st, &c).screen.skills, vec![".lecter/skills/s".to_owned()]);
+    write(&c, ".lecter/skills/s/one-more", "");
+    let listing = crate::course::open(&c).unwrap_or_else(|e| panic!("{e:?}"));
+    assert_eq!(
+        review(&st, &listing, "sample").map(|r| r.screen),
+        Err(Error::TooManyEntries { folder: ".lecter/skills", limit: MAX_ENTRIES })
+    );
+}
+
+/// Criterion 1: the sources count stops at MAX_ENTRIES entries looked at; a `sources` that is a
+/// file holds none.
+#[test]
+fn the_sources_count_stops_at_max_entries() {
+    let env = env();
+    let c = env.home().join("Big");
+    for i in 0..MAX_ENTRIES + 5 {
+        write(&c, &format!("sources/b{i:05}.pdf"), "");
+    }
+    assert_eq!(reviewed(&store(&env), &c).screen.sources, u32::try_from(MAX_ENTRIES).unwrap_or(u32::MAX));
+    let f = env.home().join("Flat");
+    write(&f, "sources", "not a folder");
+    assert_eq!(reviewed(&store(&env), &f).screen.sources, 0);
+}
+
+/// Criterion 1: a link in `sources/` counts only when it leads to a file inside the course; a link
+/// out, or to a folder, doesn't (and the folder isn't walked).
+#[test]
+fn only_links_to_files_inside_count_as_sources() {
+    let env = env();
+    let c = course(&env, "STAT311");
+    let outside = write(env.home(), "elsewhere/book.pdf", "x");
+    link(&c.join("slides/01.pdf"), &c.join("sources/linked.pdf"));
+    link(&outside, &c.join("sources/out.pdf"));
+    link(&c.join("slides"), &c.join("sources/slides"));
+    assert_eq!(reviewed(&store(&env), &c).screen.sources, 4);
+}
+
+/// Criterion 5 through links inside the course: editing the file a skill links to asks again, and
+/// so does pointing a skill's folder link at another folder.
+#[test]
+fn what_a_skill_links_to_inside_the_course_counts() {
+    let env = env();
+    let c = course(&env, "STAT311");
+    write(&c, "notes/rubric.md", "Grade fairly.\n");
+    write(&c, "data/a/x.csv", "1\n");
+    write(&c, "data/b/x.csv", "1\n");
+    link(&c.join("notes/rubric.md"), &c.join(".lecter/skills/flashcards/rubric.md"));
+    link(&c.join("data/a"), &c.join(".lecter/skills/flashcards/data"));
+    let st = store(&env);
+    trust(&st, &c, TrustChoice::Trusted);
+    write(&c, "notes/rubric.md", "Grade harshly.\n");
+    assert_eq!(state_of(&st, &c), TrustState::Ask, "linked file edited");
+    trust(&st, &c, TrustChoice::Trusted);
+    std::fs::remove_file(c.join(".lecter/skills/flashcards/data")).unwrap_or_else(|e| panic!("{e}"));
+    link(&c.join("data/b"), &c.join(".lecter/skills/flashcards/data"));
+    assert_eq!(state_of(&st, &c), TrustState::Ask, "folder link re-pointed");
 }
