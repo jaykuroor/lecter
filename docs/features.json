@@ -1099,9 +1099,10 @@
     "security"
    ],
    "try": "Open a new folder: the trust screen shows what Lecter will read",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3028
+   "priority": 3028,
+   "base": "e7c1c18635fa3aec001da92232f926e60b8ab957"
   },
   {
    "id": "F-034",
