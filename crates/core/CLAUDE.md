@@ -21,4 +21,6 @@ Spec: `01-architecture.md#document-model`, `#job-scheduler`; `02-course-folder.m
 
 ## Learned
 - Doc comments land in the rlib's metadata even in release: spell `LECTER_TEST_*` only in docs of items gated by `cfg(any(debug_assertions, feature = "test-hooks"))` (F-015)
+- Watch a settings file's folder, not the file: editors save by renaming a temp file over it, which ends an inotify watch on the file; and notify reports opens as `Access(Open)`, so a watcher that re-reads on every event of a file it reads loops forever: skip `Access` except `Close(Write)` (settings/watch.rs) (F-030)
+- `settings.schema.json` is regenerated with `LECTER_WRITE_SCHEMA=1 cargo test -p lecter-core settings_schema`; enum variants with doc comments come out as `oneOf`/`const`, not `enum` (settings/keys.rs reads both) (F-030)
 - A test that chmods a folder read-only must keep the test home removable even when killed (mutation runs time tests out): lock an empty subfolder, never the course root, or `.verify/mutants-tmp` is left behind and the next run fails (F-021)

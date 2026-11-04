@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc abe0f2a416e4951f3b77e6cbeddd72027ab31305306c8fe4cbec3bfea73072d1 # shrinks to sets = [None, Some(("ai.hedgeAfterMs", Number(0))), Some(("ai.hedgeAfterMs", Number(0))), None], probe = "ai.hedgeAfterMs"
