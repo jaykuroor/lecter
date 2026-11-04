@@ -96,6 +96,18 @@ pub enum Error {
     /// An edit or save for a lecture that is no longer open.
     #[error("{0} is not open.")]
     LectureClosed(String),
+    /// SEC-27: the course was never trusted, or its `AGENTS.md`, role files, skills or settings
+    /// overrides changed since (02-course-folder.md#trust).
+    #[error(
+        "This course isn't trusted yet, so AI, figures with scripts and search indexing are off. Open it again to review it."
+    )]
+    CourseNotTrusted,
+    /// SEC-27: the course is open read-only.
+    #[error("This course is open read-only, so AI, figures with scripts and search indexing are off.")]
+    CourseReadOnly,
+    /// Writing `trusted.jsonc` in the config folder failed.
+    #[error("Lecter could not save your answer for this folder.")]
+    TrustFileWrite(std::io::ErrorKind),
 }
 
 impl Error {
@@ -103,10 +115,12 @@ impl Error {
     pub const fn code(&self) -> ErrorCode {
         match self {
             Self::FolderNotFound | Self::LectureNotFound(_) => ErrorCode::NotFound,
-            Self::OutsideCourse(_) => ErrorCode::NotTrusted,
-            Self::Io(_) | Self::ReadFailed { .. } | Self::SaveFailed { .. } | Self::JournalFailed { .. } => {
-                ErrorCode::Io
-            }
+            Self::OutsideCourse(_) | Self::CourseNotTrusted | Self::CourseReadOnly => ErrorCode::NotTrusted,
+            Self::Io(_)
+            | Self::TrustFileWrite(_)
+            | Self::ReadFailed { .. }
+            | Self::SaveFailed { .. }
+            | Self::JournalFailed { .. } => ErrorCode::Io,
             Self::EditMisfit(_) => ErrorCode::InvalidArgument,
             Self::LectureClosed(_) => ErrorCode::NotFound,
             Self::NotAbsolute
@@ -145,6 +159,9 @@ mod tests {
             (Error::TooManyEntries { folder: "slides", limit: 10_000 }, ErrorCode::InvalidArgument),
             (Error::NoHome, ErrorCode::Internal),
             (Error::ParseFailed("The parse worker crashed.".into()), ErrorCode::ParseFailed),
+            (Error::CourseNotTrusted, ErrorCode::NotTrusted),
+            (Error::CourseReadOnly, ErrorCode::NotTrusted),
+            (Error::TrustFileWrite(std::io::ErrorKind::PermissionDenied), ErrorCode::Io),
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");
