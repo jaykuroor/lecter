@@ -125,20 +125,25 @@ impl FileState {
     /// Re-reads the file. Returns whether its values may have changed. A broken file keeps the
     /// last good layer.
     fn reload(&mut self, notices: &mut Vec<Notice>) -> bool {
-        let read = jsonc::check_within(&self.path, self.root.as_deref()).and_then(|()| jsonc::read_text(&self.path)).and_then(|text| {
-            let text = text.unwrap_or_default();
-            if self.text.as_deref() == Some(text.as_str()) {
-                return Ok(None);
-            }
-            let object = jsonc::settings_object(jsonc::parse(&text)?, self.section)?;
-            Ok(Some((text, object)))
-        });
+        let read = jsonc::check_within(&self.path, self.root.as_deref())
+            .and_then(|()| jsonc::read_text(&self.path))
+            .and_then(|text| {
+                let text = text.unwrap_or_default();
+                if self.text.as_deref() == Some(text.as_str()) {
+                    return Ok(None);
+                }
+                let object = jsonc::settings_object(jsonc::parse(&text)?, self.section)?;
+                Ok(Some((text, object)))
+            });
+        if read.is_ok() {
+            // Readable again: a later breakage is news.
+            self.reported.retain(|r| !r.starts_with("unreadable:"));
+        }
         match read {
             Ok(None) => false,
             Ok(Some((text, object))) => {
                 self.text = Some(text);
                 self.layer = Layer::from_value(self.source, &object);
-                self.reported.retain(|r| !r.starts_with("unreadable:"));
                 true
             }
             Err(error) => {

@@ -65,19 +65,16 @@ pub(crate) fn check_within(path: &Path, root: Option<&Path>) -> Result<(), FileE
     let root = std::fs::canonicalize(root).map_err(|e| FileError::Io(e.kind()))?;
     let resolved = match std::fs::canonicalize(path) {
         Ok(p) => p,
-        Err(e) if e.kind() == ErrorKind::NotFound => {
-            // A dangling link leads nowhere inside the course; a plain missing file is fine.
-            if std::fs::symlink_metadata(path).is_ok() {
-                return Err(FileError::OutsideCourse);
-            }
-            match path.parent().map(std::fs::canonicalize) {
-                Some(Ok(dir)) => dir,
-                Some(Err(e)) if e.kind() == ErrorKind::NotFound => return Ok(()),
-                Some(Err(e)) => return Err(FileError::Io(e.kind())),
-                None => return Ok(()),
-            }
+        // A link that leads nowhere (or loops) is never followed.
+        Err(_) if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) => {
+            return Err(FileError::OutsideCourse);
         }
-        Err(e) => return Err(FileError::Io(e.kind())),
+        // No file: its folder must still be inside (a new file is written there). Anything else
+        // wrong with the path, the read reports.
+        Err(_) => match path.parent().map(std::fs::canonicalize) {
+            Some(Ok(dir)) => dir,
+            _ => return Ok(()),
+        },
     };
     if resolved.starts_with(&root) { Ok(()) } else { Err(FileError::OutsideCourse) }
 }

@@ -176,6 +176,15 @@ fn settings_sec25_budgets_and_search_may_only_tighten() {
     );
     let stack = SettingsStack::new(global(), Some(wider), None, None);
     assert_eq!(stack.loosening(), [(Source::Course, "ai.search.allowDomains".to_owned())]);
+    // Turning on what the global settings already allow is no loosening.
+    let same = Layer::from_value(
+        Source::Course,
+        &json!({ "ai": { "webSearch": "service", "search": { "allowFetch": true } } }),
+    );
+    let stack = SettingsStack::new(global(), Some(same), None, None);
+    assert_eq!(stack.loosening(), []);
+    assert_eq!(stack.get("ai.webSearch").map(|r| (r.value, r.source)), Some((json!("service"), Source::Course)));
+    assert_eq!(stack.get("ai.search.allowFetch").map(|r| (r.value, r.source)), Some((json!(true), Source::Course)));
 }
 
 /// Global-only matching: groups and destination words in any spelling, and nothing else.
@@ -199,6 +208,9 @@ fn settings_sec25_global_only_key_names() {
         "ai.search.urls",
         "proxy.endpoints",
         "ai.search.uri",
+        "providers.x.api_host",
+        "providers.x.APIHost",
+        "providers.x.proxy2Host",
     ] {
         assert!(is_global_only(key), "{key} should be global-only");
     }

@@ -148,6 +148,12 @@ fn settings_a_broken_file_keeps_its_last_good_values_and_is_reported_once() {
         "{notices:?}"
     );
     assert_eq!(store.get("ui.performance").map(|r| r.value), Some(json!("quality")));
+    // Put back as it was, then broken again: that is news too.
+    write(&global, r#"{ "ui": { "performance": "quality" } }"#);
+    assert!(!store.reload());
+    write(&global, "{");
+    store.reload();
+    assert_eq!(store.take_notices().len(), 1);
     // Fixed: applies, and a later breakage is reported again.
     write(&global, r#"{ "ui": { "performance": "performance" } }"#);
     assert!(store.reload());
@@ -263,6 +269,50 @@ fn settings_course_file_linked_out_of_the_course_is_not_read() {
         Err(SetError::File { error: FileError::OutsideCourse, .. })
     ));
     assert_eq!(read(&outside), r#"{ "settings": { "ui": { "performance": "quality" } } }"#);
+}
+
+#[cfg(unix)]
+#[test]
+fn settings_course_file_as_a_dangling_link_is_refused() {
+    let (env, _, root) = setup("{}", None);
+    let course = root.join(".lecter").join(COURSE_FILE);
+    std::os::unix::fs::symlink(env.home().join("nowhere.jsonc"), &course).expect("link");
+    let store = SettingsStore::open(&env.dirs(), Some(&root));
+    assert_eq!(
+        store.take_notices(),
+        vec![Notice::Unreadable { file: course, reason: "points outside the course folder".into() }]
+    );
+    assert!(!env.home().join("nowhere.jsonc").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn settings_a_file_the_os_refuses_is_reported_not_treated_as_missing() {
+    use std::os::unix::fs::PermissionsExt;
+    let (env, global, _) = setup(r#"{ "ui": { "performance": "quality" } }"#, None);
+    std::fs::set_permissions(&global, std::fs::Permissions::from_mode(0o000)).expect("chmod");
+    if std::fs::File::open(&global).is_ok() {
+        // Running as root: permissions don't apply, so there is nothing to observe.
+        return;
+    }
+    let store = SettingsStore::open(&env.dirs(), None);
+    assert_eq!(
+        store.take_notices(),
+        vec![Notice::Unreadable { file: global, reason: "could not be read (PermissionDenied)".into() }]
+    );
+}
+
+#[test]
+fn settings_a_file_of_exactly_the_size_limit_is_read() {
+    let (env, global, _) = setup("", None);
+    let head = r#"{ "ui": { "performance": "quality" }, "pad": ""#;
+    let tail = "\" }";
+    let max = super::jsonc::MAX_FILE_BYTES as usize;
+    let text = format!("{head}{}{tail}", "x".repeat(max - head.len() - tail.len()));
+    assert_eq!(text.len(), max);
+    write(&global, &text);
+    let store = SettingsStore::open(&env.dirs(), None);
+    assert_eq!(store.get("ui.performance").map(|r| (r.value, r.source)), Some((json!("quality"), Source::Global)));
 }
 
 #[cfg(unix)]
