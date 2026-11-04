@@ -52,6 +52,8 @@ export function prewarmEditor(): void {
   const view = new EditorView({ state: lectureState(WARM_LECTURE, "Warm-up"), parent: host });
   requestAnimationFrame(() =>
     setTimeout(() => {
+      // A page torn down meanwhile (a test's jsdom) has already dropped the host: nothing to undo.
+      if (!host.isConnected) return;
       view.destroy();
       host.remove();
     }),
