@@ -85,11 +85,11 @@ Change F-016's verify line `scripts/check_release_binary.sh` to `tests/e2e/relea
 - Recommended: yes, in the planning session. (applied as default: no)
 - Answer:
 
-## Q-012 · planning · blocks: nothing
+## Q-012 · answered · blocks: nothing
 Should a course whose slides/ links to files outside it (e.g. ~/Downloads) open with those files skipped, instead of failing with E_NOT_TRUSTED?
 - Context: F-018 fails the whole open (D-106). Students may keep slides elsewhere and link them in; the failure names the entry but gives no way forward.
 - Recommended: keep the failure until F-033's trust screen can explain it and offer to include them. (applied as default: yes)
-- Answer:
+- Answer: maintainer 2026-11-04 (D-167): "If the user trusts the course directory it shouldn't skip a file; we realistically only need to make sure that there is nothing that is a vulnerability to the software that isnt course material (so the .files etc)". Planning applies it.
 
 ## Q-013 · planning · blocks: nothing
 F-020 criterion 4 compares with `docs/design/reference/buffer-*.png`, which don't exist: add buffer crops, or reword the criterion to the existing crops?
@@ -103,11 +103,11 @@ Should search_find's 50-hit cap (MAX_HITS, F-022) become a setting such as `sear
 - Recommended: yes, a setting with default 50, added by the settings card. (applied as default: 50, hard-coded)
 - Answer:
 
-## Q-015 · planning · blocks: nothing
+## Q-015 · answered · blocks: nothing
 Should a gloss stopped part-way (Esc or the 30 s budget) be marked in the lecture file, e.g. a `stopped` attribute on its fenced div?
 - Context: F-023 saves the partial answer as an ordinary gloss (D-133); the spec says nothing about stopped glosses.
 - Recommended: yes, a `stopped` attribute so a later regenerate can find them; decide with F-094's gloss rendering. (applied as default: no marker)
-- Answer:
+- Answer: maintainer 2026-11-04 (D-168): "keep all glosses kept and unkept till the user tries to close the lecture; have a confirmationg to say quitting will delete all unkept glosses, if there are only kept glosses, then no confirmation". Planning applies it.
 
 ## Q-016 · planning · blocks: nothing
 Should the stored figure form (F-145) keep reading the ```fnplot blocks that skeleton glosses already saved (D-135)?
@@ -186,3 +186,12 @@ Should F-061 switch the skeleton flow's parse step (tests/e2e/flows/skeleton.ts,
 
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
+
+### M0.5 (2026-11-04)
+Maintainer's notes, verbatim:
+- "We should change ask's keybind with something that isnt already in vim
+Go through each keybind we plan on implementing and make sure they are simple keybinds that dont have vim meanings.
+We don't need all of vims functionality only the things that will make typing and navigating notes faster. I want most keybinds to still be a single key or a button press."
+- (with the Q-012 answer) "Maybe for the future we can have a mode where you take somebody else's course files and then you have some sort of scanner to make sure its safe."
+- Context from the gate try-out: `a` on an own-note line is Vim append, so ask couldn't be reached in a hand-made lecture (ask works only on slide lines); `:find` found nothing because it indexes only slide blocks of opened lectures, not own notes (F-120, M4).
+

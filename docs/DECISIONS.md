@@ -984,3 +984,17 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: an app import IPC (out of paths, decides naming and on-disk format); editing e2e-app.sh; a new harness command.
 - Revisit if: F-061 lands (switch the parse step to the in-app import, Q-027).
 
+## D-167 · A trusted course opens all its files; only non-course files are guarded (Q-012)
+2026-11-04 · maintainer · active
+- Decision: when the user trusts a course folder, Lecter doesn't skip or refuse its files (links out of the folder included); the checks only keep non-course material that could harm the app (dotfiles such as `.lecter/` internals and other hidden files) from being treated as course content. The planning session updates D-106 / F-018 / F-033.
+- Why: the user chose to trust the folder; refusing their own linked slides gives no way forward.
+- Instead of: failing the whole open with E_NOT_TRUSTED (D-106), or skipping linked files.
+- Revisit if: a later "import someone else's course" mode lands (maintainer's idea: scan untrusted course files for safety first).
+
+## D-168 · Unkept glosses live until the lecture closes; closing asks first (Q-015)
+2026-11-04 · maintainer · active
+- Decision: every gloss, kept or unkept (stopped part-way included), stays in the lecture until the user closes it. Closing a lecture that has unkept glosses asks for confirmation that they will be deleted; with only kept glosses, it closes without asking. The planning session specs "kept" vs "unkept" (10-keymap's "on a draft: keep it") and the close flow.
+- Why: the user decides what to keep; nothing is lost silently.
+- Instead of: a `stopped` attribute on part-way glosses (Q-015's recommendation).
+- Revisit if: users lose wanted glosses to the close prompt.
+
