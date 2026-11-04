@@ -994,12 +994,13 @@
    "evidence": [
     "log:tests"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "Add performance presets (D-081): Performance/Balanced(default)/Quality; perf toggles default Balanced. Criteria pending Q-006. | Q-006 applied (D-143): ui.performance criterion added.",
    "priority": 3025,
    "reviews": [
     "security"
-   ]
+   ],
+   "base": "6bf39b554cc14985b2dc2049758efe6b8ff23b88"
   },
   {
    "id": "F-031",
