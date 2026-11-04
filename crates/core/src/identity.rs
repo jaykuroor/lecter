@@ -1,4 +1,18 @@
-//! App identity (`01-architecture.md#app-identity-and-migration`).
+//! App identity (`01-architecture.md#app-identity-and-migration`), and the migration hook that
+//! moves what an earlier identifier left behind ([`migrate()`]).
+
+mod keychain;
+mod legacy_dirs;
+mod migrate;
+mod record;
+#[cfg(test)]
+mod tests_keychain;
+#[cfg(test)]
+mod tests_migrate;
+
+pub use keychain::{Keychain, KeychainError};
+pub use migrate::{LeftReason, Leftover, MigrateError, Migration, Outcome, Report, migrate};
+pub use record::{MIGRATED_KEY, STATE_DB};
 
 /// The bundle identifier, read at build time from `app/tauri.conf.json` (its only source).
 /// Nothing the user owns may depend on it: it can change once.
@@ -11,6 +25,10 @@ pub const APP_DIR_NAME: &str = "lecter";
 /// The OS keychain service every saved secret is filed under, never the bundle identifier, so a
 /// rename of [`APP_ID`] loses no key.
 pub const KEYCHAIN_SERVICE: &str = "lecter";
+
+/// Earlier bundle identifiers, oldest first. [`migrate()`] moves what each left behind to the
+/// stable folders and keychain service. Renaming [`APP_ID`] means adding the old one here.
+pub const LEGACY_APP_IDS: &[&str] = &[];
 
 /// The names one build of the app goes by. Every location derives from an `Identity`
 /// ([`crate::paths::AppDirs::derive`]), so a test can change the identifier and check that
@@ -31,7 +49,7 @@ pub const CURRENT: Identity = Identity { app_id: APP_ID, dir_name: APP_DIR_NAME,
 #[cfg(test)]
 #[allow(clippy::disallowed_methods, reason = "tests read repo files on plain test threads")]
 mod tests {
-    use super::{APP_DIR_NAME, APP_ID, CURRENT, KEYCHAIN_SERVICE};
+    use super::{APP_DIR_NAME, APP_ID, CURRENT, KEYCHAIN_SERVICE, LEGACY_APP_IDS};
 
     #[test]
     fn app_id_is_the_identifier_in_tauri_conf() {
@@ -50,5 +68,10 @@ mod tests {
         assert_eq!(KEYCHAIN_SERVICE, "lecter");
         assert_eq!((CURRENT.app_id, CURRENT.dir_name, CURRENT.keychain_service), (APP_ID, "lecter", "lecter"));
         assert_ne!(CURRENT.app_id, CURRENT.dir_name, "the identifier is not the stable name");
+    }
+
+    #[test]
+    fn no_legacy_identifier_in_v0() {
+        assert_eq!(LEGACY_APP_IDS, &[] as &[&str], "v0 has never been renamed");
     }
 }
