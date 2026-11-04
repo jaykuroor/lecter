@@ -8,7 +8,15 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
+#[cfg(test)]
 use crate::identity::APP_DIR_NAME;
+use crate::identity::{self, Identity};
+
+mod first_run;
+#[cfg(test)]
+mod tests_identity;
+
+pub use first_run::RunState;
 
 /// The environment variable that moves every config, data and cache folder under one directory.
 /// Debug builds and the `test-hooks` feature only; release builds don't contain it.
@@ -39,7 +47,7 @@ impl Os {
     }
 }
 
-/// The OS base folders the app folders are placed in, before [`APP_DIR_NAME`] is added.
+/// The OS base folders the app folders are placed in, before [`identity::APP_DIR_NAME`] is added.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BaseDirs {
     /// The user's home directory.
@@ -108,7 +116,12 @@ impl AppDirs {
 
     /// The folders of the table in `01-architecture.md#app-identity-and-migration` for `os`.
     pub fn for_os(os: Os, base: &BaseDirs) -> Self {
-        let app = |p: &Path| p.join(APP_DIR_NAME);
+        Self::derive(&identity::CURRENT, os, base)
+    }
+
+    /// The folders `id` gets on `os`: named by `id.dir_name` alone, never by `id.app_id`.
+    pub fn derive(id: &Identity, os: Os, base: &BaseDirs) -> Self {
+        let app = |p: &Path| p.join(id.dir_name);
         match os {
             Os::Linux => Self { config: app(&base.config), data: app(&base.data), cache: app(&base.cache) },
             Os::MacOs => {
@@ -230,9 +243,10 @@ mod tests {
         assert_eq!(all(&d), [Path::new("/r/cfg/lecter"), Path::new("/r/data/lecter"), Path::new("/r/cache/lecter")]);
     }
 
-    /// Set only in the child process that `resolve_reads_the_test_home_from_the_environment` starts.
+    /// Set only in the child processes that `resolve_reads_the_test_home_from_the_environment` and
+    /// `tests_identity::the_real_folders_follow_the_table` start.
     #[cfg(any(debug_assertions, feature = "test-hooks"))]
-    const CHILD_MARK: &str = "LECTER_PATHS_RESOLVE_CHILD";
+    pub(super) const CHILD_MARK: &str = "LECTER_PATHS_RESOLVE_CHILD";
 
     /// The real `AppDirs::resolve()`, reading the real environment, in a child copy of this test
     /// binary started with `TestEnv` (so no test mutates its own process environment).
