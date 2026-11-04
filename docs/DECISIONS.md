@@ -977,3 +977,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: the earlier mixed-method targets (macOS 170/710, Windows 120/200 MB); subtracting the frame from macOS ttft.
 - Revisit if: macOS ttft keeps rising (36, 44, 47 ms in later runs; Q-025), or run 41742947222's raw report is needed (it isn't saved in .evidence/F-025/).
 
+## D-166 · Skeleton flow: parse via lecter-harness, headless twin in the harness tests (F-026)
+2026-11-03 · F-026 builder, recorded by the orchestrator · active
+- Decision: tests/e2e/flows/skeleton.ts turns the slide PDF into a lecture with `lecter-harness parse` (the real worker and PDFium), writing the blocks as a lecture .md per 03-lecture-files#body, and builds lecter-harness itself (`cargo build -p lecter-harness --locked`). The no-GUI path is crates/harness/tests/skeleton.rs, using lecter_core::save::Session for edit and restart. The flow cleans up its PDF, lecture, journal and index in `after` (shards share the course).
+- Why: the app has no import command until F-061 and doesn't spawn the parse worker yet (D-113); e2e-app.sh builds only lecter-app; the harness has no edit command.
+- Instead of: an app import IPC (out of paths, decides naming and on-disk format); editing e2e-app.sh; a new harness command.
+- Revisit if: F-061 lands (switch the parse step to the in-app import, Q-027).
+

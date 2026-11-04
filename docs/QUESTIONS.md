@@ -178,5 +178,11 @@ The macOS mocked-core keystroke check (keystroke_p99_ms 12 ms, Playwright) faile
 - Recommended: gate the mocked-core keystroke check on Linux and report it on macOS/Windows (runner noise, mocked core); decide in planning before F-174.
 - Answer:
 
+## Q-027 · later · blocks: nothing
+Should F-061 switch the skeleton flow's parse step (tests/e2e/flows/skeleton.ts, now `lecter-harness parse`, D-166) to the in-app import?
+- Context: F-026 parses through the harness because the app has no import command yet.
+- Recommended: yes; add it to F-061's criteria at the next planning session.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

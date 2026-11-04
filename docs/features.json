@@ -890,7 +890,7 @@
     "log:e2e-app"
    ],
    "try": "Walk the whole path: open course, open lecture, edit, restart, search, ask, see a plot",
-   "status": "in_progress",
+   "status": "done",
    "notes": "WIP c89e98a (verify OK): flow + harness twin done; awaiting CI 41767214228 skeleton shards. Red: fix from shard log. Green: pull skeleton-gloss.png + e2e-app.log from shard artifact, evidence.py check, DONE; set shards.ts skeleton from timings.json.",
    "priority": 2022,
    "base": "0c7e1d67040a47dbca8c2f231e0f21c418bddc2e"

@@ -111,7 +111,7 @@ Settings live in `~/.config/lecter/` on Linux and macOS, and `%APPDATA%\lecter\`
 | Milestone | Scope | Status |
 |---|---|---|
 | M0 | Foundations: workspace, UI and app shells, CI, risk spikes | Planned |
-| M0.5 | Walking skeleton: open, parse, edit, save, search, one gloss and one figure, on all three OSes | Planned |
+| M0.5 | Walking skeleton: open, parse, edit, save, search, one gloss and one figure, on all three OSes | Built (gate pending) |
 | M1 | App shell, settings, courses, keys, hint bar, theming | Planned |
 | M2 | Lecture files, slide parsing, editing, flags | Planned |
 | M3 | Providers and sign-in, agent harness, glosses, keycaps, web search | Planned |
