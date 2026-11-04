@@ -1,0 +1,194 @@
+{
+  "about": "Performance budgets (docs/spec/14-quality.md#performance-budgets). Protected: never loosen a value to pass (a loosened budget needs the maintainer's D-entry and a Budget-Changed trailer). Fields: budget = the target; cmp = lt (value < budget) or le (value <= budget); kind = timing (x1.5 CI allowance, one re-measure) or memory, size, tokens, cpu (exact); from = the milestone it starts gating; script = the measurement (run with the ids it should measure; prints one JSON line per id); quick = the fast check that --quick runs instead; job = nightly for budgets measured only there; no script = PENDING (fails once its milestone is done); per_os = the target per OS (linux, darwin, win32) in place of budget, an OS not listed prints REPORT; on_ci = report: with --ci the real-app value prints REPORT and its quick check gates (D-146, D-155); local = per-OS targets from the maintainer's machine, used without --ci; median_of = the script reports that many samples and their median is gated at x1 (D-152). Targets per OS only go down. MB and KB are decimal (10^6, 10^3 bytes).",
+  "budgets": [
+    {
+      "id": "keystroke_p99_ms",
+      "budget": 8,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M0.5",
+      "on_ci": "report",
+      "how": "500 keystrokes (after 50 warm-up) in the 200-slide fixture lecture, real app via WebDriver (gates only locally, with hardware rendering: D-146); mocked core in Playwright as the quick check, which gates under --ci",
+      "script": "tests/perf/app/run.sh",
+      "quick": "tests/perf/measure/keystroke_mock.py"
+    },
+    {
+      "id": "cold_open_ms",
+      "budget": 400,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M0.5",
+      "per_os": {
+        "linux": 1080,
+        "darwin": 2940,
+        "win32": 580
+      },
+      "local": {
+        "linux": 490
+      },
+      "on_ci": "report",
+      "median_of": 5,
+      "how": "Process start to first buffer paint of the 200-slide fixture lecture, median of 5 launches. budget = the spec's 400 ms goal; per_os = the CI runner targets (D-152), gated by the e2e-app cold-open flow; local = the maintainer's machine (D-155, D-156), gated by budgets.sh without --ci",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "idle_rss_mb",
+      "budget": 460,
+      "cmp": "lt",
+      "unit": "MB",
+      "kind": "memory",
+      "from": "M0.5",
+      "per_os": {
+        "linux": 460,
+        "darwin": 90,
+        "win32": 90
+      },
+      "how": "Memory of all app processes 60 s after opening the fixture lecture, every one by its share, Lecter's own included: Linux PSS, macOS phys_footprint, Windows private working set; RSS of all as an info line (D-161)",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "rss_300_slides_mb",
+      "budget": 500,
+      "cmp": "lt",
+      "unit": "MB",
+      "kind": "memory",
+      "from": "M0.5",
+      "per_os": {
+        "linux": 500,
+        "darwin": 390,
+        "win32": 170
+      },
+      "how": "Memory of all app processes with the 300-slide fixture lecture open and scrolled end to end, every one by its share, Lecter's own included: Linux PSS, macOS phys_footprint, Windows private working set; RSS of all as an info line; on macOS the sample after the 5 s settle counts, elsewhere the larger of the two (D-161)",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "idle_cpu_pct",
+      "budget": 0.5,
+      "cmp": "lt",
+      "unit": "%",
+      "kind": "cpu",
+      "from": "M0.5",
+      "how": "Average CPU of all app processes (percent of one core) over a 5-minute idle sample after a 60 s settle, sampled per process and thread every 15 s as F-180's idle flow does (tests/e2e/flows/idle-cpu/), the editor focused and parked; no per-OS target: F-180 cut the WebView2 baseline (D-161, D-164)",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "ttft_overhead_ms",
+      "budget": 20,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M0.5",
+      "per_os": {
+        "linux": 20,
+        "darwin": 42,
+        "win32": 20
+      },
+      "how": "Gloss request (Enter) to the first answer text painted, minus the provider's own first-token delay; each ask broken down into to-page, frame wait and paint. per_os: the spec's 20 ms on Linux and Windows; macOS from its CI measurement + 10 %, its frame wait checked (D-161)",
+      "script": "tests/perf/app/run.sh"
+    },
+    {
+      "id": "tier1_p95_ms",
+      "budget": 100,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M4",
+      "how": "Fixture course: 1 textbook (~600 pages) + 10 lectures"
+    },
+    {
+      "id": "parse_100_pages_ms",
+      "budget": 1000,
+      "cmp": "lt",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M2",
+      "how": "100-page text-layer fixture PDF"
+    },
+    {
+      "id": "uncached_tokens_a_p95",
+      "budget": 2500,
+      "cmp": "le",
+      "unit": "tokens",
+      "kind": "tokens",
+      "from": "M3",
+      "how": "Logged usage on the eval set"
+    },
+    {
+      "id": "crash_loss_ms",
+      "budget": 250,
+      "cmp": "le",
+      "unit": "ms",
+      "kind": "timing",
+      "from": "M2",
+      "how": "Kill -9 during typing; compare the journal"
+    },
+    {
+      "id": "ui_main_chunk_kb_gz",
+      "budget": 250,
+      "cmp": "le",
+      "unit": "KB",
+      "kind": "size",
+      "from": "M0.5",
+      "how": "Size of the UI's JavaScript after vite build, gzipped: the entry module plus every chunk it can load (lazy ones included), each gzipped on its own and summed",
+      "script": "tests/perf/measure/bundle.py",
+      "quick": "tests/perf/measure/bundle.py"
+    },
+    {
+      "id": "installer_mb.deb",
+      "budget": 25,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile .deb bundle size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.rpm",
+      "budget": 25,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile .rpm bundle size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.dmg",
+      "budget": 30,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile macOS .dmg bundle size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.exe",
+      "budget": 20,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile Windows .exe installer size",
+      "script": "tests/perf/measure/installer.py"
+    },
+    {
+      "id": "installer_mb.appimage",
+      "budget": 110,
+      "cmp": "le",
+      "unit": "MB",
+      "kind": "size",
+      "from": "M0.5",
+      "job": "nightly",
+      "how": "Release-profile AppImage size (bundles WebKitGTK)",
+      "script": "tests/perf/measure/installer.py"
+    }
+  ]
+}

@@ -18,13 +18,20 @@ describe("cold_open_ms gate (D-152)", () => {
     expect(() => median([])).toThrow();
   });
 
-  it("Linux gates at 1080 ms (CI median 973 + 10 %, D-152); macOS and Windows report until F-025", () => {
-    expect(TARGETS).toEqual({ linux: targetFrom(973) });
-    expect(TARGETS.linux).toBe(1080);
+  it("Linux gates at 1080 ms (CI median 973 + 10 %, D-152); macOS and Windows at F-025's first dispatch medians + 10 %", () => {
+    // The targets live in tests/perf/budgets.json (cold_open_ms per_os, D-156). macOS 2671.93 ms
+    // (CI run 41702437408) and Windows 523.15 ms (CI run 41701063503), F-025's first measurements.
+    expect(TARGETS).toEqual({ linux: targetFrom(973), darwin: targetFrom(2671.93), win32: targetFrom(523.15) });
+    expect(TARGETS).toEqual({ linux: 1080, darwin: 2940, win32: 580 });
     expect(verdict([1079, 1200, 900, 1000, 1050], "linux").outcome).toBe("pass");
     expect(verdict([1080, 1200, 900, 1000, 1090], "linux").outcome).toBe("fail");
+    expect(verdict([579, 600, 500, 520, 560], "win32").outcome).toBe("pass");
+    expect(verdict([580, 600, 500, 590, 560], "win32").outcome).toBe("fail");
+    expect(verdict([2939, 3000, 2000, 2100, 2200], "darwin").outcome).toBe("pass");
+    expect(verdict([2940, 3000, 2000, 2950, 2200], "darwin").outcome).toBe("fail");
+    // An OS without a target reports and passes.
     for (const os of ["darwin", "win32"]) {
-      const v = verdict([484, 575, 420, 430, 440], os);
+      const v = verdict([484, 575, 420, 430, 440], os, { linux: 1080 });
       expect(v.outcome).toBe("report");
       expect(v.lines).toEqual([
         `cold_open_ms 440 (median of 5: 484 575 420 430 440; target none for ${os})`,

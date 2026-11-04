@@ -1,0 +1,3 @@
+# Written by budgets.sh on every run (CI uploads them).
+report.json
+logs/
