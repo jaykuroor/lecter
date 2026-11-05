@@ -2,8 +2,9 @@
 // becomes a token, goes through the engine for where the focus is, and is taken, held or let
 // through. Loaded right after the first paint (boot.ts). Everything here is synchronous.
 import { registerCommand, runCommand } from "./commands";
+import { vimTakes } from "./dispatch";
 import { compileKeymap, KeyEngine, unhandled } from "./engine";
-import { type Binding, DEFAULT_KEYMAP, VIM_GIVEN_UP } from "./keymap";
+import { type Binding, DEFAULT_KEYMAP } from "./keymap";
 import { locate, type Where } from "./locate";
 import { eventToken } from "./notation";
 import { cyclePanes } from "./panes";
@@ -67,7 +68,7 @@ export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: 
       // A given-up Vim key whose Lecter command isn't there yet does nothing in the buffer: left
       // to the editor, Enter would still move a line down and Tab leave the buffer.
       const sequence = out.explicit ? out.keys.slice(String(out.count).length) : out.keys;
-      if (where.buffer && sequence.length === 1 && VIM_GIVEN_UP.includes(token)) {
+      if (where.buffer && !vimTakes(sequence)) {
         take(e);
         return;
       }

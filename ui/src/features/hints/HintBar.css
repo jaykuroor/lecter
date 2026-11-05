@@ -1,0 +1,90 @@
+/* Hint bar (docs/design/components.md#hint-bar-and-which-key): one line above the status line,
+   keycaps (tokens.keycap) + words in --dim; full adds the mouse action in --faint. The element's
+   keys wrap onto a hidden second line when they don't fit, so a hint is shown whole or not at
+   all; the global keys and ␣ More keep their place at the end. Theme tokens only. */
+.hint-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 25px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--borders);
+  background: var(--headerbar-bg);
+  color: var(--dim);
+  font-size: 11.5px;
+  line-height: 25px;
+}
+
+.hint-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hint-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 25px;
+  overflow: hidden;
+}
+
+.hint-tail {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hint:hover {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+  color: var(--window-fg);
+}
+
+.hint-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75em;
+  min-height: 1.75em;
+  box-sizing: border-box;
+  padding: 0 0.4em;
+  border: 1px solid var(--borders);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--view-bg);
+  color: var(--window-fg);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 0.8em;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.hint:hover .hint-key {
+  border-color: var(--accent-bg);
+}
+
+.hint-mouse {
+  color: var(--faint);
+}
+
+.hint-mouse::before {
+  content: "· ";
+}

@@ -54,7 +54,7 @@ body,
   grid-column: 2;
   grid-row: 2;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   min-width: 0;
   /* The trust screen (features/trust) floats over the document. */
   position: relative;

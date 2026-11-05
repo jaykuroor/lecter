@@ -15,13 +15,26 @@ export interface Invocation {
 export type Handler = (call: Invocation) => boolean | undefined;
 
 const handlers = new Map<string, Handler>();
+const watchers = new Set<() => void>();
 
 /** Registers the handler of `command`; returns the function that removes it again. */
 export function registerCommand(command: string, handler: Handler): () => void {
   handlers.set(command, handler);
+  for (const watch of watchers) watch();
   return () => {
-    if (handlers.get(command) === handler) handlers.delete(command);
+    if (handlers.get(command) !== handler) return;
+    handlers.delete(command);
+    for (const watch of watchers) watch();
   };
+}
+
+/** Whether some feature handles `command` now (the hint bar makes only those hints clickable). */
+export const hasCommand = (command: string): boolean => handlers.has(command);
+
+/** Calls `watch` whenever a handler comes or goes; returns the function that stops it. */
+export function watchCommands(watch: () => void): () => void {
+  watchers.add(watch);
+  return () => watchers.delete(watch);
 }
 
 /** Runs the binding's command; `false` when nobody handles it or its handler declined. */
