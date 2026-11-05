@@ -14,6 +14,11 @@ export interface MockFixture {
    * `gloss_cancel` stops it. Every gloss gets the next id `g-0001`, `g-0002`, ….
    */
   gloss: { deltas: string[]; deltaMs: number };
+  /**
+   * The course details form's first values `course_trust` sends with a Trust answer (`null`: the
+   * course's details are saved already). `course_details_save` answers with what it was sent.
+   */
+  details: Commands["course_trust"]["result"]["details"];
 }
 
 /** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
@@ -37,4 +42,5 @@ export const defaultFixture: MockFixture = {
   lectures: {},
   find: {},
   gloss: { deltas: ["**Sample answer.** ", "This is ", "the mocked core."], deltaMs: 30 },
+  details: null,
 };

@@ -1,0 +1,197 @@
+/* The course details form, a popover over the document like the trust screen it follows
+   (docs/design/components.md: Compare parse for the popover, Buttons and chips, tokens.keycap).
+   Colours, radii and shadows are theme tokens only; the icon preview's --c is the course's own
+   colour (user data). Keyboard focus is a 2px --accent outline with 2px offset. */
+.details {
+  position: absolute;
+  inset: 14px 16px auto;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+  max-height: calc(100% - 28px);
+  margin: 0 auto;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  overflow: auto;
+  border: 1px solid var(--borders, GrayText);
+  border-radius: 12px;
+  /* Until the theme (F-042) defines the tokens, the system colours keep the popover opaque. */
+  background: var(--popover-bg, Canvas);
+  color: var(--view-fg, CanvasText);
+  box-shadow: var(--shadow-popover);
+  font-size: 13px;
+}
+
+.details-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.details-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--c, var(--accent-bg));
+  color: var(--accent-fg, AccentColorText);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.details-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.details-intro {
+  margin: 2px 0 0;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.details-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.details-field.wide {
+  grid-column: 1 / -1;
+}
+
+.details-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+.details-hint {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.details-input {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--borders, GrayText);
+  border-radius: 7px;
+  background: var(--view-bg, Field);
+  color: var(--view-fg, FieldText);
+  font: inherit;
+}
+
+.details-path {
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.details-color {
+  width: 56px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--borders, GrayText);
+  border-radius: 7px;
+  background: var(--view-bg, Field);
+  cursor: pointer;
+}
+
+.details-input:focus-visible,
+.details-color:focus-visible,
+.details .btn:focus-visible {
+  outline: 2px solid var(--accent, AccentColor);
+  outline-offset: 2px;
+}
+
+.details-folders {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.details-folders > legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.details-error {
+  margin: 0;
+  padding: 9px 13px;
+  border: 1px solid color-mix(in srgb, var(--k-doubt) 45%, var(--borders));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--k-doubt) 14%, var(--popover-bg));
+}
+
+.details-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Button: radius 8px, padding 6px 12px, 12.5px 600, color-mix(--view-fg 8%); suggested
+   --accent-bg / --accent-fg with on-accent keycaps. */
+.details .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--view-fg, CanvasText) 8%, transparent);
+  color: var(--view-fg, CanvasText);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.details .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--view-fg, CanvasText) 14%, transparent);
+}
+
+.details .btn.sug {
+  background: var(--accent-bg, AccentColor);
+  color: var(--accent-fg, AccentColorText);
+}
+
+.details .btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* tokens.keycap: mono 0.8em 500, 1.75em square, 1px --borders with a 2px bottom, radius 5px. */
+.details-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75em;
+  min-height: 1.75em;
+  padding: 0 0.4em;
+  box-sizing: border-box;
+  border: 1px solid var(--borders);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--view-bg);
+  color: var(--window-fg);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.details .btn.sug .details-key {
+  border-color: color-mix(in srgb, var(--accent-fg) 40%, transparent);
+  background: transparent;
+  color: var(--accent-fg);
+}
