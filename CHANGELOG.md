@@ -27,4 +27,5 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - The app window and the first lecture appear sooner after launch, and the app logs how long each startup step took (F-179)
 - Settings live in JSONC files (global and per course) and apply as soon as you save them; a course folder can't change your privacy, logging, limits or spend caps (F-030)
 - Lecter keeps its settings, data and cache in stable "lecter" folders on Linux, macOS and Windows, and knows when it is starting for the first time (F-031)
+- Opening a course folder for the first time asks whether to trust it; read-only courses keep notes and slides but turn off AI and search indexing, and a course Lecter can't fully check opens read-only only (F-033)
 

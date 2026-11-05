@@ -1080,3 +1080,29 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `rusqlite` (MIT, bundled SQLite; libsqlite3-sys pre-approved; 5 new crates) in lecter-core.
 - Why: Dep-Added trailer on F-032 commits; check_deps OK; the spec records the migration in state.db.
 - Instead of: a marker file.
+
+## D-181 · trusted.jsonc: keyed by canonical path, on this computer (F-033)
+2026-11-04 · orchestrator, decider: maintainer · active
+- Decision: `<config>/trusted.jsonc` is `{version: 1, courses: {"<canonical absolute path>": {choice: "trusted"|"read_only", fingerprint}}}`. "Per absolute path and device" (02-course-folder#trust) means per path in this computer's own config folder; no disk or volume id is stored. A missing, malformed, wrong-version or bad entry means "no answer" (ask again); a read I/O error is an error. Both fail closed.
+- Why: a different folder at the same path is trusted only if its AI files fingerprint the same (D-182); a volume id would re-ask on USB drives whose ids change on replug.
+- Instead of: also storing st_dev / the volume serial; an unversioned list.
+- Revisit if: course folders sync between computers, or a real case of a swapped drive at the same path comes up.
+
+## D-182 · Trust fingerprint: AI files hashed whole, links followed inside (F-033)
+2026-11-04 · F-033 builder, recorded by the orchestrator · active
+- Decision: a blake3 fingerprint (tagged, length-prefixed, version "2") covers AGENTS.md, role files, every skill file at any depth (hidden files included) and the `settings` object of course.jsonc, not the course name or colour. Names are hashed by their raw bytes (`OsStr::as_encoded_bytes`) and shown lossy. Files are hashed whole up to 16 MiB. A link to a file or folder inside the course is followed and its contents hashed; folders are walked once (canonical visited set), and every entry counts toward MAX_ENTRIES = 10000. A link out of the course counts by name only and is never read. There is no depth cap.
+- Why: SEC-25: any change to what the AI reads asks again; a depth cap or a 16 MiB prefix let edits slip past (security review).
+- Instead of: hashing all of `.lecter`; a 16 MiB prefix plus length; MAX_DEPTH = 16; refusing folder links.
+- Revisit if: re-hashing on every gated call shows up in a budget (add a total-byte cap and a cache).
+
+## D-183 · A course that can't be fully checked opens read-only only (F-033)
+2026-11-04 · F-033 builder, recorded by the orchestrator · active
+- Decision: when the survey fails (more than 10000 entries, an unreadable `.lecter`, an AI file over 16 MiB raising `Error::AiFileTooLarge`), the trust screen sets `blocked: <reason>`, Trust is disabled and Open read-only still works. `decide(Trusted)` is refused with E_NOT_TRUSTED, a stored "trusted" never covers a blocked course, and `require_trusted` returns E_NOT_TRUSTED for it.
+- Why: fail closed without making a hostile course impossible to open; gated commands keep one error code (SEC-27).
+- Instead of: failing course_open with E_INVALID_ARGUMENT; treating an unreadable folder as empty.
+
+## D-184 · Debug trust hook for tests (F-033)
+2026-11-04 · F-033 builder, recorded by the orchestrator · active
+- Decision: debug and `test-hooks` builds trust courses automatically when `LECTER_TEST_TRUST` is set, so existing e2e flows and perf runs open courses without the screen; blocked courses are skipped. Release builds never compile the hook. The trust flow relaunches the app without it.
+- Why: existing flows predate the trust screen; release behaviour stays unchanged.
+- Instead of: answering the trust screen in every flow.

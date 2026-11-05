@@ -1099,7 +1099,7 @@
     "security"
    ],
    "try": "Open a new folder: the trust screen shows what Lecter will read",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3028,
    "base": "e7c1c18635fa3aec001da92232f926e60b8ab957"
