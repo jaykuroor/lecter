@@ -224,8 +224,8 @@ describe("the keystroke overlay", () => {
     frame();
     press("j");
     frame();
+    // A key and a leader in one frame: only the leader is held.
     press("x");
-    frame();
     press(" ");
     frame();
     press("u");
