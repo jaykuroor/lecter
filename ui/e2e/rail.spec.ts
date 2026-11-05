@@ -65,7 +65,8 @@ test("shows one icon per course; + adds one; drag reorders; Ctrl-1/2 switch @smo
   expect(saved).toEqual(["/courses/PHYS101", "/courses/STAT311", "/courses/MATH221"]);
 
   await page.screenshot({ path: testInfo.outputPath("rail.png") });
-  if (process.env.LECTER_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.LECTER_EVIDENCE_DIR}/rail-mock.png` });
+  if (process.env.LECTER_EVIDENCE_DIR)
+    await page.screenshot({ path: `${process.env.LECTER_EVIDENCE_DIR}/rail-mock.png` });
 
   // Ctrl-2 and Ctrl-3 switch by the order on screen, from anywhere.
   await page.keyboard.press("Control+2");

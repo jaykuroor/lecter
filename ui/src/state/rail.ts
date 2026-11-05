@@ -10,8 +10,8 @@ export interface RailState {
   /** Reads the rail from the core and follows `course:changed` from then on. */
   load: () => Promise<void>;
   /**
-   * Shows `paths` as the new order at once and saves it; if the core refuses, the old order comes
-   * back with the core's message as the error.
+   * Shows `paths` as the new order at once (when it is the rail's courses, each once) and saves
+   * it; if the core refuses, the old order comes back with the core's message as the error.
    */
   reorder: (paths: string[]) => Promise<void>;
 }
@@ -53,8 +53,9 @@ export function createRail(): RailState {
   async function reorder(paths: string[]): Promise<void> {
     const before = courses();
     const byPath = new Map(before.map((c) => [c.path, c]));
-    const moved = paths.map((p) => byPath.get(p)).filter((c): c is KnownCourse => c !== undefined);
-    setCourses(moved);
+    const moved = paths.map((p) => byPath.get(p));
+    // Shown at once only when it is the rail's own courses in a new order; the core judges the rest.
+    if (moved.length === before.length && moved.every((c) => c !== undefined)) setCourses(moved);
     try {
       const result = await reorderCourses(paths);
       if (result.status === "error") {

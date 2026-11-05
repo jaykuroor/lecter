@@ -122,6 +122,69 @@ describe("rail state", () => {
     expect(r.error()).toBe("Lecter could not use its list of courses.");
   });
 
+  it("doesn't show an order that isn't the rail's own courses while the core judges it", async () => {
+    const r = rail();
+    await r.load();
+    for (const bad of [["/c/calc", "/c/elsewhere"], ["/c/calc"], ["/c/calc", "/c/stat", "/c/bio"]]) {
+      const saving = r.reorder(bad);
+      expect(paths(r), bad.join()).toEqual(["/c/stat", "/c/calc"]);
+      await saving;
+      expect(paths(r), bad.join()).toEqual(["/c/stat", "/c/calc"]);
+    }
+  });
+
+  it("keeps what the core answers, which may differ from what was sent", async () => {
+    const r = rail();
+    await r.load();
+    const renamed = { ...calc, name: "Calculus II" };
+    internals().invoke = (cmd) => (cmd === "course_reorder" ? Promise.resolve([renamed, stat]) : Promise.resolve(1));
+    await r.reorder(["/c/calc", "/c/stat"]);
+    expect(r.courses()).toEqual([renamed, stat]);
+  });
+
+  it("puts the old order back when the core refuses a new order of the same courses", async () => {
+    const r = rail();
+    await r.load();
+    internals().invoke = (cmd) =>
+      cmd === "course_reorder"
+        ? Promise.reject({ code: "E_IO", message: "Lecter could not use its list of courses.", retryable: false })
+        : Promise.resolve(1);
+    const saving = r.reorder(["/c/calc", "/c/stat"]);
+    expect(paths(r)).toEqual(["/c/calc", "/c/stat"]);
+    await saving;
+    expect(paths(r)).toEqual(["/c/stat", "/c/calc"]);
+    expect(r.error()).toBe("Lecter could not use its list of courses.");
+  });
+
+  it("clears an earlier error once the list reads", async () => {
+    const invoke = internals().invoke;
+    internals().invoke = () =>
+      Promise.reject({ code: "E_IO", message: "Lecter could not use its list of courses.", retryable: false });
+    const r = rail();
+    await r.load();
+    expect(r.error()).toBe("Lecter could not use its list of courses.");
+    internals().invoke = invoke;
+    await r.load();
+    expect(r.error()).toBeNull();
+    expect(paths(r)).toEqual(["/c/stat", "/c/calc"]);
+  });
+
+  it("drops the listener that arrives after its owner went", async () => {
+    installMockCore({
+      ...defaultFixture,
+      rail: [stat],
+      courseOpen: { path: "/c/bio", name: "Biology", lectures: [], slides: [], trust: "ask", screen: trustScreen },
+    });
+    const r = rail();
+    const loading = r.load();
+    dispose?.();
+    dispose = undefined;
+    await loading;
+    await openCourse();
+    await settle();
+    expect(paths(r)).toEqual(["/c/stat"]);
+  });
+
   it("listens once however often it loads", async () => {
     let listens = 0;
     const invoke = internals().invoke;

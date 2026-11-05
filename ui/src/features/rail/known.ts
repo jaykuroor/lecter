@@ -40,6 +40,6 @@ export function stableRailCourses(): (list: KnownCourse[]) => RailCourse[] {
 }
 
 function same(a: RailCourse, b: RailCourse): boolean {
-  const icon = (c: RailCourse) => (c.icon.kind === "text" ? `t:${c.icon.text}` : `i:${c.icon.src}`);
+  const icon = (c: RailCourse) => JSON.stringify(c.icon);
   return a.name === b.name && a.color === b.color && a.missing === b.missing && icon(a) === icon(b);
 }
