@@ -43,11 +43,13 @@ describe("the sidebar's chunk", () => {
   });
 
   it("loads only after the shell's first paint, and shows the course from it", async () => {
-    render(() => <App />);
+    const { container } = render(() => <App />);
     await settle();
     expect(loadSidebar).not.toHaveBeenCalled();
     paint();
     await waitFor(() => expect(loadSidebar).toHaveBeenCalled());
+    // The buffer's chunk loads after the paint too; the test ends only once it is in.
+    await waitFor(() => expect(container.querySelector(".lecture-buffer")).not.toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     const row = await screen.findByRole("button", { name: "l07.md, Oct 23" });
     expect(row.getAttribute("data-path")).toBe("lectures/l07.md");
