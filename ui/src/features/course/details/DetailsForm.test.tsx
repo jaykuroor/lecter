@@ -139,6 +139,27 @@ describe("the course details form", () => {
 
   // The fields as the browser sees them: their types, names, limits, which one is required, no
   // spell checking, and the icon's hint tied to its field. Name and Icon span both columns.
+  // Every field has a label of its own that names it by id (`label[for]`), as the real-app flow
+  // reads them: all ten, in form order.
+  it("labels every field by its id", () => {
+    const { dialog } = show();
+    const inputs = [...dialog.querySelectorAll("input")];
+    const labels = [...dialog.querySelectorAll<HTMLLabelElement>("label[for]")];
+    expect(labels.map((l) => document.getElementById(l.htmlFor))).toEqual(inputs);
+    expect(labels.map((l) => l.textContent)).toEqual([
+      "Name",
+      "Code",
+      "Term",
+      "Professor",
+      "Colour",
+      "Icon",
+      "Slides",
+      "Sources",
+      "Lectures",
+      "Past papers",
+    ]);
+  });
+
   it("describes each field to the browser", () => {
     const { field } = show();
     const attrs = (label: string) => {

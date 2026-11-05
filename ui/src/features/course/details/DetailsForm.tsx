@@ -143,9 +143,12 @@ export function DetailsForm(props: {
         <div class="details-grid">
           <For each={FOLDERS}>
             {(f) => (
-              <label class="details-field">
-                <span class="details-label">{f.label}</span>
+              <div class="details-field">
+                <label class="details-label" for={`details-folders-${f.key}`}>
+                  {f.label}
+                </label>
                 <input
+                  id={`details-folders-${f.key}`}
                   class="details-input details-path"
                   type="text"
                   name={`folders.${f.key}`}
@@ -155,7 +158,7 @@ export function DetailsForm(props: {
                   value={values().folders[f.key]}
                   onInput={(e) => setFolder(f.key, e.currentTarget.value)}
                 />
-              </label>
+              </div>
             )}
           </For>
         </div>
