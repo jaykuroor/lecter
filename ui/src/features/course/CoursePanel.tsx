@@ -5,9 +5,9 @@ import { ReadOnlyChip } from "../trust/TrustScreen";
 import "./CoursePanel.css";
 
 /**
- * The opened course in the rail (02-course-folder.md, 09-ui.md#layout): an Open button, then the
- * course's name (with a Read-only chip when it was opened read-only, F-033) and its `lectures/`
- * and `slides/` files. The course rail (F-035) replaces this skeleton.
+ * The opened course under the course rail (02-course-folder.md, 09-ui.md#layout): the course's
+ * name (with a Read-only chip when it was opened read-only, F-033) and its `lectures/` and
+ * `slides/` files. The rail's `+` opens a course (F-035); the sidebar (F-036) replaces this list.
  */
 export function CoursePanel(props: {
   state: CourseState;
@@ -16,29 +16,8 @@ export function CoursePanel(props: {
   /** The lecture in the buffer, highlighted in the list. */
   openLecture: string | null;
 }): JSX.Element {
-  // Enter and Space are handled here, not left to the browser's button activation: that runs
-  // only for trusted key events, so a synthetic key (the embedded WebDriver, assistive tools)
-  // would never open the dialog. preventDefault stops a real keypress from also clicking.
-  const onKeyDown = (e: KeyboardEvent) => onActivateKey(e, () => void props.state.open());
   return (
     <div class="course-panel">
-      <button
-        type="button"
-        class="course-open"
-        title="Open a course folder"
-        disabled={props.state.busy()}
-        onClick={() => void props.state.open()}
-        onKeyDown={onKeyDown}
-      >
-        <span aria-hidden="true">+</span> Open course folder
-      </button>
-      <Show when={props.state.error()}>
-        {(message) => (
-          <p class="course-error" role="alert">
-            {message()}
-          </p>
-        )}
-      </Show>
       <Show when={props.state.course()}>
         {(course) => (
           <section class="course" aria-label={`Course ${course().name}`}>
@@ -64,7 +43,11 @@ export function CoursePanel(props: {
   );
 }
 
-/** Enter and Space activate a row button in the app's own handler (see the Open button above). */
+/**
+ * Enter and Space activate a row button in the app's own handler: the browser's button activation
+ * runs only for trusted key events, so a synthetic key (the embedded WebDriver, assistive tools)
+ * would never open the file. preventDefault stops a real keypress from also clicking.
+ */
 function onActivateKey(e: KeyboardEvent, activate: () => void): void {
   if (e.key !== "Enter" && e.key !== " ") return;
   e.preventDefault();

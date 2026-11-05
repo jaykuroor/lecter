@@ -19,6 +19,17 @@ export interface MockFixture {
    * course's details are saved already). `course_details_save` answers with what it was sent.
    */
   details: Commands["course_trust"]["result"]["details"];
+  /**
+   * The courses on the rail at start (`course_list`), in order. `course_open` adds the course it
+   * opens (first letter as icon, default colour) and sends `course:changed`; `course_reorder`
+   * takes any order of the same paths, each once.
+   */
+  rail: Commands["course_list"]["result"];
+  /**
+   * What `course_switch` opens, by course path. A path not on the rail is E_INVALID_ARGUMENT; one on
+   * the rail but not here (a missing folder) is E_NOT_FOUND.
+   */
+  switch: Record<string, Commands["course_switch"]["result"]>;
 }
 
 /** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
@@ -43,4 +54,6 @@ export const defaultFixture: MockFixture = {
   find: {},
   gloss: { deltas: ["**Sample answer.** ", "This is ", "the mocked core."], deltaMs: 30 },
   details: null,
+  rail: [],
+  switch: {},
 };

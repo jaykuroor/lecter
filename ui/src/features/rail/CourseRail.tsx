@@ -15,6 +15,8 @@ export interface RailCourse {
   icon: RailIcon;
   /** `#rrggbb`. */
   color: string;
+  /** Its folder is gone or has moved: shown dimmed; opening it says so. */
+  missing?: boolean;
 }
 
 /** Only the core's own protocol serves images; nothing loads from the web (13-security.md). */
@@ -35,6 +37,10 @@ export function CourseRail(props: {
   /** The courses' paths in their new order. */
   onReorder: (paths: string[]) => void;
   onAdd: () => void;
+  /** While a course opens: `+` waits. */
+  busy?: boolean;
+  /** Why the last open, read or reorder failed, shown under the rail. */
+  error?: string | null;
   /** Whether the course keys use Cmd (macOS); found from the platform when left out. */
   mac?: boolean;
 }): JSX.Element {
@@ -124,10 +130,16 @@ export function CourseRail(props: {
                 <button
                   type="button"
                   class="rail-course"
-                  aria-label={`Course ${course.name}`}
+                  classList={{ missing: course.missing === true }}
+                  aria-label={`Course ${course.name}${course.missing ? " (folder missing)" : ""}`}
                   aria-current={props.current === course.path ? "true" : undefined}
                   aria-keyshortcuts={slot() ? `${mac() ? "Meta" : "Control"}+${slot()}` : undefined}
-                  title={[course.name, slot() ? `${keyName()}-${slot()}` : null, "drag or Shift-J/K to move"]
+                  title={[
+                    course.name,
+                    course.missing ? "folder missing" : null,
+                    slot() ? `${keyName()}-${slot()}` : null,
+                    "drag or Shift-J/K to move",
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                   onPointerDown={(e) => drag.press(e, index())}
@@ -152,6 +164,7 @@ export function CourseRail(props: {
         class="rail-add"
         aria-label="Add a course"
         title="Add a course folder"
+        disabled={props.busy === true}
         onClick={() => props.onAdd()}
         onKeyDown={(e) => {
           if (e.key !== "Enter" && e.key !== " ") return;
@@ -165,6 +178,13 @@ export function CourseRail(props: {
         </span>
         <span class="rail-name">Add a course</span>
       </button>
+      <Show when={props.error}>
+        {(message) => (
+          <p class="rail-error" role="alert">
+            {message()}
+          </p>
+        )}
+      </Show>
     </section>
   );
 }

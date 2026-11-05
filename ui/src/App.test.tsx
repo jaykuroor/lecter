@@ -45,7 +45,7 @@ describe("App shell", () => {
       return invoke(cmd, args);
     };
     const { container } = render(() => <App />);
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     const row = await screen.findByRole("button", { name: "l07.md" });
     expect(row.getAttribute("aria-current")).toBeNull();
     fireEvent.click(row);
@@ -65,7 +65,7 @@ describe("App shell", () => {
     w.__mockTrust = [];
     installMockCore({ ...defaultFixture, courseOpen: { ...opened, trust: "ask" } });
     render(() => <App />);
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     const dialog = await screen.findByRole("dialog", { name: "Trust “STAT311”?" });
     expect(dialog.querySelector(".trust-path")?.textContent).toBe("/c/STAT311");
     fireEvent.click(within(dialog).getByRole("button", { name: "Open read-only" }));
@@ -76,7 +76,7 @@ describe("App shell", () => {
 
     installMockCore({ ...defaultFixture, courseOpen: { ...opened, trust: "trusted" } });
     render(() => <App />);
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     await screen.findByRole("region", { name: "Course STAT311" });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -99,7 +99,7 @@ describe("App shell", () => {
       w.__mockDetails = [];
       installMockCore({ ...defaultFixture, courseOpen: { ...opened, screen: trustScreen }, details });
       render(() => <App />);
-      fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
       const trust = await screen.findByRole("dialog", { name: "Trust “STAT311”?" });
       fireEvent.click(within(trust).getByRole("button", { name: "Trust" }));
       const form = await screen.findByRole("dialog", { name: "Course details" });
@@ -134,7 +134,7 @@ describe("App shell", () => {
       find: { variables: [hit] },
     });
     const { container } = render(() => <App />);
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     await waitFor(() => expect(container.querySelector(".cm-block")).not.toBeNull());
     const editor = container.querySelector(".cm-editor") as HTMLElement;
@@ -171,7 +171,7 @@ describe("App shell", () => {
       return invoke(cmd, args);
     };
     const { container } = render(() => <App />);
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     await waitFor(() => expect(container.querySelector(".cm-block")).not.toBeNull());
     const editor = container.querySelector(".cm-editor") as HTMLElement;

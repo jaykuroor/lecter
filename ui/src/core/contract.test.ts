@@ -30,6 +30,9 @@ const matching: MockHandlers = {
   app_mark_startup: () => undefined,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
+  course_list: () => [],
+  course_reorder: () => [],
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -50,6 +53,9 @@ const wrongResult: MockHandlers = {
   app_mark_startup: () => undefined,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
+  course_list: () => [],
+  course_reorder: () => [],
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
 };
 
 const wrongEnum: MockHandlers = {
@@ -64,6 +70,9 @@ const wrongEnum: MockHandlers = {
   app_mark_startup: () => undefined,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
+  course_list: () => [],
+  course_reorder: () => [],
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
 };
 
 const extra: MockHandlers = {
@@ -77,6 +86,9 @@ const extra: MockHandlers = {
   app_mark_startup: () => undefined,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
+  course_list: () => [],
+  course_reorder: () => [],
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -90,6 +102,9 @@ const commandNames: CommandName[] = [
   "app_info",
   "app_mark_startup",
   "course_open",
+  "course_list",
+  "course_switch",
+  "course_reorder",
   "course_trust",
   "course_details_save",
   "lecture_open",

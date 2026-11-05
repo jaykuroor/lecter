@@ -45,7 +45,7 @@ export function idle(ms: number): Promise<void> {
 }
 
 export interface Opened {
-  /** Click on Open course folder → the lecture's buffer painted, ms. */
+  /** Click on Add a course → the lecture's buffer painted, ms. */
   openMs: number;
   /** The page's time origin (epoch ms) and its first contentful paint (ms after it), if reported. */
   timeOrigin: number;
@@ -55,7 +55,7 @@ export interface Opened {
 }
 
 /**
- * In the page: clicks Open course folder (LECTER_TEST_PICK answers the dialog), then the lecture
+ * In the page: clicks Add a course (LECTER_TEST_PICK answers the dialog), then the lecture
  * `name`, and waits for its buffer's first paint. Also returns the page's own first paint.
  */
 export async function openLecture(name: string): Promise<Opened> {
@@ -96,8 +96,8 @@ export async function openLecture(name: string): Promise<Opened> {
       );
     }
     const open = await until(
-      () => document.querySelector<HTMLButtonElement>("button.course-open"),
-      "Open course folder",
+      () => document.querySelector<HTMLButtonElement>("button.rail-add"),
+      "Add a course",
     );
     const t0 = performance.now();
     open.click();

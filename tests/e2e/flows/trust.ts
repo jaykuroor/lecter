@@ -54,7 +54,7 @@ describe("trust screen", () => {
     // Quit the service's app (it has the hook) and start one without it.
     await relaunchWithoutTrustHook(course(), "trust-relaunch");
 
-    await $("button.course-open").click();
+    await $("button.rail-add").click();
     const dialog = $(".trust");
     await expect(dialog).toBeDisplayed();
     await expect($(".trust-inside")).toHaveText("1 lecture · 1 slide deck · 0 sources");

@@ -4,7 +4,8 @@ import { defaultFixture, trustScreen } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
 import type { CourseOpened, IpcError } from "../../core/bindings";
 import { createCourse } from "../../state/course";
-import { CoursePanel } from "./CoursePanel";
+import { createRail } from "../../state/rail";
+import { RailColumn } from "../rail/RailColumn";
 
 const stat311: CourseOpened = {
   path: "/courses/STAT311",
@@ -18,13 +19,18 @@ const stat311: CourseOpened = {
   screen: trustScreen,
 };
 
+/**
+ * The panel under the course rail, as the app shows it; returns the rail's `+`, which opens a
+ * course since F-035 (the panel's own Open button is gone).
+ */
 function mount(onOpenLecture: (course: string, path: string) => void = () => {}, openLecture: string | null = null) {
   // One state per mount: a call inside the JSX prop would run again on every read of the prop.
   render(() => {
     const state = createCourse();
-    return <CoursePanel state={state} onOpenLecture={onOpenLecture} openLecture={openLecture} />;
+    const rail = createRail();
+    return <RailColumn course={state} rail={rail} onOpenLecture={onOpenLecture} openLecture={openLecture} />;
   });
-  return screen.getByRole("button", { name: /open course folder/i });
+  return screen.getByRole("button", { name: "Add a course" });
 }
 
 /** Replaces the mocked core's `invoke` so `course_open` fails with `error`. */

@@ -88,7 +88,7 @@ describe("startup", () => {
     const { container } = render(() => <App />);
     paint();
     await waitFor(() => expect(container.querySelector(".lecture-buffer")).not.toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     await waitFor(() => expect(container.querySelector(".cm-block")?.textContent).toBe("First block"));
     await settle();
@@ -116,7 +116,7 @@ describe("startup", () => {
     const { container } = render(() => <App />);
     paint();
     // Straight away, without waiting for the buffer.
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     await waitFor(() => expect(container.querySelector(".cm-block")?.textContent).toBe("First block"));
     paint();
@@ -131,7 +131,7 @@ describe("startup", () => {
   it("an app gone before its lecture is painted doesn't mark it", async () => {
     const { container } = render(() => <App />);
     paint();
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     await waitFor(() => expect(container.querySelector(".cm-block")).not.toBeNull());
     cleanup();

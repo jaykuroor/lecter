@@ -51,7 +51,7 @@ describe("editor pre-warm", () => {
 
   it("is skipped when a lecture opened before the editor loaded", async () => {
     const { container } = render(() => <App />);
-    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     // The lecture is open before the first paint, so before the editor is asked for.
     await new Promise((r) => setTimeout(r, 30));

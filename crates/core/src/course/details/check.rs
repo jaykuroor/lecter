@@ -48,7 +48,7 @@ fn bad(message: impl Into<String>) -> Error {
 }
 
 /// Trimmed text of at most [`MAX_TEXT_CHARS`], without control characters.
-fn text(field: &str, value: &str) -> Result<String> {
+pub(super) fn text(field: &str, value: &str) -> Result<String> {
     let v = value.trim();
     if v.chars().count() > MAX_TEXT_CHARS {
         return Err(bad(format!("The {field} is longer than {MAX_TEXT_CHARS} characters.")));
@@ -60,7 +60,7 @@ fn text(field: &str, value: &str) -> Result<String> {
 }
 
 /// `#rrggbb`, in lower case.
-fn color(value: &str) -> Result<String> {
+pub(super) fn color(value: &str) -> Result<String> {
     let v = value.trim();
     match v.strip_prefix('#') {
         Some(hex) if hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_hexdigit()) => Ok(v.to_ascii_lowercase()),
@@ -69,7 +69,7 @@ fn color(value: &str) -> Result<String> {
 }
 
 /// A short text, or the path of an image file inside the course's `.lecter/` folder.
-fn icon(root: &Path, value: &str) -> Result<String> {
+pub(super) fn icon(root: &Path, value: &str) -> Result<String> {
     let v = value.trim();
     if !v.starts_with(ICON_DIR) {
         let chars = v.chars().count();

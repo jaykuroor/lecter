@@ -6,6 +6,7 @@
 .course-rail {
   display: flex;
   flex-direction: column;
+  padding: 10px 8px 0;
 }
 
 .course-rail .rlab {
@@ -106,6 +107,26 @@
   border: 1px dashed var(--borders);
   box-sizing: border-box;
   color: var(--dim);
+}
+
+.rail-course.missing {
+  color: var(--dim);
+}
+
+.rail-course.missing .rail-icon {
+  opacity: 0.5;
+}
+
+.rail-add:disabled {
+  color: var(--dim);
+  cursor: progress;
+}
+
+.rail-error {
+  margin: 4px 0 0;
+  padding: 0 8px;
+  font-size: 11.5px;
+  color: var(--window-fg);
 }
 
 .rail-name {

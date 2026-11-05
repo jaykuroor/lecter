@@ -103,7 +103,7 @@ async function openLecture(): Promise<void> {
     () => document.querySelector<HTMLElement>(".lecture-buffer")?.dataset.lecture ?? "",
   );
   if (open !== `lectures/${NAME}`) {
-    await $("button.course-open").click();
+    await $("button.rail-add").click();
     await $(`button.course-file-open=${NAME}`).click();
   }
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);

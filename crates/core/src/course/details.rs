@@ -11,7 +11,10 @@
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
 mod check;
+mod face;
 mod guess;
+
+pub use face::{Face, face, face_of_missing};
 
 use std::path::Path;
 

@@ -33,7 +33,7 @@ function write(rel: string): void {
   writeFileSync(p, "synthetic\n");
 }
 
-const openButton = () => $("button.course-open");
+const openButton = () => $("button.rail-add");
 const course = () => $(`[aria-label="Course ${basename(picked())}"]`);
 
 async function names(section: "Lectures" | "Slides"): Promise<string[]> {
@@ -76,7 +76,7 @@ describe("open course", () => {
     // The embedded WebDriver sends keys as synthetic KeyboardEvents to document.activeElement,
     // so the button must hold focus, and the app (not the browser's activation) handles Enter.
     const focused = await browser.execute(() => {
-      const button = document.querySelector("button.course-open") as HTMLButtonElement | null;
+      const button = document.querySelector("button.rail-add") as HTMLButtonElement | null;
       button?.focus();
       return document.activeElement === button && button !== null;
     });

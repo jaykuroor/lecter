@@ -27,7 +27,7 @@ test("a lecture opens into the buffer and moves with j k gg G, i and Esc @smoke"
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page.getByRole("button", { name: "2026-10-23-l07-covariance.md" }).click();
 
   const buffer = page.locator(".lecture-buffer");
@@ -73,7 +73,7 @@ test("a lecture opens into the buffer and moves with j k gg G, i and Esc @smoke"
 
 test("a lecture the core can't open shows its message", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page.evaluate(() => {
     const w = window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string) => Promise<unknown> } };
     w.__TAURI_INTERNALS__.invoke = () =>

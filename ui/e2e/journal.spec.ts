@@ -31,7 +31,7 @@ interface Sent {
 
 test("typing reaches the core as edits that rebuild the buffer @smoke", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page.getByRole("button", { name: "2026-10-23-l07-covariance.md" }).click();
   await expect(page.locator(".cm-focused-line")).toHaveText("Covariance measures how two variables move together.");
 

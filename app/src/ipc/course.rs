@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use lecter_core::course::details::{self as course_details, CourseDetails};
+use lecter_core::course::known::KnownCourses;
 use lecter_core::course::trust::{self, TrustChoice, TrustScreen, TrustState, TrustStore};
 use lecter_core::course::{self, CourseListing};
 use serde::Serialize;
@@ -45,18 +46,23 @@ pub struct CourseTrusted {
 /// listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
 /// comes from the dialog, never from the UI (SEC-32, SEC-35). A file linked out of the course
 /// fails with E_NOT_TRUSTED. The course is remembered for this session, so its lectures can be
-/// opened and its trust question answered.
+/// opened and its trust question answered, and it joins the course rail (`course:changed`).
 #[tauri::command]
 #[specta::specta]
 pub async fn course_open(
     app: AppHandle,
     courses: State<'_, OpenedCourses>,
+    known: State<'_, KnownCourses>,
     glosses: State<'_, Glosses>,
 ) -> Result<Option<CourseOpened>, IpcError> {
     let Some(picked) = dialog::pick_folder(&app).await else {
         return Ok(None);
     };
-    open(&courses, picked, glosses.provider_id().to_owned(), hook_answers_trust()).await.map(Some)
+    let opened = open(&courses, picked, glosses.provider_id().to_owned(), hook_answers_trust()).await?;
+    if let Some(rail) = rail::remember(&known, &opened.course.path).await {
+        rail::announce(&app, rail);
+    }
+    Ok(Some(opened))
 }
 
 /// Answers the trust screen of `course` (a course `course_open` returned this session) with
@@ -192,5 +198,6 @@ pub(super) fn opened_for_test(
 }
 
 pub mod details;
+pub mod rail;
 #[cfg(test)]
 mod tests;

@@ -77,7 +77,7 @@ function listed(section: "Lectures" | "Slides"): Promise<string[]> {
 
 /** Opens the course (the dialog answers LECTER_TEST_PICK) and the lecture, with the mouse. */
 async function openLecture(): Promise<void> {
-  await $("button.course-open").click();
+  await $("button.rail-add").click();
   await $(`button.course-file-open=${NAME}`).click();
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
   await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
@@ -147,7 +147,7 @@ describe("the walking skeleton end to end", function () {
   });
 
   it("opens the course and lists its slide PDF", async () => {
-    await $("button.course-open").click();
+    await $("button.rail-add").click();
     await until(async () => (await listed("Slides")).includes(PDF), 15_000, "the slide PDF in the rail");
     expect(await listed("Lectures")).not.toContain(NAME);
     await shot("skeleton-course");
