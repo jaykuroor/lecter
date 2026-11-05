@@ -134,16 +134,20 @@ export function App() {
           )}
         </Show>
         {/* Right after Trust, for a course whose details were never saved (F-034). */}
-        <Show when={course.details()}>
-          {(d) => (
-            <DetailsForm
-              folder={course.course()?.name ?? ""}
-              details={d()}
-              busy={course.busy()}
-              error={course.detailsError()}
-              onSave={(values) => void course.saveDetails(values)}
-              onSkip={course.skipDetails}
-            />
+        <Show when={course.course()}>
+          {(c) => (
+            <Show when={course.details()}>
+              {(d) => (
+                <DetailsForm
+                  folder={c().name}
+                  details={d()}
+                  busy={course.busy()}
+                  error={course.detailsError()}
+                  onSave={(values) => void course.saveDetails(values)}
+                  onSkip={course.skipDetails}
+                />
+              )}
+            </Show>
           )}
         </Show>
         <footer class="status-line" role="status" aria-label="Status line">

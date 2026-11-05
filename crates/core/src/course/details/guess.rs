@@ -112,7 +112,8 @@ fn code(s: &str, words: &[Range<usize>]) -> Option<(Range<usize>, String)> {
     for (i, w) in words.iter().enumerate() {
         let word = &s[w.clone()];
         let split = word.bytes().take_while(u8::is_ascii_uppercase).count();
-        if split > 0 && split < word.len() && letters(&word[..split]) && number(&word[split..]) {
+        // `letters` needs 2+ letters and `number` 2+ digits, so neither part can be empty.
+        if letters(&word[..split]) && number(&word[split..]) {
             return Some((w.clone(), format!("{} {}", &word[..split], word[split..].to_ascii_uppercase())));
         }
         if let Some(next) = words.get(i + 1)
@@ -135,8 +136,9 @@ fn term(s: &str, words: &[Range<usize>]) -> Option<(Range<usize>, String)> {
         |w: &str| w.len() == 4 && w.bytes().all(|b| b.is_ascii_digit()) && (w.starts_with("19") || w.starts_with("20"));
     for (i, w) in words.iter().enumerate() {
         let word = &s[w.clone()];
-        if word.len() > 4
-            && let Some((head, tail)) = word.split_at_checked(word.len() - 4)
+        // A season with no letters is no season, so `Fall2026` needs more than the year.
+        if let Some(at) = word.len().checked_sub(4)
+            && let Some((head, tail)) = word.split_at_checked(at)
             && let Some(x) = season(head)
             && year(tail)
         {
