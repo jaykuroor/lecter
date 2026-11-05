@@ -3,6 +3,8 @@ import { getCM } from "@replit/codemirror-vim";
 import { createEffect, createSignal, type JSX, onCleanup, Show } from "solid-js";
 import { glossBackend } from "../../core/gloss";
 import type { Edit, Lecture } from "../../core/lecture";
+import { setBufferTarget } from "../../keys/locate";
+import { bufferTarget, trimVimKeys } from "../../keys/vim";
 import { registerAskKey } from "../gloss/askKey";
 import { lectureState } from "./editorState";
 import { registerElementMotions } from "./vim";
@@ -27,9 +29,13 @@ export function Buffer(props: {
 }): JSX.Element {
   registerElementMotions();
   registerAskKey();
+  // Only the Vim keys 10-keymap.md keeps; the key engine (src/keys) does the Lecter ones.
+  trimVimKeys();
   const [mode, setMode] = createSignal<Mode>("normal");
+  let root: HTMLDivElement | undefined;
   let host: HTMLDivElement | undefined;
   let view: EditorView | undefined;
+  let dropTarget: (() => void) | undefined;
 
   /** Follows Vim's mode; the listener goes with the state, so it is added for each lecture. */
   function followMode(v: EditorView): void {
@@ -45,13 +51,17 @@ export function Buffer(props: {
     const state = lectureState(lecture.text, `Lecture ${lecture.name}`, (edits) => props.onEdits?.(edits), gloss);
     if (view) view.setState(state);
     else view = new EditorView({ state, parent: host });
+    if (!dropTarget && root) dropTarget = setBufferTarget(bufferTarget(view, root));
     followMode(view);
     view.focus();
   });
-  onCleanup(() => view?.destroy());
+  onCleanup(() => {
+    dropTarget?.();
+    view?.destroy();
+  });
 
   return (
-    <div class="lecture-buffer" data-vim-mode={mode()} data-lecture={props.lecture?.path ?? ""}>
+    <div class="lecture-buffer" ref={root} data-vim-mode={mode()} data-lecture={props.lecture?.path ?? ""}>
       <Show when={props.error}>
         {(message) => (
           <p class="buffer-error" role="alert">

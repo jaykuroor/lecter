@@ -1,14 +1,11 @@
-import { type JSX, onCleanup, onMount } from "solid-js";
-import { installSidebarToggle } from "./leader";
+import type { JSX } from "solid-js";
 import "./SidebarToggle.css";
 
 /**
  * The headerbar's sidebar button (docs/design/components.md#headerbar, left controls: a 34px icon
- * button, radius 7px) with its key as a keycap. It also listens for `␣e` until the key engine
- * (F-037) binds it (leader.ts).
+ * button, radius 7px) with its key as a keycap. `␣e` is the key engine's `sidebar.toggle` (App.tsx).
  */
 export function SidebarToggle(props: { shown: boolean; onToggle: () => void }): JSX.Element {
-  onMount(() => onCleanup(installSidebarToggle(window, () => props.onToggle())));
   return (
     <button
       type="button"

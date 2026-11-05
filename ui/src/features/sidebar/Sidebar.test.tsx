@@ -325,21 +325,4 @@ describe("SidebarToggle", () => {
     }
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
-
-  it("toggles with ␣e from the page", () => {
-    wired();
-    fireEvent.keyDown(document.body, { key: " " });
-    fireEvent.keyDown(document.body, { key: "e" });
-    expect(screen.queryByRole("region", { name: "Course STAT311" })).toBeNull();
-    fireEvent.keyDown(document.body, { key: " " });
-    fireEvent.keyDown(document.body, { key: "e" });
-    expect(screen.getByRole("region", { name: "Course STAT311" })).toBeTruthy();
-  });
-
-  it("stops listening for ␣e once it is gone", () => {
-    const toggle = wired();
-    cleanup();
-    expect(toggle.isConnected).toBe(false);
-    expect(fireEvent.keyDown(document.body, { key: " " })).toBe(true);
-  });
 });

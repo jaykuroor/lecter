@@ -1,0 +1,94 @@
+/* Which-key popover (docs/design/components.md#hint-bar-and-which-key): bottom-right over the
+   document, width ≤ 440px, --popover-bg, border --borders, radius 12px (tokens radius.card),
+   padding 10px 12px 12px, shadow.popover, 12.5px. Title row in mono 11px 600 --accent with a
+   --faint hint; a grid of keycaps (min 2.1em, tokens.keycap) and descriptions. Theme tokens only. */
+.which-key {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(440px, calc(100% - 32px));
+  padding: 10px 12px 12px;
+  border: 1px solid var(--borders);
+  border-radius: 12px;
+  background: var(--popover-bg);
+  color: var(--window-fg);
+  box-shadow: var(--shadow-popover);
+  font-size: 12.5px;
+}
+
+.which-key-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.which-key-prefix {
+  color: var(--accent);
+}
+
+.which-key-hint {
+  color: var(--faint);
+  font-weight: 500;
+}
+
+.which-key-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.which-key-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.which-key-item:hover {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+}
+
+.which-key-group .which-key-desc {
+  color: var(--accent);
+}
+
+.which-key-key {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1em;
+  min-height: 1.75em;
+  box-sizing: border-box;
+  padding: 0 0.4em;
+  border: 1px solid var(--borders);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--view-bg);
+  color: var(--window-fg);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.which-key-item:hover .which-key-key {
+  border-color: var(--accent-bg);
+}

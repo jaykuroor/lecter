@@ -166,24 +166,6 @@ describe("CourseRail", () => {
     expect(calls.add).toBe(2);
   });
 
-  it("switches to the nth course with Ctrl-1…9 from anywhere, and ignores a slot with no course", () => {
-    const calls = mount([stat, calc]);
-    const elsewhere = document.createElement("input");
-    document.body.append(elsewhere);
-    fireEvent.keyDown(elsewhere, { key: "2", code: "Digit2", ctrlKey: true });
-    fireEvent.keyDown(elsewhere, { key: "1", code: "Digit1", ctrlKey: true });
-    fireEvent.keyDown(elsewhere, { key: "3", code: "Digit3", ctrlKey: true });
-    expect(calls.select).toEqual([calc.path, stat.path]);
-    elsewhere.remove();
-  });
-
-  it("switches by the order on screen after a reorder", () => {
-    const calls = mount([stat, calc]);
-    fireEvent.keyDown(row(0), { key: "J", shiftKey: true });
-    fireEvent.keyDown(document.body, { key: "1", code: "Digit1", ctrlKey: true });
-    expect(calls.select).toEqual([calc.path]);
-  });
-
   it("reorders by dragging a course down or up onto another's place", () => {
     const calls = mount([stat, calc, phys]);
     layOut();
@@ -337,18 +319,6 @@ describe("CourseRail", () => {
     expect(press(row(0), { key: " " })).toBe(true);
     expect(press(row(0), { key: "j" })).toBe(true);
     expect(calls.select).toEqual([stat.path, stat.path]);
-  });
-
-  it("takes Ctrl-n from the focused element only for a course that exists, until it is gone", () => {
-    const calls = mount([stat, calc]);
-    const elsewhere = document.createElement("input");
-    document.body.append(elsewhere);
-    expect(press(elsewhere, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
-    expect(press(elsewhere, { key: "3", code: "Digit3", ctrlKey: true })).toBe(false);
-    calls.unmount();
-    expect(press(elsewhere, { key: "1", code: "Digit1", ctrlKey: true })).toBe(false);
-    expect(calls.select).toEqual([calc.path]);
-    elsewhere.remove();
   });
 
   it("adds by Space, and leaves other keys on the + button alone", () => {
