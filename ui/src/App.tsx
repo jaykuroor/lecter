@@ -3,6 +3,7 @@ import { markStartup } from "./core/startup";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
 import { RailColumn } from "./features/rail/RailColumn";
+import { SidebarToggle } from "./features/sidebar/SidebarToggle";
 import { TrustScreen } from "./features/trust/TrustScreen";
 import { createAppInfo } from "./state/appInfo";
 import { createCourse } from "./state/course";
@@ -64,6 +65,8 @@ export function App() {
   const rail = createRail();
   const lecture = createLecture();
   const find = createFind();
+  // The sidebar (F-036): shown at start; ␣e or the headerbar button toggles it.
+  const [sidebarShown, setSidebarShown] = createSignal(true);
   // `:find words` in the buffer and the Find field both search the open course (F-022).
   const runFind = (words: string) => void find.run(course.course()?.path ?? null, words);
 
@@ -105,6 +108,9 @@ export function App() {
   return (
     <div class="app-frame">
       <header class="headerbar">
+        <div class="headerbar-start">
+          <SidebarToggle shown={sidebarShown()} onToggle={() => setSidebarShown(!sidebarShown())} />
+        </div>
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
       </header>
       <nav class="rail" aria-label="Course rail">
@@ -113,6 +119,7 @@ export function App() {
           rail={rail}
           onOpenLecture={(path, file) => void lecture.open(path, file)}
           openLecture={lecture.lecture()?.path ?? null}
+          sidebarShown={sidebarShown()}
         />
       </nav>
       <div class="document-column">

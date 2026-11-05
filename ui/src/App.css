@@ -16,10 +16,12 @@ body,
   color: var(--window-fg);
 }
 
+/* Left controls · centred title · right controls (docs/design/components.md#headerbar). */
 .headerbar {
   grid-column: 1 / -1;
   display: grid;
-  place-items: center;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
   min-height: 47px;
   padding: 6px 8px;
   box-sizing: border-box;
@@ -27,7 +29,13 @@ body,
   border-bottom: 1px solid var(--headerbar-border);
 }
 
+.headerbar-start {
+  grid-column: 1;
+  justify-self: start;
+}
+
 .headerbar-title {
+  grid-column: 2;
   margin: 0;
   font-size: 14px;
   font-weight: 700;
