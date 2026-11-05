@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use super::tests::{course, env, link, reviewed, state_of, store, trust, write};
+use super::tests::{course, env, link, reviewed, state_of, store, trust, unlink, write};
 use super::*;
 use crate::course::MAX_ENTRIES;
 
@@ -110,7 +110,7 @@ fn what_a_skill_links_to_inside_the_course_counts() {
     write(&c, "notes/rubric.md", "Grade harshly.\n");
     assert_eq!(state_of(&st, &c), TrustState::Ask, "linked file edited");
     trust(&st, &c, TrustChoice::Trusted);
-    std::fs::remove_file(c.join(".lecter/skills/flashcards/data")).unwrap_or_else(|e| panic!("{e}"));
+    unlink(&c.join(".lecter/skills/flashcards/data"));
     link(&c.join("data/b"), &c.join(".lecter/skills/flashcards/data"));
     assert_eq!(state_of(&st, &c), TrustState::Ask, "folder link re-pointed");
 }
@@ -159,8 +159,9 @@ fn links_back_into_the_skills_are_walked_once() {
 }
 
 /// SEC-25 for names that aren't Unicode: such a file in a skill is still covered, by its bytes,
-/// and such a skill is listed.
-#[cfg(unix)]
+/// and such a skill is listed. Linux only: its file systems take any bytes in a name, while APFS
+/// refuses such names (EILSEQ) and Windows names are UTF-16.
+#[cfg(target_os = "linux")]
 #[test]
 fn names_that_are_not_unicode_are_covered() {
     use std::os::unix::ffi::OsStrExt;

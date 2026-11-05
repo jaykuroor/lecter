@@ -310,6 +310,21 @@ pub(super) fn link(target: &Path, at: &Path) {
     made.unwrap_or_else(|e| panic!("symlinks need developer mode on Windows: {e}"));
 }
 
+/// Removes the link `at` (not what it leads to). Windows keeps file and folder links apart: a
+/// folder link goes with `remove_dir`, so re-pointing one works there too.
+pub(super) fn unlink(at: &Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::FileTypeExt;
+        let kind = std::fs::symlink_metadata(at).unwrap_or_else(|e| panic!("{e}")).file_type();
+        if kind.is_symlink_dir() {
+            std::fs::remove_dir(at).unwrap_or_else(|e| panic!("{e}"));
+            return;
+        }
+    }
+    std::fs::remove_file(at).unwrap_or_else(|e| panic!("{e}"));
+}
+
 /// Links out of the course are never read: an AGENTS.md linked outside counts by name, so editing
 /// the outside file changes nothing, while replacing the link asks again.
 #[test]
@@ -324,7 +339,7 @@ fn ai_files_linked_outside_are_never_read() {
     trust(&st, &c, TrustChoice::Trusted);
     write(env.home(), "elsewhere/AGENTS.md", "different outside text");
     assert_eq!(state_of(&st, &c), TrustState::Trusted);
-    std::fs::remove_file(c.join("AGENTS.md")).unwrap_or_else(|e| panic!("{e}"));
+    unlink(&c.join("AGENTS.md"));
     write(&c, "AGENTS.md", "outside text");
     assert_eq!(state_of(&st, &c), TrustState::Ask);
 }
