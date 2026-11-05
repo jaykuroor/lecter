@@ -54,3 +54,4 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - Under Stryker's instrumentation a `ref` callback passed as a component prop lost its element (the dry run failed); reach a component's DOM through a container you made instead (src/keys/WhichKey.tsx) (F-037)
 - The key engine (src/keys/install.ts) is a lazy chunk loaded after the first paint; until then boot.ts holds only ␣, the key after it and Ctrl/Cmd-1…9. A test pressing other keys right after `render(<App />)` waits until Ctrl-9 goes through (src/App.keys.test.tsx) (F-037)
 - codemirror-vim leaves named keys it has no entry for (Enter, Tab) to the browser even in normal mode: Enter moves the caret a line, Tab moves focus; the engine takes the given-up ones in the buffer (src/keys/install.ts) (F-037)
+- The key engine's `onChange` is one slot, which-key's: another listener wraps it and hands it back on stop only if it still holds it (src/features/overlay/mount.tsx) (F-039)
