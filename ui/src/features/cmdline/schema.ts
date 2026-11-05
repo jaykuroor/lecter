@@ -115,7 +115,8 @@ export function readSchema(text: string): SettingSpec[] {
   if (!isNode(root)) return [];
   const out: SettingSpec[] = [];
   walk(root, root, "", out);
-  return out.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  // Keys are unique, so no two compare equal.
+  return out.sort((a, b) => (a.key < b.key ? -1 : 1));
 }
 
 /** What a value typed after `key=` must look like, said in the refusal. */

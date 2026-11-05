@@ -64,6 +64,7 @@ describe("readSchema", () => {
     expect(readSchema("[1,2]")).toEqual([]);
     expect(readSchema("null")).toEqual([]);
     expect(readSchema('{"properties": 3}')).toEqual([]);
+    expect(readSchema("{}")).toEqual([]);
   });
 
   it("follows a $ref into $defs and keeps enum lists", () => {
@@ -83,6 +84,22 @@ describe("readSchema", () => {
     ]);
     // A node without a description has none.
     expect(read.map((s) => s.description)).toEqual(["", "", ""]);
+  });
+
+  it("skips properties that aren't schema nodes, and keeps an object without properties as one setting", () => {
+    const text = JSON.stringify({
+      properties: {
+        bad: 3,
+        flag: { type: "boolean" },
+        map: { type: "object" },
+        group: { properties: { inner: { type: "boolean" } } },
+      },
+    });
+    expect(readSchema(text).map((s) => [s.key, s.kind])).toEqual([
+      ["flag", "boolean"],
+      ["group", "text"],
+      ["map", "text"],
+    ]);
   });
 
   it("sorts keys whatever order the schema lists them in", () => {

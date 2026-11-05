@@ -65,11 +65,8 @@ export function createCmdline(deps: CmdlineDeps) {
     return loading;
   };
 
-  const unsay = () => {
-    clearTimeout(timer);
-    setMessageSignal(null);
-  };
-  const say = (m: Message) => {
+  /** Shows `m` (null: nothing) until the next message, or for `MESSAGE_MS`. */
+  const say = (m: Message | null) => {
     clearTimeout(timer);
     setMessageSignal(m);
     timer = setTimeout(() => setMessageSignal(null), MESSAGE_MS);
@@ -124,7 +121,7 @@ export function createCmdline(deps: CmdlineDeps) {
     message,
     /** Opens the box for `where`, empty; the settings load in the background. */
     open(where: ExTarget) {
-      unsay();
+      say(null);
       setText("");
       setTarget(where);
       void loadSpecs();
