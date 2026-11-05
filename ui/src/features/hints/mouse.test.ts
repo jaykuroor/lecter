@@ -6,7 +6,7 @@ import { mouseAction } from "./mouse";
 
 // 09-ui.md#hint-bar-and-keystroke-overlay: the full hint bar shows the mouse action next to each
 // key. The mouse paths are 09-ui.md's: right-click any element for its menu, a gloss's keycap
-// buttons, double-click to edit, the side panel's Doubts and Flags tabs, the course rail.
+// buttons, double-click to edit, the sidebar's Flags list and the right panel's Doubts tab, the course rail.
 
 const map = compileKeymap(DEFAULT_KEYMAP, false);
 
@@ -43,8 +43,8 @@ describe("mouseAction", () => {
       "Previous slide: scroll",
       "Next gloss: scroll",
       "Previous gloss: scroll",
-      "Next flag: Flags in the sidebar",
-      "Previous flag: Flags in the sidebar",
+      "Next flag: the Flags list",
+      "Previous flag: the Flags list",
       "Next doubt: Doubts tab",
       "Previous doubt: Doubts tab",
       "Next build step: scroll",
