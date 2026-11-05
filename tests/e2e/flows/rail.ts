@@ -3,22 +3,46 @@
 // dragging moves it to the top and the core keeps that order; Ctrl-1/Ctrl-2 switch courses
 // through course_switch (the stored course still goes through trust); Shift-J moves a course.
 //
-// The second course needs a second folder from the dialog, so the flow relaunches the app with
-// the dialog answering a course of its own (support/relaunch.ts); that app has no trust hook, so
-// the flow answers the trust screen itself. The embedded WebDriver sends synthetic mouse events
-// only, so the drag is dispatched as the pointer events a real mouse sends.
+// Every + click in every flow adds its course to the rail, and the flows of a run share one test
+// home, so the rail would start with other flows' courses (some since deleted, so missing). This
+// flow empties the rail while the app is closed, then adds two courses of its own, each from the
+// folder dialog of a relaunched app (support/relaunch.ts); that app has no trust hook, so the flow
+// answers the trust screen itself, and the second relaunch shows the rail kept across a restart.
+// The embedded WebDriver sends synthetic mouse events only, so the drag is dispatched as the
+// pointer events a real mouse sends.
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { ownCourse, relaunchWithoutTrustHook, stopRelaunched } from "../support/relaunch.ts";
 import { shot } from "../support/shot.ts";
 
-const course = (): string => ownCourse("Rail Course");
+const first = (): string => ownCourse("Rail First");
+const second = (): string => ownCourse("Rail Second");
 
 interface Known {
   path: string;
   name: string;
   missing: boolean;
+}
+
+/**
+ * Takes every course off the rail: the `courses` key of the test home's `<data>/state.db`. Only
+ * while no app runs.
+ */
+function emptyRail(): void {
+  const home = process.env.LECTER_TEST_HOME;
+  if (!home) throw new Error("LECTER_TEST_HOME is not set: run flows through scripts/e2e-app.sh");
+  const path = join(home, "data", "state.db");
+  if (!existsSync(path)) return;
+  const db = new DatabaseSync(path);
+  try {
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
+    db.exec("DELETE FROM meta WHERE key = 'courses'");
+  } finally {
+    db.close();
+  }
 }
 
 /** `course_list`, called as the UI does. */
@@ -37,6 +61,17 @@ async function railOnScreen(): Promise<{ labels: string[]; current: number }> {
       labels: rows.map((r) => r.getAttribute("aria-label") ?? ""),
       current: rows.findIndex((r) => r.getAttribute("aria-current") === "true"),
     };
+  });
+}
+
+/** Opens the app's picked course with + and answers its trust screen and details form. */
+async function addPicked(name: string): Promise<void> {
+  await $("button.rail-add").click();
+  await expect($(".trust")).toBeDisplayed();
+  await $("button=Trust").click();
+  await $("button=Later").click();
+  await browser.waitUntil(async () => (await railInCore()).at(-1)?.name === name, {
+    timeoutMsg: `${name} did not join the rail`,
   });
 }
 
@@ -83,68 +118,62 @@ async function key(init: KeyboardEventInit): Promise<void> {
 
 describe("course rail", () => {
   before(() => {
-    const c = course();
-    mkdirSync(join(c, "lectures"), { recursive: true });
-    writeFileSync(
-      join(c, "lectures", "l01.md"),
-      '::: {.slide #s1 n=1 title="Variance"}\n## Variance\n\n[Variance measures spread.]{#s1b1}\n:::\n',
-    );
+    for (const c of [first(), second()]) {
+      mkdirSync(join(c, "lectures"), { recursive: true });
+      writeFileSync(
+        join(c, "lectures", "l01.md"),
+        '::: {.slide #s1 n=1 title="Variance"}\n## Variance\n\n[Variance measures spread.]{#s1b1}\n:::\n',
+      );
+    }
   });
 
   after(async () => {
     await stopRelaunched();
-    rmSync(course(), { recursive: true, force: true });
+    for (const c of [first(), second()]) rmSync(c, { recursive: true, force: true });
+    // Their folders are gone: later flows of this run don't inherit them as missing courses.
+    emptyRail();
   });
 
   it("keeps courses across a restart, reorders by drag and Shift-J, and switches with Ctrl-1/2", async () => {
-    // The shared course joins the rail (other flows may have put it there already).
-    await $("button.rail-add").click();
-    await expect($(".course-name")).toBeDisplayed();
-    const shared = (await railInCore()).at(-1);
-    if (!shared) throw new Error("the opened course is not on the rail");
-    expect(shared.path.endsWith("Sample Course")).toBe(true);
+    // A rail of this flow's own: empty, then its first course.
+    await relaunchWithoutTrustHook(first(), "rail-relaunch-1", emptyRail);
+    expect(await railInCore()).toEqual([]);
+    await addPicked("Rail First");
+    expect((await railInCore()).map((c) => c.name)).toEqual(["Rail First"]);
 
     // A restart keeps the rail; the second course joins it at the end.
-    await relaunchWithoutTrustHook(course(), "rail-relaunch");
-    await browser.waitUntil(async () => (await railOnScreen()).labels.length > 0, {
+    await relaunchWithoutTrustHook(second(), "rail-relaunch-2");
+    await browser.waitUntil(async () => (await railOnScreen()).labels.length === 1, {
       timeoutMsg: "the rail did not come back after the restart",
     });
-    expect((await railInCore()).map((c) => c.path)).toContain(shared.path);
-    await $("button.rail-add").click();
-    await expect($(".trust")).toBeDisplayed();
-    await $("button=Trust").click();
-    await $("button=Later").click();
-    await browser.waitUntil(async () => (await railInCore()).at(-1)?.name === "Rail Course", {
-      timeoutMsg: "the second course did not join the rail",
-    });
+    expect((await railOnScreen()).labels).toEqual(["Course Rail First"]);
+    await addPicked("Rail Second");
     let screen = await railOnScreen();
-    expect(screen.labels.at(-1)).toBe("Course Rail Course");
-    expect(screen.current).toBe(screen.labels.length - 1);
+    expect(screen).toEqual({ labels: ["Course Rail First", "Course Rail Second"], current: 1 });
 
-    // Drag it to the top: the screen and the core agree.
-    await drag(screen.labels.length - 1, 0);
-    await browser.waitUntil(async () => (await railInCore())[0]?.name === "Rail Course", {
+    // Drag the second to the top: the screen and the core agree.
+    await drag(1, 0);
+    await browser.waitUntil(async () => (await railInCore())[0]?.name === "Rail Second", {
       timeoutMsg: "the drag did not reach the core",
     });
     screen = await railOnScreen();
-    expect(screen.labels[0]).toBe("Course Rail Course");
+    expect(screen.labels).toEqual(["Course Rail Second", "Course Rail First"]);
     await shot("rail");
 
-    // Ctrl-2 opens the second course, through course_switch; Ctrl-1 the first again.
-    const second = screen.labels[1] ?? "";
+    // Ctrl-2 opens the second course on the rail, through course_switch; Ctrl-1 the first.
     await key({ key: "2", code: "Digit2", ctrlKey: true });
     await browser.waitUntil(async () => (await railOnScreen()).current === 1, { timeoutMsg: "Ctrl-2 did not switch" });
-    expect(await openName()).toBe(second.replace(/^Course /, ""));
+    expect(await openName()).toBe("Rail First");
     await key({ key: "1", code: "Digit1", ctrlKey: true });
     await browser.waitUntil(async () => (await railOnScreen()).current === 0, { timeoutMsg: "Ctrl-1 did not switch" });
-    expect(await openName()).toBe("Rail Course");
+    expect(await openName()).toBe("Rail Second");
 
     // Shift-J on the focused first row moves it down one.
     await browser.execute(() => document.querySelector<HTMLButtonElement>(".rail-courses .rail-course")?.focus());
     await key({ key: "J", code: "KeyJ", shiftKey: true });
-    await browser.waitUntil(async () => (await railInCore())[1]?.name === "Rail Course", {
+    await browser.waitUntil(async () => (await railInCore())[1]?.name === "Rail Second", {
       timeoutMsg: "Shift-J did not reach the core",
     });
-    expect((await railOnScreen()).labels[1]).toBe("Course Rail Course");
+    expect((await railOnScreen()).labels).toEqual(["Course Rail First", "Course Rail Second"]);
   });
 });
