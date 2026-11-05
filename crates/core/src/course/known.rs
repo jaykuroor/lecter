@@ -65,17 +65,19 @@ impl KnownCourses {
 
     /// Whether `path` is on the rail, compared exactly.
     pub fn contains(&self, path: &str) -> Result<bool> {
-        Ok(self.paths()?.iter().any(|p| p == path))
+        let path = stored_form(path);
+        Ok(self.paths()?.contains(&path))
     }
 
     /// Puts `path` (a canonical course root) at the end of the rail, unless it is there already.
     /// Returns the paths after it and whether it was added.
     pub fn add(&self, path: &str) -> Result<(Vec<String>, bool)> {
+        let path = stored_form(path);
         let mut added = false;
         let paths = self.change(|list| {
-            added = usable(path) && !list.iter().any(|p| p == path) && list.len() < MAX_ENTRIES;
+            added = usable(&path) && !list.contains(&path) && list.len() < MAX_ENTRIES;
             if added {
-                list.push(path.to_owned());
+                list.push(path.clone());
             }
             added
         })?;
@@ -85,17 +87,18 @@ impl KnownCourses {
     /// Replaces the rail's order with `order`, which must list each course on it exactly once
     /// ([`Error::BadCourseOrder`] otherwise, and nothing changes). Returns the paths after it.
     pub fn reorder(&self, order: &[String]) -> Result<Vec<String>> {
+        let order: Vec<String> = order.iter().map(|p| stored_form(p)).collect();
         let mut bad = false;
         let paths = self.change(|list| {
             let mut have = list.clone();
-            let mut want = order.to_vec();
+            let mut want = order.clone();
             have.sort();
             want.sort();
             bad = have != want;
-            if bad || list.as_slice() == order {
+            if bad || *list == order {
                 return false;
             }
-            order.clone_into(list);
+            list.clone_from(&order);
             true
         })?;
         if bad { Err(Error::BadCourseOrder) } else { Ok(paths) }
@@ -149,15 +152,23 @@ fn parse(stored: Option<&str>) -> Vec<String> {
         return Vec::new();
     };
     let mut list: Vec<String> = Vec::new();
-    for path in items.iter().filter_map(Value::as_str).filter(|p| usable(p)) {
+    for path in items.iter().filter_map(Value::as_str).map(stored_form).filter(|p| usable(p)) {
         if list.len() == MAX_ENTRIES {
             break;
         }
-        if !list.iter().any(|p| p == path) {
-            list.push(path.to_owned());
+        if !list.contains(&path) {
+            list.push(path);
         }
     }
     list
+}
+
+/// `path` in the form the rail keeps and `course_open` returns: a Windows verbatim path
+/// (`\\?\C:\…`, `\\?\UNC\…`) without its prefix, any other path as it is. Every path that comes in
+/// (stored, added, sent back in a new order, asked for) is brought to it first, so a course saved
+/// on Windows still matches its folder when it opens again.
+pub fn stored_form(path: &str) -> String {
+    plain(path)
 }
 
 /// The longest course path kept, in bytes: far past any real folder, well inside the IPC limits.
@@ -183,14 +194,15 @@ fn known(path: &str) -> KnownCourse {
 /// (SEC-32, SEC-35): it must be on the rail ([`Error::CourseNotKnown`]) and still be the folder
 /// that was picked ([`Error::CourseMoved`] when it is gone or leads elsewhere).
 pub fn stored_root(known: &KnownCourses, path: &str) -> Result<PathBuf> {
-    if !known.contains(path)? {
+    let path = stored_form(path);
+    if !known.contains(&path)? {
         return Err(Error::CourseNotKnown);
     }
-    let root = canonical_folder(Path::new(path)).map_err(|e| match e {
+    let root = canonical_folder(Path::new(&path)).map_err(|e| match e {
         Error::FolderNotFound | Error::NotAFolder => Error::CourseMoved,
         e => e,
     })?;
-    if root.to_str().map(plain).as_deref() != Some(path) {
+    if root.to_str().map(plain) != Some(path) {
         return Err(Error::CourseMoved);
     }
     Ok(root)

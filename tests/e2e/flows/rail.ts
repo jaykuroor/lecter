@@ -160,11 +160,18 @@ describe("course rail", () => {
     expect(screen.labels).toEqual(["Course Rail Second", "Course Rail First"]);
     await shot("rail");
 
-    // Ctrl-2 opens the second course on the rail, through course_switch; Ctrl-1 the first.
-    await key({ key: "2", code: "Digit2", ctrlKey: true });
+    // Ctrl-2 (Cmd-2 on macOS) opens the second course on the rail, through course_switch; Ctrl-1
+    // the first. The row's own hint says which modifier the app listens for.
+    const mac = process.platform === "darwin";
+    const mod = mac ? { metaKey: true } : { ctrlKey: true };
+    const hint = await browser.execute(() =>
+      document.querySelector(".rail-courses .rail-course")?.getAttribute("aria-keyshortcuts"),
+    );
+    expect(hint).toBe(mac ? "Meta+1" : "Control+1");
+    await key({ key: "2", code: "Digit2", ...mod });
     await browser.waitUntil(async () => (await railOnScreen()).current === 1, { timeoutMsg: "Ctrl-2 did not switch" });
     expect(await openName()).toBe("Rail First");
-    await key({ key: "1", code: "Digit1", ctrlKey: true });
+    await key({ key: "1", code: "Digit1", ...mod });
     await browser.waitUntil(async () => (await railOnScreen()).current === 0, { timeoutMsg: "Ctrl-1 did not switch" });
     expect(await openName()).toBe("Rail Second");
 

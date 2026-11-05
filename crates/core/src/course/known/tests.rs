@@ -75,16 +75,52 @@ fn courses_join_at_the_end_once_each() {
     assert!(!ok(known.contains(&format!("{a}/"))));
 }
 
+/// An absolute path on this OS that needn't exist: `/c/<name>`, or `C:\c\<name>` on Windows.
+fn abs(name: &str) -> String {
+    if cfg!(windows) { format!(r"C:\c\{name}") } else { format!("/c/{name}") }
+}
+
 #[test]
 fn a_path_that_cant_be_a_course_root_is_never_added() {
     let env = env();
     let known = KnownCourses::new(&env.dirs());
-    let long = format!("/{}", "x".repeat(MAX_PATH_BYTES));
-    for bad in ["relative/course", "", "/c/line\nbreak", long.as_str()] {
+    let root = abs("");
+    let long = format!("{root}{}", "x".repeat(MAX_PATH_BYTES + 1 - root.len()));
+    let line_break = abs("line\nbreak");
+    for bad in ["relative/course", "", line_break.as_str(), long.as_str()] {
         assert_eq!(ok(known.add(bad)), (vec![], false), "{bad:?}");
     }
-    let edge = format!("/{}", "x".repeat(MAX_PATH_BYTES - 1));
+    let edge = format!("{root}{}", "x".repeat(MAX_PATH_BYTES - root.len()));
+    assert_eq!(edge.len(), MAX_PATH_BYTES);
     assert!(ok(known.add(&edge)).1);
+}
+
+/// Windows: canonicalisation gives `\\?\C:\…`; the rail keeps and answers the plain form, and
+/// finds a course by either.
+#[cfg(windows)]
+#[test]
+fn a_verbatim_windows_path_is_kept_in_its_plain_form() {
+    let env = env();
+    let known = KnownCourses::new(&env.dirs());
+    let (paths, added) = ok(known.add(r"\\?\C:\Courses\stat"));
+    assert_eq!((paths, added), (vec![r"C:\Courses\stat".to_owned()], true));
+    assert!(!ok(known.add(r"C:\Courses\stat")).1, "the same course twice");
+    assert!(ok(known.contains(r"\\?\C:\Courses\stat")));
+    assert!(ok(known.contains(r"C:\Courses\stat")));
+    ok(known.add(r"\\?\UNC\server\share\bio"));
+    let order = vec![r"\\server\share\bio".to_owned(), r"\\?\C:\Courses\stat".to_owned()];
+    assert_eq!(ok(known.reorder(&order)), vec![r"\\server\share\bio".to_owned(), r"C:\Courses\stat".to_owned()]);
+    put(&db(&env), r#"["\\\\?\\C:\\Courses\\stat", "C:\\Courses\\stat"]"#);
+    assert_eq!(ok(known.paths()), vec![r"C:\Courses\stat".to_owned()]);
+}
+
+/// The stored form leaves every path that isn't a Windows verbatim one as it is.
+#[test]
+fn stored_form_strips_only_the_windows_verbatim_prefix() {
+    assert_eq!(stored_form(r"\\?\C:\Courses\stat"), r"C:\Courses\stat");
+    assert_eq!(stored_form(r"\\?\UNC\server\share\bio"), r"\\server\share\bio");
+    assert_eq!(stored_form("/c/stat"), "/c/stat");
+    assert_eq!(stored_form(r"C:\Courses\stat"), r"C:\Courses\stat");
 }
 
 #[test]
@@ -119,29 +155,32 @@ fn reorder_takes_a_new_order_of_the_same_courses_only() {
 fn a_hand_edited_value_reads_as_the_usable_entries() {
     let env = env();
     let known = KnownCourses::new(&env.dirs());
-    put(&db(&env), r#"["/c/a", 7, "relative", "/c/b", "/c/a", null, "/c/line\nbreak"]"#);
-    assert_eq!(ok(known.paths()), vec!["/c/a".to_owned(), "/c/b".to_owned()]);
-    for broken in ["{\"courses\": []}", "not json", "\"/c/a\"", ""] {
-        put(&db(&env), broken);
+    let json = |v: serde_json::Value| v.to_string();
+    let (a, b) = (abs("a"), abs("b"));
+    put(&db(&env), &json(serde_json::json!([a, 7, "relative", b, a, null, abs("line\nbreak")])));
+    assert_eq!(ok(known.paths()), vec![a.clone(), b]);
+    for broken in ["{\"courses\": []}".to_owned(), "not json".to_owned(), json(serde_json::json!(a)), String::new()] {
+        put(&db(&env), &broken);
         assert_eq!(ok(known.paths()), Vec::<String>::new(), "{broken:?}");
     }
     // Reading never rewrites what is there; the next change does.
     assert_eq!(stored(&db(&env)).as_deref(), Some(""));
-    ok(known.add("/c/z"));
-    assert_eq!(stored(&db(&env)).as_deref(), Some(r#"["/c/z"]"#));
+    let z = abs("z");
+    ok(known.add(&z));
+    assert_eq!(stored(&db(&env)), Some(json(serde_json::json!([z]))));
 }
 
 #[test]
 fn the_list_stops_at_the_contracts_list_limit() {
     let env = env();
-    let many: Vec<String> = (0..=MAX_ENTRIES).map(|i| format!("/c/{i}")).collect();
+    let many: Vec<String> = (0..=MAX_ENTRIES).map(|i| abs(&i.to_string())).collect();
     put(&db(&env), &serde_json::to_string(&many).unwrap_or_default());
     let known = KnownCourses::new(&env.dirs());
     let paths = ok(known.paths());
     assert_eq!(paths.len(), MAX_ENTRIES);
-    assert_eq!(paths.last().map(String::as_str), Some(format!("/c/{}", MAX_ENTRIES - 1).as_str()));
+    assert_eq!(paths.last(), Some(&abs(&(MAX_ENTRIES - 1).to_string())));
     // A full rail takes no more.
-    assert!(!ok(known.add("/c/new")).1);
+    assert!(!ok(known.add(&abs("new"))).1);
 }
 
 #[test]

@@ -34,7 +34,8 @@ function write(rel: string): void {
 }
 
 const openButton = () => $("button.rail-add");
-const course = () => $(`[aria-label="Course ${basename(picked())}"]`);
+// The panel section, not the rail row: both are labelled "Course <name>".
+const course = () => $(`section[aria-label="Course ${basename(picked())}"]`);
 
 async function names(section: "Lectures" | "Slides"): Promise<string[]> {
   const items = await $$(`[aria-label="${section}"] li`).getElements();

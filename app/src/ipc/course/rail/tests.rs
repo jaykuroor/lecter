@@ -9,13 +9,14 @@ use super::super::super::error::ErrorCode;
 use super::super::{answer, require_trusted};
 use super::*;
 
-/// A course folder `name` with one lecture and an AGENTS.md (English only); its canonical path.
+/// A course folder `name` with one lecture and an AGENTS.md (English only); its path as
+/// `course_open` and the rail show it (canonical; on Windows without the `\\?\` prefix).
 fn course(env: &TestEnv, name: &str) -> String {
     let dir = env.home().join(name);
     std::fs::create_dir_all(dir.join("lectures")).unwrap();
     std::fs::write(dir.join("lectures/l01.md"), "::: {.slide #s1 n=1}\n:::\n").unwrap();
     std::fs::write(dir.join("AGENTS.md"), "Exams are proof-heavy.\n").unwrap();
-    std::fs::canonicalize(dir).unwrap().to_str().unwrap().to_owned()
+    lecter_core::course::open(&dir).unwrap().path
 }
 
 struct Rig {

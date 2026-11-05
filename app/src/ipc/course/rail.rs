@@ -96,7 +96,8 @@ pub(super) async fn switch(
         .inspect_err(|e| tracing::warn!(target: "ipc", command = "course_switch", code = ?e.code, "switch refused"))?;
     let opened = open(courses, root, provider, answered).await?;
     // The folder was checked a moment ago; one swapped for a link since then is still refused.
-    if opened.course.path != course {
+    // Both sides in the rail's form (no Windows `\\?\` prefix), as course_list sent it.
+    if opened.course.path != known::stored_form(&course) {
         tracing::warn!(target: "ipc", command = "course_switch", "the course's path changed while it opened");
         return Err(super::ipc_error(lecter_core::Error::CourseMoved));
     }

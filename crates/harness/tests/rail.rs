@@ -22,11 +22,12 @@ fn ok_json(out: &Output) -> Value {
     serde_json::from_str(text.trim_end()).unwrap_or_else(|e| panic!("not JSON ({e}): {text:?}"))
 }
 
-/// A course folder `name` in the test home; its canonical path.
+/// A course folder `name` in the test home; its path as the rail shows it (canonical; on Windows
+/// without the `\\?\` prefix).
 fn folder(env: &TestEnv, name: &str) -> String {
     let p = env.home().join(name);
     std::fs::create_dir_all(&p).unwrap_or_else(|e| panic!("{e}"));
-    std::fs::canonicalize(&p).unwrap_or_else(|e| panic!("{e}")).to_str().unwrap_or_default().to_owned()
+    lecter_core::course::open(&p).unwrap_or_else(|e| panic!("{e}")).path
 }
 
 fn paths(v: &Value) -> Vec<&str> {
