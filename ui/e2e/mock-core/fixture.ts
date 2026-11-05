@@ -16,6 +16,21 @@ export interface MockFixture {
   gloss: { deltas: string[]; deltaMs: number };
 }
 
+/** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
+export const trustScreen: NonNullable<MockFixture["courseOpen"]>["screen"] = {
+  lectures: 1,
+  slides: 0,
+  sources: 0,
+  provider: "sample",
+  webSearch: true,
+  agents: [],
+  roles: [],
+  skills: [],
+  overrides: [],
+  changed: false,
+  blocked: null,
+};
+
 export const defaultFixture: MockFixture = {
   appInfo: { name: "Lecter", version: "0.0.1" },
   courseOpen: null,

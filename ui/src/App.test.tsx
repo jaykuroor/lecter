@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultFixture } from "../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../e2e/mock-core/fixture";
 import { installMockCore } from "../e2e/mock-core/install";
 import { App } from "./App";
 
@@ -27,7 +27,14 @@ describe("App shell", () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [lecture],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [lecture.path]: lecture },
     });
     const asked: unknown[] = [];
@@ -50,6 +57,30 @@ describe("App shell", () => {
     ]);
   });
 
+  // F-033: a course still to be answered shows the trust screen over the document; the answer goes
+  // to the core for that course and the screen closes. An answered course shows none.
+  it("shows the trust screen for a course to be answered, and sends the answer (F-033)", async () => {
+    const opened = { path: "/c/STAT311", name: "STAT311", lectures: [], slides: [], screen: trustScreen };
+    const w = window as unknown as { __mockTrust?: unknown[] };
+    w.__mockTrust = [];
+    installMockCore({ ...defaultFixture, courseOpen: { ...opened, trust: "ask" } });
+    render(() => <App />);
+    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    const dialog = await screen.findByRole("dialog", { name: "Trust “STAT311”?" });
+    expect(dialog.querySelector(".trust-path")?.textContent).toBe("/c/STAT311");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Open read-only" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(w.__mockTrust).toEqual([{ course: "/c/STAT311", choice: "read_only" }]);
+    expect(screen.getByRole("heading", { level: 2, name: /STAT311/ }).textContent).toBe("STAT311 Read-only");
+    cleanup();
+
+    installMockCore({ ...defaultFixture, courseOpen: { ...opened, trust: "trusted" } });
+    render(() => <App />);
+    fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+    await screen.findByRole("region", { name: "Course STAT311" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it(":find in the buffer lists the open course's hits in the side panel (F-022)", async () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Zero for independent variables.]{#s1b1}\n" };
     const hit = {
@@ -61,7 +92,14 @@ describe("App shell", () => {
     };
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [lecture],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [lecture.path]: lecture },
       find: { variables: [hit] },
     });
@@ -85,7 +123,14 @@ describe("App shell", () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [lecture], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [lecture],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [lecture.path]: lecture },
     });
     const asked: [string, unknown][] = [];

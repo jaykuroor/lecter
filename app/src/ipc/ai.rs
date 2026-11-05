@@ -19,6 +19,7 @@ use specta::Type;
 use tauri::State;
 use tauri::ipc::Channel;
 
+use super::course::require_trusted_async;
 use super::error::{ErrorCode, IpcError};
 use super::lecture::check_course;
 use super::session::{OpenLectures, OpenedCourses};
@@ -64,6 +65,11 @@ impl Glosses {
         Self { provider, budget, running: Arc::default() }
     }
 
+    /// The id of the provider that answers (and so receives excerpts), for the trust screen.
+    pub fn provider_id(&self) -> &str {
+        self.provider.id()
+    }
+
     fn running(&self) -> std::sync::MutexGuard<'_, HashMap<String, CancellationToken>> {
         self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -79,7 +85,8 @@ impl Glosses {
 /// Asks `question` about block `block` (`s3b2`) of the open lecture `path` of `course` and returns
 /// the new gloss's id; the answer streams on `on_event`. A course not opened this session, a
 /// lecture not open, a malformed block id, an empty question or one over 16 KB is
-/// E_INVALID_ARGUMENT; a block the lecture doesn't have is E_NOT_FOUND.
+/// E_INVALID_ARGUMENT; a course that is read-only or not trusted is E_NOT_TRUSTED; a block the
+/// lecture doesn't have is E_NOT_FOUND.
 #[tauri::command]
 #[specta::specta]
 #[allow(clippy::too_many_arguments, reason = "Tauri injects three states besides the contract's five arguments")]
@@ -127,6 +134,8 @@ async fn request(
     validate::id(REQUEST, "block", &ask.block, IdKind::Block)?;
     validate::string(REQUEST, "question", &ask.question, IpcLimits::default().prompt_bytes)?;
     check_course(courses, REQUEST, &ask.course)?;
+    // SEC-27: no AI on a course that is read-only or not trusted as it is now.
+    require_trusted_async(courses, &ask.course).await?;
     let text = lecture_text(lectures, &ask.course, &ask.path).await?;
     let model = lecter_ai::provider::scripted::SAMPLE_ID;
     let req = prompt::ask_request(&text, &ask.block, &ask.question, model).map_err(|e| match e {

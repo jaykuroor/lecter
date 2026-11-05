@@ -3,7 +3,7 @@
 // Frames are stepped by hand: requestAnimationFrame callbacks run only when the test says so.
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultFixture } from "../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../e2e/mock-core/fixture";
 import { installMockCore } from "../e2e/mock-core/install";
 import { App } from "./App";
 
@@ -33,7 +33,14 @@ describe("startup", () => {
   beforeEach(() => {
     installMockCore({
       ...defaultFixture,
-      courseOpen: { path: "/c/STAT311", name: "STAT311", lectures: [l07, l08], slides: [], trust: "trusted" },
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [l07, l08],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
       lectures: { [l07.path]: l07, [l08.path]: l08 },
     });
     asked = [];

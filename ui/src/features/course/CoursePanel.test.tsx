@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { defaultFixture } from "../../../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
 import type { CourseOpened, IpcError } from "../../core/bindings";
 import { createCourse } from "../../state/course";
@@ -15,6 +15,7 @@ const stat311: CourseOpened = {
   ],
   slides: [{ name: "07-covariance.pdf", path: "slides/07-covariance.pdf" }],
   trust: "ask",
+  screen: trustScreen,
 };
 
 function mount(onOpenLecture: (course: string, path: string) => void = () => {}, openLecture: string | null = null) {
@@ -40,6 +41,21 @@ describe("CoursePanel", () => {
     const open = mount();
     expect((open as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByRole("region", { name: /^Course / })).toBeNull();
+  });
+
+  // F-033: a course opened read-only says so beside its name; any other is just its name.
+  it("marks a read-only course beside its name", async () => {
+    for (const [trust, heading] of [
+      ["read_only", "STAT311 Read-only"],
+      ["trusted", "STAT311"],
+      ["ask", "STAT311"],
+    ] as const) {
+      installMockCore({ ...defaultFixture, courseOpen: { ...stat311, trust } });
+      fireEvent.click(mount());
+      const course = await screen.findByRole("region", { name: "Course STAT311" });
+      expect(within(course).getByRole("heading", { level: 2 }).textContent, trust).toBe(heading);
+      cleanup();
+    }
   });
 
   it("lists the opened course's lectures and slides by name, in the core's order", async () => {

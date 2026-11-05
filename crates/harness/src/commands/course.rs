@@ -1,18 +1,23 @@
 //! `lecter-harness course open <dir>`: opens a course folder and prints its `lectures/` and
-//! `slides/` listing, the same JSON as the app's `course_open` without its `trust` (F-018).
+//! `slides/` listing, the same JSON as the app's `course_open` without its `trust` and `screen`
+//! (F-018). `course trust <dir> [trusted|read-only]`: its trust screen, or the answer (F-033,
+//! `course_trust.rs`).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use lecter_core::course::{self, CourseFile, CourseListing};
 
-use super::{Command, Reply};
+use super::{Command, Reply, course_trust};
 use crate::error::HarnessError;
 
 /// The `course` command.
-pub const COMMAND: Command =
-    Command { name: "course", summary: "course open <dir>: list a course folder's lectures and slides", run };
+pub const COMMAND: Command = Command {
+    name: "course",
+    summary: "course open <dir> | course trust <dir> [trusted|read-only]: list a course folder, or show or answer its trust screen",
+    run,
+};
 
-const USAGE: &str = "usage: course open <dir>";
+pub(super) const USAGE: &str = "usage: course open <dir> | course trust <dir> [trusted|read-only]";
 
 fn run(args: &[String]) -> Result<Reply, HarnessError> {
     match args {
@@ -20,6 +25,7 @@ fn run(args: &[String]) -> Result<Reply, HarnessError> {
         [verb, ..] if verb == "open" => {
             Err(HarnessError::invalid_argument(format!("course open takes one folder; {USAGE}")))
         }
+        [verb, rest @ ..] if verb == "trust" => course_trust::run(rest),
         [verb, ..] => Err(HarnessError::invalid_argument(format!("unknown course command \"{verb}\"; {USAGE}"))),
         [] => Err(HarnessError::invalid_argument(format!("missing course command; {USAGE}"))),
     }
@@ -27,13 +33,16 @@ fn run(args: &[String]) -> Result<Reply, HarnessError> {
 
 /// Opens `dir` (relative to the working directory, like any command-line path) through the core.
 fn open(dir: &Path) -> Result<Reply, HarnessError> {
-    let abs = std::path::absolute(dir).map_err(|_| {
-        HarnessError::invalid_argument("the folder path can't be made absolute (no working directory?)")
-    })?;
-    let listing = course::open(&abs).map_err(|e| HarnessError::new(e.code(), e.to_string()))?;
+    let listing = course::open(&absolute(dir)?).map_err(|e| HarnessError::new(e.code(), e.to_string()))?;
     let json = serde_json::to_value(&listing)
         .map_err(|_| HarnessError::new(lecter_core::ErrorCode::Internal, "the listing could not be written as JSON"))?;
     Ok(Reply { text: text(&listing), json })
+}
+
+/// A command-line folder path, made absolute against the working directory.
+pub(super) fn absolute(dir: &Path) -> Result<PathBuf, HarnessError> {
+    std::path::absolute(dir)
+        .map_err(|_| HarnessError::invalid_argument("the folder path can't be made absolute (no working directory?)"))
 }
 
 /// The listing for a person: the folder, then each subfolder's files.

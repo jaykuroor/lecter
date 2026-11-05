@@ -15,4 +15,4 @@ export const test = base.extend<{ mockCore: MockFixture }>({
 });
 
 export { expect } from "@playwright/test";
-export { defaultFixture, type MockFixture } from "./fixture";
+export { defaultFixture, type MockFixture, trustScreen } from "./fixture";

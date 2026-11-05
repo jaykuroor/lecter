@@ -89,6 +89,8 @@ fn the_skeleton_path_runs_through_the_harness_with_no_gui() {
     let listing = harness(&env, &["course", "open", dir_s]);
     assert_eq!(listing["slides"], json!([{ "name": "12-entropy.pdf", "path": PDF }]));
     assert_eq!(listing["lectures"], json!([]));
+    // Trust it, as the trust screen's Trust button does (F-033): AI and search need it.
+    assert_eq!(harness(&env, &["course", "trust", dir_s, "trusted"])["trust"], "trusted");
 
     // Parse the PDF in the worker and write its blocks as the lecture.
     let parsed = harness(&env, &["parse", dir.join(PDF).to_str().unwrap_or_default()]);

@@ -2,6 +2,7 @@ import { createEffect, createSignal, lazy, onCleanup, onMount, Show } from "soli
 import { markStartup } from "./core/startup";
 import { CoursePanel } from "./features/course/CoursePanel";
 import { FindPanel } from "./features/find/FindPanel";
+import { TrustScreen } from "./features/trust/TrustScreen";
 import { createAppInfo } from "./state/appInfo";
 import { createCourse } from "./state/course";
 import { createFind } from "./state/find";
@@ -119,6 +120,18 @@ export function App() {
             />
           </Show>
         </main>
+        {/* The first open of a folder, or one that moved or whose AI files changed, asks (F-033). */}
+        <Show when={course.course()?.trust === "ask" ? course.course() : null}>
+          {(c) => (
+            <TrustScreen
+              name={c().name}
+              path={c().path}
+              screen={c().screen}
+              busy={course.busy()}
+              onAnswer={(choice) => void course.answer(choice)}
+            />
+          )}
+        </Show>
         <footer class="status-line" role="status" aria-label="Status line">
           <Show when={info()} fallback={<span>Connecting to core…</span>}>
             {(i) => <span>v{i().version}</span>}

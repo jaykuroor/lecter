@@ -25,8 +25,17 @@ fn one_json(out: &Output) -> Value {
     serde_json::from_str(text.trim_end()).unwrap_or_else(|e| panic!("not JSON ({e}): {text:?}"))
 }
 
-/// A synthetic course with two lectures (English only).
+/// A synthetic course with two lectures (English only), trusted (F-033: only a trusted course is
+/// indexed).
 fn sample_course(env: &TestEnv) -> PathBuf {
+    let course = untrusted_course(env);
+    let out = harness(env, env.home(), &["course", "trust", "Sample Course", "trusted"]);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stdout));
+    course
+}
+
+/// The same course, its trust question not answered.
+fn untrusted_course(env: &TestEnv) -> PathBuf {
     let course = env.home().join("Sample Course");
     let lectures = course.join("lectures");
     std::fs::create_dir_all(&lectures).unwrap_or_else(|e| panic!("{e}"));
@@ -96,6 +105,24 @@ fn no_match_is_an_empty_list() {
     assert_eq!(one_json(&out), Value::Array(vec![]));
     let text = harness(&env, env.home(), &["search", "Sample Course", "eigenvalue"]);
     assert_eq!(String::from_utf8_lossy(&text.stdout), "no hits\n");
+}
+
+/// F-033 criteria 2 and 6 (SEC-27): a course opened read-only, or not answered yet, is never
+/// indexed: search is E_NOT_TRUSTED from the core and nothing is written to `.lecter/cache`.
+#[test]
+fn a_read_only_or_unanswered_course_is_not_indexed() {
+    for answer in [None, Some("read-only")] {
+        let env = env();
+        let course = untrusted_course(&env);
+        if let Some(answer) = answer {
+            let out = harness(&env, env.home(), &["course", "trust", "Sample Course", answer]);
+            assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stdout));
+        }
+        let out = harness(&env, env.home(), &["search", "Sample Course", "sample", "--json"]);
+        assert_eq!(out.status.code(), Some(1), "{answer:?}");
+        assert_eq!(one_json(&out)["error"]["code"], "E_NOT_TRUSTED", "{answer:?}");
+        assert!(!course.join(".lecter/cache").exists(), "{answer:?}: an index was written");
+    }
 }
 
 #[test]

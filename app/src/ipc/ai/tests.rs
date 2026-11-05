@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use lecter_ai::provider::scripted::{ScriptedProvider, Step};
+use lecter_core::course::trust::TrustChoice;
 use lecter_core::save::Session;
 use lecter_core::testenv::TestEnv;
 
@@ -25,8 +26,7 @@ fn course(env: &TestEnv) -> (String, OpenedCourses, OpenLectures) {
     std::fs::create_dir_all(dir.join("lectures")).unwrap();
     std::fs::write(dir.join(L07), SEVEN).unwrap();
     let listing = lecter_core::course::open(&std::fs::canonicalize(&dir).unwrap()).unwrap();
-    let courses = OpenedCourses::default();
-    courses.remember(&listing.path);
+    let courses = super::super::course::opened_for_test(env, &listing, Some(TrustChoice::Trusted));
     let lectures = OpenLectures::default();
     let path = listing.path.clone();
     lectures.get_or_open(&path, L07, || Session::open(Path::new(&path), L07).map(|(s, _)| s)).unwrap();
@@ -179,6 +179,27 @@ fn bad_requests_are_refused_with_their_codes() {
         (missing.code, missing.message.as_str()),
         (ErrorCode::NotFound, "That line is no longer in the lecture.")
     );
+}
+
+/// F-033 criteria 2 and 6 (SEC-27): a course opened read-only, or not answered yet, gets no AI:
+/// the request is E_NOT_TRUSTED from the core and no stream starts. Trusting it lets it ask.
+#[test]
+fn a_read_only_or_unanswered_course_gets_no_ai() {
+    let env = TestEnv::new().unwrap();
+    let (path, _, lectures) = course(&env);
+    let listing = lecter_core::course::open(Path::new(&path)).unwrap();
+    // `course` trusted it; forgetting every answer leaves the question open.
+    std::fs::remove_file(env.dirs().config().join("trusted.jsonc")).unwrap();
+    for choice in [None, Some(TrustChoice::ReadOnly)] {
+        let courses = super::super::course::opened_for_test(&env, &listing, choice);
+        let e = refused(&courses, &lectures, ask(&path, "s3b1", "why?"));
+        assert_eq!(e.code, ErrorCode::NotTrusted, "{choice:?}: {e:?}");
+    }
+    let courses = super::super::course::opened_for_test(&env, &listing, Some(TrustChoice::Trusted));
+    let g = glosses(vec![step(0, "x")]);
+    let (id, rx) = start(&courses, &lectures, &g, ask(&path, "s3b1", "why?"));
+    assert!(id.is_ok(), "{id:?}");
+    assert!(matches!(all(&rx).last(), Some(GlossStream::Done { .. })));
 }
 
 #[test]

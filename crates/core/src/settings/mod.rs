@@ -7,7 +7,7 @@
 //! edited on disk apply without a restart ([`SettingsWatcher`]).
 
 mod global_only;
-mod jsonc;
+pub(crate) mod jsonc;
 mod keys;
 mod layer;
 mod resolve;

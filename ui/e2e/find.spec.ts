@@ -1,4 +1,4 @@
-import { defaultFixture, expect, test } from "./mock-core";
+import { defaultFixture, expect, test, trustScreen } from "./mock-core";
 import { sampleLecture } from "./mock-core/lectures";
 
 // F-022: `:find <words>` typed on Vim's command line in the lecture buffer lists the core's
@@ -23,6 +23,7 @@ test.use({
       lectures: [{ name: "2026-10-23-l07-covariance.md", path: lecturePath }],
       slides: [],
       trust: "trusted",
+      screen: trustScreen,
     },
     lectures: { [lecturePath]: { path: lecturePath, name: "2026-10-23-l07-covariance.md", text: sampleLecture } },
     find: {

@@ -8,6 +8,7 @@
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
 mod listing;
+pub mod trust;
 
 use std::path::{Path, PathBuf};
 

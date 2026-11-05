@@ -1,4 +1,4 @@
-import { defaultFixture, expect, test } from "./mock-core";
+import { defaultFixture, expect, test, trustScreen } from "./mock-core";
 import { sampleLecture } from "./mock-core/lectures";
 
 // F-020: a lecture opened from the rail shows in one CodeMirror buffer (slide headings and blocks,
@@ -16,6 +16,7 @@ test.use({
       lectures: [{ name: "2026-10-23-l07-covariance.md", path: lecturePath }],
       slides: [{ name: "07-covariance.pdf", path: "slides/07-covariance.pdf" }],
       trust: "trusted",
+      screen: trustScreen,
     },
     lectures: { [lecturePath]: { path: lecturePath, name: "2026-10-23-l07-covariance.md", text: sampleLecture } },
   },

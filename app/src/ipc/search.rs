@@ -8,11 +8,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
+use lecter_core::course::trust::TrustStore;
 use lecter_index::{CourseIndex, Hit, MAX_HITS};
 use serde::Serialize;
 use specta::Type;
 use tauri::State;
 
+use super::course::require_trusted;
 use super::error::{ErrorCode, IpcError};
 use super::lecture::check_course;
 use super::session::{OpenLectures, OpenedCourses};
@@ -61,7 +63,8 @@ impl SearchIndexes {
 
 /// The hits for the words of `query` in the blocks of the lectures opened in `course` (a course
 /// `course_open` returned this session), best BM25 score first, at most 50. A query over 1 KB is
-/// E_INVALID_ARGUMENT; one with no words finds nothing.
+/// E_INVALID_ARGUMENT; one with no words finds nothing. A course that is read-only or not trusted
+/// has no index: E_NOT_TRUSTED (SEC-27).
 #[tauri::command]
 #[specta::specta]
 pub async fn search_find(
@@ -84,8 +87,10 @@ async fn find(
 ) -> Result<Vec<FindHit>, IpcError> {
     validate::string("search_find", "query", &query, IpcLimits::default().query_bytes)?;
     check_course(courses, "search_find", &course)?;
-    let (lectures, indexes) = (lectures.clone(), indexes.clone());
+    let (lectures, indexes, trust) = (lectures.clone(), indexes.clone(), courses.trust().clone());
     tauri::async_runtime::spawn_blocking(move || {
+        // SEC-27: no index for a course that is read-only or not trusted as it is now.
+        require_trusted(&trust, &course)?;
         let index = indexes.get(&course).map_err(index_error)?;
         // The open lectures' edits since they were last indexed (`index_lecture` skips unchanged text).
         for session in lectures.in_course(&course) {
@@ -104,16 +109,22 @@ async fn find(
 
 /// Indexes the lecture `path` of `course`, whose whole text is `text`, off the caller's thread:
 /// `lecture_open` calls it so an opened lecture is searchable without slowing the open. A failure
-/// is logged (without content) and left for the next `search_find` to retry. The command doesn't
-/// wait for the returned handle; tests do.
+/// is logged (without content) and left for the next `search_find` to retry. A course that is
+/// read-only or not trusted is never indexed (SEC-27): nothing is written to its `.lecter/cache/`.
+/// The command doesn't wait for the returned handle; tests do.
 pub fn index_in_background(
     indexes: &SearchIndexes,
+    trust: TrustStore,
     course: String,
     path: String,
     text: String,
 ) -> tauri::async_runtime::JoinHandle<()> {
     let indexes = indexes.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        if let Err(e) = require_trusted(&trust, &course) {
+            tracing::info!(target: "ipc", command = "lecture_open", code = ?e.code, "not indexed: the course is not trusted");
+            return;
+        }
         let done = indexes.get(&course).and_then(|index| index.index_lecture(&path, &text));
         if let Err(e) = done {
             tracing::warn!(target: "ipc", command = "lecture_open", code = ?e.code(), "the lecture could not be indexed");

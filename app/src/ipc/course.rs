@@ -1,54 +1,140 @@
-//! The `course` area: opening a course folder the user picks in a native dialog, and returning its
-//! `lectures/` and `slides/` listing (`lecter_core::course`). F-033 adds the stored trust.
+//! The `course` area: opening a course folder the user picks in a native dialog, returning its
+//! `lectures/` and `slides/` listing (`lecter_core::course`) with its trust screen, and storing the
+//! user's answer (`course_trust`, 02-course-folder.md#trust). The core enforces the answer:
+//! [`require_trusted`] guards every AI and indexing command (SEC-27).
 
+use std::path::{Path, PathBuf};
+
+use lecter_core::course::trust::{self, TrustChoice, TrustScreen, TrustState, TrustStore};
 use lecter_core::course::{self, CourseListing};
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, State};
 
+use super::ai::Glosses;
 use super::error::{ErrorCode, IpcError};
+use super::lecture::check_course;
 use super::session::OpenedCourses;
 use crate::dialog;
 
-/// Whether the folder-trust question (02-course-folder.md#trust) still has to be asked.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum Trust {
-    Ask,
-    // Release builds store no trust yet (trusted.jsonc arrives with F-033), so there only the
-    // user can answer, on the trust screen; in debug runs the trust test hook can too.
-    #[cfg_attr(
-        not(any(debug_assertions, feature = "test-hooks")),
-        expect(dead_code, reason = "constructed by the debug trust hook until stored trust exists")
-    )]
-    Trusted,
-}
-
 /// `course_open`'s result: the folder the user picked, its listing (the same JSON the
-/// command-line harness prints for `course open`) and whether trust is still to be asked.
+/// command-line harness prints for `course open`), where its trust stands, and what its trust
+/// screen shows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct CourseOpened {
     #[serde(flatten)]
     pub course: CourseListing,
-    pub trust: Trust,
+    pub trust: TrustState,
+    pub screen: TrustScreen,
+}
+
+/// `course_trust`'s result: where the course's trust stands after the answer, and its screen as
+/// it is now (asked again, with `changed`, when its AI files changed while the screen was open).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+pub struct CourseTrusted {
+    pub trust: TrustState,
+    pub screen: TrustScreen,
 }
 
 /// Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
-/// listing, or `None` if the user cancels. Takes no arguments: the path comes from the dialog,
-/// never from the UI (SEC-32, SEC-35). A file linked out of the course fails with E_NOT_TRUSTED.
-/// The course is remembered for this session, so its lectures can be opened.
+/// listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
+/// comes from the dialog, never from the UI (SEC-32, SEC-35). A file linked out of the course
+/// fails with E_NOT_TRUSTED. The course is remembered for this session, so its lectures can be
+/// opened and its trust question answered.
 #[tauri::command]
 #[specta::specta]
-pub async fn course_open(app: AppHandle, courses: State<'_, OpenedCourses>) -> Result<Option<CourseOpened>, IpcError> {
+pub async fn course_open(
+    app: AppHandle,
+    courses: State<'_, OpenedCourses>,
+    glosses: State<'_, Glosses>,
+) -> Result<Option<CourseOpened>, IpcError> {
     let Some(picked) = dialog::pick_folder(&app).await else {
         return Ok(None);
     };
-    let course = tauri::async_runtime::spawn_blocking(move || course::open(&picked))
+    open(&courses, picked, glosses.provider_id().to_owned(), hook_answers_trust()).await.map(Some)
+}
+
+/// Answers the trust screen of `course` (a course `course_open` returned this session) with
+/// `choice`: Trust, or Open read-only. The answer is stored in `trusted.jsonc` with the AI files
+/// the screen showed; if they changed since, the result asks again with the new screen.
+#[tauri::command]
+#[specta::specta]
+pub async fn course_trust(
+    courses: State<'_, OpenedCourses>,
+    glosses: State<'_, Glosses>,
+    course: String,
+    choice: TrustChoice,
+) -> Result<CourseTrusted, IpcError> {
+    answer(&courses, course, choice, glosses.provider_id().to_owned()).await
+}
+
+/// `course_open` after the dialog. `answered` stands for a debug run's trust hook, which answers
+/// "Trust" for the user whenever the screen would ask.
+async fn open(
+    courses: &OpenedCourses,
+    picked: PathBuf,
+    provider: String,
+    answered: bool,
+) -> Result<CourseOpened, IpcError> {
+    let store = courses.trust().clone();
+    let (course, review) = blocking("Lecter could not check that folder.", move || {
+        let course = course::open(&picked)?;
+        let mut review = trust::review(&store, &course, &provider)?;
+        if answered && review.state == TrustState::Ask && review.screen.blocked.is_none() {
+            review.state = trust::decide(&store, &course.path, TrustChoice::Trusted, &review.fingerprint)?;
+            review.screen.changed = false;
+        }
+        Ok((course, review))
+    })
+    .await?;
+    courses.remember(&course.path, &review.fingerprint);
+    Ok(CourseOpened { course, trust: review.state, screen: review.screen })
+}
+
+/// `course_trust` without Tauri's state wrappers.
+async fn answer(
+    courses: &OpenedCourses,
+    course: String,
+    choice: TrustChoice,
+    provider: String,
+) -> Result<CourseTrusted, IpcError> {
+    check_course(courses, "course_trust", &course)?;
+    let shown = courses.shown(&course).unwrap_or_default();
+    let store = courses.trust().clone();
+    let path = course.clone();
+    let review = blocking("Lecter could not save your answer.", move || {
+        trust::decide(&store, &path, choice, &shown)?;
+        let listing = course::open(Path::new(&path))?;
+        trust::review(&store, &listing, &provider)
+    })
+    .await?;
+    tracing::info!(target: "ipc", command = "course_trust", ?choice, state = ?review.state, "trust answered");
+    courses.remember(&course, &review.fingerprint);
+    Ok(CourseTrusted { trust: review.state, screen: review.screen })
+}
+
+/// SEC-27: succeeds only when `course` is trusted as it is now; a read-only, unanswered or changed
+/// course is E_NOT_TRUSTED. Blocks on the disk: call it on a blocking thread.
+pub(super) fn require_trusted(store: &TrustStore, course: &str) -> Result<(), IpcError> {
+    trust::require_trusted(store, Path::new(course)).map_err(ipc_error)
+}
+
+/// [`require_trusted`] off the async runtime.
+pub(super) async fn require_trusted_async(courses: &OpenedCourses, course: &str) -> Result<(), IpcError> {
+    let (store, course) = (courses.trust().clone(), course.to_owned());
+    blocking("Lecter could not check that course.", move || trust::require_trusted(&store, Path::new(&course))).await
+}
+
+/// Runs the core's blocking `work` on a blocking thread; `failed` is the message if that thread
+/// itself fails.
+async fn blocking<T: Send + 'static>(
+    failed: &'static str,
+    work: impl FnOnce() -> lecter_core::Result<T> + Send + 'static,
+) -> Result<T, IpcError> {
+    tauri::async_runtime::spawn_blocking(work)
         .await
-        .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not check that folder."))?
-        .map_err(ipc_error)?;
-    courses.remember(&course.path);
-    Ok(Some(CourseOpened { course, trust: trust() }))
+        .map_err(|_| IpcError::new(ErrorCode::Internal, failed))?
+        .map_err(ipc_error)
 }
 
 /// The core's error as the contract's `IpcError`: its code and its one-sentence message.
@@ -56,65 +142,31 @@ pub(super) fn ipc_error(e: lecter_core::Error) -> IpcError {
     IpcError::new(e.code(), e.to_string())
 }
 
-/// No trust is stored yet (F-033), so every folder asks, unless a debug run answers for the user.
-fn trust() -> Trust {
+/// Whether a debug run answers the trust question with "Trust" (release builds: never).
+fn hook_answers_trust() -> bool {
     #[cfg(any(debug_assertions, feature = "test-hooks"))]
     if crate::test_hooks::trust_answered() {
-        return Trust::Trusted;
+        return true;
     }
-    Trust::Ask
+    false
+}
+
+/// For other areas' tests: `listing`'s course opened this session with trust kept in `env`'s
+/// config folder, and answered `choice` (`None` leaves the question open).
+#[cfg(test)]
+pub(super) fn opened_for_test(
+    env: &lecter_core::testenv::TestEnv,
+    listing: &CourseListing,
+    choice: Option<TrustChoice>,
+) -> OpenedCourses {
+    let courses = OpenedCourses::new(TrustStore::new(&env.dirs()));
+    let review = trust::review(courses.trust(), listing, "fake").unwrap_or_else(|e| panic!("{e:?}"));
+    if let Some(choice) = choice {
+        trust::decide(courses.trust(), &listing.path, choice, &review.fingerprint).unwrap_or_else(|e| panic!("{e:?}"));
+    }
+    courses.remember(&listing.path, &review.fingerprint);
+    courses
 }
 
 #[cfg(test)]
-mod tests {
-    use lecter_core::course::CourseFile;
-
-    use super::*;
-
-    /// Criterion 1: `course_open` has no arguments in the contract, so the UI can't hand it a
-    /// path; the only folder it opens is the one the dialog (or its debug test hook) returns.
-    #[test]
-    fn course_open_takes_no_arguments() {
-        let args = crate::export::command_args(&super::super::contract(), "course_open");
-        assert_eq!(args, Some(Vec::new()));
-    }
-
-    /// Criterion 4: the IPC answer is the harness's listing JSON plus `trust`, key for key.
-    #[test]
-    fn result_is_the_listing_with_trust_beside_it() {
-        let course = CourseListing {
-            path: "/c/STAT311".into(),
-            name: "STAT311".into(),
-            lectures: vec![CourseFile { name: "l01.md".into(), path: "lectures/l01.md".into() }],
-            slides: vec![CourseFile { name: "01.pdf".into(), path: "slides/01.pdf".into() }],
-        };
-        let listing = serde_json::to_value(&course).unwrap_or_else(|e| panic!("{e}"));
-        let json =
-            serde_json::to_value(CourseOpened { course, trust: Trust::Trusted }).unwrap_or_else(|e| panic!("{e}"));
-        assert_eq!(
-            json,
-            serde_json::json!({
-                "path": "/c/STAT311",
-                "name": "STAT311",
-                "lectures": [{ "name": "l01.md", "path": "lectures/l01.md" }],
-                "slides": [{ "name": "01.pdf", "path": "slides/01.pdf" }],
-                "trust": "trusted",
-            })
-        );
-        let mut without_trust = json;
-        without_trust.as_object_mut().map(|o| o.remove("trust"));
-        assert_eq!(without_trust, listing);
-    }
-
-    /// Criterion 2: a link out of the course reaches the UI as E_NOT_TRUSTED with the core's
-    /// message, which names the entry.
-    #[test]
-    fn a_link_out_of_the_course_is_not_trusted_over_ipc() {
-        let e = ipc_error(lecter_core::Error::OutsideCourse("slides/07.pdf".into()));
-        assert_eq!(e.code, ErrorCode::NotTrusted);
-        assert!(!e.retryable);
-        assert!(e.message.starts_with("slides/07.pdf points outside the course folder"), "{}", e.message);
-        let e = ipc_error(lecter_core::Error::FolderNotFound);
-        assert_eq!((e.code, e.message.as_str()), (ErrorCode::NotFound, "That folder no longer exists."));
-    }
-}
+mod tests;

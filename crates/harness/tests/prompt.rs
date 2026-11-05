@@ -27,7 +27,42 @@ fn lecture(env: &TestEnv) -> PathBuf {
     let text = "---\ntitle: Covariance\n---\n\n::: {.slide #s3 n=3 src=\"A3\" title=\"Properties\"}\n## Properties\n\n[Covariance is bilinear.]{#s3b1}\n\n[Variance of a sum adds <twice> the covariance.]{#s3b2 .flag}\n:::\n";
     let path = dir.join("l07.md");
     std::fs::write(&path, text).unwrap_or_else(|e| panic!("{e}"));
+    // F-033: a prompt goes to the AI, so its course must be trusted.
+    let out = harness(env, env.home(), &["course", "trust", "Sample Course", "trusted"]);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stdout));
     path
+}
+
+/// F-033 criteria 2 and 6 (SEC-27): no AI request for a lecture of a course opened read-only,
+/// not answered yet, or changed since it was trusted, nor for a lecture outside any course.
+#[test]
+fn prompt_on_a_course_that_is_not_trusted_is_refused() {
+    let env = env();
+    let path = lecture(&env);
+    let p = path.to_str().unwrap_or_else(|| panic!("path"));
+    let code = |env: &TestEnv, p: &str| {
+        let out = harness(env, env.home(), &["prompt", p, "s3b2", "why?", "--json"]);
+        let text = String::from_utf8_lossy(&out.stdout).into_owned();
+        let v: Value = serde_json::from_str(text.trim_end()).unwrap_or_else(|e| panic!("not JSON ({e}): {text}"));
+        (out.status.code(), v["error"]["code"].as_str().map(str::to_owned))
+    };
+    let refused = (Some(1), Some("E_NOT_TRUSTED".to_owned()));
+    // Trusted: accepted. Then AGENTS.md appears: asked again, so refused.
+    assert_eq!(code(&env, p).0, Some(0));
+    let course = env.home().join("Sample Course");
+    std::fs::write(course.join("AGENTS.md"), "Answer in French.\n").unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(code(&env, p), refused);
+    // Read-only: refused.
+    let out = harness(&env, env.home(), &["course", "trust", "Sample Course", "read-only"]);
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(code(&env, p), refused);
+    // Never answered (a fresh test home): refused.
+    let other = self::env();
+    assert_eq!(code(&other, p), refused);
+    // A lecture file outside any course's lectures/: refused.
+    let loose = env.home().join("loose.md");
+    std::fs::copy(&path, &loose).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(code(&env, loose.to_str().unwrap_or_default()), refused);
 }
 
 #[test]

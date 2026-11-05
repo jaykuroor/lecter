@@ -96,6 +96,27 @@ pub enum Error {
     /// An edit or save for a lecture that is no longer open.
     #[error("{0} is not open.")]
     LectureClosed(String),
+    /// SEC-27: the course was never trusted, or its `AGENTS.md`, role files, skills or settings
+    /// overrides changed since (02-course-folder.md#trust).
+    #[error(
+        "This course isn't trusted yet, so AI, figures with scripts and search indexing are off. Open it again to review it."
+    )]
+    CourseNotTrusted,
+    /// SEC-27: the course is open read-only.
+    #[error("This course is open read-only, so AI, figures with scripts and search indexing are off.")]
+    CourseReadOnly,
+    /// Writing `trusted.jsonc` in the config folder failed.
+    #[error("Lecter could not save your answer for this folder.")]
+    TrustFileWrite(std::io::ErrorKind),
+    /// One of the course's AI files (`AGENTS.md`, a role file, a skill's file) is too large for
+    /// the trust check to read whole, so the course can't be trusted (02-course-folder.md#trust).
+    #[error("{path} is larger than {limit} bytes.")]
+    AiFileTooLarge {
+        /// The course-relative path, e.g. `.lecter/skills/data/big.bin`.
+        path: String,
+        /// The most bytes the check reads.
+        limit: u64,
+    },
 }
 
 impl Error {
@@ -103,10 +124,12 @@ impl Error {
     pub const fn code(&self) -> ErrorCode {
         match self {
             Self::FolderNotFound | Self::LectureNotFound(_) => ErrorCode::NotFound,
-            Self::OutsideCourse(_) => ErrorCode::NotTrusted,
-            Self::Io(_) | Self::ReadFailed { .. } | Self::SaveFailed { .. } | Self::JournalFailed { .. } => {
-                ErrorCode::Io
-            }
+            Self::OutsideCourse(_) | Self::CourseNotTrusted | Self::CourseReadOnly => ErrorCode::NotTrusted,
+            Self::Io(_)
+            | Self::TrustFileWrite(_)
+            | Self::ReadFailed { .. }
+            | Self::SaveFailed { .. }
+            | Self::JournalFailed { .. } => ErrorCode::Io,
             Self::EditMisfit(_) => ErrorCode::InvalidArgument,
             Self::LectureClosed(_) => ErrorCode::NotFound,
             Self::NotAbsolute
@@ -115,6 +138,7 @@ impl Error {
             | Self::TooManyEntries { .. }
             | Self::NotALecture(_)
             | Self::LectureTooLarge { .. }
+            | Self::AiFileTooLarge { .. }
             | Self::NotUtf8(_) => ErrorCode::InvalidArgument,
             Self::NoHome => ErrorCode::Internal,
             Self::ParseFailed(_) => ErrorCode::ParseFailed,
@@ -145,6 +169,10 @@ mod tests {
             (Error::TooManyEntries { folder: "slides", limit: 10_000 }, ErrorCode::InvalidArgument),
             (Error::NoHome, ErrorCode::Internal),
             (Error::ParseFailed("The parse worker crashed.".into()), ErrorCode::ParseFailed),
+            (Error::CourseNotTrusted, ErrorCode::NotTrusted),
+            (Error::CourseReadOnly, ErrorCode::NotTrusted),
+            (Error::TrustFileWrite(std::io::ErrorKind::PermissionDenied), ErrorCode::Io),
+            (Error::AiFileTooLarge { path: "AGENTS.md".into(), limit: 16 }, ErrorCode::InvalidArgument),
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");

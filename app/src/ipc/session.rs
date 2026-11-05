@@ -3,24 +3,49 @@
 //! remembers each course it returns, and other commands check against that list. The lecture in
 //! the buffer has a save session (`lecter_core::save`), which edits go to.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
+use lecter_core::course::trust::TrustStore;
 use lecter_core::save::Session;
 
-/// The courses `course_open` returned this session, by the `path` the UI received.
-#[derive(Debug, Default)]
-pub struct OpenedCourses(Mutex<HashSet<String>>);
+/// The courses `course_open` returned this session, by the `path` the UI received, each with the
+/// fingerprint of the AI files its trust screen showed; and the stored trust answers.
+#[derive(Debug)]
+pub struct OpenedCourses {
+    shown: Mutex<HashMap<String, String>>,
+    trust: TrustStore,
+}
 
 impl OpenedCourses {
-    /// Remembers a course the user picked (its canonical `path` from the listing).
-    pub fn remember(&self, path: &str) {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).insert(path.to_owned());
+    /// No course opened yet; trust answers live in `trust`.
+    pub fn new(trust: TrustStore) -> Self {
+        Self { shown: Mutex::default(), trust }
+    }
+
+    /// Remembers a course the user picked (its canonical `path` from the listing) and the
+    /// fingerprint of the AI files its trust screen showed.
+    pub fn remember(&self, path: &str, fingerprint: &str) {
+        self.lock().insert(path.to_owned(), fingerprint.to_owned());
     }
 
     /// Whether `path` is a course the user picked this session, compared exactly.
     pub fn contains(&self, path: &str) -> bool {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).contains(path)
+        self.lock().contains_key(path)
+    }
+
+    /// The fingerprint the trust screen of `path` showed, if it was opened this session.
+    pub fn shown(&self, path: &str) -> Option<String> {
+        self.lock().get(path).cloned()
+    }
+
+    /// The stored trust answers (`trusted.jsonc`).
+    pub fn trust(&self) -> &TrustStore {
+        &self.trust
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
+        self.shown.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -79,10 +104,14 @@ mod tests {
 
     #[test]
     fn only_remembered_courses_are_known_and_only_exactly() {
-        let courses = OpenedCourses::default();
+        let courses = OpenedCourses::new(TrustStore::in_folder("/config".into()));
         assert!(!courses.contains("/c/STAT311"));
-        courses.remember("/c/STAT311");
+        assert_eq!(courses.shown("/c/STAT311"), None);
+        courses.remember("/c/STAT311", "f1");
         assert!(courses.contains("/c/STAT311"));
+        assert_eq!(courses.shown("/c/STAT311").as_deref(), Some("f1"));
+        courses.remember("/c/STAT311", "f2");
+        assert_eq!(courses.shown("/c/STAT311").as_deref(), Some("f2"));
         for other in ["/c/STAT311/", "/c/STAT31", "/c/stat311", "/c", "/c/STAT311/lectures", ""] {
             assert!(!courses.contains(other), "{other}");
         }

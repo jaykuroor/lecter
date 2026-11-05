@@ -1,5 +1,6 @@
 #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
 
+use lecter_core::course::trust::{TrustChoice, TrustStore};
 use lecter_core::save::{Edit, Session};
 use lecter_core::testenv::TestEnv;
 
@@ -12,16 +13,38 @@ const L08: &str = "lectures/l08.md";
 const SEVEN: &str = "---\ntitle: Covariance\n---\n\n::: {.slide #s1 n=1 title=\"Definition\"}\n## Definition\n\n[Covariance measures how two variables move together.]{#s1b1}\n\n[It is zero for independent variables.]{#s1b2 .flag}\n:::\n";
 const EIGHT: &str = "---\ntitle: Regression\n---\n\n::: {.slide #s2 n=2 title=\"Fit\"}\n## Fit\n\n[Residuals sum to zero.]{#s2b1}\n:::\n";
 
-/// A course folder with two lectures, remembered as opened this session.
+/// A course folder with two lectures, remembered as opened this session and trusted.
 fn course(env: &TestEnv) -> (String, OpenedCourses) {
+    course_answered(env, Some(TrustChoice::Trusted))
+}
+
+/// The same course, with its trust question answered `choice` (or left open).
+fn course_answered(env: &TestEnv, choice: Option<TrustChoice>) -> (String, OpenedCourses) {
     let dir = env.home().join("STAT311");
     std::fs::create_dir_all(dir.join("lectures")).unwrap();
     std::fs::write(dir.join(L07), SEVEN).unwrap();
     std::fs::write(dir.join(L08), EIGHT).unwrap();
     let listing = lecter_core::course::open(&std::fs::canonicalize(&dir).unwrap()).unwrap();
-    let courses = OpenedCourses::default();
-    courses.remember(&listing.path);
+    let courses = super::super::course::opened_for_test(env, &listing, choice);
     (listing.path, courses)
+}
+
+/// F-033 criteria 2 and 6 (SEC-27): a course opened read-only, or not answered yet, is never
+/// indexed: `:find` is E_NOT_TRUSTED and the background index writes nothing to `.lecter/cache`.
+#[test]
+fn a_read_only_or_unanswered_course_is_never_indexed() {
+    for choice in [None, Some(TrustChoice::ReadOnly)] {
+        let env = TestEnv::new().unwrap();
+        let (path, courses) = course_answered(&env, choice);
+        let (lectures, indexes) = (OpenLectures::default(), SearchIndexes::default());
+        open(&lectures, &path, L07);
+        let trust = courses.trust().clone();
+        tauri::async_runtime::block_on(index_in_background(&indexes, trust, path.clone(), L08.into(), EIGHT.into()))
+            .unwrap();
+        let e = call(&courses, &lectures, &indexes, &path, "zero").unwrap_err();
+        assert_eq!(e.code, ErrorCode::NotTrusted, "{choice:?}: {e:?}");
+        assert!(!Path::new(&path).join(".lecter/cache").exists(), "{choice:?}: an index was written");
+    }
 }
 
 /// Opens `path`'s save session, as `lecture_open` does.
@@ -92,7 +115,14 @@ fn an_opened_lecture_stays_searchable_after_it_is_closed() {
     let env = TestEnv::new().unwrap();
     let (path, courses) = course(&env);
     let (lectures, indexes) = (OpenLectures::default(), SearchIndexes::default());
-    tauri::async_runtime::block_on(index_in_background(&indexes, path.clone(), L08.into(), EIGHT.into())).unwrap();
+    tauri::async_runtime::block_on(index_in_background(
+        &indexes,
+        courses.trust().clone(),
+        path.clone(),
+        L08.into(),
+        EIGHT.into(),
+    ))
+    .unwrap();
     open(&lectures, &path, L07);
     assert_eq!(ids(&call(&courses, &lectures, &indexes, &path, "residuals").unwrap()), [(L08, "s2b1")]);
     // "zero" is in both lectures now.
@@ -110,7 +140,7 @@ fn queries_over_1_kb_and_courses_not_opened_are_refused() {
     assert_eq!(e.code, ErrorCode::InvalidArgument);
     assert!(!Path::new(&path).join(".lecter").exists(), "a refused call touched the course");
     assert!(call(&courses, &lectures, &indexes, &path, &"a".repeat(1024)).unwrap().is_empty());
-    let other = OpenedCourses::default();
+    let other = OpenedCourses::new(TrustStore::new(&env.dirs()));
     let e = call(&other, &lectures, &indexes, &path, "zero").unwrap_err();
     assert_eq!((e.code, e.message.as_str()), (ErrorCode::InvalidArgument, "Open the course before its lectures."));
 }
@@ -140,7 +170,14 @@ fn hits_of_a_deleted_lecture_are_dropped() {
     let env = TestEnv::new().unwrap();
     let (path, courses) = course(&env);
     let (lectures, indexes) = (OpenLectures::default(), SearchIndexes::default());
-    tauri::async_runtime::block_on(index_in_background(&indexes, path.clone(), L08.into(), EIGHT.into())).unwrap();
+    tauri::async_runtime::block_on(index_in_background(
+        &indexes,
+        courses.trust().clone(),
+        path.clone(),
+        L08.into(),
+        EIGHT.into(),
+    ))
+    .unwrap();
     open(&lectures, &path, L07);
     assert_eq!(call(&courses, &lectures, &indexes, &path, "zero").unwrap().len(), 2);
     std::fs::remove_file(Path::new(&path).join(L08)).unwrap();
@@ -177,7 +214,14 @@ fn a_lecture_opened_after_the_index_folder_was_deleted_is_searchable() {
     assert_eq!(call(&courses, &lectures, &indexes, &path, "zero").unwrap().len(), 1);
     let dir = Path::new(&path).join(lecter_index::INDEX_DIR);
     std::fs::remove_dir_all(&dir).unwrap();
-    tauri::async_runtime::block_on(index_in_background(&indexes, path.clone(), L08.into(), EIGHT.into())).unwrap();
+    tauri::async_runtime::block_on(index_in_background(
+        &indexes,
+        courses.trust().clone(),
+        path.clone(),
+        L08.into(),
+        EIGHT.into(),
+    ))
+    .unwrap();
     assert!(dir.join("meta.json").is_file(), "the background index did not write a new index");
     // l08 is not open: only the background index put it there. l07 is open and comes back too.
     assert_eq!(ids(&call(&courses, &lectures, &indexes, &path, "residuals").unwrap()), [(L08, "s2b1")]);

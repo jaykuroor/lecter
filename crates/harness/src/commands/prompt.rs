@@ -1,14 +1,15 @@
 //! `lecter-harness prompt <lecture> <block> <question…>`: prints the request that asking
 //! `question` about `block` of the lecture file `lecture` sends to the provider, as JSON: the same
 //! `ChatRequest` the app's `gloss_request` assembles, for the sample provider's model (F-023).
+//! The lecture's course must be trusted (`course trust <dir> trusted`); a read-only or unanswered
+//! course is `E_NOT_TRUSTED`, as in the app (F-033, SEC-27).
 
-use std::io::Read;
 use std::path::Path;
 
 use lecter_ai::provider::scripted::SAMPLE_ID;
-use lecter_core::lecture::MAX_LECTURE_BYTES;
+use lecter_core::lecture;
 
-use super::{Command, Reply};
+use super::{Command, Reply, gate};
 use crate::error::{ErrorCode, HarnessError};
 
 /// The `prompt` command.
@@ -41,21 +42,27 @@ fn run(args: &[String]) -> Result<Reply, HarnessError> {
     Ok(Reply { json, text })
 }
 
-/// The lecture file as UTF-8, read up to the app's lecture size limit.
+/// The lecture file's text, read as the app opens it (`lecture::open`: a `.md` file directly in a
+/// course's `lectures/`, at most the lecture size limit, UTF-8). A prompt is what the AI receives,
+/// so the course must be trusted as it is now (SEC-27); otherwise `E_NOT_TRUSTED`.
 fn read_lecture(path: &Path) -> Result<String, HarnessError> {
     let shown = path.display();
-    let file = std::fs::File::open(path).map_err(|e| match e.kind() {
-        std::io::ErrorKind::NotFound => HarnessError::new(ErrorCode::NotFound, format!("{shown} does not exist")),
-        _ => HarnessError::new(ErrorCode::Io, format!("{shown} could not be read")),
+    let abs = std::path::absolute(path).map_err(|_| {
+        HarnessError::invalid_argument("the lecture path can't be made absolute (no working directory?)")
     })?;
-    let mut bytes = Vec::new();
-    file.take(MAX_LECTURE_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| HarnessError::new(ErrorCode::Io, format!("{shown} could not be read")))?;
-    if bytes.len() as u64 > MAX_LECTURE_BYTES {
-        return Err(HarnessError::invalid_argument(format!("{shown} is larger than a lecture may be")));
+    if std::fs::symlink_metadata(&abs).is_err() {
+        return Err(HarnessError::new(ErrorCode::NotFound, format!("{shown} does not exist")));
     }
-    String::from_utf8(bytes).map_err(|_| HarnessError::invalid_argument(format!("{shown} is not UTF-8 text")))
+    let name = abs.file_name().and_then(|n| n.to_str());
+    let folder = abs.parent().filter(|d| d.file_name().is_some_and(|n| n == "lectures"));
+    let (Some(name), Some(course)) = (name, folder.and_then(Path::parent)) else {
+        return Err(HarnessError::new(
+            ErrorCode::NotTrusted,
+            format!("{shown} is not in a course's lectures/ folder, so no trusted course holds it"),
+        ));
+    };
+    gate::require_trusted(course)?;
+    lecture::open(course, &format!("lectures/{name}")).map(|l| l.text).map_err(gate::core_error)
 }
 
 #[cfg(test)]
