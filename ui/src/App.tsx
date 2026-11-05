@@ -3,6 +3,7 @@ import { markStartup } from "./core/startup";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
 import { RailColumn } from "./features/rail/RailColumn";
+import { loadSidebar } from "./features/sidebar/load";
 import { SidebarToggle } from "./features/sidebar/SidebarToggle";
 import { TrustScreen } from "./features/trust/TrustScreen";
 import { createAppInfo } from "./state/appInfo";
@@ -87,6 +88,8 @@ export function App() {
       // paint: no course is open yet, so the sidebar has nothing to show.
       void rail.load();
       void layout.load();
+      // The sidebar's chunk, so it is in by the time a course opens (features/sidebar/load.ts).
+      void loadSidebar();
       void loadEditor().then(([, ex, warm]) => {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);

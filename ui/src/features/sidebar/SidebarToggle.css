@@ -1,0 +1,61 @@
+/* The headerbar's sidebar button (docs/design/components.md#headerbar, left controls: a 34px icon
+   button, radius 7px) and the keycap the sidebar's rows use too (tokens.keycap). These ship with
+   the first-paint chunk; the rest of the sidebar's styles load with its chunk (load.ts). Hover is
+   mix.hover, the shown state mix.selected, keyboard focus a 2px --accent outline. Colours are
+   theme tokens only. */
+.sidebar-key {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75em;
+  min-height: 1.75em;
+  box-sizing: border-box;
+  padding: 0 0.4em;
+  border: 1px solid var(--borders);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--view-bg);
+  color: var(--window-fg);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 34px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--window-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+}
+
+.sidebar-toggle[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--window-fg) 11%, transparent);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sidebar-toggle-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-toggle .sidebar-key {
+  font-size: 10px;
+}

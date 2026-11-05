@@ -1,9 +1,12 @@
-import { createMemo, type JSX } from "solid-js";
+import { createMemo, type JSX, lazy, Show } from "solid-js";
 import type { CourseState } from "../../state/course";
 import type { RailState } from "../../state/rail";
-import { Sidebar } from "../sidebar/Sidebar";
+import { loadSidebar } from "../sidebar/load";
 import { CourseRail } from "./CourseRail";
 import { stableRailCourses } from "./known";
+
+// Out of the first-paint chunk (sidebar/load.ts): rendered once a course is open.
+const Sidebar = lazy(() => loadSidebar().then((m) => ({ default: m.Sidebar })));
 
 /**
  * The rail column (09-ui.md#layout): the course rail, then the sidebar (the open course's
@@ -33,12 +36,15 @@ export function RailColumn(props: {
         busy={props.course.busy()}
         error={props.course.error() ?? props.rail.error()}
       />
-      <Sidebar
-        course={props.course.course()}
-        shown={props.sidebarShown ?? true}
-        onOpenLecture={props.onOpenLecture}
-        openLecture={props.openLecture}
-      />
+      {/* Before a course opens the sidebar is empty: only its frame, which the headerbar's toggle names. */}
+      <Show when={props.course.course()} fallback={<div id="sidebar" hidden={!(props.sidebarShown ?? true)} />}>
+        <Sidebar
+          course={props.course.course()}
+          shown={props.sidebarShown ?? true}
+          onOpenLecture={props.onOpenLecture}
+          openLecture={props.openLecture}
+        />
+      </Show>
     </>
   );
 }

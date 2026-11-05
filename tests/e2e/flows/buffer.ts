@@ -144,7 +144,10 @@ describe("lecture buffer", () => {
   it("opens the lecture with the mouse too", async () => {
     await $("button.rail-add").click();
     await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
-    await expect(focused()).toHaveText("Covariance measures how two variables move together.");
+    // The same lecture opens again, so `data-lecture` doesn't change to wait on, and its answer
+    // rebuilds CodeMirror's lines: a `.cm-focused-line` found before that goes stale (the embedded
+    // WebDriver then reads its text as null). Read it fresh until the cursor is back on the first block.
+    await expectTexts(".cm-focused-line", ["Covariance measures how two variables move together."]);
     await expect(buffer()).toHaveAttribute("data-vim-mode", "normal");
   });
 });

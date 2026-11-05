@@ -1,5 +1,6 @@
 import { type JSX, onCleanup, onMount } from "solid-js";
 import { installSidebarToggle } from "./leader";
+import "./SidebarToggle.css";
 
 /**
  * The headerbar's sidebar button (docs/design/components.md#headerbar, left controls: a 34px icon

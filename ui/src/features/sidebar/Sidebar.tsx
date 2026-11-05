@@ -82,11 +82,7 @@ export function Sidebar(props: {
   }
 
   const openView = (view: SidebarView) => props.onOpenView?.(view);
-  const viewRow = (view: SidebarView) => ({
-    "aria-disabled": props.onOpenView ? undefined : ("true" as const),
-    onClick: () => openView(view),
-    onKeyDown: (e: KeyboardEvent) => onActivateKey(e, () => openView(view)),
-  });
+  const unavailable = () => (props.onOpenView ? undefined : ("true" as const));
 
   return (
     <div id="sidebar" class="sidebar" hidden={!props.shown}>
@@ -100,7 +96,14 @@ export function Sidebar(props: {
                 <ReadOnlyChip />
               </Show>
             </h2>
-            <button type="button" class="sidebar-row sidebar-view" {...viewRow("dashboard")}>
+            {/* No JSX spreads here: they would pull Solid's attribute tables into the first-paint chunk. */}
+            <button
+              type="button"
+              class="sidebar-row sidebar-view"
+              aria-disabled={unavailable()}
+              onClick={() => openView("dashboard")}
+              onKeyDown={(e) => onActivateKey(e, () => openView("dashboard"))}
+            >
               <span class="sidebar-name">Dashboard</span>
             </button>
             <Section label="Lectures" count={course().lectures.length} empty="No lectures yet">
@@ -126,7 +129,9 @@ export function Sidebar(props: {
                       class="sidebar-row sidebar-view"
                       aria-label={list.name}
                       aria-keyshortcuts={list.shortcut}
-                      {...viewRow(list.view)}
+                      aria-disabled={unavailable()}
+                      onClick={() => openView(list.view)}
+                      onKeyDown={(e) => onActivateKey(e, () => openView(list.view))}
                     >
                       <span class="sidebar-name">{list.name}</span>
                       <kbd class="sidebar-key">{list.key}</kbd>
