@@ -399,6 +399,49 @@ describe("CourseRail", () => {
     expect(iconOf(2).textContent).toBe("?");
   });
 
+  it("marks a course whose folder is missing, and still lets it be picked", () => {
+    const calls = mount([stat, { ...calc, missing: true }]);
+    expect(names()).toEqual(["Course Probability and Statistics", "Course Calculus II (folder missing)"]);
+    expect(row(1).classList.contains("missing")).toBe(true);
+    expect(row(0).classList.contains("missing")).toBe(false);
+    expect(row(1).getAttribute("title")).toBe("Calculus II · folder missing · Ctrl-2 · drag or Shift-J/K to move");
+    fireEvent.click(row(1));
+    expect(calls.select).toEqual([calc.path]);
+  });
+
+  it("holds + while a course opens, and shows the last error under the rail", () => {
+    const [busy, setBusy] = createSignal(true);
+    const [error, setError] = createSignal<string | null>(
+      "That course folder is missing or has moved; add it again with +.",
+    );
+    let added = 0;
+    render(() => (
+      <CourseRail
+        courses={[stat]}
+        current={null}
+        mac={false}
+        busy={busy()}
+        error={error()}
+        onSelect={() => {}}
+        onReorder={() => {}}
+        onAdd={() => added++}
+      />
+    ));
+    const add = screen.getByRole("button", { name: "Add a course" }) as HTMLButtonElement;
+    expect(add.disabled).toBe(true);
+    fireEvent.click(add);
+    expect(added).toBe(0);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "That course folder is missing or has moved; add it again with +.",
+    );
+    setBusy(false);
+    setError(null);
+    expect(add.disabled).toBe(false);
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(add);
+    expect(added).toBe(1);
+  });
+
   it("keeps the browser from dragging the icon image itself", () => {
     mount([phys]);
     expect(iconOf(0).querySelector("img")?.getAttribute("draggable")).toBe("false");

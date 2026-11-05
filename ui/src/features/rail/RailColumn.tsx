@@ -3,7 +3,7 @@ import type { CourseState } from "../../state/course";
 import type { RailState } from "../../state/rail";
 import { CoursePanel } from "../course/CoursePanel";
 import { CourseRail } from "./CourseRail";
-import { railCourse } from "./known";
+import { stableRailCourses } from "./known";
 
 /**
  * The rail column (09-ui.md#layout): the course rail, then the open course's files. The rail's
@@ -17,7 +17,8 @@ export function RailColumn(props: {
   /** The lecture in the buffer, highlighted in the list. */
   openLecture: string | null;
 }): JSX.Element {
-  const courses = createMemo(() => props.rail.courses().map(railCourse));
+  const toRail = stableRailCourses();
+  const courses = createMemo(() => toRail(props.rail.courses()));
   return (
     <>
       <CourseRail

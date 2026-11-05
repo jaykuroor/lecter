@@ -48,8 +48,12 @@ export function switchCourse(course: string): Promise<CourseSwitchResult> {
  * Calls `listener` with the rail's courses each time they change (`course:changed`: a course was
  * added or the order saved). Resolves to the function that stops listening.
  */
-export function onCoursesChanged(listener: (courses: KnownCourse[]) => void): Promise<() => void> {
-  return events.courseChanged.listen((event) => listener(event.payload.courses));
+export async function onCoursesChanged(listener: (courses: KnownCourse[]) => void): Promise<() => void> {
+  const unlisten = await events.courseChanged.listen((event) => listener(event.payload.courses));
+  // Tauri's unlisten is async underneath; a core already gone has nothing left to stop.
+  return () => {
+    Promise.resolve(unlisten()).catch(() => {});
+  };
 }
 
 /** What opening a course came to: the course, a cancelled dialog (`null`), or the core's error. */

@@ -16,3 +16,30 @@ export function railCourse(known: KnownCourse): RailCourse {
     missing: known.missing,
   };
 }
+
+/**
+ * Maps each list from the core to rail courses, handing back the same object for a course that
+ * looks the same as last time. The rail's rows are keyed by object, so a list that only repeats
+ * what is on screen (the core's answer to a reorder, `course:changed`) redraws nothing, and the
+ * row the user is moving keeps its focus.
+ */
+export function stableRailCourses(): (list: KnownCourse[]) => RailCourse[] {
+  let last = new Map<string, RailCourse>();
+  return (list) => {
+    const next = new Map<string, RailCourse>();
+    const courses = list.map((known) => {
+      const fresh = railCourse(known);
+      const old = last.get(known.path);
+      const kept = old && same(old, fresh) ? old : fresh;
+      next.set(known.path, kept);
+      return kept;
+    });
+    last = next;
+    return courses;
+  };
+}
+
+function same(a: RailCourse, b: RailCourse): boolean {
+  const icon = (c: RailCourse) => (c.icon.kind === "text" ? `t:${c.icon.text}` : `i:${c.icon.src}`);
+  return a.name === b.name && a.color === b.color && a.missing === b.missing && icon(a) === icon(b);
+}

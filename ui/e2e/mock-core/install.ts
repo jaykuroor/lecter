@@ -32,6 +32,8 @@ export function installMockCore(fixture: MockFixture): void {
   let rail = fixture.rail.map((c) => ({ ...c }));
   const switchable = { ...fixture.switch };
   const listeners = new Map<number, number>();
+  // Each install starts a fresh record of switches.
+  delete (window as unknown as { __mockSwitches?: string[] }).__mockSwitches;
   let nextEventId = 1;
   const emitRail = () => {
     for (const [id, handler] of listeners) {
