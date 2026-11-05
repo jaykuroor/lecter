@@ -1194,3 +1194,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: D-194, D-195; sources are only shown, so a course that opened before still opens.
 - Instead of: failing the open on a bad sources/ entry like slides; a settings key for the layout.
 - Revisit if: 18-contracts#ipc is next edited (add `app_layout_get`/`app_layout_save`).
+
+## D-199 · keymaps.jsonc format and how the UI gets it (F-037)
+2026-11-05 · orchestrator, decider: maintainer · active
+- Decision: global `keymaps.jsonc` is JSONC `{"version": 1, "bindings": [{"keys", "command", "context", "modes"}]}`. `keys` uses Vim notation (`<leader>e`, `gd`, `<C-j>`); `command: null` unbinds a default; `context` ∈ global/app/buffer/line/gloss (default global); `modes` optional (default all). Bindings merge over the defaults; a clash in one context warns, listing both. A new IPC `keymaps_read` returns the file's text (≤ 256 KB, missing file → none); the UI parses it (ui/src/keys/user.ts) and passes it to `startKeys({userKeymap})`.
+- Why: a user-edited file on disk; one flat list carries context and modes per binding, and maps 1:1 to the settings screen's import/export (12-settings).
+- Instead of: a map per context; shipping defaults only until the settings screen.
+
+## D-200 · F6 / Shift-F6 move focus between panes (F-037)
+2026-11-05 · orchestrator, decider: maintainer · active
+- Decision: F6 / Shift-F6 cycle focus between rail, sidebar, editor and side panel, from any context and mode; Tab keeps "write for me" on lines (10-keymap). Shown in which-key and the hint bar.
+- Why: Tab in normal mode is taken, so the editor would otherwise trap keyboard focus (WCAG 2.1.2); F6 is the common desktop pane-cycling key.
+- Instead of: Esc in normal mode leaving the editor; deciding later.
