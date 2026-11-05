@@ -15,10 +15,12 @@ test.use({
       path: "/courses/STAT311",
       name: "STAT311",
       lectures: [
-        { name: "2026-10-23-l07-covariance.md", path: l07 },
-        { name: "2026-10-30-l08-correlation.md", path: l08 },
+        // The core reads each lecture's front-matter date (D-194); l08's file has none.
+        { name: "2026-10-23-l07-covariance.md", path: l07, date: "2026-10-23" },
+        { name: "2026-10-30-l08-correlation.md", path: l08, date: null },
       ],
       slides: [{ name: "07-covariance.pdf", path: "slides/07-covariance.pdf" }],
+      sources: [{ name: "textbook.pdf", path: "sources/textbook.pdf" }],
       trust: "trusted",
       screen: trustScreen,
     },
@@ -40,7 +42,7 @@ test("the sidebar lists the course, moves with j/k and the arrows, opens with En
 
   const sidebar = page.getByRole("region", { name: "Course STAT311" });
   await expect(sidebar).toBeVisible();
-  await expect(sidebar.getByRole("region")).toHaveCount(4);
+  await expect(sidebar.getByRole("region")).toHaveCount(5);
   await expect(sidebar.locator(".sidebar-row .sidebar-name")).toHaveText([
     "Dashboard",
     "2026-10-23-l07-covariance.md",
@@ -51,7 +53,11 @@ test("the sidebar lists the course, moves with j/k and the arrows, opens with En
     "Later",
     "Revise",
     "07-covariance.pdf",
+    "textbook.pdf",
   ]);
+  await expect(sidebar.locator(`[data-path="${l07}"] time`)).toHaveText("Oct 23");
+  await expect(sidebar.locator(`[data-path="${l08}"] time`)).toHaveCount(0);
+  await expect(sidebar.getByRole("region", { name: "Readings" }).getByRole("listitem")).toHaveText(["textbook.pdf"]);
 
   // Keys: from Dashboard, j and ↓ go down, k and ↑ up, End and Home to the ends.
   const focused = () => page.evaluate(() => document.activeElement?.querySelector(".sidebar-name")?.textContent ?? "");
@@ -66,7 +72,7 @@ test("the sidebar lists the course, moves with j/k and the arrows, opens with En
   await page.keyboard.press("ArrowUp");
   expect(await focused()).toBe("2026-10-23-l07-covariance.md");
   await page.keyboard.press("End");
-  expect(await focused()).toBe("07-covariance.pdf");
+  expect(await focused()).toBe("textbook.pdf");
   await page.keyboard.press("Home");
   expect(await focused()).toBe("Dashboard");
   await page.keyboard.press("ArrowDown");
@@ -111,5 +117,22 @@ test("the sidebar lists the course, moves with j/k and the arrows, opens with En
   await expect(sidebar).toBeHidden();
   await toggle.click();
   await expect(sidebar).toBeVisible();
+  // Each toggle was saved for the next start (D-195).
+  const saved = await page.evaluate(() => (window as unknown as { __mockLayout?: unknown[] }).__mockLayout);
+  expect(saved).toEqual([{ sidebar: false }, { sidebar: true }, { sidebar: false }, { sidebar: true }]);
   expect(errors).toEqual([]);
+});
+
+test.describe("after a run that hid the sidebar", () => {
+  test.use({ mockCore: { ...defaultFixture, layout: { sidebar: false } } });
+
+  test("the app starts with it hidden, and ␣e brings it back", async ({ page }) => {
+    await page.goto("/");
+    const toggle = page.getByRole("button", { name: "Sidebar" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator("#sidebar")).toBeHidden();
+    await page.keyboard.press(" ");
+    await page.keyboard.press("e");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
 });

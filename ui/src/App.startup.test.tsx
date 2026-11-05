@@ -38,6 +38,7 @@ describe("startup", () => {
         name: "STAT311",
         lectures: [l07, l08],
         slides: [],
+        sources: [],
         trust: "trusted",
         screen: trustScreen,
       },

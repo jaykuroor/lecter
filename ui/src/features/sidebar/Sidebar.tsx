@@ -23,6 +23,8 @@ export interface SidebarCourse {
   trust: TrustState;
   lectures: SidebarLecture[];
   slides: CourseFile[];
+  /** The files in `sources/` (textbooks, papers, past exams), shown as Readings. */
+  sources: CourseFile[];
 }
 
 /** What a sidebar row other than a file opens: the dashboard or one of the lists. */
@@ -50,8 +52,8 @@ function onActivateKey(e: KeyboardEvent, activate: () => void): void {
 
 /**
  * The sidebar (09-ui.md#layout; Discord's channel list, neo-tree): the open course's name, then
- * Dashboard; Lectures with their date and open-item badge; Lists; Sources (the course's slide
- * files). Every row is a stop for `j`/`k`, ↑/↓, `gg`/Home and `G`/End; Enter, Space or a click
+ * Dashboard; Lectures with their date and open-item badge; Lists; Sources (the files in
+ * `slides/`, then those in `sources/` as Readings). Every row is a stop for `j`/`k`, ↑/↓, `gg`/Home and `G`/End; Enter, Space or a click
  * opens it. Dashboard and the lists open only once the app passes `onOpenView` (their views come
  * with later features); until then they show as unavailable. `shown` is the `␣e` toggle.
  */
@@ -136,19 +138,29 @@ export function Sidebar(props: {
             <section class="course-section" aria-label="Sources">
               <h3 class="rlab">Sources</h3>
               <Section label="Slides" count={course().slides.length} empty="No slides yet" level={4}>
-                <For each={course().slides}>
-                  {(file) => (
-                    <li class="course-file sidebar-row" title={file.path} tabIndex={-1}>
-                      <span class="sidebar-name">{file.name}</span>
-                    </li>
-                  )}
-                </For>
+                <FileRows files={course().slides} />
+              </Section>
+              <Section label="Readings" count={course().sources.length} empty="No readings yet" level={4}>
+                <FileRows files={course().sources} />
               </Section>
             </section>
           </section>
         )}
       </Show>
     </div>
+  );
+}
+
+/** Rows of files that don't open yet: reached with j/k, not Tab stops of their own. */
+function FileRows(props: { files: CourseFile[] }): JSX.Element {
+  return (
+    <For each={props.files}>
+      {(file) => (
+        <li class="course-file sidebar-row" title={file.path} tabIndex={-1}>
+          <span class="sidebar-name">{file.name}</span>
+        </li>
+      )}
+    </For>
   );
 }
 
@@ -197,6 +209,7 @@ function LectureRow(props: { lecture: SidebarLecture; current: boolean; onOpen: 
     <button
       type="button"
       class="course-file-open sidebar-row"
+      data-path={props.lecture.path}
       aria-label={label()}
       aria-current={props.current ? "page" : undefined}
       onClick={() => props.onOpen()}

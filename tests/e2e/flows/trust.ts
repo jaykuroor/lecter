@@ -72,7 +72,7 @@ describe("trust screen", () => {
     await expect($(".trust-chip")).toBeDisplayed();
     expect(await searchCode(path)).toBe("E_NOT_TRUSTED");
     // Notes still open.
-    await $("button.course-file-open=l01.md").click();
+    await $('button.course-file-open[data-path="lectures/l01.md"]').click();
     await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", "lectures/l01.md");
     expect(existsSync(join(course(), ".lecter", "cache", "index"))).toBe(false);
     await shot("read-only");

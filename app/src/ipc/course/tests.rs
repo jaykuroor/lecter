@@ -1,6 +1,6 @@
 #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
 
-use lecter_core::course::CourseFile;
+use lecter_core::course::{CourseFile, LectureFile};
 use lecter_core::testenv::TestEnv;
 
 use super::*;
@@ -49,8 +49,13 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
     let course = CourseListing {
         path: "/c/STAT311".into(),
         name: "STAT311".into(),
-        lectures: vec![CourseFile { name: "l01.md".into(), path: "lectures/l01.md".into() }],
+        lectures: vec![LectureFile {
+            name: "l01.md".into(),
+            path: "lectures/l01.md".into(),
+            date: Some("2026-10-23".into()),
+        }],
         slides: vec![CourseFile { name: "01.pdf".into(), path: "slides/01.pdf".into() }],
+        sources: vec![],
     };
     let listing = serde_json::to_value(&course).unwrap();
     let screen = TrustScreen {
@@ -72,8 +77,9 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
         serde_json::json!({
             "path": "/c/STAT311",
             "name": "STAT311",
-            "lectures": [{ "name": "l01.md", "path": "lectures/l01.md" }],
+            "lectures": [{ "name": "l01.md", "path": "lectures/l01.md", "date": "2026-10-23" }],
             "slides": [{ "name": "01.pdf", "path": "slides/01.pdf" }],
+            "sources": [],
             "trust": "read_only",
             "screen": {
                 "lectures": 1, "slides": 1, "sources": 0, "provider": "sample", "webSearch": true,

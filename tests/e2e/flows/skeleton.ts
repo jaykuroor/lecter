@@ -67,10 +67,14 @@ async function until(done: () => Promise<boolean>, timeout: number, what: string
   await browser.waitUntil(done, { timeout, interval: 100, timeoutMsg: `timed out waiting for ${what}` });
 }
 
-/** The names in the course rail's Lectures or Slides list, read in one call. */
+/**
+ * The file names in the sidebar's Lectures or Slides list, read in one call: each row's name,
+ * without the date a lecture row shows beside it (F-036).
+ */
 function listed(section: "Lectures" | "Slides"): Promise<string[]> {
   return browser.execute(
-    (s: string) => Array.from(document.querySelectorAll(`[aria-label="${s}"] li`), (li) => li.textContent ?? ""),
+    (s: string) =>
+      Array.from(document.querySelectorAll(`[aria-label="${s}"] li .sidebar-name`), (n) => n.textContent ?? ""),
     section,
   );
 }
@@ -78,7 +82,7 @@ function listed(section: "Lectures" | "Slides"): Promise<string[]> {
 /** Opens the course (the dialog answers LECTER_TEST_PICK) and the lecture, with the mouse. */
 async function openLecture(): Promise<void> {
   await $("button.rail-add").click();
-  await $(`button.course-file-open=${NAME}`).click();
+  await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
   await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
 }

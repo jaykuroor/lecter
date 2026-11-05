@@ -12,7 +12,7 @@ mod tests_migrate;
 
 pub use keychain::{Keychain, KeychainError};
 pub use migrate::{LeftReason, Leftover, MigrateError, Migration, Outcome, Report, migrate};
-pub(crate) use record::open as open_state_db;
+pub(crate) use record::open_creating as open_state_db_creating;
 pub use record::{MIGRATED_KEY, STATE_DB};
 
 /// The bundle identifier, read at build time from `app/tauri.conf.json` (its only source).

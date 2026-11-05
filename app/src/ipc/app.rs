@@ -1,4 +1,7 @@
-//! The `app` area: what the shell shows about the running app, and the UI's startup paints.
+//! The `app` area: what the shell shows about the running app, the UI's startup paints, and the
+//! window's layout across restarts (`layout.rs`).
+
+pub mod layout;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;

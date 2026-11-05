@@ -30,6 +30,8 @@ export interface MockFixture {
    * the rail but not here (a missing folder) is E_NOT_FOUND.
    */
   switch: Record<string, Commands["course_switch"]["result"]>;
+  /** The layout saved by an earlier run (`app_layout_get`); `app_layout_save` replaces it. */
+  layout: Commands["app_layout_get"]["result"];
 }
 
 /** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
@@ -56,4 +58,5 @@ export const defaultFixture: MockFixture = {
   details: null,
   rail: [],
   switch: {},
+  layout: { sidebar: true },
 };

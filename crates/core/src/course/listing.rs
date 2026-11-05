@@ -1,7 +1,7 @@
 //! Listing one course subfolder, with every entry checked against the course root (SEC-35).
 
 use std::io::ErrorKind;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 use super::{CourseFile, MAX_ENTRIES};
 use crate::error::{Error, Result};
@@ -13,6 +13,8 @@ pub(super) enum Folder {
     Lectures,
     /// `slides/`: the professor's files, any type.
     Slides,
+    /// `sources/`: textbooks, papers, the syllabus, past exams; any type (D-194).
+    Sources,
 }
 
 impl Folder {
@@ -21,6 +23,7 @@ impl Folder {
         match self {
             Self::Lectures => "lectures",
             Self::Slides => "slides",
+            Self::Sources => "sources",
         }
     }
 
@@ -28,8 +31,15 @@ impl Folder {
     fn wants(self, name: &str) -> bool {
         match self {
             Self::Lectures => Path::new(name).extension().is_some_and(|e| e.eq_ignore_ascii_case("md")),
-            Self::Slides => true,
+            Self::Slides | Self::Sources => true,
         }
+    }
+
+    /// Whether an entry that resolves outside the course fails the whole listing (SEC-35). In
+    /// `sources/`, listed only for the sidebar since D-194, such an entry is left out instead, so a
+    /// course that opened before still opens.
+    fn refuses_escapes(self) -> bool {
+        !matches!(self, Self::Sources)
     }
 }
 
@@ -40,11 +50,12 @@ pub fn within(root: &Path, candidate: &Path) -> bool {
     candidate.strip_prefix(root).is_ok_and(|rest| rest.components().all(|c| matches!(c, Component::Normal(_))))
 }
 
-/// The regular files in `root/<folder>`, by name. Hidden entries (`.name`), folders and dangling
-/// links are left out, as are names that aren't valid Unicode (the UI and lecture files can't
-/// refer to them). An entry that resolves outside `root` fails the whole listing.
+/// The regular files in `root/<folder>`, by name, each with its canonical path. Hidden entries
+/// (`.name`), folders and dangling links are left out, as are names that aren't valid Unicode (the
+/// UI and lecture files can't refer to them). An entry that resolves outside `root` fails the
+/// whole listing (in `sources/` it is left out, [`Folder::refuses_escapes`]).
 #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
-pub(super) fn files(root: &Path, folder: Folder) -> Result<Vec<CourseFile>> {
+pub(super) fn files(root: &Path, folder: Folder) -> Result<Vec<(CourseFile, PathBuf)>> {
     let io = |e: std::io::Error| Error::Io(e.kind());
     let real = match std::fs::canonicalize(root.join(folder.dir())) {
         Ok(p) => p,
@@ -52,7 +63,10 @@ pub(super) fn files(root: &Path, folder: Folder) -> Result<Vec<CourseFile>> {
         Err(e) => return Err(io(e)),
     };
     if !within(root, &real) {
-        return Err(Error::OutsideCourse(folder.dir().to_owned()));
+        if folder.refuses_escapes() {
+            return Err(Error::OutsideCourse(folder.dir().to_owned()));
+        }
+        return Ok(Vec::new());
     }
     if !std::fs::metadata(&real).map_err(io)?.is_dir() {
         return Ok(Vec::new());
@@ -76,12 +90,15 @@ pub(super) fn files(root: &Path, folder: Folder) -> Result<Vec<CourseFile>> {
             Err(e) => return Err(io(e)),
         };
         if !within(root, &target) {
-            return Err(Error::OutsideCourse(path));
+            if folder.refuses_escapes() {
+                return Err(Error::OutsideCourse(path));
+            }
+            continue;
         }
         if std::fs::metadata(&target).map_err(io)?.is_file() {
-            out.push(CourseFile { name, path });
+            out.push((CourseFile { name, path }, target));
         }
     }
-    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out.sort_by(|a, b| a.0.name.cmp(&b.0.name));
     Ok(out)
 }

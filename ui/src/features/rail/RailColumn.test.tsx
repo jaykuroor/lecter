@@ -12,6 +12,7 @@ const course = (path: string, name: string): CourseOpened => ({
   name,
   lectures: [{ name: "l01.md", path: "lectures/l01.md" }],
   slides: [],
+  sources: [],
   trust: "trusted",
   screen: trustScreen,
 });

@@ -32,6 +32,7 @@ describe("App shell", () => {
         name: "STAT311",
         lectures: [],
         slides: [],
+        sources: [],
         trust: "trusted",
         screen: trustScreen,
       },
@@ -48,6 +49,23 @@ describe("App shell", () => {
     expect(screen.getByRole("region", { name: "Course STAT311" })).toBeTruthy();
   });
 
+  // D-195: toggle the sidebar off, restart the app (a new App over the same core), still off.
+  it("starts with the sidebar as the last run left it", async () => {
+    installMockCore({ ...defaultFixture });
+    render(() => <App />);
+    const toggle = () => within(screen.getByRole("banner")).getByRole("button", { name: "Sidebar" });
+    await waitFor(() => expect(toggle().getAttribute("aria-expanded")).toBe("true"));
+    fireEvent.click(toggle());
+    expect(toggle().getAttribute("aria-expanded")).toBe("false");
+    cleanup();
+
+    render(() => <App />);
+    await waitFor(() => expect(toggle().getAttribute("aria-expanded")).toBe("false"));
+    expect(document.getElementById("sidebar")?.hidden).toBe(true);
+    const saved = (window as unknown as { __mockLayout?: unknown[] }).__mockLayout;
+    expect(saved).toEqual([{ sidebar: false }]);
+  });
+
   it("opens a lecture of the opened course into the buffer and marks it in the rail", async () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
@@ -57,6 +75,7 @@ describe("App shell", () => {
         name: "STAT311",
         lectures: [lecture],
         slides: [],
+        sources: [],
         trust: "trusted",
         screen: trustScreen,
       },
@@ -85,7 +104,7 @@ describe("App shell", () => {
   // F-033: a course still to be answered shows the trust screen over the document; the answer goes
   // to the core for that course and the screen closes. An answered course shows none.
   it("shows the trust screen for a course to be answered, and sends the answer (F-033)", async () => {
-    const opened = { path: "/c/STAT311", name: "STAT311", lectures: [], slides: [], screen: trustScreen };
+    const opened = { path: "/c/STAT311", name: "STAT311", lectures: [], slides: [], sources: [], screen: trustScreen };
     const w = window as unknown as { __mockTrust?: unknown[] };
     w.__mockTrust = [];
     installMockCore({ ...defaultFixture, courseOpen: { ...opened, trust: "ask" } });
@@ -109,7 +128,14 @@ describe("App shell", () => {
   // F-034: Trust on a course without saved details brings the details form, titled with the
   // folder's name; Save sends the form to the core and closes it, and so does Later, without a save.
   it("shows the course details form after Trust, and Save or Later closes it (F-034)", async () => {
-    const opened = { path: "/c/STAT311", name: "STAT311", lectures: [], slides: [], trust: "ask" as const };
+    const opened = {
+      path: "/c/STAT311",
+      name: "STAT311",
+      lectures: [],
+      slides: [],
+      sources: [],
+      trust: "ask" as const,
+    };
     const details = {
       name: "STAT311",
       code: "STAT 311",
@@ -152,6 +178,7 @@ describe("App shell", () => {
         name: "STAT311",
         lectures: [lecture],
         slides: [],
+        sources: [],
         trust: "trusted",
         screen: trustScreen,
       },
@@ -183,6 +210,7 @@ describe("App shell", () => {
         name: "STAT311",
         lectures: [lecture],
         slides: [],
+        sources: [],
         trust: "trusted",
         screen: trustScreen,
       },

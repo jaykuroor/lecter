@@ -27,6 +27,8 @@ pub fn contract() -> Builder<Wry> {
             ai::gloss_cancel,
             app::app_info,
             app::app_mark_startup,
+            app::layout::app_layout_get,
+            app::layout::app_layout_save,
             course::course_open,
             course::rail::course_list,
             course::rail::course_switch,

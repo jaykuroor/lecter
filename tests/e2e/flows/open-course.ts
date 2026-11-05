@@ -38,7 +38,8 @@ const openButton = () => $("button.rail-add");
 const course = () => $(`section[aria-label="Course ${basename(picked())}"]`);
 
 async function names(section: "Lectures" | "Slides"): Promise<string[]> {
-  const items = await $$(`[aria-label="${section}"] li`).getElements();
+  // The file's name, without the date and badge a lecture row may show beside it (F-036).
+  const items = await $$(`[aria-label="${section}"] li .sidebar-name`).getElements();
   const out: string[] = [];
   for (const li of items) out.push(await li.getText());
   return out;

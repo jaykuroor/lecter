@@ -21,18 +21,28 @@ const screen: TrustScreen = {
 
 const matching: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
-  course_open: () => ({ path: "/courses/Algebra", name: "Algebra", lectures: [], slides: [], trust: "ask", screen }),
+  course_open: () => ({
+    path: "/courses/Algebra",
+    name: "Algebra",
+    lectures: [],
+    slides: [],
+    sources: [],
+    trust: "ask",
+    screen,
+  }),
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  app_layout_get: () => ({ sidebar: true }),
+  app_layout_save: () => null,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
-  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -51,28 +61,32 @@ const wrongResult: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  app_layout_get: () => ({ sidebar: true }),
+  app_layout_save: () => null,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
-  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
 };
 
 const wrongEnum: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
   // @ts-expect-error a trust value the contract doesn't have
-  course_open: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "maybe", screen }),
+  course_open: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "maybe", screen }),
   lecture_open: ({ path }) => ({ path, name: "l07.md", text: "" }),
   lecture_apply_edits: () => null,
   search_find: () => [],
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  app_layout_get: () => ({ sidebar: true }),
+  app_layout_save: () => null,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
-  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
 };
 
 const extra: MockHandlers = {
@@ -84,11 +98,13 @@ const extra: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
+  app_layout_get: () => ({ sidebar: true }),
+  app_layout_save: () => null,
   course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
-  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], trust: "ask", screen }),
+  course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -101,6 +117,8 @@ const commandNames: CommandName[] = [
   "gloss_cancel",
   "app_info",
   "app_mark_startup",
+  "app_layout_get",
+  "app_layout_save",
   "course_open",
   "course_list",
   "course_switch",

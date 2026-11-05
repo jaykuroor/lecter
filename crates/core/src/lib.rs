@@ -5,6 +5,7 @@ pub mod error;
 pub mod error_code;
 pub mod identity;
 pub mod journal;
+pub mod layout;
 pub mod lecture;
 pub mod paths;
 pub mod save;

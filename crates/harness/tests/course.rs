@@ -1,5 +1,5 @@
 //! F-018 criteria 2 and 4: `lecter-harness course open <dir>` prints a course folder's
-//! `lectures/` and `slides/` listing as JSON (the app's `course_open` answer without `trust`), and a
+//! `lectures/` (with dates, D-194), `slides/` and `sources/` listing as JSON (the app's `course_open` answer without `trust`), and a
 //! symlink out of the course fails with E_NOT_TRUSTED.
 
 #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
@@ -48,6 +48,12 @@ fn sample_course(env: &TestEnv) -> std::path::PathBuf {
     ] {
         touch(&course, rel);
     }
+    // The first lecture has front matter with its date (03-lecture-files.md#front-matter).
+    std::fs::write(
+        course.join("lectures/2026-09-02-l01-introduction.md"),
+        "---\nlecter: 1\nlecture: 1\ndate: 2026-09-02\ntitle: Introduction\n---\n",
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
     course
 }
 
@@ -70,13 +76,18 @@ fn course_open_prints_the_listing_as_json() {
             "path": canonical(&course),
             "name": "Sample Course",
             "lectures": [
-                { "name": "2026-09-02-l01-introduction.md", "path": "lectures/2026-09-02-l01-introduction.md" },
-                { "name": "2026-09-09-l02-probability.md", "path": "lectures/2026-09-09-l02-probability.md" },
+                {
+                    "name": "2026-09-02-l01-introduction.md",
+                    "path": "lectures/2026-09-02-l01-introduction.md",
+                    "date": "2026-09-02",
+                },
+                { "name": "2026-09-09-l02-probability.md", "path": "lectures/2026-09-09-l02-probability.md", "date": null },
             ],
             "slides": [
                 { "name": "01-introduction.pptx", "path": "slides/01-introduction.pptx" },
                 { "name": "02-probability.pdf", "path": "slides/02-probability.pdf" },
             ],
+            "sources": [{ "name": "book.pdf", "path": "sources/book.pdf" }],
         })
     );
 }
@@ -100,9 +111,9 @@ fn course_open_without_json_prints_the_listing_as_text() {
     assert_eq!(
         text,
         format!(
-            "Sample Course ({})\nlectures: 2\n  lectures/2026-09-02-l01-introduction.md\n  \
+            "Sample Course ({})\nlectures: 2\n  lectures/2026-09-02-l01-introduction.md (2026-09-02)\n  \
              lectures/2026-09-09-l02-probability.md\nslides: 2\n  slides/01-introduction.pptx\n  \
-             slides/02-probability.pdf\n",
+             slides/02-probability.pdf\nsources: 1\n  sources/book.pdf\n",
             canonical(&course)
         )
     );

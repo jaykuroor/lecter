@@ -22,6 +22,7 @@ const stat311: SidebarCourse = {
     { name: "07-covariance.pdf", path: "slides/07-covariance.pdf" },
     { name: "08-correlation.pdf", path: "slides/08-correlation.pdf" },
   ],
+  sources: [{ name: "textbook.pdf", path: "sources/textbook.pdf" }],
 };
 
 interface Mounted {
@@ -58,7 +59,7 @@ describe("Sidebar", () => {
     const sections = within(course())
       .getAllByRole("region")
       .map((s) => s.getAttribute("aria-label"));
-    expect(sections).toEqual(["Lectures", "Lists", "Sources", "Slides"]);
+    expect(sections).toEqual(["Lectures", "Lists", "Sources", "Slides", "Readings"]);
     expect(rowNames()).toEqual([
       "Dashboard",
       "2026-09-02-l01-introduction.md",
@@ -72,6 +73,7 @@ describe("Sidebar", () => {
       "Revise",
       "07-covariance.pdf",
       "08-correlation.pdf",
+      "textbook.pdf",
     ]);
     const lists = within(course()).getByRole("region", { name: "Lists" });
     // Each list shows its leader key (10-keymap.md#leader-groups, ␣x Lists).
@@ -81,10 +83,16 @@ describe("Sidebar", () => {
         .getAllByRole("button")
         .map((b) => b.getAttribute("aria-keyshortcuts")),
     ).toEqual(["Space x x", "Space x f", "Space x o", "Space x l", "Space x r"]);
-    // Sources holds the slide files under a heading of their own.
+    // Sources holds the slide files and the sources/ files (Readings), each under a heading.
     const sources = within(course()).getByRole("region", { name: "Sources" });
     expect(within(sources).getByRole("heading", { level: 3 }).textContent).toBe("Sources");
-    expect(within(sources).getByRole("heading", { level: 4 }).textContent).toBe("Slides 2");
+    expect(
+      within(sources)
+        .getAllByRole("heading", { level: 4 })
+        .map((h) => h.textContent),
+    ).toEqual(["Slides 2", "Readings 1"]);
+    const readings = within(sources).getByRole("region", { name: "Readings" });
+    expect(within(readings).getByRole("listitem").getAttribute("title")).toBe("sources/textbook.pdf");
     expect(within(course()).getByRole("heading", { level: 2 }).textContent).toBe("STAT311");
     const lectures = within(course()).getByRole("region", { name: "Lectures" });
     expect(within(lectures).getByRole("heading", { level: 3 }).textContent).toBe("Lectures 4");
@@ -235,10 +243,11 @@ describe("Sidebar", () => {
     expect(out.opened).toEqual([]);
   });
 
-  it("says when the course has no lectures or slides yet", () => {
-    mount({ course: { ...stat311, lectures: [], slides: [] } });
+  it("says when the course has no lectures, slides or readings yet", () => {
+    mount({ course: { ...stat311, lectures: [], slides: [], sources: [] } });
     expect(screen.getByText("No lectures yet")).toBeTruthy();
     expect(screen.getByText("No slides yet")).toBeTruthy();
+    expect(screen.getByText("No readings yet")).toBeTruthy();
     expect(rowNames()).toEqual(["Dashboard", "Doubts", "Flags", "Office hours", "Later", "Revise"]);
   });
 

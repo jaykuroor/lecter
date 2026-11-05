@@ -39,6 +39,11 @@ fn file(dir: &str, name: &str) -> CourseFile {
     CourseFile { name: name.to_owned(), path: format!("{dir}/{name}") }
 }
 
+/// A lecture without a front-matter date (the fixtures' files hold `x`).
+fn lecture(name: &str) -> LectureFile {
+    LectureFile { name: name.to_owned(), path: format!("lectures/{name}"), date: None }
+}
+
 #[cfg(unix)]
 fn link(target: &Path, at: &Path) {
     std::os::unix::fs::symlink(target, at).unwrap_or_else(|e| panic!("{e}"));
@@ -83,17 +88,56 @@ fn lists_lecture_markdown_and_every_slide_file_by_name() {
         CourseListing {
             path: shown(&course),
             name: "STAT311".into(),
-            lectures: vec![
-                file("lectures", "2026-09-02-l01-introduction.md"),
-                file("lectures", "2026-09-09-l02-probability.md"),
-            ],
+            lectures: vec![lecture("2026-09-02-l01-introduction.md"), lecture("2026-09-09-l02-probability.md"),],
             slides: vec![
                 file("slides", "01-intro.pdf"),
                 file("slides", "07-covariance.pdf"),
                 file("slides", "07b-examples.pptx"),
             ],
+            sources: vec![file("sources", "book.pdf")],
         }
     );
+}
+
+// D-194: sources/ lists like slides/ (top-level files by name), and each lecture carries its
+// front-matter date.
+#[test]
+fn lists_sources_by_name_and_each_lectures_date() {
+    let env = env();
+    let course = mkdir(env.home(), "c");
+    std::fs::create_dir_all(course.join("lectures")).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(course.join("lectures/l07.md"), "---\nlecter: 1\nlecture: 7\ndate: 2026-10-23\n---\n")
+        .unwrap_or_else(|e| panic!("{e}"));
+    touch(&course, "lectures/l08.md");
+    touch(&course, "sources/textbook.pdf");
+    touch(&course, "sources/a-syllabus.docx");
+    touch(&course, "sources/.hidden.pdf");
+    touch(&course, "sources/past-papers/2025.pdf");
+    let listing = open_ok(&course);
+    assert_eq!(
+        listing.lectures,
+        vec![
+            LectureFile { name: "l07.md".into(), path: "lectures/l07.md".into(), date: Some("2026-10-23".into()) },
+            lecture("l08.md"),
+        ]
+    );
+    assert_eq!(listing.sources, vec![file("sources", "a-syllabus.docx"), file("sources", "textbook.pdf")]);
+}
+
+// Sources are only shown: one that leads out of the course is left out, and the course still opens.
+#[cfg(unix)]
+#[test]
+fn a_source_linked_out_of_the_course_is_left_out() {
+    let env = env();
+    let course = mkdir(env.home(), "c");
+    let outside = touch(env.home(), "private/secret.pdf");
+    touch(&course, "sources/book.pdf");
+    link(&outside, &course.join("sources/leak.pdf"));
+    assert_eq!(open_ok(&course).sources, vec![file("sources", "book.pdf")]);
+    // The whole folder linked out lists as empty.
+    let other = mkdir(env.home(), "d");
+    link(&env.home().join("private"), &other.join("sources"));
+    assert_eq!(open_ok(&other).sources, vec![]);
 }
 
 #[test]
@@ -103,7 +147,7 @@ fn a_lecture_extension_in_capitals_is_still_markdown() {
     touch(&course, "lectures/L01.MD");
     touch(&course, "lectures/md");
     touch(&course, "lectures/notes.mdx");
-    assert_eq!(open_ok(&course).lectures, vec![file("lectures", "L01.MD")]);
+    assert_eq!(open_ok(&course).lectures, vec![lecture("L01.MD")]);
 }
 
 #[test]
@@ -123,7 +167,7 @@ fn a_slides_file_instead_of_a_folder_lists_no_slides() {
     touch(&course, "lectures/l01.md");
     let listing = open_ok(&course);
     assert!(listing.slides.is_empty());
-    assert_eq!(listing.lectures, vec![file("lectures", "l01.md")]);
+    assert_eq!(listing.lectures, vec![lecture("l01.md")]);
 }
 
 #[test]
@@ -189,8 +233,12 @@ fn the_listing_serialises_with_the_contract_keys() {
     let listing = CourseListing {
         path: "/c/STAT311".into(),
         name: "STAT311".into(),
-        lectures: vec![file("lectures", "l01.md")],
+        lectures: vec![
+            lecture("l01.md"),
+            LectureFile { name: "l02.md".into(), path: "lectures/l02.md".into(), date: Some("2026-10-23".into()) },
+        ],
         slides: vec![],
+        sources: vec![file("sources", "book.pdf")],
     };
     let json = serde_json::to_value(&listing).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(
@@ -198,8 +246,12 @@ fn the_listing_serialises_with_the_contract_keys() {
         serde_json::json!({
             "path": "/c/STAT311",
             "name": "STAT311",
-            "lectures": [{ "name": "l01.md", "path": "lectures/l01.md" }],
+            "lectures": [
+                { "name": "l01.md", "path": "lectures/l01.md", "date": null },
+                { "name": "l02.md", "path": "lectures/l02.md", "date": "2026-10-23" },
+            ],
             "slides": [],
+            "sources": [{ "name": "book.pdf", "path": "sources/book.pdf" }],
         })
     );
 }
@@ -310,7 +362,7 @@ fn a_link_that_stays_inside_the_course_is_listed_under_its_own_name() {
     link(&materials, &course.join("lectures"));
     let listing = open_ok(&course);
     assert_eq!(listing.slides, vec![file("slides", "reading.pdf")]);
-    assert_eq!(listing.lectures, vec![file("lectures", "l01.md")]);
+    assert_eq!(listing.lectures, vec![lecture("l01.md")]);
 }
 
 #[test]

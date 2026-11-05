@@ -10,6 +10,7 @@ const algebra: CourseOpened = {
   name: "Algebra",
   lectures: [{ name: "l01.md", path: "lectures/l01.md" }],
   slides: [],
+  sources: [],
   trust: "ask",
   screen: trustScreen,
 };

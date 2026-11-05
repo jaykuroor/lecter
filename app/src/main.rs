@@ -55,9 +55,12 @@ fn main() {
     let trust = lecter_core::course::trust::TrustStore::new(&dirs);
     // The course rail's courses and order live in the data folder's state.db (F-035, D-188).
     let known = lecter_core::course::known::KnownCourses::new(&dirs);
+    // The window's layout (the sidebar's toggle) lives beside it (F-036, D-195).
+    let layout = lecter_core::layout::LayoutStore::new(&dirs);
     let built = builder
         .manage(ipc::session::OpenedCourses::new(trust))
         .manage(known)
+        .manage(layout)
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())

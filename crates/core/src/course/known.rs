@@ -19,7 +19,7 @@ use serde_json::Value;
 use super::details::{self, Face};
 use super::{MAX_ENTRIES, canonical_folder, plain};
 use crate::error::{Error, Result};
-use crate::identity::{STATE_DB, open_state_db};
+use crate::identity::{STATE_DB, open_state_db_creating};
 use crate::paths::AppDirs;
 
 /// The `meta` key that holds the rail's courses.
@@ -131,17 +131,8 @@ impl KnownCourses {
         Ok(list)
     }
 
-    #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
     fn connect(&self) -> rusqlite::Result<Connection> {
-        if let Some(dir) = self.db.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| {
-                rusqlite::Error::SqliteFailure(
-                    rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
-                    Some(e.to_string()),
-                )
-            })?;
-        }
-        open_state_db(&self.db)
+        open_state_db_creating(&self.db)
     }
 }
 
