@@ -117,6 +117,27 @@ pub enum Error {
         /// The most bytes the check reads.
         limit: u64,
     },
+    /// Course details the form sent that can't be saved; the message says which field and why
+    /// (02-course-folder.md#course-details-coursejsonc).
+    #[error("{0}")]
+    BadDetails(String),
+    /// `course.jsonc` can't be edited (broken JSONC, too large, a link out of the course), so it
+    /// is left as it is.
+    #[error("{path} {reason}; fix it, then save again.")]
+    CourseFileUnusable {
+        /// The course-relative path, `.lecter/course.jsonc`.
+        path: String,
+        /// Why, without quoting the file's text.
+        reason: String,
+    },
+    /// `course.jsonc` has a `version` this Lecter doesn't write, so it is left as it is.
+    #[error("{path} has version {version}, which a newer Lecter wrote; this one won't change it.")]
+    CourseFileNewer {
+        /// The course-relative path, `.lecter/course.jsonc`.
+        path: String,
+        /// The file's `version`, as written there.
+        version: String,
+    },
 }
 
 impl Error {
@@ -139,6 +160,9 @@ impl Error {
             | Self::NotALecture(_)
             | Self::LectureTooLarge { .. }
             | Self::AiFileTooLarge { .. }
+            | Self::BadDetails(_)
+            | Self::CourseFileUnusable { .. }
+            | Self::CourseFileNewer { .. }
             | Self::NotUtf8(_) => ErrorCode::InvalidArgument,
             Self::NoHome => ErrorCode::Internal,
             Self::ParseFailed(_) => ErrorCode::ParseFailed,
@@ -173,6 +197,15 @@ mod tests {
             (Error::CourseReadOnly, ErrorCode::NotTrusted),
             (Error::TrustFileWrite(std::io::ErrorKind::PermissionDenied), ErrorCode::Io),
             (Error::AiFileTooLarge { path: "AGENTS.md".into(), limit: 16 }, ErrorCode::InvalidArgument),
+            (Error::BadDetails("Give the course a name.".into()), ErrorCode::InvalidArgument),
+            (
+                Error::CourseFileUnusable { path: ".lecter/course.jsonc".into(), reason: "is not UTF-8 text".into() },
+                ErrorCode::InvalidArgument,
+            ),
+            (
+                Error::CourseFileNewer { path: ".lecter/course.jsonc".into(), version: "2".into() },
+                ErrorCode::InvalidArgument,
+            ),
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");
