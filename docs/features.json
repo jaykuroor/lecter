@@ -1130,7 +1130,7 @@
     "screenshot:course-details"
    ],
    "try": "Fill in the course details after trusting a folder",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3029,
    "base": "d15a64e823a069f40ec651dfa55a3d5b1db7e1bf"

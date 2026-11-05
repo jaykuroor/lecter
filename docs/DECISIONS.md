@@ -1112,3 +1112,16 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: in `.lecter/course.jsonc`, `icon` is either a short text icon (≤ 8 characters, e.g. "S") or a course-relative path that starts with `.lecter/` (e.g. `".lecter/icon.png"`), with extension png, jpg, jpeg, webp or gif. SVG is not allowed. The path must resolve inside the course (SEC-35).
 - Why: same style as the folder mapping; a path can't be mistaken for a letter icon; SVG can carry script.
 - Instead of: a path relative to `.lecter/` ("icon.png"), which needs a rule to tell it from a text icon.
+
+## D-186 · course.jsonc details: edited in place, every field written (F-034)
+2026-11-04 · F-034 builder, recorded by the orchestrator · active
+- Decision: Save writes every details field after `"version": 1`, in the spec's order, editing the file in place (CST edit, atomic write) so comments, `settings` and unknown keys stay. A broken file, or one whose `version` isn't 1, is left alone and the save fails with a reason. A linked course.jsonc or `.lecter` is never written through. Saving needs a trusted course (`require_trusted`). Limits: text ≤ 200 characters with no control characters; text icon ≤ 8 characters; paths ≤ 255 bytes, relative, no `..`, `\` or `:`, resolving inside the course (SEC-35). Default colour #3584e4 (the spec's example, the accent-bg token), not a setting. An empty `settings` object fingerprints like no file, so saving doesn't ask for trust again (amends D-182).
+- Why: the file is shared with the settings layer (F-030); a save must not lose what the user or another feature wrote.
+- Instead of: rewriting the whole file; re-storing trust after a save (races).
+
+## D-187 · Course details: guesses and when the form appears (F-034)
+2026-11-04 · F-034 builder, recorded by the orchestrator · active
+- Decision: the form appears only after the user's Trust answer, when course.jsonc has no `version` (never for read-only, never under LECTER_TEST_TRUST); Later/Esc closes it with nothing written and it isn't offered again. Guesses from the folder name: code `[A-Z]{2,6}` plus 2–4 digits and an optional letter (shown "STAT 311"); term is a season plus 19xx/20xx; name is what's left (or the folder name); icon is the first letter of the code or name; folder mapping uses the course's own spelling, ignoring case, and looks for past papers only inside a real sources/ folder (never through a link). If the form can't be prepared (a name that isn't valid Unicode, a missing folder), the Trust answer still succeeds with no form.
+- Why: one prompt right after the trust decision; a broken guess must never undo the trust answer.
+- Instead of: offering the form on every open until saved.
+- Revisit if: a settings or course menu needs a way back to the form.
