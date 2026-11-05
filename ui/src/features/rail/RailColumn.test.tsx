@@ -66,10 +66,15 @@ describe("RailColumn", () => {
       switch: { [stat.path]: stat, [calc.path]: calc },
     });
     await mount();
+    const current = () => rows().map((r) => r.getAttribute("aria-current"));
     fireEvent.keyDown(document.body, { key: "2", code: "Digit2", ctrlKey: true });
-    expect(await screen.findByRole("region", { name: "Course MATH221" })).toBeTruthy();
+    const calcPanel = await screen.findByRole("region", { name: "Course MATH221" });
+    expect(within(calcPanel).getByRole("heading", { level: 2 }).textContent).toBe("MATH221");
+    expect(current()).toEqual([null, "true"]);
     fireEvent.keyDown(document.body, { key: "1", code: "Digit1", ctrlKey: true });
-    expect(await screen.findByRole("region", { name: "Course STAT311" })).toBeTruthy();
+    const statPanel = await screen.findByRole("region", { name: "Course STAT311" });
+    expect(within(statPanel).getByRole("heading", { level: 2 }).textContent).toBe("STAT311");
+    expect(current()).toEqual(["true", null]);
   });
 
   it("adds a picked course to the end of the rail", async () => {
