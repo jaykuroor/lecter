@@ -4,7 +4,7 @@
 // wrong one is refused with its reason as soon as Enter is pressed.
 
 /** What one setting holds. */
-export type SettingKind = "choice" | "boolean" | "integer" | "number" | "text" | "list";
+type SettingKind = "choice" | "boolean" | "integer" | "number" | "text" | "list";
 
 /** One leaf setting of the schema. */
 export interface SettingSpec {
