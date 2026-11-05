@@ -5,7 +5,7 @@ import { moveItem } from "./order";
 import "./CourseRail.css";
 
 /** A course's icon: its short text (e.g. `S`), or an image the core serves. */
-export type RailIcon = { kind: "text"; text: string } | { kind: "image"; src: string };
+type RailIcon = { kind: "text"; text: string } | { kind: "image"; src: string };
 
 /** One course on the rail (02-course-folder.md#course-details-coursejsonc). */
 export interface RailCourse {

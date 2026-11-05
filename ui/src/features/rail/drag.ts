@@ -4,7 +4,7 @@ import { type Accessor, createSignal, onCleanup } from "solid-js";
 export const DRAG_START_PX = 4;
 
 /** A drag in progress: the row picked up and the row it would land on. */
-export interface DragState {
+interface DragState {
   from: number;
   to: number;
 }
