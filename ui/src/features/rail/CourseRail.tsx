@@ -39,15 +39,15 @@ export function CourseRail(props: {
   mac?: boolean;
 }): JSX.Element {
   const mac = () => props.mac ?? isMacPlatform();
-  let list: HTMLOListElement | undefined;
-  const items = () => (list ? [...list.querySelectorAll<HTMLLIElement>(":scope > li")] : []);
-  const buttons = () => items().map((li) => li.querySelector<HTMLButtonElement>(".rail-course"));
+  // Set when the list renders, before anything below reads it.
+  let list!: HTMLOListElement;
+  const items = () => [...list.children] as HTMLLIElement[];
+  const buttons = () => items().map((li) => li.firstElementChild as HTMLButtonElement | null);
 
   // The moved course keeps focus once the list shows the new order.
   let refocus: string | null = null;
   createEffect(() => {
-    const paths = props.courses.map((c) => c.path);
-    const index = refocus === null ? -1 : paths.indexOf(refocus);
+    const index = props.courses.findIndex((c) => c.path === refocus);
     if (index === -1) return;
     refocus = null;
     buttons()[index]?.focus();
@@ -57,7 +57,7 @@ export function CourseRail(props: {
     const paths = props.courses.map((c) => c.path);
     const next = moveItem(paths, from, to);
     if (next.every((p, i) => p === paths[i])) return;
-    refocus = paths[from] ?? null;
+    refocus = paths[from] as string;
     props.onReorder(next);
   }
 
@@ -79,14 +79,12 @@ export function CourseRail(props: {
     onCleanup(remove);
   });
 
-  function onKey(e: KeyboardEvent, index: number): void {
+  function onKey(e: KeyboardEvent, index: number, path: string): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    const course = props.courses[index];
-    if (!course) return;
     const focus = (i: number) => buttons()[i]?.focus();
     const act: Record<string, () => void> = {
-      Enter: () => props.onSelect(course.path),
-      " ": () => props.onSelect(course.path),
+      Enter: () => props.onSelect(path),
+      " ": () => props.onSelect(path),
       j: () => focus(index + 1),
       ArrowDown: () => focus(index + 1),
       k: () => focus(index - 1),
@@ -133,7 +131,7 @@ export function CourseRail(props: {
                   onClick={() => {
                     if (!drag.takeClick()) props.onSelect(course.path);
                   }}
-                  onKeyDown={(e) => onKey(e, index())}
+                  onKeyDown={(e) => onKey(e, index(), course.path)}
                 >
                   <span class="rail-slot" aria-hidden="true">
                     {slot() ?? ""}

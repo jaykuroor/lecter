@@ -28,11 +28,21 @@ interface Calls {
   add: number;
 }
 
-/** Mounts the rail over a live list that applies each reorder, as the app's state does. */
-function mount(initial: RailCourse[], current: string | null = null) {
+/**
+ * Mounts the rail over a live list that applies each reorder, as the app's state does: with new
+ * course objects, as a list from the core would be, so the rows are drawn anew. `later` applies
+ * it only when the returned `apply` runs, as after a round trip to the core.
+ */
+function mount(initial: RailCourse[], current: string | null = null, later = false) {
   const calls: Calls = { select: [], reorder: [], add: 0 };
   const [courses, setCourses] = createSignal(initial);
-  render(() => (
+  let queued: string[] | null = null;
+  const apply = () => {
+    const paths = queued;
+    if (paths) setCourses(paths.map((p) => ({ ...(courses().find((c) => c.path === p) as RailCourse) })));
+    queued = null;
+  };
+  const result = render(() => (
     <CourseRail
       courses={courses()}
       current={current}
@@ -40,15 +50,23 @@ function mount(initial: RailCourse[], current: string | null = null) {
       onSelect={(path) => calls.select.push(path)}
       onReorder={(paths) => {
         calls.reorder.push(paths);
-        setCourses(paths.map((p) => courses().find((c) => c.path === p) as RailCourse));
+        queued = paths;
+        if (!later) apply();
       }}
       onAdd={() => calls.add++}
     />
   ));
-  return calls;
+  return Object.assign(calls, { apply, unmount: result.unmount });
 }
 
-const rows = () => screen.getAllByRole("button", { name: /^Course / });
+/** A keydown on `el`; says whether the rail took it (prevented its default). */
+function press(el: Element, init: KeyboardEventInit): boolean {
+  const e = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+
+const rows = () => screen.getAllByRole("button", { name: /^Course\b/ });
 const names = () => rows().map((r) => r.getAttribute("aria-label"));
 function row(i: number): HTMLElement {
   const r = rows()[i];
@@ -273,5 +291,112 @@ describe("CourseRail", () => {
     const list = screen.getByRole("list", { name: "Courses" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
     expect(row(0).getAttribute("title")).toBe("Probability and Statistics · Ctrl-1 · drag or Shift-J/K to move");
+    cleanup();
+    const many = Array.from({ length: 10 }, (_, i): RailCourse => ({ ...stat, path: `/c/${i}`, name: `N${i}` }));
+    render(() => (
+      <CourseRail courses={many} current={null} mac onSelect={() => {}} onReorder={() => {}} onAdd={() => {}} />
+    ));
+    expect(row(0).getAttribute("title")).toBe("N0 · Cmd-1 · drag or Shift-J/K to move");
+    // The tenth course has no number key.
+    expect(row(9).getAttribute("title")).toBe("N9 · drag or Shift-J/K to move");
+  });
+
+  it("keeps the moved course focused when the new order arrives later, as new rows", () => {
+    const calls = mount([stat, calc, phys], null, true);
+    row(0).focus();
+    press(row(0), { key: "J", shiftKey: true });
+    expect(calls.reorder).toEqual([[calc.path, stat.path, phys.path]]);
+    // Still the old order on screen until the core answers.
+    expect(names()[0]).toBe("Course Probability and Statistics");
+    calls.apply();
+    expect(names()).toEqual(["Course Calculus II", "Course Probability and Statistics", "Course Physics"]);
+    expect(document.activeElement).toBe(row(1));
+    // Only once: a later list doesn't pull focus back.
+    row(2).focus();
+    press(row(2), { key: "K", shiftKey: true });
+    calls.apply();
+    expect(document.activeElement).toBe(row(1));
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Course Physics");
+  });
+
+  it("takes only its own keys on a row, and none with Ctrl, Cmd or Alt held", () => {
+    const calls = mount([stat, calc]);
+    row(0).focus();
+    expect(press(row(0), { key: "x" })).toBe(false);
+    expect(press(row(0), { key: "j", ctrlKey: true })).toBe(false);
+    expect(press(row(0), { key: "J", shiftKey: true, altKey: true })).toBe(false);
+    expect(press(row(0), { key: "Enter", metaKey: true })).toBe(false);
+    expect(document.activeElement).toBe(row(0));
+    expect(calls.reorder).toEqual([]);
+    expect(calls.select).toEqual([]);
+    expect(press(row(0), { key: "Enter" })).toBe(true);
+    expect(press(row(0), { key: " " })).toBe(true);
+    expect(press(row(0), { key: "j" })).toBe(true);
+    expect(calls.select).toEqual([stat.path, stat.path]);
+  });
+
+  it("takes Ctrl-n from the focused element only for a course that exists, until it is gone", () => {
+    const calls = mount([stat, calc]);
+    const elsewhere = document.createElement("input");
+    document.body.append(elsewhere);
+    expect(press(elsewhere, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
+    expect(press(elsewhere, { key: "3", code: "Digit3", ctrlKey: true })).toBe(false);
+    calls.unmount();
+    expect(press(elsewhere, { key: "1", code: "Digit1", ctrlKey: true })).toBe(false);
+    expect(calls.select).toEqual([calc.path]);
+    elsewhere.remove();
+  });
+
+  it("adds by Space, and leaves other keys on the + button alone", () => {
+    const calls = mount([stat]);
+    const add = screen.getByRole("button", { name: "Add a course" });
+    expect(press(add, { key: " " })).toBe(true);
+    expect(press(add, { key: "Enter" })).toBe(true);
+    expect(press(add, { key: "a" })).toBe(false);
+    expect(calls.add).toBe(2);
+  });
+
+  it("marks the landing place above when dragging up, and nothing over its own place", () => {
+    mount([stat, calc, phys]);
+    layOut();
+    fireEvent.pointerDown(row(2), { button: 0, isPrimary: true, pointerId: 1, clientY: 75 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 15 });
+    const items = screen.getAllByRole("listitem");
+    expect(items.map((li) => li.dataset.drop ?? "")).toEqual(["before", "", ""]);
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 80 });
+    expect(items.map((li) => li.dataset.drop ?? "")).toEqual(["", "", ""]);
+    expect(items.map((li) => li.classList.contains("dragging"))).toEqual([false, false, true]);
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 900 });
+    expect(items.map((li) => li.dataset.drop ?? "")).toEqual(["", "", ""]);
+    fireEvent.pointerUp(window, { pointerId: 1, clientY: 900 });
+    expect(items.map((li) => li.classList.contains("dragging"))).toEqual([false, false, false]);
+  });
+
+  it("checks the colour and image whole, not just their start or end", () => {
+    mount([
+      { ...stat, color: "#3584e4x" },
+      { ...calc, color: "x#26a269" },
+      { ...phys, icon: { kind: "image", src: "https://example.com/?lecter://a.png" } },
+    ]);
+    expect(iconOf(0).style.getPropertyValue("--c")).toBe("");
+    expect(iconOf(1).style.getPropertyValue("--c")).toBe("");
+    expect(iconOf(2).querySelector("img")).toBeNull();
+    expect(iconOf(2).textContent).toBe("P");
+  });
+
+  it("trims the text icon and the name, and shows ? for a course with neither", () => {
+    mount([
+      { ...stat, icon: { kind: "text", text: "  St " } },
+      { ...calc, name: "  calculus", icon: { kind: "text", text: "   " } },
+      { ...phys, name: "", icon: { kind: "text", text: "" } },
+    ]);
+    expect(iconOf(0).textContent).toBe("St");
+    expect(iconOf(1).textContent).toBe("C");
+    expect(iconOf(2).textContent).toBe("?");
+  });
+
+  it("keeps the browser from dragging the icon image itself", () => {
+    mount([phys]);
+    expect(iconOf(0).querySelector("img")?.getAttribute("draggable")).toBe("false");
   });
 });
