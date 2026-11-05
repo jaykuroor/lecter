@@ -37,10 +37,11 @@ let warmed = false;
 
 /**
  * Builds the throwaway buffer, unless one was built before on this page. It is gone after the
- * next frame and the task after it, so CodeMirror's first measure runs too.
+ * next frame and the task after it, so CodeMirror's first measure runs too. Returns the stopper,
+ * which removes it at once (the app going away): nothing of it then runs on a torn-down page.
  */
-export function prewarmEditor(): void {
-  if (warmed) return;
+export function prewarmEditor(): () => void {
+  if (warmed) return () => {};
   warmed = true;
   const host = document.createElement("div");
   host.className = "buffer-prewarm";
@@ -50,12 +51,13 @@ export function prewarmEditor(): void {
   host.style.cssText = "position:fixed;left:-10000px;top:0;width:800px;height:600px;visibility:hidden;contain:strict";
   document.body.append(host);
   const view = new EditorView({ state: lectureState(WARM_LECTURE, "Warm-up"), parent: host });
-  requestAnimationFrame(() =>
-    setTimeout(() => {
-      // A page torn down meanwhile (a test's jsdom) has already dropped the host: nothing to undo.
-      if (!host.isConnected) return;
-      view.destroy();
-      host.remove();
-    }),
-  );
+  const remove = () => {
+    // Removed already (stopped, or the frame's task ran), or a page torn down meanwhile (a test's
+    // jsdom) has dropped the host: nothing to undo.
+    if (!host.isConnected) return;
+    view.destroy();
+    host.remove();
+  };
+  requestAnimationFrame(() => setTimeout(remove));
+  return remove;
 }
