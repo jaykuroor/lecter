@@ -1328,7 +1328,7 @@
     "screenshot:cmdline"
    ],
    "try": "Type :set ui.keystrokes? and :set ui.keystrokes=false",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3035,
    "base": "885d141edcb194bee1b5b946eb9ae95d9e80bcfa"

@@ -1322,3 +1322,31 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the rise came in with F-037..F-039; F-040 was already reviewed, and bisecting old merge points doesn't depend on main's head.
 - Instead of: holding F-040, or deferring to the M1 gate.
 - Revisit if: the bisect shows F-040's command-line chunk adds memory too.
+
+## D-219 · F-040 adds the settings IPC (F-040)
+2026-11-05 · F-040 builder, recorded by the orchestrator · active
+- Decision: app/src/ipc/settings.rs adds `settings_schema()`, `settings_get(key, course?)` and `settings_set(key, valueJson, course?)`, returning `Setting {key, value (JSON text), source}`; each call opens a SettingsStore (stateless). `settings_source` and the `settings:changed` event (18-contracts#ipc) are not built.
+- Why: `:set key?` needs the real value and source, and writes need the core; no other card owned these commands.
+- Instead of: UI-only fake values.
+- Revisit if: F-045 or F-074 needs `settings:changed`, or concurrent writes matter (each call has its own store mutex).
+
+## D-220 · `:set` writes the global config (F-040)
+2026-11-05 · F-040 builder, recorded by the orchestrator · active
+- Decision: `:set key=value` writes global config.jsonc; a course layer counts for `:set key?` only for a trusted course opened this session (`check_course`, `require_trusted`).
+- Why: Vim's `:set` is global, and course.jsonc is gated by the trust screen.
+- Instead of: writing course.jsonc.
+- Revisit if: users want per-course `:setlocal`.
+
+## D-221 · The command line checks values before the core (F-040)
+2026-11-05 · F-040 builder, recorded by the orchestrator · active
+- Decision: the UI checks a value against the schema first, with the core's wording ("X must be one of a, b, c"); the core checks again. Values: true/false, integers in range, decimals, `null` unsets nullable keys, empty unsets nullable text, lists comma-separated. On a refusal the box stays open with the reason; answers show as a status for 6 s.
+- Why: instant feedback (D-008) without trusting the renderer.
+- Instead of: core-only checking.
+- Revisit if: the schema gains types this syntax can't express.
+
+## D-222 · `:` opens the command line in normal mode only (F-040)
+2026-11-05 · F-040 builder, recorded by the orchestrator · active
+- Decision: `:` is remapped in normal mode; visual `:` stays Vim's. Lines other than `set` go to Vim's handleEx as typed, so `:find` and `:read` keep their own parsing (D-215 stands). The command-line chunk loads with the editor's chunk so keys typed right after `:` land in the box.
+- Why: one entry point without re-implementing existing ex commands.
+- Instead of: a general ex parser in F-040.
+- Revisit if: a later card needs ranges or abbreviations.

@@ -34,4 +34,5 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - Keys follow Lecter's keymap everywhere: Space shows every leader group after a short pause, F6 moves between panes, and your own keymaps.jsonc rebinds or unbinds any key (F-037)
 - A hint bar above the status line shows the keys that work where your cursor is, and clicking a hint does the same as its key; Space u h switches between full, compact and off (F-038)
 - A keystroke overlay shows the keys you type (Space u k hides it), and read mode (Space u r or `:read`) hides everything but the lecture (F-039)
+- Type `:` in a lecture for a command line with completion; `:set key=value` changes a setting (checked, then saved) and `:set key?` shows its value and where it comes from (F-040)
 
