@@ -196,6 +196,8 @@ describe("hintsFor", () => {
         B("<F3>", "pane.go", { scope: "global", desc: "Pane11", arg: 0 }),
         B("<S-F1>", "zoom.go", { scope: "global", desc: "Zoom 1", arg: 0 }),
         B("<S-F12>", "zoom.go", { scope: "global", desc: "Zoom 2", arg: 1 }),
+        B("<A-a>", "tab.go", { scope: "global", desc: "Tab 1", arg: 0 }),
+        B("<A-b>", "tab.go", { scope: "global", desc: "Tab 2", arg: 1 }),
       ],
       false,
     );
@@ -204,6 +206,7 @@ describe("hintsFor", () => {
       "F1…2 F10…12 Room 2 slot",
       "F3 Pane",
       "Shift-F1…12 Zoom",
+      "Alt-a…b Tab",
     ]);
   });
 
