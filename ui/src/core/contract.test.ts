@@ -145,6 +145,9 @@ const commandNames: CommandName[] = [
   "lecture_open",
   "lecture_apply_edits",
   "search_find",
+  "settings_schema",
+  "settings_get",
+  "settings_set",
 ];
 const noArgs: Commands["course_open"]["args"] = {};
 

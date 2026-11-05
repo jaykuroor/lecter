@@ -35,8 +35,16 @@ export const MAX_COMPLETIONS = 50;
 const SET_ARGS = /^(\s*set\s+)(\S*)$/;
 const SET_VALUE = /^(\s*set\s+)([^\s=]+)=(\S*)$/;
 
-/** The completions for the command line `line`, given the settings (empty until the schema is in). */
+/**
+ * The completions for the command line `line`, given the settings (empty until the schema is in).
+ * One that would leave the line as it is (it is typed out already) is left out.
+ */
 export function complete(line: string, settings: readonly SettingSpec[]): Completion[] {
+  return candidates(line, settings).filter((c) => c.line !== line);
+}
+
+/** Every completion that matches `line`. */
+function candidates(line: string, settings: readonly SettingSpec[]): Completion[] {
   const value = SET_VALUE.exec(line);
   if (value) {
     const [, lead, key, typed] = value as unknown as [string, string, string, string];

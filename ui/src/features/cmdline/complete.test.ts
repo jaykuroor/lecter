@@ -54,6 +54,14 @@ describe("complete", () => {
     expect(lines("set nothing.here=")).toEqual([]);
   });
 
+  it("leaves out what is typed out already", () => {
+    expect(lines("read")).toEqual([]);
+    expect(lines("set")).toEqual(["set "]);
+    expect(lines("set ui.performance")).toEqual([]);
+    expect(lines("set ai.budget.monthly")).toEqual(["set ai.budget.monthlyTokens"]);
+    expect(lines("set ui.performance=quality")).toEqual([]);
+  });
+
   it("offers nothing past the arguments it knows", () => {
     expect(lines("set ui.performance=quality now")).toEqual([]);
     expect(lines("find covariance")).toEqual([]);
