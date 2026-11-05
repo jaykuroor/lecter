@@ -1,0 +1,228 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerCommand } from "../../keys/commands";
+import { type Keys, startKeys } from "../../keys/install";
+import type { Mode } from "../../keys/keymap";
+import { setBufferTarget } from "../../keys/locate";
+import { type HintBarHandle, startHintBar } from "./mount";
+
+// 09-ui.md#hint-bar-and-keystroke-overlay: the hint bar lists the keys that work now and changes
+// with the cursor's element and the mode; its detail follows ui.hintBar (full shows the mouse
+// action too, compact the keys only, off hides it); ␣uh steps through the details (10-keymap.md).
+
+let keys: Keys;
+let host: HTMLElement;
+let bar: HintBarHandle;
+let buffer: HTMLElement;
+let field: HTMLInputElement;
+const drops: (() => void)[] = [];
+/** Where the fake buffer's cursor is, and Vim's mode. */
+const cursor: { element: "slide-line" | "note-line" | "gloss"; mode: Mode } = { element: "slide-line", mode: "normal" };
+
+/** A keydown on the focused element, through the engine as the page would send it. */
+function press(key: string, init: KeyboardEventInit = {}): void {
+  const e = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+  (document.activeElement ?? document.body).dispatchEvent(e);
+  keys.handle(e);
+}
+
+/** The next frame, where the bar looks again. */
+const frame = () => vi.advanceTimersToNextFrame();
+
+/** The bar's hints as they read: keycaps, then words (and the mouse action in full). */
+const shown = (part: "main" | "tail") =>
+  [...host.querySelectorAll(`.hint-${part} .hint`)].map((b) =>
+    [...b.children].map((c) => `${c.className}=${c.textContent}`).join(" "),
+  );
+const words = (part: "main" | "tail" = "main") =>
+  [...host.querySelectorAll(`.hint-${part} .hint-desc`)].map((d) => d.textContent);
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  cursor.element = "slide-line";
+  cursor.mode = "normal";
+  buffer = document.createElement("div");
+  buffer.tabIndex = 0;
+  field = document.createElement("input");
+  host = document.createElement("div");
+  document.body.append(buffer, field, host);
+  drops.push(
+    setBufferTarget({
+      root: buffer,
+      mode: () => cursor.mode,
+      element: () => cursor.element,
+      replay: () => {},
+      focus: () => buffer.focus(),
+    }),
+  );
+  keys = startKeys({ mac: false, host });
+  buffer.focus();
+  bar = startHintBar({ engine: keys.engine, host });
+});
+afterEach(() => {
+  bar.stop();
+  keys.stop();
+  for (const drop of drops.splice(0)) drop();
+  vi.useRealTimers();
+  document.body.innerHTML = "";
+});
+
+/** The bar again, at `detail`. */
+function restart(detail: "full" | "compact" | "off"): void {
+  bar.stop();
+  bar = startHintBar({ engine: keys.engine, host, detail });
+}
+
+describe("the hint bar", () => {
+  it("lists a slide line's keys with their words and mouse actions at the start, in full", () => {
+    expect(host.querySelector(".hint-bar")?.getAttribute("aria-label")).toBe("Keys that work now");
+    expect(shown("main").slice(0, 3)).toEqual([
+      "hint-key=↵ hint-desc=Ask about this line hint-mouse=right-click the line",
+      "hint-key=s hint-desc=Steps hint-mouse=right-click the line",
+      "hint-key=q hint-desc=Park a doubt hint-mouse=right-click the line",
+    ]);
+    expect(shown("main")).toContain("hint-key=i hint-desc=Edit / fix the line hint-mouse=double-click");
+    expect(shown("main")).toContain("hint-key=Ctrl-j hint-key=]] hint-desc=Next slide hint-mouse=scroll");
+    expect(shown("main")).toContain("hint-key=]d hint-desc=Next doubt hint-mouse=Doubts tab");
+    expect(shown("tail")).toEqual([
+      "hint-key=Ctrl-1…9 hint-desc=Course hint-mouse=click the course",
+      "hint-key=F6 hint-desc=Next pane hint-mouse=click a pane",
+      "hint-key=Shift-F6 hint-desc=Previous pane hint-mouse=click a pane",
+      "hint-key=␣ hint-desc=More hint-mouse=click here",
+    ]);
+  });
+
+  it("changes when the cursor moves from a slide line onto a gloss and back, in the next frame", () => {
+    expect(words()[1]).toBe("Steps");
+    cursor.element = "gloss";
+    press("j");
+    // Not before the key is done with: the bar looks in the next frame.
+    expect(words()[1]).toBe("Steps");
+    frame();
+    expect(words().slice(0, 2)).toEqual(["Reply in thread (keep a draft)", "Regenerate"]);
+    expect(shown("main")[1]).toBe("hint-key=r hint-desc=Regenerate hint-mouse=click its keycap");
+    expect(shown("main")).toContain("hint-key=i hint-desc=Edit the gloss hint-mouse=double-click");
+    cursor.element = "note-line";
+    buffer.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    frame();
+    expect(words()[1]).toBe("Steps");
+  });
+
+  it("follows the mode: insert mode leaves the global keys, visual mode the ask", () => {
+    cursor.mode = "insert";
+    press("i");
+    frame();
+    expect(words()).toEqual([]);
+    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane"]);
+    cursor.mode = "visual";
+    buffer.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+    frame();
+    expect(words()).toEqual(["Ask about this line"]);
+    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane", "More"]);
+  });
+
+  it("follows the focus out of the buffer into a field and onto the page", () => {
+    field.focus();
+    frame();
+    expect(words()).toEqual([]);
+    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane"]);
+    field.blur();
+    frame();
+    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane", "More"]);
+    buffer.focus();
+    frame();
+    expect(words()[0]).toBe("Ask about this line");
+  });
+
+  it("looks once per frame however many keys came in it", () => {
+    const raf = vi.spyOn(window, "requestAnimationFrame");
+    press("j");
+    press("k");
+    buffer.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    expect(raf).toHaveBeenCalledTimes(1);
+    frame();
+    press("j");
+    expect(raf).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the keys and their words but no mouse actions in compact, and nothing when off", () => {
+    restart("compact");
+    expect(host.querySelector(".hint-bar")?.getAttribute("data-detail")).toBe("compact");
+    expect(shown("main")[1]).toBe("hint-key=s hint-desc=Steps");
+    expect(host.querySelector(".hint-mouse")).toBeNull();
+    restart("off");
+    expect(host.querySelector(".hint-bar")).toBeNull();
+    expect(host.textContent).toBe("");
+  });
+
+  it("steps through full, compact and off with ␣uh, and back to full", () => {
+    const details = () => host.querySelector(".hint-bar")?.getAttribute("data-detail") ?? "none";
+    const leaderUh = () => {
+      press(" ");
+      press("u");
+      press("h");
+    };
+    expect(details()).toBe("full");
+    leaderUh();
+    expect(details()).toBe("compact");
+    leaderUh();
+    expect(details()).toBe("none");
+    leaderUh();
+    expect(details()).toBe("full");
+    expect(host.querySelectorAll(".hint-mouse").length).toBeGreaterThan(0);
+  });
+
+  it("runs a hint's command on a click without taking the focus, and ␣ More leaves the leader pending", () => {
+    const ran: string[] = [];
+    drops.push(
+      registerCommand("ai.steps", ({ binding, count }) => {
+        ran.push(`${binding.command} ${count}`);
+        return true;
+      }),
+    );
+    const steps = [...host.querySelectorAll<HTMLButtonElement>(".hint-main .hint")][1] as HTMLButtonElement;
+    const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    steps.dispatchEvent(down);
+    expect(down.defaultPrevented).toBe(true);
+    steps.click();
+    expect(ran).toEqual(["ai.steps 1"]);
+    expect(document.activeElement).toBe(buffer);
+    const more = [...host.querySelectorAll<HTMLButtonElement>(".hint-tail .hint")][3] as HTMLButtonElement;
+    more.click();
+    expect(keys.engine.sequence()).toEqual(["<Space>"]);
+  });
+
+  it("drops a pending count when a hint runs, so the next key starts afresh", () => {
+    press("3");
+    expect(keys.engine.pending()).toEqual(["3"]);
+    ([...host.querySelectorAll<HTMLButtonElement>(".hint-main .hint")][1] as HTMLButtonElement).click();
+    expect(keys.engine.pending()).toEqual([]);
+  });
+
+  it("reads keymaps.jsonc's bindings once refreshed", () => {
+    keys.setUserKeymap(JSON.stringify({ version: 1, bindings: [{ keys: "x", command: "ai.steps", context: "line" }] }));
+    expect(shown("main")[1]).toBe("hint-key=s hint-desc=Steps hint-mouse=right-click the line");
+    bar.refresh();
+    expect(shown("main")[1]).toBe("hint-key=s hint-key=x hint-desc=Steps hint-mouse=right-click the line");
+  });
+
+  it("goes away when stopped: no bar, no ␣uh, no more looking", () => {
+    bar.stop();
+    expect(host.textContent).toBe("");
+    const raf = vi.spyOn(window, "requestAnimationFrame");
+    press("j");
+    expect(raf).not.toHaveBeenCalled();
+    press(" ");
+    press("u");
+    press("h");
+    expect(host.textContent).toBe("");
+    bar = startHintBar({ engine: keys.engine, host });
+  });
+
+  it("cancels a look still waiting when stopped", () => {
+    const cancel = vi.spyOn(window, "cancelAnimationFrame");
+    press("j");
+    bar.stop();
+    expect(cancel).toHaveBeenCalledTimes(1);
+    bar = startHintBar({ engine: keys.engine, host });
+  });
+});
