@@ -1,11 +1,23 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { courseSlot, installCourseSlots, isMacPlatform } from "./keys";
+import { describe, expect, it } from "vitest";
+import { compileKeymap, KeyEngine } from "./engine";
+import { DEFAULT_KEYMAP } from "./keymap";
+import { eventToken } from "./notation";
+import { isMacPlatform } from "./platform";
+
+// Ctrl/Cmd-1…9 (10-keymap.md#global-os-conventions, D-190, D-192), as the rail's own listener had
+// them before the key engine took them over: the course (0-based) a key opens, or null.
+function courseSlot(e: KeyboardEvent, mac: boolean): number | null {
+  const token = eventToken(e);
+  if (token === null) return null;
+  const out = new KeyEngine(compileKeymap(DEFAULT_KEYMAP, mac)).feed(token, "page", "normal", e.repeat);
+  return out.kind === "run" && out.binding.command === "course.go" ? (out.binding.arg ?? null) : null;
+}
 
 function key(init: KeyboardEventInit): KeyboardEvent {
   return new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
 }
 
-describe("courseSlot", () => {
+describe("course keys", () => {
   it("maps Ctrl-1…9 to the first to ninth course on Windows and Linux", () => {
     for (let n = 1; n <= 9; n++) {
       expect(courseSlot(key({ key: String(n), code: `Digit${n}`, ctrlKey: true }), false)).toBe(n - 1);
@@ -67,64 +79,5 @@ describe("isMacPlatform", () => {
     expect(isMacPlatform({ platform: "Linux x86_64", userAgent: safari })).toBe(false);
     expect(isMacPlatform({ platform: "Win32", userAgent: safari })).toBe(false);
     expect(isMacPlatform({ platform: "MacIntel", userAgent: safari })).toBe(true);
-  });
-});
-
-describe("installCourseSlots", () => {
-  let remove: (() => void) | undefined;
-  afterEach(() => {
-    remove?.();
-    remove = undefined;
-    document.body.innerHTML = "";
-  });
-
-  it("switches before the focused element sees the key, and only when that course exists", () => {
-    const seen: number[] = [];
-    remove = installCourseSlots(
-      window,
-      (i) => {
-        seen.push(i);
-        return i < 2;
-      },
-      false,
-    );
-    const field = document.createElement("input");
-    document.body.append(field);
-    let reached = 0;
-    field.addEventListener("keydown", () => reached++);
-
-    const second = key({ key: "2", code: "Digit2", ctrlKey: true });
-    field.dispatchEvent(second);
-    expect(seen).toEqual([1]);
-    expect(second.defaultPrevented).toBe(true);
-    expect(reached).toBe(0);
-
-    // No third course: the key goes on to the element as if the rail weren't there.
-    const third = key({ key: "3", code: "Digit3", ctrlKey: true });
-    field.dispatchEvent(third);
-    expect(seen).toEqual([1, 2]);
-    expect(third.defaultPrevented).toBe(false);
-    expect(reached).toBe(1);
-
-    // Any other key is never the rail's.
-    field.dispatchEvent(key({ key: "j", code: "KeyJ", ctrlKey: true }));
-    expect(seen).toEqual([1, 2]);
-    expect(reached).toBe(2);
-  });
-
-  it("stops listening once removed", () => {
-    const seen: number[] = [];
-    remove = installCourseSlots(
-      window,
-      (i) => {
-        seen.push(i);
-        return true;
-      },
-      false,
-    );
-    remove();
-    remove = undefined;
-    window.dispatchEvent(key({ key: "1", code: "Digit1", ctrlKey: true }));
-    expect(seen).toEqual([]);
   });
 });

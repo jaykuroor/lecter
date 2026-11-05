@@ -77,6 +77,11 @@ export const commands = {
 	 */
 	courseDetailsSave: (course: string, details: CourseDetails) => typedError<CourseDetails, IpcError_Serialize>(__TAURI_INVOKE("course_details_save", { course, details })),
 	/**
+	 *  The text of `keymaps.jsonc` in the global config folder, or `null` when there is none. Takes no
+	 *  arguments, so there is nothing to validate (SEC-32); the file is capped at 256 KB and never logged.
+	 */
+	keymapsRead: () => typedError<string | null, IpcError_Serialize>(__TAURI_INVOKE("keymaps_read")),
+	/**
 	 *  Opens `path` (`lectures/<name>.md`, relative to the course) in `course`, which must be a
 	 *  course `course_open` returned this session, and returns the whole file with any journal
 	 *  edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
@@ -535,6 +540,11 @@ export type Commands = {
     args: { course: Parameters<typeof commands.courseDetailsSave>[0]; details: Parameters<typeof commands.courseDetailsSave>[1] };
     result: CommandOk<Awaited<ReturnType<typeof commands.courseDetailsSave>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.courseDetailsSave>>>;
+  };
+  keymaps_read: {
+    args: Record<string, never>;
+    result: CommandOk<Awaited<ReturnType<typeof commands.keymapsRead>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.keymapsRead>>>;
   };
   lecture_open: {
     args: { course: Parameters<typeof commands.lectureOpen>[0]; path: Parameters<typeof commands.lectureOpen>[1] };

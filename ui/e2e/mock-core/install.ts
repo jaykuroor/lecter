@@ -58,6 +58,12 @@ export function installMockCore(fixture: MockFixture): void {
       layout = { ...saved };
       return null;
     },
+    // keymaps.jsonc as the fixture has it; `{ error }` is a file the core refuses (D-199).
+    keymaps_read: () => {
+      const k = fixture.keymaps;
+      if (k !== null && typeof k === "object") return fail("E_INVALID_ARGUMENT", k.error);
+      return k;
+    },
     // Records each paint, with its time, for the test to read back (window.__mockStartup).
     app_mark_startup: ({ paint }) => {
       const w = window as unknown as { __mockStartup?: { paint: string; at: number }[] };

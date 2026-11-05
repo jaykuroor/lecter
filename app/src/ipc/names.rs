@@ -15,6 +15,7 @@ pub const COMMANDS: &[&str] = &[
     "course_reorder",
     "course_trust",
     "course_details_save",
+    "keymaps_read",
     "lecture_open",
     "lecture_apply_edits",
     "search_find",

@@ -57,10 +57,13 @@ fn main() {
     let known = lecter_core::course::known::KnownCourses::new(&dirs);
     // The window's layout (the sidebar's toggle) lives beside it (F-036, D-195).
     let layout = lecter_core::layout::LayoutStore::new(&dirs);
+    // The user's keymaps.jsonc in the global config folder (F-037, D-199).
+    let keymaps = lecter_core::keymaps::KeymapsFile::new(&dirs);
     let built = builder
         .manage(ipc::session::OpenedCourses::new(trust))
         .manage(known)
         .manage(layout)
+        .manage(keymaps)
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())

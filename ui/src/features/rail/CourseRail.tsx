@@ -1,6 +1,6 @@
-import { createEffect, createSignal, For, type JSX, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, type JSX, Show } from "solid-js";
+import { isMacPlatform } from "../../keys/platform";
 import { createRowDrag } from "./drag";
-import { installCourseSlots, isMacPlatform } from "./keys";
 import { moveItem } from "./order";
 import "./CourseRail.css";
 
@@ -26,7 +26,7 @@ const SAFE_COLOR = /^#[0-9a-f]{6}$/i;
 /**
  * The course rail (09-ui.md#layout; styled per docs/design/components.md#rail): one row per course
  * with its number key, icon and name, then `+` to add one. Mouse: click opens, drag reorders.
- * Keys: Ctrl/Cmd-1…9 opens the nth course from anywhere; on a focused row, j/k and the arrows
+ * Keys: Ctrl/Cmd-1…9 opens the nth course from anywhere (the key engine's `course.go`, App.tsx); on a focused row, j/k and the arrows
  * move, Enter or Space opens, Shift-J/K moves the course down or up.
  */
 export function CourseRail(props: {
@@ -72,19 +72,6 @@ export function CourseRail(props: {
     () => items().map((li) => li.getBoundingClientRect()),
     (from, to) => move(from, to),
   );
-
-  onMount(() => {
-    const remove = installCourseSlots(
-      window,
-      (index) => {
-        const course = props.courses[index];
-        if (course) props.onSelect(course.path);
-        return course !== undefined;
-      },
-      mac(),
-    );
-    onCleanup(remove);
-  });
 
   function onKey(e: KeyboardEvent, index: number, path: string): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;

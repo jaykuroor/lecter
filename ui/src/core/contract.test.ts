@@ -43,6 +43,7 @@ const matching: MockHandlers = {
   course_list: () => [],
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
+  keymaps_read: () => null,
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -68,6 +69,7 @@ const wrongResult: MockHandlers = {
   course_list: () => [],
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
+  keymaps_read: () => null,
 };
 
 const wrongEnum: MockHandlers = {
@@ -87,6 +89,7 @@ const wrongEnum: MockHandlers = {
   course_list: () => [],
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
+  keymaps_read: () => null,
 };
 
 const extra: MockHandlers = {
@@ -105,6 +108,7 @@ const extra: MockHandlers = {
   course_list: () => [],
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
+  keymaps_read: () => null,
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -125,6 +129,7 @@ const commandNames: CommandName[] = [
   "course_reorder",
   "course_trust",
   "course_details_save",
+  "keymaps_read",
   "lecture_open",
   "lecture_apply_edits",
   "search_find",
