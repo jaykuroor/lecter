@@ -161,7 +161,7 @@ pub fn state(store: &TrustStore, course: &Path) -> Result<TrustState> {
 }
 
 /// The fingerprint of a course whose survey failed: it matches no real one (64 hex digits).
-pub const BLOCKED: &str = "";
+pub const BLOCKED: &str = "blocked";
 
 /// What the stored `entry` means for AI files whose fingerprint is now `now`: the state, and
 /// whether it asks again because they changed. A blocked course is at most read-only, whatever
