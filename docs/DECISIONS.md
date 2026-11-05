@@ -1236,3 +1236,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: a binding must name a command from the default keymap; otherwise it is skipped with a warning.
 - Why: catches typos and stale names.
 - Instead of: accepting any string.
+
+## D-206 · ui.hintBar defaults to full (F-038)
+2026-11-05 · orchestrator, decider: maintainer · active
+- Decision: the built-in default of `ui.hintBar` is `full` (keys, their words and the mouse action), used before onboarding sets it or when its Vim step is skipped.
+- Why: the hint bar is the first thing a new user sees under the document; full teaches both the keys and the mouse paths.
+- Instead of: compact; off.
