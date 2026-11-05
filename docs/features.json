@@ -1263,9 +1263,10 @@
     "screenshot:hint-bar-gloss"
    ],
    "try": "Move between a slide line and a gloss: the hint bar changes",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3033
+   "priority": 3033,
+   "base": "4e8551394f378db94fea5c9a2365d1647060c096"
   },
   {
    "id": "F-039",
