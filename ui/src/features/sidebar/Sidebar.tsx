@@ -11,7 +11,7 @@ import "./Sidebar.css";
  * (`YYYY-MM-DD`) and how many open items it has (open or uncertain doubts and flags,
  * 11-dashboard.md "Lectures").
  */
-export interface SidebarLecture extends CourseFile {
+interface SidebarLecture extends CourseFile {
   date?: string | null;
   open?: number | null;
 }
