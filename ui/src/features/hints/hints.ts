@@ -35,31 +35,31 @@ export interface Hints {
 }
 
 /** Where a command first comes in the default keymap: the spec's order. User-only commands go last. */
-const RANK = new Map<string, number>();
-DEFAULT_KEYMAP.forEach((b, i) => {
-  if (!RANK.has(b.command)) RANK.set(b.command, i);
-});
-const rank = (command: string): number => RANK.get(command) ?? DEFAULT_KEYMAP.length;
+function rank(command: string): number {
+  const i = DEFAULT_KEYMAP.findIndex((b) => b.command === command);
+  return i === -1 ? DEFAULT_KEYMAP.length : i;
+}
 
 /** A command's words: its own, else the default keymap's (keymaps.jsonc bindings have only the id). */
 function wordsFor(bindings: readonly Binding[]): string {
+  const first = bindings[0] as Binding;
   const named = bindings.find((b) => b.desc !== b.command);
-  const desc = named?.desc ?? DEFAULT_KEYMAP.find((b) => b.command === bindings[0]?.command)?.desc;
-  if (desc === undefined) return (bindings[0] as Binding).command;
+  const desc = named?.desc ?? DEFAULT_KEYMAP.find((b) => b.command === first.command)?.desc ?? first.command;
   // A numbered family (Course 1…9) is named once.
-  return bindings[0]?.arg === undefined ? desc : desc.replace(/\s*\d+$/, "");
+  return first.arg === undefined ? desc : desc.replace(/\s*\d+$/, "");
 }
 
-/** `Ctrl-1` and `Ctrl-9` → `Ctrl-1…9`. */
+/** `Ctrl-1` and `Ctrl-9` → `Ctrl-1…9`; `F1` and `F12` → `F1…12` (a number is never split). */
 function range(first: string, last: string): string {
-  let same = 0;
-  while (same < first.length && first[same] === last[same]) same++;
+  let same = first.split("").findIndex((c, i) => c !== last[i]);
+  if (same === -1) same = first.length;
+  while (/\d$/.test(first.slice(0, same))) same--;
   return `${first}…${last.slice(same)}`;
 }
 
 /** The keycaps of one command: one per binding, numbered bindings in a row joined into a range. */
 function keycaps(bindings: readonly Binding[], labels: ReadonlyMap<Binding, string>): string[] {
-  if (bindings[0]?.arg === undefined) return bindings.map((b) => labels.get(b) as string);
+  if ((bindings[0] as Binding).arg === undefined) return bindings.map((b) => labels.get(b) as string);
   const sorted = [...bindings].sort((a, b) => (a.arg as number) - (b.arg as number));
   const out: string[] = [];
   let start = 0;
@@ -82,7 +82,7 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
   const labels = new Map<Binding, string>();
   let leader = false;
   for (const b of map.bindings) {
-    if (b.command.startsWith("+")) continue;
+    // A leader group (`+ai`) never resolves: only bindings that run are left.
     let tokens: string[];
     try {
       tokens = parseKeys(b.keys, map.mac);
@@ -116,8 +116,9 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
       scopes.indexOf(a.scope) - scopes.indexOf(b.scope) ||
       rank((a.binding as Binding).command) - rank((b.binding as Binding).command),
   );
-  const tail = hints.filter((h) => h.binding?.command === NEXT_PANE);
+  const pane = (h: Hint) => (h.binding as Binding).command === NEXT_PANE;
+  const tail = hints.filter(pane);
   if (leader)
     tail.push({ keys: [keyLabel(LEADER, map.mac)], desc: "More", binding: null, prefix: [LEADER], scope: "app" });
-  return { main: hints.filter((h) => h.binding?.command !== NEXT_PANE), tail };
+  return { main: hints.filter((h) => !pane(h)), tail };
 }

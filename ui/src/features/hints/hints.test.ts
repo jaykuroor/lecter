@@ -13,6 +13,15 @@ const mac = compileKeymap(DEFAULT_KEYMAP, true);
 /** A hint as it reads on the bar: its keycaps, then its words. */
 const read = (h: Hint) => `${h.keys.join(" ")} ${h.desc}`;
 
+/** A binding in `line` named by its command, as keymaps.jsonc's are, unless `extra` says otherwise. */
+const B = (keys: string, command: string, extra: Partial<Binding> = {}): Binding => ({
+  keys,
+  command,
+  scope: "line",
+  desc: command,
+  ...extra,
+});
+
 /** The defaults with keymaps.jsonc's `bindings` laid over them. */
 function withUser(bindings: unknown[]) {
   const user = parseUserKeymap(JSON.stringify({ version: 1, bindings }), false);
@@ -154,27 +163,48 @@ describe("hintsFor", () => {
   });
 
   it("names a command no default has by its id, keeps a single numbered key whole, and leaves out keys that don't parse", () => {
-    const B = (keys: string, command: string, extra: Partial<Binding> = {}): Binding => ({
-      keys,
-      command,
-      scope: "line",
-      desc: command,
-      ...extra,
-    });
     const map = compileKeymap(
       [
         B("<Mod-3>", "course.go", { scope: "global", desc: "Course 3", arg: 2 }),
         B("<Mod-1>", "course.go", { scope: "global", desc: "Course 1", arg: 0 }),
+        // The buffer's binding of a command comes after the line's, wherever it is in the map.
+        B("y", "made.up", { scope: "buffer" }),
         B("z1", "made.up"),
         B("<Nope>", "ai.steps", { desc: "Steps" }),
+        B("z2", "ai.steps", { desc: "My steps" }),
+        B("z3", "lecture.two", { desc: "Lecture 2" }),
         B("<leader>x", "+lists", { scope: "app", desc: "Lists" }),
       ],
       false,
     );
     const hints = hintsFor(map, "slide-line", "normal");
+    // A default's command keeps the default's place, before ones the defaults don't have; a
+    // binding's own words win; a number ends the words of a key that isn't one of a family.
     // Two numbers apart are two keycaps, lowest first; the leader has only a group, so no "more".
-    expect(hints.main.map(read)).toEqual(["z1 made.up", "Ctrl-1 Ctrl-3 Course"]);
+    expect(hints.main.map(read)).toEqual(["z2 My steps", "z1 y made.up", "z3 Lecture 2", "Ctrl-1 Ctrl-3 Course"]);
     expect(hints.tail).toEqual([]);
+  });
+
+  it("names a numbered family once, dropping only the number at the end", () => {
+    const map = compileKeymap(
+      [
+        B("<F1>", "room.go", { scope: "global", desc: "Room 2 slot11", arg: 0 }),
+        B("<F2>", "room.go", { scope: "global", desc: "Room 2 slot12", arg: 1 }),
+        B("<F12>", "room.go", { scope: "global", desc: "Room 2 slot22", arg: 11 }),
+        B("<F11>", "room.go", { scope: "global", desc: "Room 2 slot21", arg: 10 }),
+        B("<F10>", "room.go", { scope: "global", desc: "Room 2 slot20", arg: 9 }),
+        B("<F3>", "pane.go", { scope: "global", desc: "Pane11", arg: 0 }),
+        B("<S-F1>", "zoom.go", { scope: "global", desc: "Zoom 1", arg: 0 }),
+        B("<S-F12>", "zoom.go", { scope: "global", desc: "Zoom 2", arg: 1 }),
+      ],
+      false,
+    );
+    // F10…F12 share "F1", and Shift-F1 is all of Shift-F12's start, but a number is never split.
+    expect(hintsFor(map, "page", "normal").main.map(read)).toEqual([
+      "F1…2 F10…12 Room 2 slot",
+      "F3 Pane",
+      "Shift-F1…12 Zoom",
+    ]);
   });
 
   it("joins two numbered keys in a row into one range", () => {

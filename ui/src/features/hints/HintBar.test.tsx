@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerCommand } from "../../keys/commands";
+import { registerCommand, runCommand } from "../../keys/commands";
 import { type Keys, startKeys } from "../../keys/install";
-import type { Mode } from "../../keys/keymap";
+import { DEFAULT_KEYMAP, type Mode } from "../../keys/keymap";
 import { setBufferTarget } from "../../keys/locate";
 import { type HintBarHandle, startHintBar } from "./mount";
 
@@ -62,6 +62,8 @@ afterEach(() => {
   bar.stop();
   keys.stop();
   for (const drop of drops.splice(0)) drop();
+  // A spy on requestAnimationFrame would outlive this test's fake clock.
+  vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -208,8 +210,56 @@ describe("the hint bar", () => {
     expect(shown("main")[1]).toBe("hint-key=s hint-key=x hint-desc=Steps hint-mouse=right-click the line");
   });
 
+  it("follows a change of mode alone: insert on an own note keeps the note but drops its keys", () => {
+    cursor.element = "note-line";
+    press("j");
+    frame();
+    expect(words()[1]).toBe("Steps");
+    cursor.mode = "insert";
+    press("i");
+    frame();
+    expect(words()).toEqual(["Course", "Previous pane"]);
+    cursor.mode = "normal";
+    press("Escape");
+    frame();
+    expect(words()[1]).toBe("Steps");
+  });
+
+  it("keeps its buttons when the element and the mode stay the same", () => {
+    const before = host.querySelector(".hint-main .hint");
+    press("j");
+    frame();
+    expect(host.querySelector(".hint-main .hint")).toBe(before);
+    cursor.element = "gloss";
+    press("j");
+    frame();
+    expect(host.querySelector(".hint-main .hint")).not.toBe(before);
+  });
+
+  it("keeps its buttons out of the Tab order: the keys are the keyboard's way", () => {
+    const buttons = [...host.querySelectorAll<HTMLButtonElement>(".hint")];
+    expect(buttons.length).toBeGreaterThan(3);
+    expect(buttons.every((b) => b.tabIndex === -1 && b.type === "button")).toBe(true);
+  });
+
+  it("looks again after a click ran a hint that moved the cursor", () => {
+    drops.push(
+      registerCommand("ai.steps", ({ explicit }) => {
+        expect(explicit).toBe(false);
+        cursor.element = "gloss";
+        return true;
+      }),
+    );
+    ([...host.querySelectorAll<HTMLButtonElement>(".hint-main .hint")][1] as HTMLButtonElement).click();
+    frame();
+    expect(words()[1]).toBe("Regenerate");
+  });
+
   it("goes away when stopped: no bar, no ␣uh, no more looking", () => {
     bar.stop();
+    const hintDetail = DEFAULT_KEYMAP.find((b) => b.command === "ui.hintDetail");
+    expect(hintDetail?.keys).toBe("<leader>uh");
+    expect(runCommand({ binding: hintDetail as never, count: 1, explicit: false })).toBe(false);
     expect(host.textContent).toBe("");
     const raf = vi.spyOn(window, "requestAnimationFrame");
     press("j");

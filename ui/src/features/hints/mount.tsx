@@ -26,17 +26,22 @@ const EVENTS = ["keydown", "pointerdown", "pointerup", "focusin", "focusout"] as
  * changes it.
  */
 export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detail?: HintDetail }): HintBarHandle {
-  const [where, setWhere] = createSignal<{ el: Element; mode: Mode }>({ el: "page", mode: "normal" });
+  const at = () => {
+    const w = locate(document.activeElement);
+    return { el: w.el, mode: w.mode };
+  };
+  const [where, setWhere] = createSignal<{ el: Element; mode: Mode }>(at());
   const [detail, setDetail] = createSignal<HintDetail>(opts.detail ?? DEFAULT_HINT_DETAIL);
-  const [version, setVersion] = createSignal(0);
+  // Pinged when the engine's keymap was replaced; it carries nothing, so every ping counts.
+  const [keymap, keymapChanged] = createSignal(undefined, { equals: false });
 
   let frame = 0;
   /** Where the focus is now; the signal changes only when the element or the mode did. */
   const look = () => {
     frame = 0;
-    const w = locate(document.activeElement);
+    const w = at();
     const now = where();
-    if (w.el !== now.el || w.mode !== now.mode) setWhere({ el: w.el, mode: w.mode });
+    if (w.el !== now.el || w.mode !== now.mode) setWhere(w);
   };
   /** Looks once, in the next frame: after the key or click is done with, before it shows. */
   const schedule = () => {
@@ -53,7 +58,7 @@ export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detai
 
   const dispose = render(() => {
     const hints = createMemo(() => {
-      version();
+      keymap();
       const w = where();
       return hintsFor(opts.engine.map, w.el, w.mode);
     });
@@ -63,13 +68,13 @@ export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detai
   const dropDetail = registerCommand("ui.hintDetail", () => {
     setDetail(nextDetail(detail()));
   });
-  look();
 
   return {
-    refresh: () => setVersion(version() + 1),
+    refresh: () => keymapChanged(),
     stop: () => {
       for (const type of EVENTS) window.removeEventListener(type, schedule, { capture: true });
-      if (frame !== 0) window.cancelAnimationFrame(frame);
+      // Cancelling 0 (nothing waiting) does nothing.
+      window.cancelAnimationFrame(frame);
       dropDetail();
       dispose();
     },
