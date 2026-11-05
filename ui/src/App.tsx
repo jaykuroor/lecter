@@ -3,6 +3,8 @@ import { readKeymaps } from "./core/keymaps";
 import { markStartup } from "./core/startup";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
+import { ReadModeToggle } from "./features/overlay/ReadModeToggle";
+import { createReadMode } from "./features/overlay/readMode";
 import { RailColumn } from "./features/rail/RailColumn";
 import { loadSidebar } from "./features/sidebar/load";
 import { SidebarToggle } from "./features/sidebar/SidebarToggle";
@@ -27,6 +29,7 @@ let editor: Promise<
     typeof import("./features/buffer/Buffer"),
     typeof import("./features/find/exCommand"),
     typeof import("./features/buffer/prewarm"),
+    typeof import("./features/overlay/readEx"),
   ]
 >;
 const loadEditor = () =>
@@ -34,6 +37,7 @@ const loadEditor = () =>
     import("./features/buffer/Buffer"),
     import("./features/find/exCommand"),
     import("./features/buffer/prewarm"),
+    import("./features/overlay/readEx"),
   ]));
 const Buffer = lazy(() => loadEditor().then(([buffer]) => ({ default: buffer.Buffer })));
 
@@ -73,6 +77,9 @@ export function App() {
   const find = createFind();
   // The sidebar (F-036): ␣e or the headerbar button toggles it, and the next start keeps it (D-195).
   const layout = createLayout();
+  // Read mode (F-039): ␣ur, `:read` or the headerbar's button hide the rail, sidebar, hint bar and
+  // keystroke overlay, and show them again.
+  const readMode = createReadMode();
   // `:find words` in the buffer and the Find field both search the open course (F-022).
   const runFind = (words: string) => void find.run(course.course()?.path ?? null, words);
 
@@ -83,6 +90,9 @@ export function App() {
   const dropCommands = [
     registerCommand("sidebar.toggle", () => {
       layout.toggleSidebar();
+    }),
+    registerCommand("ui.readMode", () => {
+      readMode.toggle();
     }),
     // Ctrl/Cmd-1…9: the nth course on the rail; without one the key goes on as usual.
     registerCommand("course.go", ({ binding }) => {
@@ -98,14 +108,19 @@ export function App() {
 
   let gone = false;
   let dropFind: (() => void) | undefined;
+  let dropRead: (() => void) | undefined;
   let stopKeys: (() => void) | undefined;
   let hints: { refresh: () => void; stop: () => void } | undefined;
   let hintHost: HTMLDivElement | undefined;
+  let overlay: { typed: (e: KeyboardEvent) => void; stop: () => void } | undefined;
+  let overlayHost: HTMLDivElement | undefined;
   onCleanup(() => {
     gone = true;
     dropFind?.();
+    dropRead?.();
     keys.stop();
     hints?.stop();
+    overlay?.stop();
     stopKeys?.();
     for (const drop of dropCommands) drop();
   });
@@ -117,11 +132,25 @@ export function App() {
         if (gone) return;
         const started = startKeys({ mac, host: documentColumn as HTMLDivElement });
         stopKeys = started.stop;
-        keys.attach(started.handle);
+        // Each key goes to the engine, then to the keystroke overlay, which only queues it.
+        keys.attach((e) => {
+          started.handle(e);
+          overlay?.typed(e);
+        });
         // The hint bar (F-038) reads the engine's keymap; its chunk comes after the engine's.
         void import("./features/hints/mount").then(({ startHintBar }) => {
           if (gone) return;
           hints = startHintBar({ engine: started.engine, host: hintHost as HTMLDivElement });
+        });
+        // The keystroke overlay (F-039) shows the keys the engine sees; its chunk comes after too.
+        void import("./features/overlay/mount").then(({ startOverlay }) => {
+          if (gone) return;
+          overlay = startOverlay({
+            engine: started.engine,
+            host: overlayHost as HTMLDivElement,
+            mac,
+            hidden: readMode.on,
+          });
         });
         // keymaps.jsonc comes after: the default keys work until it is in, and stay when it
         // can't be used. Nothing on the key path waits for it.
@@ -138,9 +167,10 @@ export function App() {
       void layout.load();
       // The sidebar's chunk, so it is in by the time a course opens (features/sidebar/load.ts).
       void loadSidebar();
-      void loadEditor().then(([, ex, warm]) => {
+      void loadEditor().then(([, ex, warm, read]) => {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);
+        dropRead = read.registerReadCommand(readMode.toggle);
         // Runs the editor's code once while nothing is open, so the first lecture opens faster.
         if (!lecture.lecture()) warm.prewarmEditor();
       });
@@ -160,12 +190,15 @@ export function App() {
   });
 
   return (
-    <div class="app-frame">
+    <div class={readMode.on() ? "app-frame read-mode" : "app-frame"}>
       <header class="headerbar">
         <div class="headerbar-start">
           <SidebarToggle shown={layout.sidebar()} onToggle={layout.toggleSidebar} />
         </div>
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
+        <div class="headerbar-end">
+          <ReadModeToggle on={readMode.on()} onToggle={readMode.toggle} />
+        </div>
       </header>
       <nav class="rail" aria-label="Course rail">
         <RailColumn
@@ -186,6 +219,8 @@ export function App() {
               onEdits={lecture.edit}
             />
           </Show>
+          {/* The keystroke overlay (F-039), bottom right of the buffer. */}
+          <div class="keystroke-overlay-host" ref={overlayHost} />
         </main>
         {/* The hint bar (F-038): the keys that work now, one line above the status line. */}
         <div class="hint-bar-host" ref={hintHost} />

@@ -34,6 +34,11 @@ body,
   justify-self: start;
 }
 
+.headerbar-end {
+  grid-column: 3;
+  justify-self: end;
+}
+
 .headerbar-title {
   grid-column: 2;
   margin: 0;
@@ -61,6 +66,8 @@ body,
 }
 
 .buffer {
+  /* The keystroke overlay (features/overlay) sits in its bottom-right corner. */
+  position: relative;
   overflow: auto;
   background: var(--view-bg);
   color: var(--view-fg);

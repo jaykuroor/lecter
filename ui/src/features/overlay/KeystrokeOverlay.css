@@ -1,0 +1,58 @@
+/* Keystroke overlay (docs/design/components.md#keystroke-overlay; 09-ui.md puts it bottom right of
+   the buffer): the last keys as on-osd keycaps (tokens.keycap states.on-osd: transparent, --osd-fg,
+   border color-mix(--osd-fg 40%)), 12.5px, 1.9em, in an --osd-bg capsule (radius 9px, padding
+   6px 9px, shadow.toast), 14px from the edges. A key the engine still holds is the keycap's "now"
+   state (--accent-bg on --accent-fg). It never takes a click, and sits under which-key. Theme
+   tokens only. */
+.keystroke-overlay {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  max-width: calc(100% - 28px);
+  padding: 6px 9px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--osd-bg);
+  box-shadow: var(--shadow-toast);
+  font-size: 12.5px;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.keystroke-overlay-fading {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .keystroke-overlay-fading {
+    transition: opacity 200ms ease-out;
+  }
+}
+
+.keystroke-key {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9em;
+  min-height: 1.9em;
+  box-sizing: border-box;
+  padding: 0 0.4em;
+  border: 1px solid color-mix(in srgb, var(--osd-fg) 40%, transparent);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--osd-fg);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-weight: 500;
+}
+
+.keystroke-pending {
+  border-color: var(--accent-bg);
+  background: var(--accent-bg);
+  color: var(--accent-fg);
+}
