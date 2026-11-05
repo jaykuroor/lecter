@@ -105,6 +105,23 @@ export const commands = {
 	 *  has no index: E_NOT_TRUSTED (SEC-27).
 	 */
 	searchFind: (course: string, query: string) => typedError<FindHit[], IpcError_Serialize>(__TAURI_INVOKE("search_find", { course, query })),
+	/**
+	 *  The settings schema (`settings.schema.json`, generated from the core's types) as JSON text:
+	 *  the command line completes keys and values and checks a value from it.
+	 */
+	settingsSchema: () => typedError<string, IpcError_Serialize>(__TAURI_INVOKE("settings_schema")),
+	/**
+	 *  The value of `key` in force, and its level. With `course` (a course `course_open` returned this
+	 *  session), the course's own settings count when it is trusted. An unknown key is E_NOT_FOUND.
+	 */
+	settingsGet: (key: string, course: string | null) => typedError<Setting, IpcError_Serialize>(__TAURI_INVOKE("settings_get", { key, course })),
+	/**
+	 *  Writes `key = value` (`value` as JSON text) into the global `config.jsonc`, keeping its
+	 *  comments and other keys, and returns the value then in force (with `course`, as for
+	 *  `settings_get`). A value the setting's type refuses, or an unknown key, is E_INVALID_ARGUMENT
+	 *  with the reason (for a fixed set of values, the list).
+	 */
+	settingsSet: (key: string, value: string, course: string | null) => typedError<Setting, IpcError_Serialize>(__TAURI_INVOKE("settings_set", { key, value, course })),
 };
 
 /** Events */
@@ -395,6 +412,29 @@ export type LectureFile = {
 	date?: string | null,
 };
 
+/**  One setting as it is in force. */
+export type Setting = {
+	/**  The dotted key, e.g. `ui.performance`. */
+	key: string,
+	/**  The value as JSON text: `"balanced"`, `false`, `3`, `null`. */
+	value: string,
+	/**  The level it comes from. */
+	source: SettingSource,
+};
+
+/**  Where a setting's value comes from, most specific first. */
+export type SettingSource = 
+/**  This one prompt. */
+"prompt" | 
+/**  The role file of the gloss type. */
+"role" | 
+/**  The course's `.lecter/course.jsonc`. */
+"course" | 
+/**  The global `config.jsonc`. */
+"global" | 
+/**  Lecter's built-in default. */
+"default";
+
 /**  A startup paint the UI reports to `app_mark_startup`. */
 export type StartupPaint = 
 /**  The app's frame is on screen. */
@@ -560,6 +600,21 @@ export type Commands = {
     args: { course: Parameters<typeof commands.searchFind>[0]; query: Parameters<typeof commands.searchFind>[1] };
     result: CommandOk<Awaited<ReturnType<typeof commands.searchFind>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.searchFind>>>;
+  };
+  settings_schema: {
+    args: Record<string, never>;
+    result: CommandOk<Awaited<ReturnType<typeof commands.settingsSchema>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.settingsSchema>>>;
+  };
+  settings_get: {
+    args: { key: Parameters<typeof commands.settingsGet>[0]; course: Parameters<typeof commands.settingsGet>[1] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.settingsGet>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.settingsGet>>>;
+  };
+  settings_set: {
+    args: { key: Parameters<typeof commands.settingsSet>[0]; value: Parameters<typeof commands.settingsSet>[1]; course: Parameters<typeof commands.settingsSet>[2] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.settingsSet>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.settingsSet>>>;
   };
 };
 

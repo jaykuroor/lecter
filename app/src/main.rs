@@ -59,11 +59,14 @@ fn main() {
     let layout = lecter_core::layout::LayoutStore::new(&dirs);
     // The user's keymaps.jsonc in the global config folder (F-037, D-199).
     let keymaps = lecter_core::keymaps::KeymapsFile::new(&dirs);
+    // The global config.jsonc, which `:set` reads and writes (F-040).
+    let settings = ipc::settings::SettingsFiles::new(&dirs);
     let built = builder
         .manage(ipc::session::OpenedCourses::new(trust))
         .manage(known)
         .manage(layout)
         .manage(keymaps)
+        .manage(settings)
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())

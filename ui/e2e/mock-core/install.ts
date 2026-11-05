@@ -46,6 +46,9 @@ export function installMockCore(fixture: MockFixture): void {
     const error: IpcError = { code, message, retryable: false };
     throw error;
   };
+  // The settings in force, which `settings_set` changes.
+  const settings = { ...fixture.settings.values };
+  delete (window as unknown as { __mockSettings?: unknown }).__mockSettings;
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
     // The layout the app starts with; each save is kept for the test to read back
@@ -150,6 +153,20 @@ export function installMockCore(fixture: MockFixture): void {
       w.__mockFinds ??= [];
       w.__mockFinds.push(args);
       return fixture.find[args.query] ?? [];
+    },
+    settings_schema: () => fixture.settings.schema,
+    settings_get: ({ key }) => {
+      const found = settings[key];
+      if (!found) return fail("E_NOT_FOUND", `${key} is not a setting`);
+      return { key, ...found };
+    },
+    settings_set: (args) => {
+      const w = window as unknown as { __mockSettings?: (typeof args)[] };
+      w.__mockSettings ??= [];
+      w.__mockSettings.push(args);
+      if (!settings[args.key]) return fail("E_INVALID_ARGUMENT", `${args.key} is not a setting`);
+      settings[args.key] = { value: args.value, source: "global" };
+      return { key: args.key, value: args.value, source: "global" };
     },
     // Plays fixture.gloss on the channel as the core would (03-lecture-files.md#body for the div).
     gloss_request: ({ block, question, onEvent }) => {

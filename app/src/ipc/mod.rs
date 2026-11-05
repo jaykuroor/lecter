@@ -14,6 +14,7 @@ pub mod lecture;
 mod names;
 pub mod search;
 pub mod session;
+pub mod settings;
 pub mod validate;
 
 use tauri::Wry;
@@ -39,7 +40,10 @@ pub fn contract() -> Builder<Wry> {
             keymaps::keymaps_read,
             lecture::lecture_open,
             lecture::lecture_apply_edits,
-            search::search_find
+            search::search_find,
+            settings::settings_schema,
+            settings::settings_get,
+            settings::settings_set
         ])
         .events(collect_events![course::rail::CourseChanged])
 }
