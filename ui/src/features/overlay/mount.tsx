@@ -42,6 +42,11 @@ export function startOverlay(opts: {
   const [strip, setStrip] = createSignal<Strip>(EMPTY_STRIP);
   const [fading, setFading] = createSignal(false);
   const queue: KeyboardEvent[] = [];
+  /**
+   * While off or hidden, the shown keys the engine still holds: the `␣u` of the `␣uk` that turns
+   * it on, which came in frames of their own before the `k` (WebKit draws between keys).
+   */
+  let held: string[] = [];
   let frame = 0;
   let stopped = false;
   let fadeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -58,16 +63,22 @@ export function startOverlay(opts: {
   const flush = () => {
     frame = 0;
     const events = queue.splice(0);
+    const typed: string[] = [];
+    for (const e of events) {
+      const token = unshown(e) ? null : eventToken(e);
+      if (token !== null) typed.push(token);
+    }
+    const pending = opts.engine.pending().length;
     if (!on() || opts.hidden()) {
+      const kept = held.concat(typed);
+      held = pending === 0 ? [] : kept.slice(-pending);
       clear();
       return;
     }
-    const tokens: string[] = [];
-    for (const e of events) {
-      const token = unshown(e) ? null : eventToken(e);
-      if (token !== null) tokens.push(token);
-    }
-    const pending = opts.engine.pending().length;
+    // The held keys go in front of the key that ended their sequence, or show while the engine
+    // still holds them; once a click ended it (nothing typed, nothing pending) they go.
+    const tokens = typed.length > 0 || pending > 0 ? held.concat(typed) : typed;
+    held = [];
     if (tokens.length === 0) {
       // Only the engine changed (a click ended a sequence): the marks follow, the timers stay.
       setStrip(addKeys(strip(), [], pending));

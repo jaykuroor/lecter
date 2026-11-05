@@ -195,6 +195,68 @@ describe("the keystroke overlay", () => {
     expect(shown()).toEqual(["␣", "u", "k"]);
   });
 
+  it("shows the whole ␣uk that turns it on when a frame comes between the keys (WebKit)", () => {
+    press(" ");
+    press("u");
+    press("k");
+    frame();
+    expect(shown()).toEqual([]);
+    // Off: each key is drawn (as nothing) in a frame of its own before the next one comes.
+    press(" ");
+    frame();
+    press("u");
+    frame();
+    expect(shown()).toEqual([]);
+    press("k");
+    frame();
+    expect(shown()).toEqual(["␣", "u", "k"]);
+  });
+
+  it("while off, keeps only the keys the engine still holds", () => {
+    runCommand({ binding: binding("ui.keystrokes"), count: 1, explicit: false });
+    frame();
+    // A sequence that broke off, and a count that went with its motion: nothing is held after.
+    press(" ");
+    frame();
+    press("Escape");
+    frame();
+    press("3");
+    frame();
+    press("j");
+    frame();
+    press("x");
+    frame();
+    press(" ");
+    frame();
+    press("u");
+    frame();
+    press("k");
+    frame();
+    expect(shown()).toEqual(["␣", "u", "k"]);
+  });
+
+  it("turned on by mouse, shows the keys the engine still holds; after a click ended them, none", () => {
+    const toggle = () => runCommand({ binding: binding("ui.keystrokes"), count: 1, explicit: false });
+    toggle();
+    frame();
+    press(" ");
+    frame();
+    toggle();
+    frame();
+    expect(shown()).toEqual(["␣*"]);
+    hidden = true;
+    press("Escape");
+    press(" ");
+    frame();
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    hidden = false;
+    frame();
+    expect(shown()).toEqual([]);
+    press("j");
+    frame();
+    expect(shown()).toEqual(["j"]);
+  });
+
   it("starts off when ui.keystrokes is off", () => {
     overlay.stop();
     overlay = startOverlay({ engine: keys.engine, host, mac: false, hidden: () => hidden, on: false });
