@@ -56,5 +56,5 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - codemirror-vim leaves named keys it has no entry for (Enter, Tab) to the browser even in normal mode: Enter moves the caret a line, Tab moves focus; the engine takes the given-up ones in the buffer (src/keys/install.ts) (F-037)
 - The key engine's `onChange` is one slot, which-key's: another listener wraps it and hands it back on stop only if it still holds it (src/features/overlay/mount.tsx) (F-039)
 - `:` in normal mode opens Lecter's command line (src/features/cmdline/mount.tsx remaps it in Vim's global table); lines other than `:set` run on Vim's Ex table as typed, and a new `:` command adds its name to `COMMANDS` in src/features/cmdline/complete.ts to be completed (F-040)
-- jsdom tests can't read repo files through `import.meta.url` (not a file: URL) or a `?raw` import outside ui/ (Vite denies the id): walk up from `process.cwd()` (src/features/cmdline/__tests__/schemaText.ts) (F-040)
+- jsdom tests can't read repo files through `import.meta.url` (not a file: URL) or a `?raw` import outside ui/ (Vite denies the id): walk up from `process.cwd()` (`src/features/cmdline/__tests__/schemaText.ts`) (F-040)
 - V8's sort only looks at `compare(a, b) < 0`, so a comparator's `> 0 ? 1 : 0` branch is a surviving mutant: return -1 or 1 for unique keys (F-040)
