@@ -70,6 +70,9 @@ describe("createRowDrag", () => {
     const { drag, drops } = setup();
     drag.press(down(40), 1);
     up(42);
+    // Released just over the next row, but too close to have been a drag.
+    drag.press(down(28), 0);
+    up(31);
     drag.press(down(40), 1);
     move(55);
     expect(drag.state()).toEqual({ from: 1, to: 1 });

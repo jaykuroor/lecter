@@ -37,29 +37,30 @@ export function createRowDrag(rects: () => DOMRect[], drop: (from: number, to: n
     return hit === -1 ? boxes.length - 1 : hit;
   };
 
-  /** Ends the press. A drag that moved is not a click, wherever the release lands. */
-  function end(): void {
-    session?.abort();
-    session = null;
-    if (!state()) return;
-    setState(null);
-    // The browser's click follows the release in the same task; the flag clears in the next one,
-    // so a release that brings no click doesn't eat a later one.
-    swallowClick = true;
-    setTimeout(() => {
-      swallowClick = false;
-    }, 0);
-  }
-
   onCleanup(() => session?.abort());
 
   function press(e: PointerEvent, from: number): void {
     if (e.button !== 0 || !e.isPrimary || session) return;
     const id = e.pointerId;
     const startY = e.clientY;
-    session = new AbortController();
-    const on = { signal: session.signal };
+    const listening = new AbortController();
+    session = listening;
+    const on = { signal: listening.signal };
     const mine = (ev: PointerEvent) => ev.pointerId === id;
+
+    /** Ends the press. A drag that moved is not a click, wherever the release lands. */
+    const end = () => {
+      listening.abort();
+      session = null;
+      if (!state()) return;
+      setState(null);
+      // The browser's click follows the release in the same task; the flag clears in the next
+      // one, so a release that brings no click doesn't eat a later one.
+      swallowClick = true;
+      setTimeout(() => {
+        swallowClick = false;
+      }, 0);
+    };
 
     window.addEventListener(
       "pointermove",

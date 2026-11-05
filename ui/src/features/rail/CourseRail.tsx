@@ -48,9 +48,10 @@ export function CourseRail(props: {
   let refocus: string | null = null;
   createEffect(() => {
     const index = props.courses.findIndex((c) => c.path === refocus);
-    if (index === -1) return;
+    const button = buttons()[index];
+    if (!button) return;
     refocus = null;
-    buttons()[index]?.focus();
+    button.focus();
   });
 
   function move(from: number, to: number): void {

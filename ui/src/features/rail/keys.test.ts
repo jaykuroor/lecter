@@ -33,6 +33,17 @@ describe("courseSlot", () => {
     expect(courseSlot(key({ key: "ç", code: "Digit9", ctrlKey: true }), false)).toBe(8);
   });
 
+  it("goes by the character for a key without a code (a synthetic one)", () => {
+    for (let n = 1; n <= 9; n++) {
+      expect(courseSlot(key({ key: String(n), ctrlKey: true }), false)).toBe(n - 1);
+    }
+    expect(courseSlot(key({ key: "0", ctrlKey: true }), false)).toBeNull();
+    expect(courseSlot(key({ key: "a", ctrlKey: true }), false)).toBeNull();
+    expect(courseSlot(key({ key: "Digit1", ctrlKey: true }), false)).toBeNull();
+    // With a code, the code decides: the digit row's place, not the keypad's.
+    expect(courseSlot(key({ key: "1", code: "Numpad1", ctrlKey: true }), false)).toBeNull();
+  });
+
   it("ignores a key held down (auto-repeat) and the keypad's other keys", () => {
     expect(courseSlot(key({ key: "2", code: "Digit2", ctrlKey: true, repeat: true }), false)).toBeNull();
     expect(courseSlot(key({ key: "+", code: "NumpadAdd", ctrlKey: true }), false)).toBeNull();

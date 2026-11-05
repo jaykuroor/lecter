@@ -215,6 +215,10 @@ describe("CourseRail", () => {
     expect(calls.select).toEqual([calc.path]);
     drag(row(0), 5, 25);
     expect(calls.reorder).toEqual([]);
+    // That one moved: its click opens nothing. A real click after it does.
+    expect(calls.select).toEqual([calc.path]);
+    fireEvent.click(row(0));
+    expect(calls.select).toEqual([calc.path, stat.path]);
   });
 
   it("cancels a drag with Escape or a cancelled pointer, and ignores other buttons", () => {

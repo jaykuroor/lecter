@@ -13,13 +13,16 @@ export function courseSlot(e: KeyboardEvent, mac: boolean): number | null {
   if (!mod || other || e.altKey || e.shiftKey || e.repeat) return null;
   // The digit row by place, so layouts that type something else there (AZERTY's &) still work;
   // a synthetic key without a code goes by the character.
-  const digit = e.code ? /^Digit([1-9])$/.exec(e.code)?.[1] : /^[1-9]$/.exec(e.key)?.[0];
-  return digit ? Number(digit) - 1 : null;
+  const slot = e.code ? DIGIT_CODES.indexOf(e.code) : DIGITS.indexOf(e.key);
+  return slot === -1 ? null : slot;
 }
+
+const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const DIGIT_CODES = DIGITS.map((d) => `Digit${d}`);
 
 /** Whether the app runs on macOS, where the course keys use Cmd. */
 export function isMacPlatform(nav: Pick<Navigator, "platform" | "userAgent"> = navigator): boolean {
-  return /^Mac/.test(nav.platform) || /Macintosh|Mac OS X/.test(nav.userAgent);
+  return /Mac/.test(nav.platform) || /Macintosh/.test(nav.userAgent);
 }
 
 /**
