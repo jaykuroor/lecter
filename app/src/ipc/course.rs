@@ -1,10 +1,12 @@
 //! The `course` area: opening a course folder the user picks in a native dialog, returning its
 //! `lectures/` and `slides/` listing (`lecter_core::course`) with its trust screen, and storing the
 //! user's answer (`course_trust`, 02-course-folder.md#trust). The core enforces the answer:
-//! [`require_trusted`] guards every AI and indexing command (SEC-27).
+//! [`require_trusted`] guards every AI and indexing command (SEC-27). After Trust, the course
+//! details form saves through `course_details_save` (`details.rs`).
 
 use std::path::{Path, PathBuf};
 
+use lecter_core::course::details::{self as course_details, CourseDetails};
 use lecter_core::course::trust::{self, TrustChoice, TrustScreen, TrustState, TrustStore};
 use lecter_core::course::{self, CourseListing};
 use serde::Serialize;
@@ -30,10 +32,13 @@ pub struct CourseOpened {
 
 /// `course_trust`'s result: where the course's trust stands after the answer, and its screen as
 /// it is now (asked again, with `changed`, when its AI files changed while the screen was open).
+/// A course now trusted whose details were never saved comes with the details form's first
+/// values (02-course-folder.md#course-details-coursejsonc); otherwise `details` is `null`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct CourseTrusted {
     pub trust: TrustState,
     pub screen: TrustScreen,
+    pub details: Option<CourseDetails>,
 }
 
 /// Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
@@ -102,15 +107,21 @@ async fn answer(
     let shown = courses.shown(&course).unwrap_or_default();
     let store = courses.trust().clone();
     let path = course.clone();
-    let review = blocking("Lecter could not save your answer.", move || {
+    let (review, details) = blocking("Lecter could not save your answer.", move || {
         trust::decide(&store, &path, choice, &shown)?;
         let listing = course::open(Path::new(&path))?;
-        trust::review(&store, &listing, &provider)
+        let review = trust::review(&store, &listing, &provider)?;
+        // Only a trusted course gets the form: a read-only one never writes course.jsonc.
+        let details = match review.state {
+            TrustState::Trusted => course_details::pending(Path::new(&path))?,
+            TrustState::Ask | TrustState::ReadOnly => None,
+        };
+        Ok((review, details))
     })
     .await?;
     tracing::info!(target: "ipc", command = "course_trust", ?choice, state = ?review.state, "trust answered");
     courses.remember(&course, &review.fingerprint);
-    Ok(CourseTrusted { trust: review.state, screen: review.screen })
+    Ok(CourseTrusted { trust: review.state, screen: review.screen, details })
 }
 
 /// SEC-27: succeeds only when `course` is trusted as it is now; a read-only, unanswered or changed
@@ -168,5 +179,6 @@ pub(super) fn opened_for_test(
     courses
 }
 
+pub mod details;
 #[cfg(test)]
 mod tests;

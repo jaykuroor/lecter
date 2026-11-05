@@ -49,6 +49,11 @@ export const commands = {
 	 */
 	courseTrust: (course: string, choice: TrustChoice) => typedError<CourseTrusted, IpcError_Serialize>(__TAURI_INVOKE("course_trust", { course, choice })),
 	/**
+	 *  Saves `details` for `course` (a course `course_open` returned this session) and returns them as
+	 *  written: trimmed, the colour in lower case.
+	 */
+	courseDetailsSave: (course: string, details: CourseDetails) => typedError<CourseDetails, IpcError_Serialize>(__TAURI_INVOKE("course_details_save", { course, details })),
+	/**
 	 *  Opens `path` (`lectures/<name>.md`, relative to the course) in `course`, which must be a
 	 *  course `course_open` returned this session, and returns the whole file with any journal
 	 *  edits newer than it applied. A path outside `lectures/` is E_INVALID_ARGUMENT, a missing
@@ -81,12 +86,48 @@ export type AppInfo = {
 	version: string,
 };
 
+/**
+ *  What the course details form collects. Every field is always written; empty text is allowed
+ *  for the code, term and professor.
+ */
+export type CourseDetails = {
+	/**  The course's name, e.g. `Probability and Statistics`. Never empty. */
+	name: string,
+	/**  The course code, e.g. `STAT 311`. */
+	code: string,
+	/**  The term, e.g. `Fall 2026`. */
+	term: string,
+	/**  The professor, e.g. `Dr. Rivera`. */
+	professor: string,
+	/**
+	 *  A short text (a letter, e.g. `S`), or the course-relative path of an image in `.lecter/`,
+	 *  e.g. `.lecter/icon.png`.
+	 */
+	icon: string,
+	/**  `#rrggbb`, e.g. `#3584e4`. */
+	color: string,
+	/**  Where the course keeps each kind of file. */
+	folders: CourseFolders,
+};
+
 /**  One file in a course subfolder. */
 export type CourseFile = {
 	/**  The file name, e.g. `07-covariance.pdf`. */
 	name: string,
 	/**  The path relative to the course root with `/` separators, e.g. `slides/07-covariance.pdf`. */
 	path: string,
+};
+
+/**  The folder mapping: course-relative paths with `/` separators. */
+export type CourseFolders = {
+	/**  Slide decks, e.g. `slides`. */
+	slides: string,
+	/**  Textbooks, papers and past exams, e.g. `sources`. */
+	sources: string,
+	/**  Lecture notes, e.g. `lectures`. */
+	lectures: string,
+	/**  Past exam papers, e.g. `sources/past-papers`. */
+	pastPapers: string,
 };
 
 /**  An opened course folder and the files in its `lectures/` and `slides/`. */
@@ -114,10 +155,13 @@ export type CourseOpened = {
 /**
  *  `course_trust`'s result: where the course's trust stands after the answer, and its screen as
  *  it is now (asked again, with `changed`, when its AI files changed while the screen was open).
+ *  A course now trusted whose details were never saved comes with the details form's first
+ *  values (02-course-folder.md#course-details-coursejsonc); otherwise `details` is `null`.
  */
 export type CourseTrusted = {
 	trust: TrustState,
 	screen: TrustScreen,
+	details: CourseDetails | null,
 };
 
 /**
@@ -372,6 +416,11 @@ export type Commands = {
     args: { course: Parameters<typeof commands.courseTrust>[0]; choice: Parameters<typeof commands.courseTrust>[1] };
     result: CommandOk<Awaited<ReturnType<typeof commands.courseTrust>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.courseTrust>>>;
+  };
+  course_details_save: {
+    args: { course: Parameters<typeof commands.courseDetailsSave>[0]; details: Parameters<typeof commands.courseDetailsSave>[1] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.courseDetailsSave>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.courseDetailsSave>>>;
   };
   lecture_open: {
     args: { course: Parameters<typeof commands.lectureOpen>[0]; path: Parameters<typeof commands.lectureOpen>[1] };
