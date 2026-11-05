@@ -1294,7 +1294,7 @@
     "screenshot:read-mode"
    ],
    "try": "Type keys and watch the overlay; try Space u r for read mode",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3034,
    "base": "d3366d43b0652baf72d1c3a6bc270a413173c8ff"

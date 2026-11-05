@@ -1273,3 +1273,45 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: no settings_get IPC, and the settings schema (D-171) is outside F-038's paths.
 - Instead of: wiring Rust settings in F-038.
 - Revisit if: F-045/F-160: add ui.hintBar to the schema, pass it as `detail`, make ␣uh write it.
+
+## D-212 · ui.keystrokes is an input to the overlay until settings exist (F-039)
+2026-11-05 · F-039 builder, recorded by the orchestrator · active
+- Decision: `startOverlay` takes `on` (default true, 09-ui "on by default"); ␣uk toggles it for the session only.
+- Why: no settings schema entry or settings_get IPC (same gap as D-211).
+- Instead of: a settings layer in F-039.
+- Revisit if: F-045/F-160: add ui.keystrokes to the schema, pass it as `on`, make ␣uk write it.
+
+## D-213 · Read mode lasts for the session only (F-039)
+2026-11-05 · F-039 builder, recorded by the orchestrator · active
+- Decision: read mode is not saved and starts off at every launch.
+- Why: the spec is silent, and a mode is transient.
+- Instead of: saving it in `<data>/state.db` like the sidebar (D-195).
+- Revisit if: users expect read mode to survive a restart.
+
+## D-214 · A headerbar Read mode button is its mouse path (F-039)
+2026-11-05 · F-039 builder, recorded by the orchestrator · active
+- Decision: a right-side headerbar icon button with a ␣ur keycap and aria-pressed toggles read mode.
+- Why: every action must be reachable by mouse (AGENTS.md); docs/design components list right-side headerbar controls.
+- Instead of: key-only read mode.
+- Revisit if: the command palette or a menu becomes the standard mouse path for toggles.
+
+## D-215 · `:read` matches only the whole word (F-039)
+2026-11-05 · F-039 builder, recorded by the orchestrator · active
+- Decision: only `:read` enters read mode; `:r` and `:re` stay Vim's.
+- Why: avoids shadowing Vim's own short commands.
+- Instead of: Vim-style prefix abbreviation.
+- Revisit if: F-040's command line defines a general abbreviation rule.
+
+## D-216 · The overlay draws once per frame from a queue (F-039)
+2026-11-05 · F-039 builder, recorded by the orchestrator · active
+- Decision: the keydown only pushes the key; the overlay redraws once per requestAnimationFrame.
+- Why: keystroke_p99_ms (mocked quick run 6.7 / 8 ms).
+- Instead of: drawing in the keydown handler.
+- Revisit if: the overlay needs to show keys before the next frame.
+
+## D-217 · The overlay keeps 8 keys and hides IME and password keystrokes (F-039)
+2026-11-05 · F-039 builder, recorded by the orchestrator · active
+- Decision: the strip holds at most the last 8 keys; composition (IME) keys and keys typed into password fields are not shown.
+- Why: a bounded strip, and no secrets on screen.
+- Instead of: an unbounded strip that echoes every key.
+- Revisit if: users want longer history or to see IME input.
