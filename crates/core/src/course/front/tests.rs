@@ -57,6 +57,7 @@ fn quotes_spaces_and_a_comment_may_surround_the_date() {
         "date: '2026-10-23'",
         "date: 2026-10-23 # moved from Thursday",
         "date: '2026-10-23'\t# moved",
+        "date: 2026-10-23 #moved",
     ] {
         assert_eq!(date(&format!("---\n{line}\n---\n")), Some("2026-10-23".to_owned()), "{line}");
     }
@@ -79,6 +80,8 @@ fn anything_not_shaped_like_yyyy_mm_dd_is_no_date() {
         "date: \"2026-10-23'",
         "date: \"2026-10-23",
         "date: 2026-10-23#no space before the hash",
+        "date: 2026-10-23# x",
+        "date:#2026-10-23",
         "date: # 2026-10-23",
         "date: ２０２６-10-23",
     ] {
@@ -111,6 +114,14 @@ fn a_lecture_file_is_read_for_its_date() {
     let env = env();
     let path = env.home().join("l07.md");
     std::fs::write(&path, SPEC_EXAMPLE).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(lecture_date(&path), Some("2026-10-23".to_owned()));
+}
+
+#[test]
+fn a_short_file_ending_without_a_newline_is_read_whole() {
+    let env = env();
+    let path = env.home().join("short.md");
+    std::fs::write(&path, "---\ndate: 2026-10-23").unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(lecture_date(&path), Some("2026-10-23".to_owned()));
 }
 

@@ -29,12 +29,14 @@ export function createLayout(): LayoutState {
   }
 
   async function load(): Promise<void> {
+    let result: Awaited<ReturnType<typeof getLayout>>;
     try {
-      const result = await getLayout();
-      if (result.status === "ok" && !toggled) setSidebar(result.data.sidebar);
+      result = await getLayout();
     } catch {
       // Without the core the sidebar shows, as on a first start.
+      return;
     }
+    if (result.status === "ok" && !toggled) setSidebar(result.data.sidebar);
   }
 
   return { sidebar, toggleSidebar, load };

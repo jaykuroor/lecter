@@ -66,10 +66,8 @@ fn iso_day(value: &[u8]) -> Option<String> {
         _ => value,
     };
     let value = value.trim_ascii();
-    let value = [b'"', b'\'']
-        .iter()
-        .find_map(|&q| value.strip_prefix(&[q]).and_then(|v| v.strip_suffix(&[q])))
-        .unwrap_or(value);
+    let value =
+        b"\"'".iter().find_map(|&q| value.strip_prefix(&[q]).and_then(|v| v.strip_suffix(&[q]))).unwrap_or(value);
     let shaped = value.len() == 10
         && value.iter().enumerate().all(|(i, b)| if i == 4 || i == 7 { *b == b'-' } else { b.is_ascii_digit() });
     // Only ASCII digits and dashes are left, so this is valid UTF-8.
