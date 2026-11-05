@@ -1,6 +1,7 @@
 import { createEffect, createSignal, lazy, onCleanup, onMount, Show } from "solid-js";
 import { markStartup } from "./core/startup";
 import { CoursePanel } from "./features/course/CoursePanel";
+import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
 import { TrustScreen } from "./features/trust/TrustScreen";
 import { createAppInfo } from "./state/appInfo";
@@ -130,6 +131,23 @@ export function App() {
               busy={course.busy()}
               onAnswer={(choice) => void course.answer(choice)}
             />
+          )}
+        </Show>
+        {/* Right after Trust, for a course whose details were never saved (F-034). */}
+        <Show when={course.course()}>
+          {(c) => (
+            <Show when={course.details()}>
+              {(d) => (
+                <DetailsForm
+                  folder={c().name}
+                  details={d()}
+                  busy={course.busy()}
+                  error={course.detailsError()}
+                  onSave={(values) => void course.saveDetails(values)}
+                  onSkip={course.skipDetails}
+                />
+              )}
+            </Show>
           )}
         </Show>
         <footer class="status-line" role="status" aria-label="Status line">

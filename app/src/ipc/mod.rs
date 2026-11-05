@@ -29,6 +29,7 @@ pub fn contract() -> Builder<Wry> {
             app::app_mark_startup,
             course::course_open,
             course::course_trust,
+            course::details::course_details_save,
             lecture::lecture_open,
             lecture::lecture_apply_edits,
             search::search_find

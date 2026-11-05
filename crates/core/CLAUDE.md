@@ -25,3 +25,4 @@ Spec: `01-architecture.md#document-model`, `#job-scheduler`; `02-course-folder.m
 - `settings.schema.json` is regenerated with `LECTER_WRITE_SCHEMA=1 cargo test -p lecter-core settings_schema`; enum variants with doc comments come out as `oneOf`/`const`, not `enum` (settings/keys.rs reads both) (F-030)
 - First run means no `config.jsonc`, not no config folder: the settings watcher creates the folder on every start (`AppDirs::run_state`, paths/first_run.rs) (F-031)
 - A test that chmods a folder read-only must keep the test home removable even when killed (mutation runs time tests out): lock an empty subfolder, never the course root, or `.verify/mutants-tmp` is left behind and the next run fails (F-021)
+- The trust fingerprint must hash an empty or missing `settings` in course.jsonc like no course.jsonc at all (course/trust/survey.rs), or saving course details into a new file asks the trust question again (F-034)

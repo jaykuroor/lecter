@@ -2,7 +2,7 @@ import { createRoot } from "solid-js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultFixture, trustScreen } from "../../e2e/mock-core/fixture";
 import { installMockCore } from "../../e2e/mock-core/install";
-import type { CourseOpened } from "../core/bindings";
+import type { CourseDetails, CourseOpened } from "../core/bindings";
 import { type CourseState, createCourse } from "./course";
 
 const algebra: CourseOpened = {
@@ -12,6 +12,16 @@ const algebra: CourseOpened = {
   slides: [],
   trust: "ask",
   screen: trustScreen,
+};
+
+const details: CourseDetails = {
+  name: "Algebra",
+  code: "",
+  term: "",
+  professor: "",
+  icon: "A",
+  color: "#3584e4",
+  folders: { slides: "slides", sources: "sources", lectures: "lectures", pastPapers: "sources/past-papers" },
 };
 
 type Invoke = (cmd: string, args?: unknown) => Promise<unknown>;
@@ -156,5 +166,101 @@ describe("course state", () => {
     expect(s.error()).toBe("Lecter could not reach the core to open the folder.");
     expect(s.course()).toEqual(algebra);
     expect(s.busy()).toBe(false);
+  });
+
+  // F-034: Trust brings the details form with the core's first values; Save sends them to
+  // `course_details_save` for the open course and closes the form once the core wrote them.
+  it("shows the details form after Trust and closes it once saved", async () => {
+    const sent: unknown[] = [];
+    const answers: unknown[] = [algebra, { trust: "trusted", screen: trustScreen, details }, details];
+    const w = window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } };
+    w.__TAURI_INTERNALS__.invoke = (cmd, args) => {
+      sent.push([cmd, args]);
+      return Promise.resolve(answers.shift());
+    };
+    const s = state();
+    await s.saveDetails(details);
+    expect(sent).toEqual([]);
+    await s.open();
+    expect(s.details()).toBeNull();
+    await s.answer("trusted");
+    expect(s.details()).toEqual(details);
+    const mine = { ...details, professor: "Dr. Rivera" };
+    await s.saveDetails(mine);
+    expect(sent[2]).toEqual(["course_details_save", { course: "/courses/Algebra", details: mine }]);
+    expect(s.details()).toBeNull();
+    expect(s.detailsError()).toBeNull();
+    expect(s.busy()).toBe(false);
+    // With the form closed, nothing more is saved.
+    await s.saveDetails(mine);
+    expect(sent).toHaveLength(3);
+  });
+
+  // A read-only course never gets the form, even if an answer carried values.
+  it("never shows the form for a read-only course", async () => {
+    scriptCore([algebra, { trust: "read_only", screen: trustScreen, details }]);
+    const s = state();
+    await s.open();
+    await s.answer("read_only");
+    expect(s.details()).toBeNull();
+  });
+
+  // A failed save keeps the form open with the core's reason; Later closes it without a save.
+  it("keeps the form open with the reason when a save fails, and Later closes it", async () => {
+    const calls = scriptCore([
+      algebra,
+      { trust: "trusted", screen: trustScreen, details },
+      { code: "E_INVALID_ARGUMENT", message: "Give the course a name.", retryable: false },
+      new Error("IPC bridge gone"),
+    ]);
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    await s.saveDetails({ ...details, name: "" });
+    expect(s.details()).toEqual(details);
+    expect(s.detailsError()).toBe("Give the course a name.");
+    await s.saveDetails(details);
+    expect(s.detailsError()).toBe("Lecter could not reach the core to save the course details.");
+    expect(s.busy()).toBe(false);
+    s.skipDetails();
+    expect(s.details()).toBeNull();
+    expect(s.detailsError()).toBeNull();
+    expect(calls()).toBe(4);
+  });
+
+  // One save at a time: it holds `busy` until the core replies, and a second Save meanwhile is
+  // not sent.
+  it("saves the details once at a time", async () => {
+    let reply: (v: unknown) => void = () => {};
+    const sent: string[] = [];
+    const answers: unknown[] = [algebra, { trust: "trusted", screen: trustScreen, details }];
+    const w = window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } };
+    w.__TAURI_INTERNALS__.invoke = (cmd) => {
+      sent.push(cmd);
+      const a = answers.shift();
+      return a === undefined ? new Promise((resolve) => (reply = resolve)) : Promise.resolve(a);
+    };
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    const first = s.saveDetails(details);
+    expect(s.busy()).toBe(true);
+    await s.saveDetails(details);
+    expect(sent).toEqual(["course_open", "course_trust", "course_details_save"]);
+    reply(details);
+    await first;
+    expect(s.busy()).toBe(false);
+    expect(s.details()).toBeNull();
+  });
+
+  // Opening another course closes the first one's form.
+  it("closes the form when another course opens", async () => {
+    scriptCore([algebra, { trust: "trusted", screen: trustScreen, details }, { ...algebra, path: "/courses/Calc" }]);
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    expect(s.details()).toEqual(details);
+    await s.open();
+    expect(s.details()).toBeNull();
   });
 });

@@ -307,7 +307,11 @@ fn settings_overrides(print: &mut Print, root: &Path) -> Vec<String> {
             return Vec::new();
         }
     };
-    print.part("settings", object.to_string().as_bytes());
+    // No overrides read the same as no file, so writing the course details into a new
+    // `course.jsonc` (F-034) doesn't ask the trust question again.
+    if object.as_object().is_some_and(|o| !o.is_empty()) {
+        print.part("settings", object.to_string().as_bytes());
+    }
     let layer = Layer::from_value(Source::Course, &object);
     let mut keys: Vec<String> = layer.keys().map(str::to_owned).collect();
     keys.extend(layer.ignored.iter().cloned());

@@ -7,6 +7,7 @@
 //!
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
+pub mod details;
 mod listing;
 pub mod trust;
 

@@ -28,7 +28,8 @@ const matching: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
-  course_trust: ({ choice }) => ({ trust: choice, screen }),
+  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_details_save: ({ details }) => details,
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -47,7 +48,8 @@ const wrongResult: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
-  course_trust: ({ choice }) => ({ trust: choice, screen }),
+  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_details_save: ({ details }) => details,
 };
 
 const wrongEnum: MockHandlers = {
@@ -60,7 +62,8 @@ const wrongEnum: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
-  course_trust: ({ choice }) => ({ trust: choice, screen }),
+  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_details_save: ({ details }) => details,
 };
 
 const extra: MockHandlers = {
@@ -72,7 +75,8 @@ const extra: MockHandlers = {
   gloss_request: () => "g-0001",
   gloss_cancel: () => null,
   app_mark_startup: () => undefined,
-  course_trust: ({ choice }) => ({ trust: choice, screen }),
+  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_details_save: ({ details }) => details,
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -87,6 +91,7 @@ const commandNames: CommandName[] = [
   "app_mark_startup",
   "course_open",
   "course_trust",
+  "course_details_save",
   "lecture_open",
   "lecture_apply_edits",
   "search_find",

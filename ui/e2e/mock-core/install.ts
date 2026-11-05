@@ -53,7 +53,15 @@ export function installMockCore(fixture: MockFixture): void {
         };
         throw error;
       }
-      return { trust: args.choice, screen: { ...opened.screen, changed: false } };
+      const details = args.choice === "trusted" ? fixture.details : null;
+      return { trust: args.choice, screen: { ...opened.screen, changed: false }, details };
+    },
+    // Records each save for the test to read back (window.__mockDetails) and answers with it.
+    course_details_save: (args) => {
+      const w = window as unknown as { __mockDetails?: (typeof args)[] };
+      w.__mockDetails ??= [];
+      w.__mockDetails.push(args);
+      return args.details;
     },
     lecture_open: ({ path }) => {
       const lecture = fixture.lectures[path];
