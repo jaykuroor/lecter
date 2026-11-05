@@ -59,6 +59,10 @@ body,
   grid-column: 2;
   grid-row: 2;
   display: grid;
+  /* One column, the track's own width: a row's content (the hint bar's keys, the status line's
+     notice) is cut where the line ends and never widens the buffer under the side panel. An
+     implicit (auto) column grew to their min-content (CI-bdabbe9). */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto auto;
   min-width: 0;
   /* The trust screen (features/trust) floats over the document. */
