@@ -85,9 +85,8 @@ export function parseUserKeymap(text: string, mac: boolean): { bindings: UserBin
 }
 
 /** The commands a binding may name: every one the default keymap has (10-keymap.md). */
-const KNOWN_COMMANDS: ReadonlySet<string> = new Set(
-  DEFAULT_KEYMAP.map((b) => b.command).filter((c) => !c.startsWith("+")),
-);
+// Group names (`+ai`) are among them, but a binding naming one is refused before this check.
+const KNOWN_COMMANDS: ReadonlySet<string> = new Set(DEFAULT_KEYMAP.map((b) => b.command));
 
 /** One entry, checked; a string says what is wrong with it. */
 function checkEntry(entry: unknown, mac: boolean): UserBinding | string {

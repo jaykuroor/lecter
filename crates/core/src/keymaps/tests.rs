@@ -52,6 +52,20 @@ fn refuses_text_that_is_not_utf8() {
     assert_eq!(e.to_string(), "keymaps.jsonc is not UTF-8 text; the default keys are used.");
 }
 
+#[cfg(unix)]
+#[test]
+fn a_file_it_may_not_read_is_an_io_error_not_no_file() {
+    use std::os::unix::fs::PermissionsExt;
+    let env = TestEnv::new().unwrap();
+    let (keymaps, path) = file(&env);
+    std::fs::write(&path, "{}").unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let read = keymaps.read();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    // Permission denied is not "no file": the UI shows it and keeps the defaults.
+    assert_eq!(read.unwrap_err().code(), ErrorCode::Io);
+}
+
 #[test]
 fn a_folder_in_its_place_is_an_io_error() {
     let env = TestEnv::new().unwrap();

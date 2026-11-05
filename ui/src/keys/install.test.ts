@@ -288,6 +288,15 @@ describe("the engine in the page", () => {
     withFile.stop();
   });
 
+  it("drops a pending key when keymaps.jsonc arrives", () => {
+    const keys = start();
+    press(document.body, " ");
+    expect(keys.engine.pending()).toEqual(["<Space>"]);
+    expect(keys.setUserKeymap(null)).toEqual([]);
+    expect(keys.engine.pending()).toEqual([]);
+    expect(press(document.body, "e")).toBe(true);
+  });
+
   it("uses keymaps.jsonc's bindings over the defaults", () => {
     const boot = bootKeys(window, false);
     stopBoot = boot.stop;

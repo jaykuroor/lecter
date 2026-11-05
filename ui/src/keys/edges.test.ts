@@ -314,6 +314,8 @@ describe("the buffer side at its edges", () => {
     const t = bufferTarget(view, view.dom);
     expect(t.mode()).toBe("normal");
     expect(() => t.replay(["j"])).not.toThrow();
+    t.focus();
+    expect(view.hasFocus).toBe(true);
     view.destroy();
   });
 });

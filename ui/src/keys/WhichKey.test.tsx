@@ -170,6 +170,24 @@ describe("which-key", () => {
     expect(calls).toEqual(["1 false"]);
   });
 
+  it("says which key moves to the next pane, as the keymap has it", () => {
+    press(" ");
+    vi.advanceTimersByTime(300);
+    expect(host.querySelector(".which-key-hint")?.textContent).toBe("Esc to close · F6 next pane");
+    press("Escape");
+    keys.setUserKeymap(
+      '{"version": 1, "bindings": [{"keys": "<F6>", "command": null}, {"keys": "<C-S-n>", "command": "focus.next"}]}',
+    );
+    press(" ");
+    vi.advanceTimersByTime(300);
+    expect(host.querySelector(".which-key-hint")?.textContent).toBe("Esc to close · Ctrl-Shift-n next pane");
+    press("Escape");
+    keys.setUserKeymap('{"version": 1, "bindings": [{"keys": "<F6>", "command": null}]}');
+    press(" ");
+    vi.advanceTimersByTime(300);
+    expect(host.querySelector(".which-key-hint")?.textContent).toBe("Esc to close");
+  });
+
   it("is gone with the engine", () => {
     press(" ");
     keys.stop();

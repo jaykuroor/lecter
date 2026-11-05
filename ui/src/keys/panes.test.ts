@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { runCommand } from "./commands";
 import { type Keys, startKeys } from "./install";
 import { setBufferTarget } from "./locate";
 import { cyclePanes } from "./panes";
@@ -90,6 +91,56 @@ describe("F6", () => {
     expect(focused()).toBe("find");
     f6(true);
     expect(focused()).toBe("c2");
+  });
+
+  it("passes over panes with nothing to focus, and stays put when no other pane can take the focus", () => {
+    (document.querySelector(".side-panel") as HTMLElement).innerHTML = `<input id="gone" hidden />`;
+    (document.getElementById("content") as HTMLElement).focus();
+    f6();
+    expect(focused()).toBe("c2");
+    // Only the sidebar is left: F6 there goes nowhere and lets the key through.
+    document.querySelector(".course-rail")?.remove();
+    dropBuffer();
+    (document.getElementById("lec") as HTMLElement).focus();
+    expect(f6()).toBe(true);
+    expect(focused()).toBe("lec");
+  });
+
+  it("reaches the last pane from nowhere when it is the only one", () => {
+    document.querySelector(".rail")?.remove();
+    dropBuffer();
+    expect(f6()).toBe(false);
+    expect(focused()).toBe("find");
+  });
+
+  it("finds a pane's other focusable things", () => {
+    const side = document.querySelector(".side-panel") as HTMLElement;
+    for (const html of [
+      `<textarea id="x"></textarea>`,
+      `<select id="x"></select>`,
+      `<button id="x">b</button>`,
+      `<div id="x" tabindex="-1"></div>`,
+    ]) {
+      side.innerHTML = html;
+      (document.getElementById("c2") as HTMLElement).focus();
+      f6(true);
+      expect(focused(), html).toBe("x");
+    }
+    (document.getElementById("sidebar") as HTMLElement).innerHTML = `<div id="row" tabindex="-1">row</div>`;
+    (document.getElementById("c2") as HTMLElement).focus();
+    f6();
+    expect(focused()).toBe("row");
+  });
+
+  it("stops with the engine", () => {
+    keys.stop();
+    expect(
+      runCommand({
+        binding: { keys: "<F6>", command: "focus.next", scope: "global", desc: "" },
+        count: 1,
+        explicit: false,
+      }),
+    ).toBe(false);
   });
 
   it("takes the first row when none is current, and lets F6 through when no pane can take it", () => {

@@ -118,7 +118,6 @@ export function App() {
         // keymaps.jsonc comes after: the default keys work until it is in, and stay when it
         // can't be used. Nothing on the key path waits for it.
         void readKeymaps().then((read) => {
-          if (gone) return;
           setKeyNotice(read.status === "ok" ? started.setUserKeymap(read.data) : [read.error.message]);
         });
       });

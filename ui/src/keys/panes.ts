@@ -51,7 +51,7 @@ function focusPane(doc: Document, pane: Pane): boolean {
  */
 export function cyclePanes(doc: Document, dir: 1 | -1): boolean {
   const active = doc.activeElement;
-  const at = PANES.findIndex((p) => active !== null && doc.querySelector(p.root)?.contains(active) === true);
+  const at = PANES.findIndex((p) => doc.querySelector(p.root)?.contains(active) === true);
   const n = PANES.length;
   // With no pane focused, F6 starts at the first and Shift-F6 at the last.
   const start = at === -1 ? (dir === 1 ? n - 1 : 0) : at;
