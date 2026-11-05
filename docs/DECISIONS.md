@@ -1106,3 +1106,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: debug and `test-hooks` builds trust courses automatically when `LECTER_TEST_TRUST` is set, so existing e2e flows and perf runs open courses without the screen; blocked courses are skipped. Release builds never compile the hook. The trust flow relaunches the app without it.
 - Why: existing flows predate the trust screen; release behaviour stays unchanged.
 - Instead of: answering the trust screen in every flow.
+
+## D-185 · Course image icon: a course-relative path under `.lecter/` (F-034)
+2026-11-04 · orchestrator, decider: maintainer · active
+- Decision: in `.lecter/course.jsonc`, `icon` is either a short text icon (≤ 8 characters, e.g. "S") or a course-relative path that starts with `.lecter/` (e.g. `".lecter/icon.png"`), with extension png, jpg, jpeg, webp or gif. SVG is not allowed. The path must resolve inside the course (SEC-35).
+- Why: same style as the folder mapping; a path can't be mistaken for a letter icon; SVG can carry script.
+- Instead of: a path relative to `.lecter/` ("icon.png"), which needs a rule to tell it from a text icon.
