@@ -228,6 +228,31 @@ describe("course state", () => {
     expect(calls()).toBe(4);
   });
 
+  // One save at a time: it holds `busy` until the core replies, and a second Save meanwhile is
+  // not sent.
+  it("saves the details once at a time", async () => {
+    let reply: (v: unknown) => void = () => {};
+    const sent: string[] = [];
+    const answers: unknown[] = [algebra, { trust: "trusted", screen: trustScreen, details }];
+    const w = window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } };
+    w.__TAURI_INTERNALS__.invoke = (cmd) => {
+      sent.push(cmd);
+      const a = answers.shift();
+      return a === undefined ? new Promise((resolve) => (reply = resolve)) : Promise.resolve(a);
+    };
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    const first = s.saveDetails(details);
+    expect(s.busy()).toBe(true);
+    await s.saveDetails(details);
+    expect(sent).toEqual(["course_open", "course_trust", "course_details_save"]);
+    reply(details);
+    await first;
+    expect(s.busy()).toBe(false);
+    expect(s.details()).toBeNull();
+  });
+
   // Opening another course closes the first one's form.
   it("closes the form when another course opens", async () => {
     scriptCore([algebra, { trust: "trusted", screen: trustScreen, details }, { ...algebra, path: "/courses/Calc" }]);

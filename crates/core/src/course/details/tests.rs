@@ -301,6 +301,17 @@ fn bad_details_are_refused_with_the_reason() {
             "The slides must be a path inside the course, like sources/past-papers.",
         ),
         (with(|d| d.folders.slides = "slides/01.pdf".into()), "The slides folder, slides/01.pdf, is a file."),
+        (
+            with(|d| d.folders.lectures = "C:notes".into()),
+            "The lectures must be a path inside the course, like sources/past-papers.",
+        ),
+        (
+            CourseDetails {
+                folders: CourseFolders { slides: "x".repeat(check::MAX_PATH_BYTES + 1), ..example().folders },
+                ..example()
+            },
+            "The slides must be a path inside the course, like sources/past-papers.",
+        ),
     ];
     for (details, message) in cases {
         let e = refused(&store, &c, &details);
@@ -308,8 +319,15 @@ fn bad_details_are_refused_with_the_reason() {
     }
     assert!(!c.join(".lecter/course.jsonc").exists(), "a refused save wrote the file");
     let max = "x".repeat(check::MAX_TEXT_CHARS);
-    let edge = CourseDetails { professor: max.clone(), icon: "ABCDEFGH".into(), ..example() };
-    assert_eq!(saved(&store, &c, &edge).professor, max);
+    let longest = "x".repeat(check::MAX_PATH_BYTES);
+    let edge = CourseDetails {
+        professor: max.clone(),
+        icon: "ABCDEFGH".into(),
+        folders: CourseFolders { slides: longest.clone(), ..example().folders },
+        ..example()
+    };
+    let out = saved(&store, &c, &edge);
+    assert_eq!((out.professor, out.folders.slides), (max, longest));
 }
 
 /// Text is trimmed, the colour lower-cased, a trailing `/` dropped; a mapped folder may not exist
@@ -369,6 +387,11 @@ fn links_out_of_the_course_are_refused() {
         let e = refused(&store, &c, &details);
         assert_eq!((e.clone(), e.code()), (Error::OutsideCourse(rel.into()), ErrorCode::NotTrusted), "{rel}");
     }
+    // A link in .lecter/ to an image elsewhere in the course isn't an image in .lecter/.
+    write(&c, "slides/logo.png", "png");
+    std::os::unix::fs::symlink(c.join("slides/logo.png"), c.join(".lecter/logo.png")).unwrap_or_else(|e| panic!("{e}"));
+    let e = refused(&store, &c, &CourseDetails { icon: ".lecter/logo.png".into(), ..example() });
+    assert_eq!(e, Error::BadDetails(".lecter/logo.png is not an image file in .lecter/.".into()));
 }
 
 /// SEC-35: a `course.jsonc` (or `.lecter/`) that is a link out of the course is never written

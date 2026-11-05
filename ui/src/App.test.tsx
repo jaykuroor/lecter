@@ -81,6 +81,36 @@ describe("App shell", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  // F-034: Trust on a course without saved details brings the details form, titled with the
+  // folder's name; Save sends the form to the core and closes it, and so does Later, without a save.
+  it("shows the course details form after Trust, and Save or Later closes it (F-034)", async () => {
+    const opened = { path: "/c/STAT311", name: "STAT311", lectures: [], slides: [], trust: "ask" as const };
+    const details = {
+      name: "STAT311",
+      code: "STAT 311",
+      term: "",
+      professor: "",
+      icon: "S",
+      color: "#3584e4",
+      folders: { slides: "slides", sources: "sources", lectures: "lectures", pastPapers: "sources/past-papers" },
+    };
+    const w = window as unknown as { __mockDetails?: unknown[] };
+    for (const close of ["Save", "Later"]) {
+      w.__mockDetails = [];
+      installMockCore({ ...defaultFixture, courseOpen: { ...opened, screen: trustScreen }, details });
+      render(() => <App />);
+      fireEvent.click(screen.getByRole("button", { name: /open course folder/i }));
+      const trust = await screen.findByRole("dialog", { name: "Trust “STAT311”?" });
+      fireEvent.click(within(trust).getByRole("button", { name: "Trust" }));
+      const form = await screen.findByRole("dialog", { name: "Course details" });
+      expect(form.querySelector(".details-intro")?.textContent).toContain("For “STAT311”");
+      fireEvent.click(within(form).getByRole("button", { name: new RegExp(`^${close}`) }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(w.__mockDetails).toEqual(close === "Save" ? [{ course: "/c/STAT311", details }] : []);
+      cleanup();
+    }
+  });
+
   it(":find in the buffer lists the open course's hits in the side panel (F-022)", async () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Zero for independent variables.]{#s1b1}\n" };
     const hit = {

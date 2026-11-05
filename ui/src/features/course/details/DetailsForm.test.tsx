@@ -96,10 +96,13 @@ describe("the course details form", () => {
   it("saves on Enter and closes on Escape, and shows both keys", () => {
     const { saved, skipped, dialog, field } = show();
     type(field("Professor"), "Dr. Rivera");
-    fireEvent.keyDown(field("Professor"), { key: "Enter" });
+    // Both keys are the form's own: their default action (a submit, closing a native dialog) is stopped.
+    expect(fireEvent.keyDown(field("Professor"), { key: "Enter" })).toBe(false);
     expect(saved).toEqual([{ ...guessed, professor: "Dr. Rivera" }]);
-    fireEvent.keyDown(field("Code"), { key: "Escape" });
+    expect(fireEvent.keyDown(field("Code"), { key: "Escape" })).toBe(false);
     expect(skipped()).toBe(1);
+    // Other keys type as usual.
+    expect(fireEvent.keyDown(field("Code"), { key: "a" })).toBe(true);
     expect(within(dialog).getByRole("button", { name: /^Save/ }).querySelector("kbd")?.textContent).toBe("Enter");
     expect(
       within(dialog)
@@ -114,8 +117,53 @@ describe("the course details form", () => {
   // An Enter that composes text (an input method) isn't a save.
   it("ignores Enter while composing", () => {
     const { saved, field } = show();
-    fireEvent.keyDown(field("Name"), { key: "Enter", isComposing: true });
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    Object.defineProperty(enter, "isComposing", { value: true });
+    expect(field("Name").dispatchEvent(enter)).toBe(true);
     expect(saved).toEqual([]);
+  });
+
+  // A submit the platform raises itself (its own Enter) saves too, and never reloads the page.
+  it("saves on the form's own submit", () => {
+    const { saved, dialog } = show();
+    expect(fireEvent.submit(dialog)).toBe(false);
+    expect(saved).toEqual([guessed]);
+  });
+
+  // Focus starts in Name with its guess selected, so typing replaces it.
+  it("selects the guessed name", () => {
+    const { field } = show();
+    const name = field("Name");
+    expect([name.selectionStart, name.selectionEnd]).toEqual([0, guessed.name.length]);
+  });
+
+  // The fields as the browser sees them: their types, names, limits, which one is required, no
+  // spell checking, and the icon's hint tied to its field. Name and Icon span both columns.
+  it("describes each field to the browser", () => {
+    const { field } = show();
+    const attrs = (label: string) => {
+      const f = field(label);
+      return [f.getAttribute("type"), f.name, f.maxLength, f.required, f.getAttribute("spellcheck"), f.className];
+    };
+    expect(attrs("Name")).toEqual(["text", "name", 200, true, "false", "details-input"]);
+    expect(attrs("Code")).toEqual(["text", "code", 200, false, "false", "details-input"]);
+    expect(attrs("Term")).toEqual(["text", "term", 200, false, "false", "details-input"]);
+    expect(attrs("Professor")).toEqual(["text", "professor", 200, false, "false", "details-input"]);
+    expect(attrs("Colour")).toEqual(["color", "color", 7, false, "false", "details-color"]);
+    expect(attrs("Icon")).toEqual(["text", "icon", 255, false, "false", "details-input"]);
+    expect(attrs("Past papers")).toEqual([
+      "text",
+      "folders.pastPapers",
+      255,
+      false,
+      "false",
+      "details-input details-path",
+    ]);
+    const hint = document.getElementById(field("Icon").getAttribute("aria-describedby") ?? "");
+    expect(hint?.textContent).toBe("A letter, or an image in .lecter/ (e.g. .lecter/icon.png)");
+    expect(field("Name").getAttribute("aria-describedby")).toBeNull();
+    const wide = [...document.querySelectorAll(".details-field.wide label")].map((l) => l.textContent);
+    expect(wide).toEqual(["Name", "Icon"]);
   });
 
   it("can't save without a name", () => {
