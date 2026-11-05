@@ -1163,3 +1163,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `settings::watch::settle(rx)` delegates to `settle_with(recv, now)`, which takes the wait for the next event and the clock as arguments (elapsed time via `saturating_duration_since`); tests drive both, so thread scheduling can't change the result.
 - Why: the cap test's 10 ms feeder thread stalled past the 50 ms quiet window on macOS runners and failed 3 CI runs.
 - Instead of: wider timing margins, which would weaken the test.
+
+## D-194 · F-036 adds lecture dates and sources to the core course listing (F-036)
+2026-11-05 · orchestrator, decider: maintainer · active
+- Decision: F-036 also extends the core course listing with `sources` (the course's sources/ files) and each lecture's front-matter `date` (read from the first 4 KB only), with bindings, mock core and the e2e-app selectors updated, outside its owned paths (recorded under PROGRESS spec drift). Open-item counts join the listing later: F-066 (flags) and F-101 (parked doubts) each send their count for the sidebar badge, which already renders `open`.
+- Why: criterion 1 (date and open-item badges, Sources) is otherwise visible only in tests; no built card sends these fields.
+- Instead of: merging the UI only and waiting for F-050/F-066/F-101/F-146; a new core card through the planning session first.
+
+## D-195 · The sidebar's shown/hidden state survives restarts (F-036)
+2026-11-05 · orchestrator, decider: maintainer · active
+- Decision: the ␣e / headerbar sidebar toggle is remembered across restarts (stored with the other app UI state, e.g. `<data>/state.db` beside the rail order, D-188); first start shows it.
+- Why: the maintainer wants the sidebar to come back the way it was left.
+- Instead of: a session-only toggle shown at every start.

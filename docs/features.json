@@ -2071,7 +2071,7 @@
    ],
    "try": "Flag a line with m",
    "status": "todo",
-   "notes": "",
+   "notes": "D-194: also send each lecture's open-flag count in the core course listing for the sidebar badge (F-036 renders 'open').",
    "priority": 4058
   },
   {
@@ -3039,7 +3039,7 @@
    ],
    "try": "Press D on a line, keep working: the answer arrives later",
    "status": "todo",
-   "notes": "",
+   "notes": "D-194: also send each lecture's parked-doubt count in the core course listing for the sidebar badge (F-036 renders 'open').",
    "priority": 5087
   },
   {
