@@ -101,8 +101,10 @@ export function CourseRail(props: {
 
   const dropMark = (index: number): string | undefined => {
     const d = drag.state();
-    if (!d || d.to !== index || d.to === d.from) return undefined;
-    return d.to > d.from ? "after" : "before";
+    if (!d || d.to !== index) return undefined;
+    if (d.to > d.from) return "after";
+    if (d.to < d.from) return "before";
+    return undefined;
   };
 
   return (
