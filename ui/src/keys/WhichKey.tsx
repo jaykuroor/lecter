@@ -26,15 +26,10 @@ export interface WhichKey {
 }
 
 /** The popover's face: the keys typed so far, then each choice as a keycap and what it does. */
-function Popover(props: {
-  shown: Shown;
-  mac: boolean;
-  onPick: (choice: Choice) => void;
-  ref: (el: HTMLDivElement) => void;
-}): JSX.Element {
+function Popover(props: { shown: Shown; mac: boolean; onPick: (choice: Choice) => void }): JSX.Element {
   const label = (keys: readonly string[]) => keys.map((k) => keyLabel(k, props.mac)).join("");
   return (
-    <div class="which-key" role="dialog" aria-label="Keys that can follow" ref={props.ref}>
+    <div class="which-key" role="dialog" aria-label="Keys that can follow">
       <div class="which-key-title">
         <span class="which-key-prefix">{label(props.shown.prefix)}</span>
         <span class="which-key-hint">Esc to close</span>
@@ -75,7 +70,6 @@ export function createWhichKey(opts: {
 }): WhichKey {
   const [shown, setShown] = createSignal<Shown | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let root: HTMLDivElement | undefined;
   let unmount: (() => void) | undefined;
   let mount: HTMLDivElement | undefined;
 
@@ -87,11 +81,7 @@ export function createWhichKey(opts: {
       mount = document.createElement("div");
       opts.host.append(mount);
       unmount = render(
-        () => (
-          <Show when={shown()}>
-            {(s) => <Popover shown={s()} mac={opts.mac} onPick={pick} ref={(el) => (root = el)} />}
-          </Show>
-        ),
+        () => <Show when={shown()}>{(s) => <Popover shown={s()} mac={opts.mac} onPick={pick} />}</Show>,
         mount,
       );
     }
@@ -120,7 +110,8 @@ export function createWhichKey(opts: {
   };
 
   return {
-    contains: (target) => target instanceof Node && root?.contains(target) === true,
+    // The popover is all there is in `mount`.
+    contains: (target) => target instanceof Node && mount?.contains(target) === true,
     dispose: () => {
       if (timer !== undefined) clearTimeout(timer);
       unmount?.();
