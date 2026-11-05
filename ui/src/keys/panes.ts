@@ -35,12 +35,11 @@ function focusPane(doc: Document, pane: Pane): boolean {
     buffer.focus();
     return true;
   }
+  // An element that can't take the focus (hidden, display: none) leaves it where it was.
   for (const selector of pane.targets) {
     const el = root.querySelector<HTMLElement>(selector);
-    if (el && !el.closest("[hidden]")) {
-      el.focus();
-      return doc.activeElement === el;
-    }
+    el?.focus();
+    if (doc.activeElement === el) return true;
   }
   return false;
 }
