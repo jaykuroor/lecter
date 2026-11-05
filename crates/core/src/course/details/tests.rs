@@ -94,6 +94,26 @@ fn a_new_course_starts_from_its_folder_names() {
     assert_eq!(form, Some(CourseDetails { professor: String::new(), ..example() }));
 }
 
+/// SEC-35: a `sources` link out of the course isn't looked into for past papers; the mapping
+/// keeps the spec's names.
+#[cfg(unix)]
+#[test]
+fn a_sources_link_out_of_the_course_is_not_looked_into() {
+    let env = env();
+    let c = env.home().join("Linear Algebra");
+    write(&c, "lectures/l.md", "x");
+    let outside = env.home().join("elsewhere");
+    write(&outside, "Exams/2024.pdf", "x");
+    std::os::unix::fs::symlink(&outside, c.join("sources")).unwrap_or_else(|e| panic!("{e}"));
+    let form = pending(&c).unwrap_or_else(|e| panic!("{e:?}")).unwrap_or_else(|| panic!("no form"));
+    assert_eq!((form.folders.sources.as_str(), form.folders.past_papers.as_str()), ("sources", "sources/past-papers"));
+    // The same folder inside the course is found.
+    std::fs::remove_file(c.join("sources")).unwrap_or_else(|e| panic!("{e}"));
+    write(&c, "sources/Exams/2024.pdf", "x");
+    let form = pending(&c).unwrap_or_else(|e| panic!("{e:?}")).unwrap_or_else(|| panic!("no form"));
+    assert_eq!(form.folders.past_papers, "sources/Exams");
+}
+
 /// Criterion 1: the folder mapping follows the course's own spelling of its folders.
 #[test]
 fn the_folder_mapping_uses_the_folders_the_course_has() {

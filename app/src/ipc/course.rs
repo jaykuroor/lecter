@@ -111,17 +111,29 @@ async fn answer(
         trust::decide(&store, &path, choice, &shown)?;
         let listing = course::open(Path::new(&path))?;
         let review = trust::review(&store, &listing, &provider)?;
-        // Only a trusted course gets the form: a read-only one never writes course.jsonc.
-        let details = match review.state {
-            TrustState::Trusted => course_details::pending(Path::new(&path))?,
-            TrustState::Ask | TrustState::ReadOnly => None,
-        };
+        let details = form_after(review.state, || course_details::pending(Path::new(&path)));
         Ok((review, details))
     })
     .await?;
     tracing::info!(target: "ipc", command = "course_trust", ?choice, state = ?review.state, "trust answered");
     courses.remember(&course, &review.fingerprint);
     Ok(CourseTrusted { trust: review.state, screen: review.screen, details })
+}
+
+/// The course details form's first values after an answer that left the course in `state`. Only
+/// a trusted course gets the form: a read-only one never writes course.jsonc. The answer is
+/// stored by then, so a form that can't be prepared is left out rather than failing it.
+fn form_after(
+    state: TrustState,
+    pending: impl FnOnce() -> lecter_core::Result<Option<CourseDetails>>,
+) -> Option<CourseDetails> {
+    match state {
+        TrustState::Trusted => pending().unwrap_or_else(|e| {
+            tracing::warn!(target: "ipc", command = "course_trust", code = ?e.code(), "no course details form");
+            None
+        }),
+        TrustState::Ask | TrustState::ReadOnly => None,
+    }
 }
 
 /// SEC-27: succeeds only when `course` is trusted as it is now; a read-only, unanswered or changed

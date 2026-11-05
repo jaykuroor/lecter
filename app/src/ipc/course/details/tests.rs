@@ -109,3 +109,17 @@ fn saves_for_unopened_courses_or_bad_fields_are_refused() {
     );
     assert!(!dir.join(".lecter/course.jsonc").exists());
 }
+
+/// The Trust answer is stored before the form is prepared: a form that can't be (a folder name
+/// that isn't Unicode, a folder gone) is left out instead of failing the answer; only a trusted
+/// course gets one at all.
+#[test]
+fn a_form_that_cannot_be_prepared_does_not_fail_the_answer() {
+    use super::super::form_after;
+    assert_eq!(form_after(TrustState::Trusted, || Err(lecter_core::Error::NotUnicode)), None);
+    assert_eq!(form_after(TrustState::Trusted, || Err(lecter_core::Error::FolderNotFound)), None);
+    assert_eq!(form_after(TrustState::Trusted, || Ok(Some(expected()))), Some(expected()));
+    for state in [TrustState::ReadOnly, TrustState::Ask] {
+        assert_eq!(form_after(state, || Ok(Some(expected()))), None, "{state:?}");
+    }
+}

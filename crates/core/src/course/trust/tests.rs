@@ -228,6 +228,25 @@ fn a_change_to_any_ai_file_asks_again() {
     }
 }
 
+/// An empty `settings` reads like no file (F-034), but the first override added to either asks
+/// again.
+#[test]
+fn a_first_override_asks_again() {
+    for (what, before) in [("empty settings", Some(r#"{ "settings": {} }"#)), ("no course.jsonc", None)] {
+        let env = env();
+        let c = course(&env, "STAT311");
+        match before {
+            Some(text) => drop(write(&c, ".lecter/course.jsonc", text)),
+            None => std::fs::remove_file(c.join(".lecter/course.jsonc")).unwrap_or_else(|e| panic!("{e}")),
+        }
+        let st = store(&env);
+        trust(&st, &c, TrustChoice::Trusted);
+        write(&c, ".lecter/course.jsonc", r#"{ "settings": { "ai": { "webSearch": "auto" } } }"#);
+        assert_eq!(state_of(&st, &c), TrustState::Ask, "{what}");
+        assert_eq!(reviewed(&st, &c).screen.overrides, vec!["ai.webSearch".to_owned()], "{what}");
+    }
+}
+
 /// Criterion 5, the other side: lectures, slides, sources and the course's name don't ask again.
 #[test]
 fn course_content_and_details_do_not_ask_again() {

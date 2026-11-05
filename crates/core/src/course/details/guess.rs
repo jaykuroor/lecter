@@ -23,8 +23,11 @@ const PAST_PAPERS: &[&str] = &["past-papers", "past papers", "past_papers", "pas
 pub(super) fn from_names(root: &Path) -> Result<CourseDetails> {
     let folder = root.file_name().map_or(Some(""), |n| n.to_str()).ok_or(Error::NotUnicode)?;
     let parsed = parse(folder);
-    let sources = find(root, SOURCES).unwrap_or_else(|| SOURCES[0].to_owned());
-    let past = find(&root.join(&sources), PAST_PAPERS).unwrap_or_else(|| PAST_PAPERS[0].to_owned());
+    // Past papers are looked for only in a real sources folder: never through a link (SEC-35).
+    let found = find(root, SOURCES);
+    let past = found.as_ref().and_then(|s| find(&root.join(s), PAST_PAPERS));
+    let sources = found.unwrap_or_else(|| SOURCES[0].to_owned());
+    let past = past.unwrap_or_else(|| PAST_PAPERS[0].to_owned());
     let folders = CourseFolders {
         slides: find(root, SLIDES).unwrap_or_else(|| SLIDES[0].to_owned()),
         lectures: find(root, LECTURES).unwrap_or_else(|| LECTURES[0].to_owned()),
