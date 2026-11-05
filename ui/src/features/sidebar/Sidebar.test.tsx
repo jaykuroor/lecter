@@ -87,7 +87,7 @@ describe("Sidebar", () => {
     expect(within(sources).getByRole("heading", { level: 4 }).textContent).toBe("Slides 2");
     expect(within(course()).getByRole("heading", { level: 2 }).textContent).toBe("STAT311");
     const lectures = within(course()).getByRole("region", { name: "Lectures" });
-    expect(within(lectures).getByRole("heading").textContent).toBe("Lectures 4");
+    expect(within(lectures).getByRole("heading", { level: 3 }).textContent).toBe("Lectures 4");
   });
 
   it("shows each lecture's date and its open items, when it has them", () => {
