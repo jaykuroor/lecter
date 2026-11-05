@@ -178,6 +178,8 @@ describe("locate", () => {
   });
 
   it("treats fields inside a buffer not yet registered as fields", () => {
+    document.body.innerHTML = `<div class="lecture-buffer" data-vim-mode="replace"><i id="r"></i></div>`;
+    expect(locate(document.getElementById("r"))).toEqual({ el: "field", mode: "insert", buffer: null });
     document.body.innerHTML = `<div class="lecture-buffer" data-vim-mode="normal"><textarea id="t"></textarea><select id="s"></select></div>`;
     expect(locate(document.getElementById("t")).el).toBe("field");
     expect(locate(document.getElementById("s")).el).toBe("field");
@@ -214,6 +216,19 @@ describe("bootKeys at its edges", () => {
     for (let n = 1; n <= 9; n++) {
       expect(document.body.dispatchEvent(key({ key: `${n}`, code: `Digit${n}`, ctrlKey: true })), `${n}`).toBe(false);
     }
+  });
+
+  it("holds no Space typed into a registered buffer in insert mode", () => {
+    const boot = bootKeys(window, false);
+    stop = boot.stop;
+    const root = document.createElement("div");
+    const line = document.createElement("p");
+    root.append(line);
+    document.body.append(root);
+    const drop = setBufferTarget(fake(root, "insert"));
+    expect(line.dispatchEvent(key({ key: " " }))).toBe(true);
+    drop();
+    expect(line.dispatchEvent(key({ key: " " }))).toBe(false);
   });
 
   it("keeps a held key from the element, and leaves Cmd-Ctrl-1 alone on macOS", () => {

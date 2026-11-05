@@ -94,7 +94,8 @@ describe("App keys", () => {
     const removed: string[] = [];
     const remove = window.removeEventListener.bind(window);
     window.removeEventListener = ((type: string, ...rest: never[]) => {
-      removed.push(type);
+      const options = rest[1] as { capture?: boolean } | undefined;
+      removed.push(options?.capture ? `${type} capture` : type);
       return (remove as (...a: unknown[]) => void)(type, ...rest);
     }) as typeof window.removeEventListener;
     try {
@@ -103,7 +104,7 @@ describe("App keys", () => {
       window.removeEventListener = remove;
     }
     // The engine's own listeners go with the app.
-    expect(removed).toEqual(expect.arrayContaining(["keydown", "pointerdown"]));
+    expect(removed).toEqual(expect.arrayContaining(["keydown capture", "pointerdown capture"]));
     expect(press(document.body, { key: " " })).toBe(true);
     expect(press(document.body, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
   });
