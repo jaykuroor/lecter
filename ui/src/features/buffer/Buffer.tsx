@@ -50,8 +50,11 @@ export function Buffer(props: {
     const gloss = course ? glossBackend(course, lecture.path) : null;
     const state = lectureState(lecture.text, `Lecture ${lecture.name}`, (edits) => props.onEdits?.(edits), gloss);
     if (view) view.setState(state);
-    else view = new EditorView({ state, parent: host });
-    if (!dropTarget && root) dropTarget = setBufferTarget(bufferTarget(view, root));
+    else {
+      view = new EditorView({ state, parent: host });
+      // One editor for every lecture: the key engine learns about it once.
+      dropTarget = setBufferTarget(bufferTarget(view, root as HTMLDivElement));
+    }
     followMode(view);
     view.focus();
   });

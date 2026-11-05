@@ -91,7 +91,19 @@ describe("App keys", () => {
     press(document.body, { key: " " });
     press(document.body, { key: "e" });
     expect(screen.getByRole("region", { name: "Course STAT311" })).toBeTruthy();
-    cleanup();
+    const removed: string[] = [];
+    const remove = window.removeEventListener.bind(window);
+    window.removeEventListener = ((type: string, ...rest: never[]) => {
+      removed.push(type);
+      return (remove as (...a: unknown[]) => void)(type, ...rest);
+    }) as typeof window.removeEventListener;
+    try {
+      cleanup();
+    } finally {
+      window.removeEventListener = remove;
+    }
+    // The engine's own listeners go with the app.
+    expect(removed).toEqual(expect.arrayContaining(["keydown", "pointerdown"]));
     expect(press(document.body, { key: " " })).toBe(true);
     expect(press(document.body, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
   });

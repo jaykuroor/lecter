@@ -28,6 +28,9 @@ describe("notation at its edges", () => {
     expect(parseKeys("<A>", false)).toEqual(["A"]);
     expect(() => parseKeys("<F1x>", false)).toThrow("unknown key name <F1x>");
     expect(() => parseKeys("<k12>", false)).toThrow("unknown key name <k12>");
+    expect(() => parseKeys("<xk1>", false)).toThrow("unknown key name <xk1>");
+    expect(() => parseKeys("<xF1>", false)).toThrow("unknown key name <xF1>");
+    expect(parseKeys("<F12>", false)).toEqual(["<F12>"]);
   });
 
   it("labels only a whole token", () => {
@@ -85,6 +88,24 @@ describe("the engine at its edges", () => {
     e.feed("a", "note-line", "normal");
     e.reset();
     expect(e.feed("e", "note-line", "normal")).toMatchObject({ kind: "run", binding: { command: "e" } });
+  });
+
+  it("takes every digit for a count", () => {
+    const e = new KeyEngine(compileKeymap([B("s", "steps")], false));
+    for (let n = 1; n <= 9; n++) {
+      expect(e.feed(`${n}`, "note-line", "normal").kind, `${n}`).toBe("pending");
+      expect(e.feed("0", "note-line", "normal").kind).toBe("pending");
+      expect(e.feed("s", "note-line", "normal")).toMatchObject({ kind: "run", count: n * 10 });
+    }
+  });
+
+  it("tells its listener when a reset drops pending keys", () => {
+    const e = new KeyEngine(compileKeymap([B("ab", "x")], false));
+    const seen: string[][] = [];
+    e.onChange = (p) => seen.push([...p]);
+    e.feed("a", "note-line", "normal");
+    e.reset();
+    expect(seen).toEqual([["a"], []]);
   });
 
   it("repeats a held gloss key", () => {
@@ -170,6 +191,8 @@ describe("locate", () => {
     drops.push(setBufferTarget(newer));
     dropOld();
     expect(locate(document.getElementById("line")).buffer).toBe(newer);
+    (drops.pop() as () => void)();
+    expect(locate(document.getElementById("line")).buffer).toBeNull();
   });
 });
 
