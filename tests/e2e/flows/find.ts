@@ -1,12 +1,12 @@
 // F-022: `:find <words>` in the real app lists the hits the core's Tantivy index ranks
 // (05-retrieval.md#search). The flow opens a lecture (which indexes it), runs `:find variables` on
-// Vim's command line and reads the hits in the side panel, best first; then searches with the
-// Find field and its button (the mouse path).
+// Lecter's command line (F-040: `:` in normal mode opens it; it hands `find` to Vim's Ex table) and
+// reads the hits in the side panel, best first; then searches with the Find field and its button
+// (the mouse path).
 //
 // The embedded WebDriver sends keys as synthetic KeyboardEvents: Vim reads `:` from them and opens
-// its command line, but they can't type text (no native default action). So the words go into the
-// command line's input through the DOM, and Enter is dispatched to it with the keyCode Vim's
-// prompt reads.
+// the command line, but they can't type text (no native default action). So the words go into the
+// command line's input through the DOM, and Enter is dispatched to it as a keydown.
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -115,8 +115,8 @@ describe(":find", function () {
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
 
     await browser.keys(":");
-    await expect($(".cm-vim-panel input")).toBeExisting();
-    expect(await enter(".cm-vim-panel input", "find variables")).toBe(true);
+    await expect($(".cmdline-input")).toBeExisting();
+    expect(await enter(".cmdline-input", "find variables")).toBe(true);
 
     // Both blocks say "variables" once; BM25 ranks the shorter one first.
     await expectHits([`lectures/${NAME}#s1b2`, `lectures/${NAME}#s1b1`]);
