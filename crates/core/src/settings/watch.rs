@@ -96,10 +96,19 @@ fn run(
 /// Waits until events stop for [`QUIET`], or [`MAX_DELAY`] has passed since the first; the events
 /// are dropped. False when the watcher is gone.
 pub(super) fn settle<T>(rx: &Receiver<T>) -> bool {
-    let start = Instant::now();
+    settle_with(|wait| rx.recv_timeout(wait), Instant::now)
+}
+
+/// [`settle`] with its wait for the next event and its clock passed in, so a test can drive time
+/// itself instead of depending on how threads are scheduled.
+pub(super) fn settle_with<T>(
+    mut recv: impl FnMut(Duration) -> Result<T, RecvTimeoutError>,
+    now: impl Fn() -> Instant,
+) -> bool {
+    let start = now();
     loop {
-        match rx.recv_timeout(QUIET) {
-            Ok(_) if start.elapsed() < MAX_DELAY => {}
+        match recv(QUIET) {
+            Ok(_) if now().saturating_duration_since(start) < MAX_DELAY => {}
             Ok(_) | Err(RecvTimeoutError::Timeout) => return true,
             Err(RecvTimeoutError::Disconnected) => return false,
         }

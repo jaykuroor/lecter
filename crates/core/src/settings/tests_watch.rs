@@ -1,10 +1,11 @@
 //! Settings files changed on disk apply within 1 s without a restart (criterion 4 of F-030).
 #![allow(clippy::disallowed_methods, reason = "tests write files on test threads")]
 
+use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::sync::Arc;
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
 use notify::event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind};
@@ -12,7 +13,7 @@ use notify::{Event, EventKind};
 use serde_json::json;
 
 use super::tests_files::{setup, write};
-use super::watch::{MAX_DELAY, QUIET, settle, touches};
+use super::watch::{MAX_DELAY, QUIET, settle, settle_with, touches};
 use super::*;
 
 /// Starts a watcher whose callback forwards the notices to the returned channel.
@@ -118,29 +119,51 @@ fn settings_watch_events_count_only_for_the_settings_files() {
     assert!(touches(&Err(notify::Error::generic("overflow")), &names));
 }
 
+/// The gap between events in [`settle_on_a_fake_clock`].
+const STEP: Duration = Duration::from_millis(10);
+
+/// Runs `settle_with` on a fake clock against a source that delivers one event every [`STEP`]
+/// while `events_for` lasts, then none (each wait times out after its full length). Returns
+/// what settle returned and how long it waited in fake time. Nothing here depends on how the
+/// OS schedules threads, so a slow machine can't make it flaky.
+fn settle_on_a_fake_clock(events_for: Duration) -> (bool, Duration) {
+    let t0 = Instant::now();
+    let now = Cell::new(t0);
+    let settled = settle_with(
+        |wait| {
+            assert_eq!(wait, QUIET, "settle waits one quiet period for the next event");
+            let elapsed = now.get().duration_since(t0);
+            if elapsed + STEP <= events_for {
+                now.set(now.get() + STEP);
+                Ok(())
+            } else {
+                now.set(now.get() + wait);
+                Err(RecvTimeoutError::Timeout)
+            }
+        },
+        || now.get(),
+    );
+    (settled, now.get().duration_since(t0))
+}
+
 /// Events that keep coming delay a reload by at most `MAX_DELAY` (plus one quiet wait).
 #[test]
 fn settings_watch_settle_caps_the_delay_under_a_stream_of_events() {
-    let (tx, rx) = mpsc::channel::<()>();
-    let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let feeder = std::thread::spawn(move || {
-        // One event every 10 ms (the wait on `stop_rx` paces it) until told to stop, for at
-        // most 3 s.
-        let end = Instant::now() + Duration::from_secs(3);
-        while let Err(mpsc::RecvTimeoutError::Timeout) = stop_rx.recv_timeout(Duration::from_millis(10)) {
-            if Instant::now() > end || tx.send(()).is_err() {
-                break;
-            }
-        }
-    });
-    let start = Instant::now();
-    assert!(settle(&rx));
-    let waited = start.elapsed();
-    drop(stop_tx);
-    feeder.join().expect("feeder");
+    // A stream far longer than the cap.
+    let (settled, waited) = settle_on_a_fake_clock(Duration::from_secs(3));
+    assert!(settled);
     assert!(waited >= MAX_DELAY, "{waited:?}");
-    // Well under the feeder's 3 s, with room for a loaded machine.
-    assert!(waited < Duration::from_secs(1), "{waited:?}");
+    // Returns at the first event once the cap has passed, not one event later.
+    assert!(waited < MAX_DELAY + STEP, "{waited:?}");
+}
+
+/// A burst shorter than the cap settles one quiet period after its last event.
+#[test]
+fn settings_watch_settle_waits_a_quiet_period_after_the_last_event() {
+    let burst = Duration::from_millis(100);
+    let (settled, waited) = settle_on_a_fake_clock(burst);
+    assert!(settled);
+    assert_eq!(waited, burst + QUIET);
 }
 
 /// A single event settles after one quiet period; a gone watcher ends the wait.
