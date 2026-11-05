@@ -10,7 +10,7 @@ import { keyLabel } from "./notation";
 import "./WhichKey.css";
 
 /** How long the leader waits before which-key shows (09-ui.md: 300 ms). */
-export const WHICH_KEY_DELAY_MS = 300;
+const WHICH_KEY_DELAY_MS = 300;
 
 const LEADER = "<Space>";
 
