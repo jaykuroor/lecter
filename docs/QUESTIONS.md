@@ -203,10 +203,10 @@ Should Space on a focused sidebar or rail row arm the leader (so ␣e works ther
 - Recommended: yes, once the key engine (F-037) owns Space: rows open with Enter and click only.
 - Answer:
 
-## Q-031 · later · blocks: nothing
-Does the real app's keystroke_p99_ms hold with the key engine (F-037)?
-- Context: the real app exits with code 101 in the Claude sandbox even under xvfb-run (.evidence/F-037/sandbox-attempt-perf-real-app.txt); the mocked-core gate passes at 4 / 8 ms.
-- Recommended: Jay runs `bash tests/perf/budgets.sh --only keystroke_p99_ms` locally on hardware rendering (D-146); CI's perf job also covers it.
+## Q-031 · later · blocks: M1 gate
+The real app's keystroke_p99_ms misses its < 8 ms budget on the maintainer's machine (hardware rendering, WebKitGTK). Which card brings it under?
+- Context: measured by the maintainer on 2026-11-05 with `tests/perf/budgets.sh --only keystroke_p99_ms`. Before F-037 (01844df) it was 8, 8, 8. After F-037 (4e85513) it was 9, 8, 8 (work p50/p95/p99 5/8/9, handler p99 7, frame p99 3). So F-037 is within noise, and main was already at the limit; this was the first local hardware run. WebKit timers round to 1 ms. The mocked-core gate passes at 4 ms. In the sandbox the real app exits with code 101 (.evidence/F-037/sandbox-attempt-perf-real-app.txt).
+- Recommended: a perf card before the M1 gate. Profile the keydown → paint path in the real app (key engine resolve, Vim handler, CodeMirror update, journal write) and get p99 to ≤ 7 ms with a margin. The budget stays (protected).
 - Answer:
 
 ## Gate notes
