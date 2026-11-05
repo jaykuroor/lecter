@@ -1315,3 +1315,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: a bounded strip, and no secrets on screen.
 - Instead of: an unbounded strip that echoes every key.
 - Revisit if: users want longer history or to see IME input.
+
+## D-218 · macOS 300-slide memory: merge F-040 first, then fix before new features (orchestrator)
+2026-11-05 · maintainer · active
+- Decision: F-040 merges as reviewed; the next job is finding and fixing the macOS rss_300_slides_mb rise (401-438 / 390 MB on branch CI run 42097904186; passed on F-036's branch run 42008665010) before any new feature is dispatched.
+- Why: the rise came in with F-037..F-039; F-040 was already reviewed, and bisecting old merge points doesn't depend on main's head.
+- Instead of: holding F-040, or deferring to the M1 gate.
+- Revisit if: the bisect shows F-040's command-line chunk adds memory too.
