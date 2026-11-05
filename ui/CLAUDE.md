@@ -49,3 +49,5 @@ Design: `docs/design/` (`tokens.json`, `components.md`, `reference/` crops). Bui
 - Solid's `<For>` moves the existing rows when the same objects are reordered, so a focused row keeps focus in jsdom anyway; a focus-after-reorder test must hand the list new objects, as the core would (src/features/rail/CourseRail.test.tsx) (F-035)
 - Playwright's `Desktop Safari` device sends a Mac user agent on Linux: tell macOS by `navigator.platform`, never the user agent, or Ctrl shortcuts wait for Cmd in the WebKit project (src/features/rail/keys.ts) (F-035)
 - Solid's delegated events never run a disabled button's handlers, so a `busy` check inside one can't fail (a surviving mutant); rely on `disabled`. jsdom refuses `focus()` on a disabled button too (F-033)
+- Biome's `noAriaHiddenOnFocusable` flags `aria-hidden` on a `<kbd>` inside a button: name the button with `aria-label` instead of hiding its keycap (src/features/sidebar/Sidebar.tsx) (F-036)
+- `pnpm -C ui run test:e2e -- <name>` runs every spec, both projects (the filter doesn't reach Playwright); for one spec run `pnpm -C ui exec playwright test e2e/<name>.spec.ts --project=chromium` (F-036)

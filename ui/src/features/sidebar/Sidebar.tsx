@@ -75,7 +75,8 @@ export function Sidebar(props: {
     const to = move(e.key, index, rows.length);
     if (to === null) return;
     e.preventDefault();
-    if (to !== "pending") rows[to]?.focus();
+    if (to === "pending") return;
+    (rows[to] as HTMLElement).focus();
   }
 
   const openView = (view: SidebarView) => props.onOpenView?.(view);
@@ -178,15 +179,19 @@ function Section(props: {
 
 /** A lecture's row: its name, then its date and open-item badge when it has them. */
 function LectureRow(props: { lecture: SidebarLecture; current: boolean; onOpen: () => void }): JSX.Element {
-  const date = () => (props.lecture.date ? shortDate(props.lecture.date) : null);
+  const date = () => {
+    const text = shortDate(props.lecture.date);
+    return text === null ? null : { iso: props.lecture.date as string, text };
+  };
+  // A count that isn't a whole number above zero shows no badge.
   const open = () => {
-    const n = props.lecture.open;
-    return typeof n === "number" && Number.isInteger(n) && n > 0 ? n : null;
+    const n = props.lecture.open ?? 0;
+    return Number.isInteger(n) && n > 0 ? n : null;
   };
   const label = () => {
     const n = open();
     const items = n === null ? null : `${n} open ${n === 1 ? "item" : "items"}`;
-    return [props.lecture.name, date(), items].filter(Boolean).join(", ");
+    return [props.lecture.name, date()?.text, items].filter(Boolean).join(", ");
   };
   return (
     <button
@@ -200,8 +205,8 @@ function LectureRow(props: { lecture: SidebarLecture; current: boolean; onOpen: 
       <span class="sidebar-name">{props.lecture.name}</span>
       <Show when={date()}>
         {(d) => (
-          <time class="sidebar-date" datetime={props.lecture.date ?? ""}>
-            {d()}
+          <time class="sidebar-date" datetime={d().iso}>
+            {d().text}
           </time>
         )}
       </Show>

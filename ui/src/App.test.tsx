@@ -23,6 +23,31 @@ describe("App shell", () => {
     expect(screen.getByRole("complementary", { name: "Side panel" })).toBeTruthy();
   });
 
+  // F-036: the sidebar shows at start; the headerbar button hides it and shows it again.
+  it("hides and shows the sidebar from the headerbar, keeping the course rail", async () => {
+    installMockCore({
+      ...defaultFixture,
+      courseOpen: {
+        path: "/c/STAT311",
+        name: "STAT311",
+        lectures: [],
+        slides: [],
+        trust: "trusted",
+        screen: trustScreen,
+      },
+    });
+    render(() => <App />);
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
+    await screen.findByRole("region", { name: "Course STAT311" });
+    const toggle = within(screen.getByRole("banner")).getByRole("button", { name: "Sidebar" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("region", { name: "Course STAT311" })).toBeNull();
+    expect(screen.getByRole("list", { name: "Courses" })).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.getByRole("region", { name: "Course STAT311" })).toBeTruthy();
+  });
+
   it("opens a lecture of the opened course into the buffer and marks it in the rail", async () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({

@@ -145,6 +145,23 @@ describe("installSidebarToggle", () => {
     expect(toggles()).toBe(1);
   });
 
+  it("waits through every modifier key pressed on its own", () => {
+    const { toggles } = install();
+    const lone: [string, KeyboardEventInit][] = [
+      ["Control", { ctrlKey: true }],
+      ["Alt", { altKey: true }],
+      ["Meta", { metaKey: true }],
+      ["AltGraph", {}],
+      ["CapsLock", {}],
+    ];
+    for (const [key, init] of lone) {
+      press(document.body, " ");
+      expect(press(document.body, key, init), key).toBe(true);
+      press(document.body, "e");
+    }
+    expect(toggles()).toBe(lone.length);
+  });
+
   it("ignores keys of an input method's composition and a held Space", () => {
     const { toggles } = install();
     expect(press(document.body, " ", { isComposing: true })).toBe(true);

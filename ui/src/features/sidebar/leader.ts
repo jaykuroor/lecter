@@ -10,16 +10,18 @@ const TEXT_FIELD = "input, textarea, select";
 /** Elements Space already does something on: it types into them or activates them. */
 const SPACE_TAKEN =
   '[contenteditable]:not([contenteditable="false"]), [role="textbox"], button, a[href], [role="button"]';
-/** Vim modes in which the buffer's Space is the leader; in insert and replace mode it types. */
-const LEADER_MODES = new Set(["normal", "visual"]);
 
 /** Whether Space on `el` (the focused element) starts a leader key rather than doing its own thing. */
 export function leaderTarget(el: Element | null): boolean {
   if (!el) return true;
   if (el.closest(TEXT_FIELD)) return false;
   // The lecture is an editable CodeMirror buffer; Vim's mode decides (Buffer.tsx data-vim-mode).
+  // Space is the leader in normal and visual mode, and types in insert and replace mode.
   const buffer = el.closest(".lecture-buffer");
-  if (buffer) return LEADER_MODES.has(buffer.getAttribute("data-vim-mode") ?? "");
+  if (buffer) {
+    const mode = buffer.getAttribute("data-vim-mode");
+    return mode === "normal" || mode === "visual";
+  }
   return !el.closest(SPACE_TAKEN);
 }
 

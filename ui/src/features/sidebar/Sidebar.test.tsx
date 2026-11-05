@@ -76,6 +76,15 @@ describe("Sidebar", () => {
     const lists = within(course()).getByRole("region", { name: "Lists" });
     // Each list shows its leader key (10-keymap.md#leader-groups, ␣x Lists).
     expect([...lists.querySelectorAll("kbd")].map((k) => k.textContent)).toEqual(["␣xx", "␣xf", "␣xo", "␣xl", "␣xr"]);
+    expect(
+      within(lists)
+        .getAllByRole("button")
+        .map((b) => b.getAttribute("aria-keyshortcuts")),
+    ).toEqual(["Space x x", "Space x f", "Space x o", "Space x l", "Space x r"]);
+    // Sources holds the slide files under a heading of their own.
+    const sources = within(course()).getByRole("region", { name: "Sources" });
+    expect(within(sources).getByRole("heading", { level: 3 }).textContent).toBe("Sources");
+    expect(within(sources).getByRole("heading", { level: 4 }).textContent).toBe("Slides 2");
     expect(within(course()).getByRole("heading", { level: 2 }).textContent).toBe("STAT311");
     const lectures = within(course()).getByRole("region", { name: "Lectures" });
     expect(within(lectures).getByRole("heading").textContent).toBe("Lectures 4");
@@ -101,6 +110,25 @@ describe("Sidebar", () => {
     // A date that doesn't exist isn't shown; one open item is singular.
     expect(l04?.querySelector("time")).toBeNull();
     expect(l04?.getAttribute("aria-label")).toBe("l04.md, 1 open item");
+  });
+
+  it("shows no badge for a count that isn't a whole number above zero", () => {
+    const odd = [2.5, -1, Number.NaN].map((open, i) => ({ name: `l${i}.md`, path: `lectures/l${i}.md`, open }));
+    mount({ course: { ...stat311, lectures: odd } });
+    const lectures = within(course()).getByRole("region", { name: "Lectures" });
+    for (const row of within(lectures).getAllByRole("button")) {
+      expect(row.querySelector(".sidebar-badge"), row.textContent ?? "").toBeNull();
+      expect(row.getAttribute("aria-label")).toBe(row.textContent);
+    }
+  });
+
+  it("moves only from a row: keys on the course's heading do nothing", () => {
+    mount();
+    const heading = within(course()).getByRole("heading", { level: 2 });
+    const before = document.activeElement;
+    expect(fireEvent.keyDown(heading, { key: "j" })).toBe(true);
+    expect(fireEvent.keyDown(heading, { key: "G" })).toBe(true);
+    expect(document.activeElement).toBe(before);
   });
 
   it("moves down with j and ArrowDown and up with k and ArrowUp, through every section", () => {
@@ -198,6 +226,8 @@ describe("Sidebar", () => {
     expect(within(slides).queryAllByRole("button")).toHaveLength(0);
     const [first] = within(slides).getAllByRole("listitem");
     expect(first?.getAttribute("title")).toBe("slides/07-covariance.pdf");
+    // Reached by j/k, not a Tab stop of its own (it has nothing to open yet).
+    expect((first as HTMLElement).tabIndex).toBe(-1);
     (first as HTMLElement).focus();
     expect(fireEvent.keyDown(first as HTMLElement, { key: "Enter" })).toBe(true);
     fireEvent.keyDown(first as HTMLElement, { key: "k" });
@@ -254,12 +284,27 @@ describe("SidebarToggle", () => {
     expect(toggle.getAttribute("aria-controls")).toBe("sidebar");
     expect(toggle.getAttribute("aria-keyshortcuts")).toBe("Space e");
     expect(toggle.querySelector("kbd")?.textContent).toBe("␣e");
+    expect(toggle.title).toBe("Hide the sidebar (␣e)");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.title).toBe("Show the sidebar (␣e)");
     expect(screen.queryByRole("region", { name: "Course STAT311" })).toBeNull();
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("region", { name: "Course STAT311" })).toBeTruthy();
+  });
+
+  // Synthetic keys (the embedded WebDriver, assistive tools) never click a button: the app does.
+  it("toggles on Enter or Space on the focused button, and on no other key", () => {
+    const toggle = wired();
+    expect(fireEvent.keyDown(toggle, { key: "Enter" })).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(fireEvent.keyDown(toggle, { key: " " })).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    for (const key of ["e", "a", "Tab", "Escape"]) {
+      expect(fireEvent.keyDown(toggle, { key }), key).toBe(true);
+    }
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("toggles with ␣e from the page", () => {
