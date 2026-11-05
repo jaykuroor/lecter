@@ -171,7 +171,7 @@ fn tidy(rest: &str) -> String {
 }
 
 /// The icon: the first letter or digit of the code, else of the name, in capitals.
-fn icon(code: &str, name: &str) -> String {
+pub(super) fn icon(code: &str, name: &str) -> String {
     code.chars()
         .chain(name.chars())
         .find(|c| c.is_alphanumeric())

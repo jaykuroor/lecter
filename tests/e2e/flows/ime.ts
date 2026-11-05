@@ -312,7 +312,7 @@ describe("Vim and IME composition", function () {
   });
 
   it("lands an insert-mode composition once, with no Vim key firing while composing", async () => {
-    await $("button.course-open").click();
+    await $("button.rail-add").click();
     await $(`button.course-file-open=${NAME}`).click();
     await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");

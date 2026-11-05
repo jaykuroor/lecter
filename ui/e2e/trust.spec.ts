@@ -32,7 +32,7 @@ test.use({
 test("a first open shows the trust screen; Trust answers it @smoke", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   const dialog = page.getByRole("dialog", { name: "Trust “STAT311”?" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("6 lectures · 12 slide decks · 3 sources")).toBeVisible();
@@ -57,7 +57,7 @@ test("a first open shows the trust screen; Trust answers it @smoke", async ({ pa
 
 test("Open read-only by key marks the course read-only", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   const dialog = page.getByRole("dialog", { name: "Trust “STAT311”?" });
   await expect(dialog.getByRole("button", { name: "Open read-only" })).toBeFocused();
   await page.keyboard.press("Enter");

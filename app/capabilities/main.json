@@ -1,6 +1,6 @@
 {
   "identifier": "main",
-  "description": "The main window: only the commands its UI calls (SEC-31). No remote URLs, no core plugin permissions.",
+  "description": "The main window: only the commands its UI calls (SEC-31). No remote URLs; of the core plugins only listening to the core's own events (course:changed).",
   "windows": ["main"],
-  "permissions": ["allow-gloss-request", "allow-gloss-cancel", "allow-app-info", "allow-app-mark-startup", "allow-course-open", "allow-course-trust", "allow-course-details-save", "allow-lecture-open", "allow-lecture-apply-edits", "allow-search-find"]
+  "permissions": ["allow-gloss-request", "allow-gloss-cancel", "allow-app-info", "allow-app-mark-startup", "allow-course-open", "allow-course-list", "allow-course-switch", "allow-course-reorder", "allow-course-trust", "allow-course-details-save", "allow-lecture-open", "allow-lecture-apply-edits", "allow-search-find", "core:event:allow-listen", "core:event:allow-unlisten"]
 }

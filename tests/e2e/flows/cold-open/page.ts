@@ -15,18 +15,18 @@ export interface PageTimes {
   responseEnd: number | null;
   domContentLoaded: number | null;
   loadEnd: number | null;
-  /** Click on Open course folder → the lecture listed in the rail. */
+  /** Click on Add a course → the lecture listed in the rail. */
   courseMs: number;
   /** Click on the lecture → its buffer's first line in the DOM. */
   lectureDomMs: number;
-  /** Click on Open course folder → the frame showing the lecture's buffer has been painted. */
+  /** Click on Add a course → the frame showing the lecture's buffer has been painted. */
   openMs: number;
   /** Every resource the page loaded (resource timing): its URL's path and start time. */
   resources: { name: string; start: number }[];
 }
 
 /**
- * Waits for the shell's first-paint mark, clicks Open course folder (LECTER_TEST_PICK answers the
+ * Waits for the shell's first-paint mark, clicks Add a course (LECTER_TEST_PICK answers the
  * dialog), then the lecture `file`, and waits for the frame that shows its buffer. The user's two
  * clicks take no time: each click happens as soon as its button exists.
  */
@@ -66,8 +66,8 @@ export async function openInPage(file: string): Promise<PageTimes> {
     await until(() => mark() !== null || null, "the shell's first paint mark", 5_000).catch(() => undefined);
 
     const open = await until(
-      () => document.querySelector<HTMLButtonElement>("button.course-open"),
-      "Open course folder",
+      () => document.querySelector<HTMLButtonElement>("button.rail-add"),
+      "Add a course",
     );
     const t0 = performance.now();
     open.click();

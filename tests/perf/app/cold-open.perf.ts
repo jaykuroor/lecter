@@ -1,5 +1,5 @@
 // One launch of cold_open_ms on the real app (14-quality.md#performance-budgets): process start →
-// the page's first paint (the shell), plus Open course folder → the lecture's buffer painted,
+// the page's first paint (the shell), plus Add a course → the lecture's buffer painted,
 // measured in the page with no gap for the user's two clicks (the e2e-app cold-open flow's
 // definition, F-179). run.sh launches this 5 times, each a fresh process started once the
 // previous one's processes have all ended, and the harness gates their median (D-152).

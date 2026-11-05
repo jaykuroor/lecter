@@ -41,7 +41,7 @@ test(":find in the buffer lists the hits in the side panel @smoke", async ({ pag
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page.getByRole("button", { name: "2026-10-23-l07-covariance.md" }).click();
   await expect(page.locator(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
 

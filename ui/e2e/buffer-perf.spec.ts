@@ -98,7 +98,7 @@ async function measure(browser: Browser, baseURL: string | undefined): Promise<R
   await page.addInitScript(installMockCore, fixture);
   await page.addInitScript(installProbe);
   await page.goto(`${baseURL}/`);
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page.getByRole("button", { name: "2026-10-23-l07-fixture.md" }).click();
   await expect(page.locator(".slide-heading-label").first()).toHaveText(`Slide 1 / ${SLIDES}`);
 

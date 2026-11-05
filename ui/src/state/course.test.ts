@@ -264,3 +264,60 @@ describe("course state", () => {
     expect(s.details()).toBeNull();
   });
 });
+
+// F-035: a course on the rail opens without the dialog, through the core's checks.
+describe("switching to a course on the rail", () => {
+  const calc: CourseOpened = { ...algebra, path: "/courses/Calc", name: "Calc", trust: "read_only" };
+  const railOf = (...courses: CourseOpened[]) =>
+    courses.map((c) => ({ path: c.path, name: c.name, icon: "A", color: "#3584e4", missing: false }));
+
+  it("opens the course the core sends, as an open does, and asks for nothing", async () => {
+    installMockCore({
+      ...defaultFixture,
+      rail: railOf(algebra, calc),
+      switch: { [algebra.path]: algebra, [calc.path]: calc },
+    });
+    const s = state();
+    await s.switchTo(calc.path);
+    expect(s.course()).toEqual(calc);
+    await s.switchTo(algebra.path);
+    expect(s.course()).toEqual(algebra);
+    expect((window as unknown as { __mockSwitches: string[] }).__mockSwitches).toEqual([calc.path, algebra.path]);
+  });
+
+  it("does nothing for the course already open", async () => {
+    installMockCore({ ...defaultFixture, rail: railOf(algebra), switch: { [algebra.path]: algebra } });
+    const s = state();
+    await s.switchTo(algebra.path);
+    await s.switchTo(algebra.path);
+    expect((window as unknown as { __mockSwitches: string[] }).__mockSwitches).toEqual([algebra.path]);
+  });
+
+  it("keeps the open course and shows why when the folder is missing", async () => {
+    installMockCore({ ...defaultFixture, rail: railOf(algebra, calc), switch: { [algebra.path]: algebra } });
+    const s = state();
+    await s.switchTo(algebra.path);
+    await s.switchTo(calc.path);
+    expect(s.course()).toEqual(algebra);
+    expect(s.error()).toBe("That course folder is missing or has moved; add it again with +.");
+    expect(s.busy()).toBe(false);
+  });
+
+  it("says so when the core can't be reached", async () => {
+    scriptCore([new Error("gone")]);
+    const s = state();
+    await s.switchTo("/courses/Calc");
+    expect(s.course()).toBeNull();
+    expect(s.error()).toBe("Lecter could not reach the core to open that course.");
+  });
+
+  it("closes another course's details form", async () => {
+    scriptCore([algebra, { trust: "trusted", screen: trustScreen, details }, calc]);
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    await s.switchTo(calc.path);
+    expect(s.details()).toBeNull();
+    expect(s.course()).toEqual(calc);
+  });
+});

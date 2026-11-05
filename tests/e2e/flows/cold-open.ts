@@ -2,7 +2,7 @@
 // The flow builds the release app with test hooks (cold-open/launch.ts), closes the service's
 // debug app and starts the release one itself, so it knows when the process started. Then, in
 // the page, it opens the course and the 200-slide fixture lecture with no time for the user's
-// clicks: cold_open_ms = process start → the shell's first paint, plus Open course folder → the
+// clicks: cold_open_ms = process start → the shell's first paint, plus Add a course → the
 // frame that shows the lecture's buffer (the measurement D-139 started from).
 //
 // A measurement is the median of 5 launches (D-152), each a fresh process with a fresh home and

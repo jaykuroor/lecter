@@ -31,7 +31,7 @@ test.use({
 test("Trust brings the course details form; Save sends the details @smoke", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page
     .getByRole("dialog", { name: /^Trust/ })
     .getByRole("button", { name: "Trust" })
@@ -69,7 +69,7 @@ test("Trust brings the course details form; Save sends the details @smoke", asyn
 
 test("Escape closes the form without saving; Open read-only never shows it", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page
     .getByRole("dialog", { name: /^Trust/ })
     .getByRole("button", { name: "Trust" })
@@ -81,7 +81,7 @@ test("Escape closes the form without saving; Open read-only never shows it", asy
   expect(await page.evaluate(() => (window as unknown as { __mockDetails?: unknown[] }).__mockDetails)).toBeUndefined();
 
   await page.reload();
-  await page.getByRole("button", { name: /open course folder/i }).click();
+  await page.getByRole("button", { name: "Add a course" }).click();
   await page
     .getByRole("dialog", { name: /^Trust/ })
     .getByRole("button", { name: "Open read-only" })

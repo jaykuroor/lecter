@@ -89,7 +89,7 @@ describe("lecture buffer", () => {
 
   it("opens the lecture from the rail with Enter and shows its slides and blocks", async () => {
     const focusedOpen = await browser.execute(() => {
-      const button = document.querySelector("button.course-open") as HTMLButtonElement | null;
+      const button = document.querySelector("button.rail-add") as HTMLButtonElement | null;
       button?.focus();
       return document.activeElement === button && button !== null;
     });
@@ -142,7 +142,7 @@ describe("lecture buffer", () => {
   });
 
   it("opens the lecture with the mouse too", async () => {
-    await $("button.course-open").click();
+    await $("button.rail-add").click();
     await $(`button.course-file-open=${NAME}`).click();
     await expect(focused()).toHaveText("Covariance measures how two variables move together.");
     await expect(buffer()).toHaveAttribute("data-vim-mode", "normal");

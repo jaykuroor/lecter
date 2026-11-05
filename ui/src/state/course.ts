@@ -5,6 +5,7 @@ import {
   type CourseOpened,
   openCourse,
   saveCourseDetails,
+  switchCourse,
   type TrustChoice,
 } from "../core/course";
 
@@ -18,6 +19,12 @@ export interface CourseState {
   busy: Accessor<boolean>;
   /** Asks the core to open a course. A cancelled dialog keeps the current course. */
   open: () => Promise<void>;
+  /**
+   * Opens `path`, a course on the rail, without the dialog (`course_switch`); the open course stays
+   * if the core refuses (missing, moved), with its message as the error. Switching to the open
+   * course does nothing.
+   */
+  switchTo: (path: string) => Promise<void>;
   /**
    * Answers the open course's trust screen (02-course-folder.md#trust). The core's answer replaces
    * the course's trust and screen: it asks again if the course's AI files changed meanwhile.
@@ -49,11 +56,15 @@ export function createCourse(): CourseState {
     setDetailsError(null);
   }
 
-  async function open(): Promise<void> {
+  /** Opens what `call` answers with; `unreachable` is the message when the core can't be reached. */
+  async function openWith(
+    call: () => Promise<{ status: "ok"; data: CourseOpened | null } | { status: "error"; error: { message: string } }>,
+    unreachable: string,
+  ): Promise<void> {
     if (busy()) return;
     setBusy(true);
     try {
-      const result = await openCourse();
+      const result = await call();
       if (result.status === "error") {
         setError(result.error.message);
       } else if (result.data) {
@@ -63,10 +74,17 @@ export function createCourse(): CourseState {
         setError(null);
       }
     } catch {
-      setError("Lecter could not reach the core to open the folder.");
+      setError(unreachable);
     } finally {
       setBusy(false);
     }
+  }
+
+  const open = () => openWith(openCourse, "Lecter could not reach the core to open the folder.");
+
+  async function switchTo(path: string): Promise<void> {
+    if (course()?.path === path) return;
+    await openWith(() => switchCourse(path), "Lecter could not reach the core to open that course.");
   }
 
   async function answer(choice: TrustChoice): Promise<void> {
@@ -109,5 +127,16 @@ export function createCourse(): CourseState {
     }
   }
 
-  return { course, error, busy, open, answer, details, detailsError, saveDetails, skipDetails: closeDetails };
+  return {
+    course,
+    error,
+    busy,
+    open,
+    switchTo,
+    answer,
+    details,
+    detailsError,
+    saveDetails,
+    skipDetails: closeDetails,
+  };
 }

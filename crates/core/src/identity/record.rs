@@ -18,7 +18,7 @@ pub const MIGRATED_KEY: &str = "migrated_identity";
 const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// Opens (creating it if needed) `state.db` at `path` in WAL mode with its `meta` table.
-pub(super) fn open(path: &Path) -> rusqlite::Result<Connection> {
+pub(crate) fn open(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
     conn.busy_timeout(BUSY_TIMEOUT)?;
     wal(&conn)?;

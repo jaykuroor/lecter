@@ -28,6 +28,22 @@ export function installMockCore(fixture: MockFixture): void {
   // Running mocked gloss streams: id → stop.
   const streams = new Map<string, () => void>();
   let glossCount = 0;
+  // The course rail as the core keeps it, and the `course:changed` listeners: event id → callback id.
+  let rail = fixture.rail.map((c) => ({ ...c }));
+  const switchable = { ...fixture.switch };
+  const listeners = new Map<number, number>();
+  // Each install starts a fresh record of switches.
+  delete (window as unknown as { __mockSwitches?: string[] }).__mockSwitches;
+  let nextEventId = 1;
+  const emitRail = () => {
+    for (const [id, handler] of listeners) {
+      callbacks.get(handler)?.({ event: "course:changed", id, payload: { courses: rail.map((c) => ({ ...c })) } });
+    }
+  };
+  const fail = (code: IpcError["code"], message: string): never => {
+    const error: IpcError = { code, message, retryable: false };
+    throw error;
+  };
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
     // Records each paint, with its time, for the test to read back (window.__mockStartup).
@@ -37,15 +53,49 @@ export function installMockCore(fixture: MockFixture): void {
       w.__mockStartup.push({ paint, at: performance.now() });
       return undefined;
     },
-    course_open: () => fixture.courseOpen,
+    // The picked course joins the rail (once) and can be switched to from then on.
+    course_open: () => {
+      const opened = fixture.courseOpen;
+      if (opened && !rail.some((c) => c.path === opened.path)) {
+        const icon = opened.name.charAt(0).toUpperCase() || "C";
+        rail.push({ path: opened.path, name: opened.name, icon, color: "#3584e4", missing: false });
+        switchable[opened.path] ??= opened;
+        setTimeout(emitRail, 0);
+      }
+      return opened;
+    },
+    course_list: () => rail.map((c) => ({ ...c })),
+    // Any order of the rail's paths, each once; the event follows, as from the core.
+    course_reorder: ({ order }) => {
+      const have = rail.map((c) => c.path).sort();
+      const want = [...order].sort();
+      if (have.length !== want.length || have.some((p, i) => p !== want[i])) {
+        fail("E_INVALID_ARGUMENT", "The new order must list each course on the rail exactly once.");
+      }
+      rail = order.map((p) => rail.find((c) => c.path === p)).filter((c) => c !== undefined);
+      setTimeout(emitRail, 0);
+      return rail.map((c) => ({ ...c }));
+    },
+    // Each call is kept for the test to read back (window.__mockSwitches).
+    course_switch: ({ course }) => {
+      const w = window as unknown as { __mockSwitches?: string[] };
+      w.__mockSwitches ??= [];
+      w.__mockSwitches.push(course);
+      if (!rail.some((c) => c.path === course))
+        fail("E_INVALID_ARGUMENT", "That course isn't on the rail; add its folder with +.");
+      const opened = switchable[course];
+      if (!opened) return fail("E_NOT_FOUND", "That course folder is missing or has moved; add it again with +.");
+      return opened;
+    },
     // The course's trust becomes the answer, with its screen; each call is kept for the test to
-    // read back (window.__mockTrust). Only the course course_open returned can be answered.
+    // read back (window.__mockTrust). Only a course course_open or course_switch returned can be
+    // answered.
     course_trust: (args) => {
       const w = window as unknown as { __mockTrust?: (typeof args)[] };
       w.__mockTrust ??= [];
       w.__mockTrust.push(args);
-      const opened = fixture.courseOpen;
-      if (!opened || opened.path !== args.course) {
+      const opened = fixture.courseOpen?.path === args.course ? fixture.courseOpen : switchable[args.course];
+      if (!opened) {
         const error: IpcError = {
           code: "E_INVALID_ARGUMENT",
           message: "Open the course before its lectures.",
@@ -126,6 +176,17 @@ export function installMockCore(fixture: MockFixture): void {
   let nextId = 1;
   const internals: MockInternals = {
     invoke(cmd, args) {
+      // Tauri's event plugin, for `course:changed` (the only event the core sends).
+      if (cmd === "plugin:event|listen") {
+        const { event, handler } = args as { event: string; handler: number };
+        const id = nextEventId++;
+        if (event === "course:changed") listeners.set(id, handler);
+        return Promise.resolve(id);
+      }
+      if (cmd === "plugin:event|unlisten") {
+        listeners.delete((args as { eventId: number }).eventId);
+        return Promise.resolve(null);
+      }
       if (!isCommand(cmd)) {
         const error: IpcError = {
           code: "E_INVALID_ARGUMENT",
@@ -165,6 +226,11 @@ export function installMockCore(fixture: MockFixture): void {
   };
   Object.defineProperty(window, "__TAURI_INTERNALS__", {
     value: internals,
+    configurable: true,
+  });
+  // `@tauri-apps/api/event` drops its own record of a listener here before it unlistens.
+  Object.defineProperty(window, "__TAURI_EVENT_PLUGIN_INTERNALS__", {
+    value: { unregisterListener: () => {} },
     configurable: true,
   });
 }

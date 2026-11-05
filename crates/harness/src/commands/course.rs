@@ -1,23 +1,24 @@
 //! `lecter-harness course open <dir>`: opens a course folder and prints its `lectures/` and
 //! `slides/` listing, the same JSON as the app's `course_open` without its `trust` and `screen`
 //! (F-018). `course trust <dir> [trusted|read-only]`: its trust screen, or the answer (F-033,
-//! `course_trust.rs`).
+//! `course_trust.rs`). `course list | add <dir> | reorder <path>…`: the course rail (F-035,
+//! `course_rail.rs`).
 
 use std::path::{Path, PathBuf};
 
 use lecter_core::course::{self, CourseFile, CourseListing};
 
-use super::{Command, Reply, course_trust};
+use super::{Command, Reply, course_rail, course_trust};
 use crate::error::HarnessError;
 
 /// The `course` command.
 pub const COMMAND: Command = Command {
     name: "course",
-    summary: "course open <dir> | course trust <dir> [trusted|read-only]: list a course folder, or show or answer its trust screen",
+    summary: "course open <dir> | course trust <dir> [trusted|read-only] | course list | course add <dir> | course reorder <path>...: list a course folder, show or answer its trust screen, or show and change the course rail",
     run,
 };
 
-pub(super) const USAGE: &str = "usage: course open <dir> | course trust <dir> [trusted|read-only]";
+pub(super) const USAGE: &str = "usage: course open <dir> | course trust <dir> [trusted|read-only] | course list | course add <dir> | course reorder <path>...";
 
 fn run(args: &[String]) -> Result<Reply, HarnessError> {
     match args {
@@ -26,6 +27,7 @@ fn run(args: &[String]) -> Result<Reply, HarnessError> {
             Err(HarnessError::invalid_argument(format!("course open takes one folder; {USAGE}")))
         }
         [verb, rest @ ..] if verb == "trust" => course_trust::run(rest),
+        [verb, rest @ ..] if ["list", "add", "reorder"].contains(&verb.as_str()) => course_rail::run(verb, rest),
         [verb, ..] => Err(HarnessError::invalid_argument(format!("unknown course command \"{verb}\"; {USAGE}"))),
         [] => Err(HarnessError::invalid_argument(format!("missing course command; {USAGE}"))),
     }
@@ -68,7 +70,15 @@ mod tests {
 
     #[test]
     fn only_open_with_exactly_one_folder_is_a_valid_call() {
-        for args in [&[][..], &["list"][..], &["open"][..], &["open", "a", "b"][..]] {
+        for args in [
+            &[][..],
+            &["lists"][..],
+            &["open"][..],
+            &["open", "a", "b"][..],
+            &["list", "x"][..],
+            &["add"][..],
+            &["reorder"][..],
+        ] {
             let e = call(args).err().unwrap_or_else(|| panic!("{args:?} was accepted"));
             assert_eq!(e.code, ErrorCode::InvalidArgument, "{args:?}");
             assert!(e.message.contains(USAGE), "{args:?}: {}", e.message);

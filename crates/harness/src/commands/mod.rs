@@ -2,6 +2,7 @@
 //! [`Command`] line in [`COMMANDS`].
 
 mod course;
+mod course_rail;
 mod course_trust;
 mod gate;
 mod parse;

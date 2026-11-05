@@ -130,6 +130,21 @@ pub enum Error {
         /// Why, without quoting the file's text.
         reason: String,
     },
+    /// The app's `state.db`, which keeps the courses on the rail (D-188), could not be read or
+    /// written. The SQLite error is logged, not shown.
+    #[error("Lecter could not use its list of courses.")]
+    CourseListFailed,
+    /// A course path the UI sent that isn't on the rail: only a folder the user once picked opens
+    /// without the folder dialog (SEC-32, SEC-35).
+    #[error("That course isn't on the rail; add its folder with +.")]
+    CourseNotKnown,
+    /// A course on the rail whose folder is gone, or whose path now leads to another folder
+    /// (a link swapped in); it is never opened in place of the one the user picked.
+    #[error("That course folder is missing or has moved; add it again with +.")]
+    CourseMoved,
+    /// A new rail order that doesn't list each course on the rail exactly once.
+    #[error("The new order must list each course on the rail exactly once.")]
+    BadCourseOrder,
     /// `course.jsonc` has a `version` this Lecter doesn't write, so it is left as it is.
     #[error("{path} has version {version}, which a newer Lecter wrote; this one won't change it.")]
     CourseFileNewer {
@@ -144,7 +159,9 @@ impl Error {
     /// The `18-contracts.md#error-codes` code the app and the harness report for this error.
     pub const fn code(&self) -> ErrorCode {
         match self {
-            Self::FolderNotFound | Self::LectureNotFound(_) => ErrorCode::NotFound,
+            Self::FolderNotFound | Self::LectureNotFound(_) | Self::CourseMoved => ErrorCode::NotFound,
+            Self::CourseListFailed => ErrorCode::Io,
+            Self::CourseNotKnown | Self::BadCourseOrder => ErrorCode::InvalidArgument,
             Self::OutsideCourse(_) | Self::CourseNotTrusted | Self::CourseReadOnly => ErrorCode::NotTrusted,
             Self::Io(_)
             | Self::TrustFileWrite(_)
@@ -206,6 +223,10 @@ mod tests {
                 Error::CourseFileNewer { path: ".lecter/course.jsonc".into(), version: "2".into() },
                 ErrorCode::InvalidArgument,
             ),
+            (Error::CourseListFailed, ErrorCode::Io),
+            (Error::CourseNotKnown, ErrorCode::InvalidArgument),
+            (Error::CourseMoved, ErrorCode::NotFound),
+            (Error::BadCourseOrder, ErrorCode::InvalidArgument),
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");

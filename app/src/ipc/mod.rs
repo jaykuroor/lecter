@@ -28,13 +28,16 @@ pub fn contract() -> Builder<Wry> {
             app::app_info,
             app::app_mark_startup,
             course::course_open,
+            course::rail::course_list,
+            course::rail::course_switch,
+            course::rail::course_reorder,
             course::course_trust,
             course::details::course_details_save,
             lecture::lecture_open,
             lecture::lecture_apply_edits,
             search::search_find
         ])
-        .events(collect_events![])
+        .events(collect_events![course::rail::CourseChanged])
 }
 
 /// The invoke handler for `tauri::Builder::invoke_handler`: the contract's commands behind the

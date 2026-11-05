@@ -9,6 +9,9 @@ use support::{app_dir, conf, json};
 
 include!("../src/ipc/names.rs");
 
+/// The only core-plugin permissions: listening for events and stopping, never emitting.
+const EVENT_PERMISSIONS: [&str; 2] = ["core:event:allow-listen", "core:event:allow-unlisten"];
+
 fn capability_files() -> Vec<std::path::PathBuf> {
     let dir = app_dir().join("capabilities");
     let mut files: Vec<_> = std::fs::read_dir(&dir)
@@ -32,8 +35,10 @@ fn main_capability_grants_exactly_the_shell_commands() {
         .iter()
         .map(|p| p.as_str().unwrap_or_else(|| panic!("permission {p} is not a plain name")).to_owned())
         .collect();
-    let expected: Vec<String> = COMMANDS.iter().map(|c| format!("allow-{}", c.replace('_', "-"))).collect();
-    assert_eq!(granted, expected, "main.json must grant the shell's commands and nothing else");
+    let mut expected: Vec<String> = COMMANDS.iter().map(|c| format!("allow-{}", c.replace('_', "-"))).collect();
+    // The UI listens for the core's events (`course:changed`, F-035); it can't emit any.
+    expected.extend(EVENT_PERMISSIONS.iter().map(|p| (*p).to_owned()));
+    assert_eq!(granted, expected, "main.json must grant the shell's commands, event listening and nothing else");
 }
 
 #[test]

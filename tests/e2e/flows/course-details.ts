@@ -67,7 +67,7 @@ describe("course details", () => {
 
   it("follows Trust, pre-filled, and Save writes course.jsonc with version 1", async () => {
     await relaunchWithoutTrustHook(course(), "course-details-relaunch");
-    await $("button.course-open").click();
+    await $("button.rail-add").click();
     await expect($(".trust")).toBeDisplayed();
     await $("button=Trust").click();
 

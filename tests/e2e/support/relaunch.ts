@@ -46,11 +46,13 @@ let relaunched: ChildProcess | null = null;
 
 /**
  * Quits the service's app (it has the hook) and starts one without it, its folder dialog
- * answering `course`; its output goes to `<log>.log` in the run's output folder.
+ * answering `course`; its output goes to `<log>.log` in the run's output folder. `whileClosed`
+ * runs once the old app has quit and before the new one starts (e.g. to reset the app's state).
  */
-export async function relaunchWithoutTrustHook(course: string, log: string): Promise<void> {
+export async function relaunchWithoutTrustHook(course: string, log: string, whileClosed?: () => void): Promise<void> {
   await browser.closeWindow().catch(() => undefined);
   await waitFor(async () => !(await alive()), 30_000, "the app to quit");
+  whileClosed?.();
   const out = process.env.LECTER_E2E_OUT;
   const file = out ? openSync(join(out, `${log}.log`), "w") : "ignore";
   const env: NodeJS.ProcessEnv = {

@@ -1,13 +1,14 @@
 import { createEffect, createSignal, lazy, onCleanup, onMount, Show } from "solid-js";
 import { markStartup } from "./core/startup";
-import { CoursePanel } from "./features/course/CoursePanel";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
+import { RailColumn } from "./features/rail/RailColumn";
 import { TrustScreen } from "./features/trust/TrustScreen";
 import { createAppInfo } from "./state/appInfo";
 import { createCourse } from "./state/course";
 import { createFind } from "./state/find";
 import { createLecture } from "./state/lecture";
+import { createRail } from "./state/rail";
 import "./App.css";
 
 // The buffer (CodeMirror and Vim) is a chunk of its own: the shell paints without it, and it
@@ -60,6 +61,7 @@ export function App() {
   const [painted, setPainted] = createSignal(false);
   const info = createAppInfo(painted);
   const course = createCourse();
+  const rail = createRail();
   const lecture = createLecture();
   const find = createFind();
   // `:find words` in the buffer and the Find field both search the open course (F-022).
@@ -77,6 +79,8 @@ export function App() {
       markStartup("shell_first_paint");
       // Renders the buffer, which starts loading its chunk; `:find` is defined before it shows.
       setPainted(true);
+      // The course rail's courses (state.db) aren't needed for the first paint.
+      void rail.load();
       void loadEditor().then(([, ex, warm]) => {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);
@@ -104,8 +108,9 @@ export function App() {
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
       </header>
       <nav class="rail" aria-label="Course rail">
-        <CoursePanel
-          state={course}
+        <RailColumn
+          course={course}
+          rail={rail}
           onOpenLecture={(path, file) => void lecture.open(path, file)}
           openLecture={lecture.lecture()?.path ?? null}
         />
