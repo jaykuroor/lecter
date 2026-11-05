@@ -1242,3 +1242,34 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the built-in default of `ui.hintBar` is `full` (keys, their words and the mouse action), used before onboarding sets it or when its Vim step is skipped.
 - Why: the hint bar is the first thing a new user sees under the document; full teaches both the keys and the mouse paths.
 - Instead of: compact; off.
+
+## D-207 · Hints come from the key engine's resolution (F-038)
+2026-11-05 · F-038 builder, recorded by the orchestrator · active
+- Decision: a binding shows in the hint bar only where `resolve()` would run it (scopes, modes, shadowing, keymaps.jsonc); one hint per command with all its keys; a numbered family shows as a range (Ctrl-1…9) and is not clickable; order follows the default keymap.
+- Why: no second key table (D-199).
+- Instead of: a separate hint table.
+
+## D-208 · Only F6 and ␣ More are pinned in the hint bar (F-038)
+2026-11-05 · F-038 builder, recorded by the orchestrator · active
+- Decision: F6 and ␣ More stay at the right; the element's keys, then moves, then Ctrl-1…9 and Shift-F6 are dropped whole when the line runs out.
+- Why: with every global key pinned, full mode had room for one element key in the 760 px column.
+- Instead of: pinning every global key.
+
+## D-209 · Hint detail levels (F-038)
+2026-11-05 · F-038 builder, recorded by the orchestrator · active
+- Decision: compact = keycaps and words; full adds the mouse path from 09-ui; off hides the bar.
+- Why: "keys only" read as "no mouse actions".
+- Instead of: bare keycaps in compact.
+
+## D-210 · A hint click runs what its key does (F-038)
+2026-11-05 · F-038 builder, recorded by the orchestrator · active
+- Decision: ui/src/keys/dispatch.ts `runWithoutKey` runs the command's handler, else replays the keys into Vim in the buffer; a lone given-up key does nothing; the key path shares `vimTakes`. A hint renders as a button only when a click can run it (`hasCommand`/`watchCommands`).
+- Why: every action is reachable by mouse and by key (AGENTS.md); its own file keeps which-key out of the hints chunk.
+- Instead of: runCommand only.
+
+## D-211 · ui.hintBar is an input to the hint bar until settings exist (F-038)
+2026-11-05 · F-038 builder, recorded by the orchestrator · active
+- Decision: `startHintBar` takes `detail` (default full, D-206); ␣uh changes it for the session only.
+- Why: no settings_get IPC, and the settings schema (D-171) is outside F-038's paths.
+- Instead of: wiring Rust settings in F-038.
+- Revisit if: F-045/F-160: add ui.hintBar to the schema, pass it as `detail`, make ␣uh write it.

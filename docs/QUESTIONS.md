@@ -209,6 +209,12 @@ The real app's keystroke_p99_ms misses its < 8 ms budget on the maintainer's mac
 - Recommended: a perf card before the M1 gate. Profile the keydown → paint path in the real app (key engine resolve, Vim handler, CodeMirror update, journal write) and get p99 to ≤ 7 ms with a margin. The budget stays (protected).
 - Answer:
 
+## Q-032 · later · blocks: nothing
+Which card adds `settings_get` / `settings:changed` (18-contracts) and the ui.* keys such as ui.hintBar to the Rust settings schema?
+- Context: F-038 (D-211) takes the hint detail as an input because no settings IPC exists. D-171 kept the schema to keys some card owns. Notes are on F-045 and F-160, but neither card's criteria name the IPC.
+- Recommended: F-045 (settings window) owns settings_get/settings:changed and the ui.* keys; F-160 only sets ui.hintBar from onboarding.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 
