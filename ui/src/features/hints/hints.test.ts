@@ -20,8 +20,10 @@ function withUser(bindings: unknown[]) {
   return compileKeymap(mergeKeymap(DEFAULT_KEYMAP, user.bindings, false).bindings, false);
 }
 
-// The keys every element shows at the right end: Ctrl-1…9, F6 (D-200) and the leader.
-const TAIL = ["Ctrl-1…9 Course", "F6 Next pane", "Shift-F6 Previous pane", "␣ More"];
+// The keys every element shows at the right end, the ways on to every other key: F6 (D-200)
+// and the leader; and the other global keys, which end the element's list.
+const TAIL = ["F6 Next pane", "␣ More"];
+const GLOBAL = ["Ctrl-1…9 Course", "Shift-F6 Previous pane"];
 
 describe("hintsFor", () => {
   it("lists a slide line's keys (10-keymap.md#on-a-slide-line), then the moves, in the keymap's order", () => {
@@ -52,6 +54,7 @@ describe("hintsFor", () => {
       "[d Previous doubt",
       "]b Next build step",
       "[b Previous build step",
+      ...GLOBAL,
     ]);
     expect(hints.tail.map(read)).toEqual(TAIL);
   });
@@ -80,21 +83,21 @@ describe("hintsFor", () => {
 
   it("follows the mode: in visual mode only the keys that work on a selection, in insert mode only the global ones", () => {
     const visual = hintsFor(defaults, "slide-line", "visual");
-    expect(visual.main.map(read)).toEqual(["↵ Ask about this line"]);
+    expect(visual.main.map(read)).toEqual(["↵ Ask about this line", ...GLOBAL]);
     expect(visual.tail.map(read)).toEqual(TAIL);
     const insert = hintsFor(defaults, "slide-line", "insert");
-    expect(insert.main).toEqual([]);
-    expect(insert.tail.map(read)).toEqual(TAIL.slice(0, 3));
+    expect(insert.main.map(read)).toEqual(GLOBAL);
+    expect(insert.tail.map(read)).toEqual(["F6 Next pane"]);
   });
 
   it("shows only the global keys in a field and on a control, and the leader too elsewhere on the page", () => {
     for (const el of ["field", "control"] as const) {
       const hints = hintsFor(defaults, el, "normal");
-      expect(hints.main).toEqual([]);
-      expect(hints.tail.map(read)).toEqual(TAIL.slice(0, 3));
+      expect(hints.main.map(read)).toEqual(GLOBAL);
+      expect(hints.tail.map(read)).toEqual(["F6 Next pane"]);
     }
     const page = hintsFor(defaults, "page", "normal");
-    expect(page.main).toEqual([]);
+    expect(page.main.map(read)).toEqual(GLOBAL);
     expect(page.tail.map(read)).toEqual(TAIL);
   });
 
@@ -102,18 +105,18 @@ describe("hintsFor", () => {
     const hints = hintsFor(defaults, "slide-line", "normal");
     const steps = hints.main.find((h) => h.desc === "Steps");
     expect(steps?.binding).toMatchObject({ keys: "s", command: "ai.steps", scope: "line" });
-    const course = hints.tail[0];
+    const course = hints.main.at(-2);
     expect(course?.binding).toMatchObject({ command: "course.go", arg: 0 });
-    const more = hints.tail[3];
+    expect(hints.tail[0]?.binding).toMatchObject({ keys: "<F6>", command: "focus.next" });
+    const more = hints.tail[1];
     expect(more?.binding).toBeNull();
     expect(more?.prefix).toEqual(["<Space>"]);
     expect(steps?.prefix).toEqual([]);
   });
 
   it("names Cmd on macOS", () => {
-    const tail = hintsFor(mac, "slide-line", "normal").tail.map(read);
-    expect(tail[0]).toBe("⌘1…9 Course");
-    expect(tail[2]).toBe("⇧F6 Previous pane");
+    const main = hintsFor(mac, "slide-line", "normal").main.map(read);
+    expect(main.slice(-2)).toEqual(["⌘1…9 Course", "⇧F6 Previous pane"]);
   });
 
   it("takes keymaps.jsonc's bindings: a rebound key, an unbound one and a new one", () => {
@@ -129,12 +132,8 @@ describe("hintsFor", () => {
     // A user binding reads as the default it replaces did, in the default's place.
     expect(main[1]).toBe("x Steps");
     expect(main).not.toContain("s Steps");
-    expect(hints.tail.map(read)).toEqual([
-      "Ctrl-1…4 Ctrl-6…9 Course",
-      "F7 Next pane",
-      "Shift-F6 Previous pane",
-      "␣ More",
-    ]);
+    expect(main.slice(-2)).toEqual(["Ctrl-1…4 Ctrl-6…9 Course", "Shift-F6 Previous pane"]);
+    expect(hints.tail.map(read)).toEqual(["F7 Next pane", "␣ More"]);
   });
 
   it("drops a binding another one shadows where the cursor is, and one for another mode", () => {
@@ -147,7 +146,11 @@ describe("hintsFor", () => {
     expect(hintsFor(map, "gloss", "normal").main.map(read)).not.toContain("r Steps");
     expect(hintsFor(map, "slide-line", "normal").main.map(read)).toContain("s r Steps");
     expect(hintsFor(map, "slide-line", "normal").main.map(read)).toContain("t Define terms");
-    expect(hintsFor(map, "slide-line", "visual").main.map(read)).toEqual(["↵ Ask about this line", "w Define terms"]);
+    expect(hintsFor(map, "slide-line", "visual").main.map(read)).toEqual([
+      "↵ Ask about this line",
+      "w Define terms",
+      ...GLOBAL,
+    ]);
   });
 
   it("names a command no default has by its id, keeps a single numbered key whole, and leaves out keys that don't parse", () => {
@@ -169,9 +172,9 @@ describe("hintsFor", () => {
       false,
     );
     const hints = hintsFor(map, "slide-line", "normal");
-    expect(hints.main.map(read)).toEqual(["z1 made.up"]);
     // Two numbers apart are two keycaps, lowest first; the leader has only a group, so no "more".
-    expect(hints.tail.map(read)).toEqual(["Ctrl-1 Ctrl-3 Course"]);
+    expect(hints.main.map(read)).toEqual(["z1 made.up", "Ctrl-1 Ctrl-3 Course"]);
+    expect(hints.tail).toEqual([]);
   });
 
   it("joins two numbered keys in a row into one range", () => {
@@ -179,6 +182,6 @@ describe("hintsFor", () => {
       DEFAULT_KEYMAP.filter((b) => b.command !== "course.go" || (b.arg as number) < 2),
       false,
     );
-    expect(hintsFor(map, "page", "normal").tail.map(read)[0]).toBe("Ctrl-1…2 Course");
+    expect(hintsFor(map, "page", "normal").main.map(read)[0]).toBe("Ctrl-1…2 Course");
   });
 });

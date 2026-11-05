@@ -83,10 +83,12 @@ describe("the hint bar", () => {
     expect(shown("main")).toContain("hint-key=i hint-desc=Edit / fix the line hint-mouse=double-click");
     expect(shown("main")).toContain("hint-key=Ctrl-j hint-key=]] hint-desc=Next slide hint-mouse=scroll");
     expect(shown("main")).toContain("hint-key=]d hint-desc=Next doubt hint-mouse=Doubts tab");
-    expect(shown("tail")).toEqual([
+    expect(shown("main").slice(-2)).toEqual([
       "hint-key=Ctrl-1…9 hint-desc=Course hint-mouse=click the course",
-      "hint-key=F6 hint-desc=Next pane hint-mouse=click a pane",
       "hint-key=Shift-F6 hint-desc=Previous pane hint-mouse=click a pane",
+    ]);
+    expect(shown("tail")).toEqual([
+      "hint-key=F6 hint-desc=Next pane hint-mouse=click a pane",
       "hint-key=␣ hint-desc=More hint-mouse=click here",
     ]);
   });
@@ -111,23 +113,24 @@ describe("the hint bar", () => {
     cursor.mode = "insert";
     press("i");
     frame();
-    expect(words()).toEqual([]);
-    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane"]);
+    expect(words()).toEqual(["Course", "Previous pane"]);
+    expect(words("tail")).toEqual(["Next pane"]);
     cursor.mode = "visual";
     buffer.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
     frame();
-    expect(words()).toEqual(["Ask about this line"]);
-    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane", "More"]);
+    expect(words()).toEqual(["Ask about this line", "Course", "Previous pane"]);
+    expect(words("tail")).toEqual(["Next pane", "More"]);
   });
 
   it("follows the focus out of the buffer into a field and onto the page", () => {
     field.focus();
     frame();
-    expect(words()).toEqual([]);
-    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane"]);
+    expect(words()).toEqual(["Course", "Previous pane"]);
+    expect(words("tail")).toEqual(["Next pane"]);
     field.blur();
     frame();
-    expect(words("tail")).toEqual(["Course", "Next pane", "Previous pane", "More"]);
+    expect(words()).toEqual(["Course", "Previous pane"]);
+    expect(words("tail")).toEqual(["Next pane", "More"]);
     buffer.focus();
     frame();
     expect(words()[0]).toBe("Ask about this line");
@@ -186,7 +189,7 @@ describe("the hint bar", () => {
     steps.click();
     expect(ran).toEqual(["ai.steps 1"]);
     expect(document.activeElement).toBe(buffer);
-    const more = [...host.querySelectorAll<HTMLButtonElement>(".hint-tail .hint")][3] as HTMLButtonElement;
+    const more = [...host.querySelectorAll<HTMLButtonElement>(".hint-tail .hint")][1] as HTMLButtonElement;
     more.click();
     expect(keys.engine.sequence()).toEqual(["<Space>"]);
   });

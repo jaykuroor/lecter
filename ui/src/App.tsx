@@ -99,10 +99,13 @@ export function App() {
   let gone = false;
   let dropFind: (() => void) | undefined;
   let stopKeys: (() => void) | undefined;
+  let hints: { refresh: () => void; stop: () => void } | undefined;
+  let hintHost: HTMLDivElement | undefined;
   onCleanup(() => {
     gone = true;
     dropFind?.();
     keys.stop();
+    hints?.stop();
     stopKeys?.();
     for (const drop of dropCommands) drop();
   });
@@ -115,10 +118,16 @@ export function App() {
         const started = startKeys({ mac, host: documentColumn as HTMLDivElement });
         stopKeys = started.stop;
         keys.attach(started.handle);
+        // The hint bar (F-038) reads the engine's keymap; its chunk comes after the engine's.
+        void import("./features/hints/mount").then(({ startHintBar }) => {
+          if (gone) return;
+          hints = startHintBar({ engine: started.engine, host: hintHost as HTMLDivElement });
+        });
         // keymaps.jsonc comes after: the default keys work until it is in, and stay when it
         // can't be used. Nothing on the key path waits for it.
         void readKeymaps().then((read) => {
           setKeyNotice(read.status === "ok" ? started.setUserKeymap(read.data) : [read.error.message]);
+          hints?.refresh();
         });
       });
       // Renders the buffer, which starts loading its chunk; `:find` is defined before it shows.
@@ -178,6 +187,8 @@ export function App() {
             />
           </Show>
         </main>
+        {/* The hint bar (F-038): the keys that work now, one line above the status line. */}
+        <div class="hint-bar-host" ref={hintHost} />
         {/* The first open of a folder, or one that moved or whose AI files changed, asks (F-033). */}
         <Show when={course.course()?.trust === "ask" ? course.course() : null}>
           {(c) => (

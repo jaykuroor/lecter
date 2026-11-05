@@ -7,6 +7,8 @@ import { type Binding, DEFAULT_KEYMAP, type Mode, type Scope } from "../../keys/
 import { keyLabel, parseKeys } from "../../keys/notation";
 
 const LEADER = "<Space>";
+/** The command the tail keeps beside the leader: F6, out of any pane (D-200). */
+const NEXT_PANE = "focus.next";
 
 /** One entry of the hint bar: a command with every key that runs it here. */
 export interface Hint {
@@ -23,8 +25,9 @@ export interface Hint {
 }
 
 /**
- * The hint bar's two parts: `main` holds the element's own keys, then the buffer's moves (cut to
- * the line when they don't fit), `tail` the global keys and the leader, always shown at the end.
+ * The hint bar's two parts: `main` holds the element's own keys, then the buffer's moves, then the
+ * other global keys (cut to the line when they don't fit); `tail` the ways on to every other key,
+ * always shown at the end: the next pane (F6, D-200) and the leader (which-key).
  */
 export interface Hints {
   main: Hint[];
@@ -113,8 +116,8 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
       scopes.indexOf(a.scope) - scopes.indexOf(b.scope) ||
       rank((a.binding as Binding).command) - rank((b.binding as Binding).command),
   );
-  const tail = hints.filter((h) => h.scope === "global");
+  const tail = hints.filter((h) => h.binding?.command === NEXT_PANE);
   if (leader)
     tail.push({ keys: [keyLabel(LEADER, map.mac)], desc: "More", binding: null, prefix: [LEADER], scope: "app" });
-  return { main: hints.filter((h) => h.scope !== "global"), tail };
+  return { main: hints.filter((h) => h.binding?.command !== NEXT_PANE), tail };
 }
