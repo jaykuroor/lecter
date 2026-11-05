@@ -24,6 +24,11 @@ async function start(): Promise<void> {
   render(() => <App />);
   await waitFor(() => expect(document.querySelector(".hint-bar")).not.toBeNull());
   await waitFor(() => expect(press({ key: "9", code: "Digit9", ctrlKey: true })).toBe(true));
+  // The overlay's chunk comes after the engine's, on its own: until it is in, keys don't show.
+  await waitFor(() => {
+    press({ key: "Escape" });
+    expect(document.querySelector(".keystroke-overlay")).not.toBeNull();
+  });
 }
 
 describe("read mode and the keystroke overlay in the app", () => {
