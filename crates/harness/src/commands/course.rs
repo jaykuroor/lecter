@@ -18,8 +18,7 @@ pub const COMMAND: Command = Command {
     run,
 };
 
-pub(super) const USAGE: &str =
-    "usage: course open <dir> | course trust <dir> [trusted|read-only] | course list | course add <dir> | course reorder <path>...";
+pub(super) const USAGE: &str = "usage: course open <dir> | course trust <dir> [trusted|read-only] | course list | course add <dir> | course reorder <path>...";
 
 fn run(args: &[String]) -> Result<Reply, HarnessError> {
     match args {
@@ -71,7 +70,15 @@ mod tests {
 
     #[test]
     fn only_open_with_exactly_one_folder_is_a_valid_call() {
-        for args in [&[][..], &["lists"][..], &["open"][..], &["open", "a", "b"][..], &["list", "x"][..], &["add"][..], &["reorder"][..]] {
+        for args in [
+            &[][..],
+            &["lists"][..],
+            &["open"][..],
+            &["open", "a", "b"][..],
+            &["list", "x"][..],
+            &["add"][..],
+            &["reorder"][..],
+        ] {
             let e = call(args).err().unwrap_or_else(|| panic!("{args:?} was accepted"));
             assert_eq!(e.code, ErrorCode::InvalidArgument, "{args:?}");
             assert!(e.message.contains(USAGE), "{args:?}: {}", e.message);
