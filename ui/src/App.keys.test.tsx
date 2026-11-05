@@ -4,6 +4,7 @@ import { defaultFixture, trustScreen } from "../e2e/mock-core/fixture";
 import { installMockCore } from "../e2e/mock-core/install";
 import { App } from "./App";
 import type { CourseOpened, KnownCourse } from "./core/bindings";
+import { runCommand } from "./keys/commands";
 
 // The key engine (F-037) owns the app's keys: ␣e toggles the sidebar (D-196) and Ctrl/Cmd-1…9 open
 // the nth course on the rail (D-190, D-192), from anywhere, through App's commands.
@@ -113,6 +114,11 @@ describe("App keys", () => {
     }
     // The engine's own listeners (keys, pointer presses) go with the app.
     expect(live.size).toBe(0);
+    // So do its commands.
+    for (const command of ["sidebar.toggle", "course.go"]) {
+      const binding = { keys: "x", command, scope: "global" as const, desc: command, arg: 0 };
+      expect(runCommand({ binding, count: 1, explicit: false }), command).toBe(false);
+    }
     expect(press(document.body, { key: " " })).toBe(true);
     expect(press(document.body, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
   });
