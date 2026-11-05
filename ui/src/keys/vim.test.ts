@@ -315,6 +315,21 @@ describe("the engine on the buffer", () => {
     expect(view.state.doc.lineAt(head(view)).number).toBe(BLOCK);
   });
 
+  it("takes a given-up key whose command isn't there yet, and leaves Vim's own keys to Vim", () => {
+    const drop = registerCommand("ai.ask", () => false);
+    at(view, NOTE);
+    // Enter (ai.ask declines here) and Tab (ai.write, no handler): taken, so the cursor stays.
+    expect(press("Enter")).toBe(false);
+    expect(press("Tab")).toBe(false);
+    expect(press("3")).toBe(false);
+    expect(press("Enter")).toBe(false);
+    // `.` (repeat, no handler yet) and `o` are still Vim's.
+    expect(press(".")).toBe(true);
+    expect(press("o")).toBe(true);
+    drop();
+    expect(calls).toEqual([]);
+  });
+
   it("leaves keys to Vim while Vim waits for more (d, then s)", () => {
     at(view, NOTE);
     keys(view, "d");

@@ -3,7 +3,7 @@
 // through. Loaded right after the first paint (boot.ts). Everything here is synchronous.
 import { runCommand } from "./commands";
 import { compileKeymap, KeyEngine, unhandled } from "./engine";
-import { type Binding, DEFAULT_KEYMAP } from "./keymap";
+import { type Binding, DEFAULT_KEYMAP, VIM_GIVEN_UP } from "./keymap";
 import { locate, type Where } from "./locate";
 import { eventToken } from "./notation";
 import { mergeKeymap, parseUserKeymap } from "./user";
@@ -50,6 +50,13 @@ export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: 
     let out = engine.feed(token, where.el, where.mode, e.repeat);
     if (out.kind === "run") {
       if (run(out.binding, out.count, out.explicit)) {
+        take(e);
+        return;
+      }
+      // A given-up Vim key whose Lecter command isn't there yet does nothing in the buffer: left
+      // to the editor, Enter would still move a line down and Tab leave the buffer.
+      const sequence = out.explicit ? out.keys.slice(String(out.count).length) : out.keys;
+      if (where.buffer && sequence.length === 1 && VIM_GIVEN_UP.includes(token)) {
         take(e);
         return;
       }
