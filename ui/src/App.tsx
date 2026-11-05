@@ -22,7 +22,8 @@ import "./App.css";
 
 // The buffer (CodeMirror and Vim) is a chunk of its own: the shell paints without it, and it
 // loads right after that first paint, long before a lecture can be picked (cold_open_ms,
-// 14-quality.md#performance-budgets). `:find` is defined on Vim's Ex table, which comes with it.
+// 14-quality.md#performance-budgets). `:find` is defined on Vim's Ex table, which comes with it,
+// and the command line `:` opens (F-040) comes beside it.
 // One load per page, shared: what waits on it directly runs before the buffer renders from it.
 let editor: Promise<
   [
@@ -30,6 +31,7 @@ let editor: Promise<
     typeof import("./features/find/exCommand"),
     typeof import("./features/buffer/prewarm"),
     typeof import("./features/overlay/readEx"),
+    typeof import("./features/cmdline/mount"),
   ]
 >;
 const loadEditor = () =>
@@ -38,6 +40,7 @@ const loadEditor = () =>
     import("./features/find/exCommand"),
     import("./features/buffer/prewarm"),
     import("./features/overlay/readEx"),
+    import("./features/cmdline/mount"),
   ]));
 const Buffer = lazy(() => loadEditor().then(([buffer]) => ({ default: buffer.Buffer })));
 
@@ -109,6 +112,8 @@ export function App() {
   let gone = false;
   let dropFind: (() => void) | undefined;
   let dropRead: (() => void) | undefined;
+  let stopCmdline: (() => void) | undefined;
+  let cmdlineHost: HTMLDivElement | undefined;
   let stopKeys: (() => void) | undefined;
   let hints: { refresh: () => void; stop: () => void } | undefined;
   let hintHost: HTMLDivElement | undefined;
@@ -118,6 +123,7 @@ export function App() {
     gone = true;
     dropFind?.();
     dropRead?.();
+    stopCmdline?.();
     keys.stop();
     hints?.stop();
     overlay?.stop();
@@ -167,10 +173,14 @@ export function App() {
       void layout.load();
       // The sidebar's chunk, so it is in by the time a course opens (features/sidebar/load.ts).
       void loadSidebar();
-      void loadEditor().then(([, ex, warm, read]) => {
+      void loadEditor().then(([, ex, warm, read, cmdline]) => {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);
         dropRead = read.registerReadCommand(readMode.toggle);
+        stopCmdline = cmdline.startCmdline({
+          host: cmdlineHost as HTMLDivElement,
+          course: () => course.course()?.path ?? null,
+        }).stop;
         // Runs the editor's code once while nothing is open, so the first lecture opens faster.
         if (!lecture.lecture()) warm.prewarmEditor();
       });
@@ -221,6 +231,8 @@ export function App() {
           </Show>
           {/* The keystroke overlay (F-039), bottom right of the buffer. */}
           <div class="keystroke-overlay-host" ref={overlayHost} />
+          {/* The command line `:` opens (F-040), over the document. */}
+          <div class="cmdline-host" ref={cmdlineHost} />
         </main>
         {/* The hint bar (F-038): the keys that work now, one line above the status line. */}
         <div class="hint-bar-host" ref={hintHost} />

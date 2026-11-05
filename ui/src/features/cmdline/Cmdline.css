@@ -1,0 +1,146 @@
+/* Command line (docs/design/components.md#cmdline): a box centred at 16% from the top of the
+   document, width ≤ 520px, --popover-bg, 1.5px --accent border, radius 10px, shadow.popover, mono
+   13.5px; a "Cmdline" notch on the top border (--accent 10.5px); the `:` prompt in --accent 700 and
+   the input filling the row. The answer is a toast (components.md#toast): centred near the bottom,
+   --osd-bg / --osd-fg, 13px 500, padding 9px 18px, radius 999px, shadow.toast. Theme tokens only. */
+.cmdline {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  z-index: 30;
+  box-sizing: border-box;
+  width: min(520px, calc(100% - 32px));
+  transform: translateX(-50%);
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  background: var(--popover-bg);
+  color: var(--window-fg);
+  box-shadow: var(--shadow-popover);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 13.5px;
+}
+
+.cmdline-notch {
+  position: absolute;
+  top: -0.75em;
+  left: 12px;
+  padding: 0 5px;
+  background: var(--popover-bg);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.cmdline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.cmdline-prompt {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cmdline-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.cmdline-refusal {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: var(--k-doubt);
+  font-size: 12px;
+}
+
+.cmdline-completions {
+  max-height: 240px;
+  margin: 0;
+  padding: 0 4px 4px;
+  overflow-y: auto;
+  border-top: 1px solid var(--borders);
+}
+
+.cmdline-completions:empty {
+  display: none;
+}
+
+.cmdline-completion {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cmdline-completion:first-child {
+  margin-top: 4px;
+}
+
+.cmdline-completion[aria-selected="true"],
+.cmdline-completion:hover {
+  background: var(--accent-bg);
+  color: var(--accent-fg);
+}
+
+.cmdline-completion-label {
+  flex: none;
+}
+
+.cmdline-completion-detail {
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--font-ui, system-ui, sans-serif);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmdline-completion[aria-selected="true"] .cmdline-completion-detail {
+  color: inherit;
+}
+
+.cmdline-message {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  max-width: calc(100% - 32px);
+  padding: 9px 18px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--osd-bg);
+  color: var(--osd-fg);
+  box-shadow: var(--shadow-toast);
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.cmdline-message-line {
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+}
+
+.cmdline-message-error .cmdline-message-line {
+  color: var(--k-doubt);
+}
+
+.cmdline-message-note {
+  font-size: 12px;
+  opacity: 0.85;
+}
