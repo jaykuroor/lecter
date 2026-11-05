@@ -1157,3 +1157,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the course rail is a "Courses" section of rows in the 208 px rail (Ctrl-number slot, 22 px icon on the course colour, name), then "+ Add a course"; components.md#rail describes the slide rail, so rows follow its row styling. Name, icon and colour come from course.jsonc through F-034's checks; the UI uses a colour only if it is exactly #rrggbb and an image only from lecter://. Drag uses pointer events with a 4 px start (Escape or a cancelled pointer drops nothing). Ctrl/Cmd-1..9 use the platform's modifier, read from `navigator.platform` (user agent only when blank), match the digit row by `e.code`, and fire only when that course exists.
 - Why: HTML5 drag can be swallowed by the webview's file drop; Playwright's Safari device sends a Mac UA on Linux.
 - Instead of: a separate Discord-style column; HTML5 drag and drop; detecting Mac by user agent.
+
+## D-193 · Settings settle takes its clock and receiver from the caller (CI-d572d1f)
+2026-11-05 · CI-d572d1f builder, recorded by the orchestrator · active
+- Decision: `settings::watch::settle(rx)` delegates to `settle_with(recv, now)`, which takes the wait for the next event and the clock as arguments (elapsed time via `saturating_duration_since`); tests drive both, so thread scheduling can't change the result.
+- Why: the cap test's 10 ms feeder thread stalled past the 50 ms quiet window on macOS runners and failed 3 CI runs.
+- Instead of: wider timing margins, which would weaken the test.
