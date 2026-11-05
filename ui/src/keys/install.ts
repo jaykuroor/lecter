@@ -64,7 +64,7 @@ export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: 
     }
     if (out.kind === "pending") take(e);
     else if (out.kind === "miss") {
-      if (out.replay.length > 0) where.buffer?.replay(out.replay);
+      where.buffer?.replay(out.replay);
       if (out.take) take(e);
     }
   };

@@ -99,7 +99,7 @@ export function createWhichKey(opts: {
   };
 
   opts.engine.onChange = () => {
-    if (timer !== undefined) clearTimeout(timer);
+    clearTimeout(timer);
     timer = undefined;
     if (opts.engine.sequence()[0] !== LEADER) {
       setShown(null);
@@ -113,7 +113,7 @@ export function createWhichKey(opts: {
     // The popover is all there is in `mount`.
     contains: (target) => target instanceof Node && mount?.contains(target) === true,
     dispose: () => {
-      if (timer !== undefined) clearTimeout(timer);
+      clearTimeout(timer);
       unmount?.();
       mount?.remove();
     },

@@ -139,10 +139,11 @@ export type Outcome =
   | { kind: "pass" };
 
 const LEADER = "<Space>";
+const DIGITS: ReadonlySet<string> = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
 const BUFFER_SCOPES: ReadonlySet<Scope> = new Set(["buffer", "line", "gloss"]);
 
 /** Whether `keys` (a count, then a sequence) start with the leader. */
-const afterLeader = (keys: readonly string[]): boolean => keys.find((k) => !/^[0-9]$/.test(k)) === LEADER;
+const afterLeader = (keys: readonly string[]): boolean => keys.find((k) => !DIGITS.has(k)) === LEADER;
 
 /** Whether a token types one character (`e`, `?`), as opposed to a named or modified key. */
 const printable = (token: string): boolean => [...token].length === 1;
@@ -199,7 +200,7 @@ export class KeyEngine {
       return { kind: "miss", replay: [], take: true };
     }
     // A count: in the buffer, before any key of a sequence (`3]]`); `0` only goes on a count.
-    if (this.keys.length === 0 && inBuffer(el) && mode !== "insert" && !repeat && /^[0-9]$/.test(token)) {
+    if (this.keys.length === 0 && inBuffer(el) && mode !== "insert" && !repeat && DIGITS.has(token)) {
       if (token !== "0" || this.count) {
         this.count += token;
         this.onChange(this.pending());

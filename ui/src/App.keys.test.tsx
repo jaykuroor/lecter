@@ -96,6 +96,45 @@ describe("App keys", () => {
     expect(press(document.body, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
   });
 
+  it("shows which-key over the document after the leader", async () => {
+    await start();
+    press(document.body, { key: " " });
+    await waitFor(() => expect(document.querySelector(".document-column > div > .which-key")).not.toBeNull());
+    press(document.body, { key: "Escape" });
+    expect(document.querySelector(".which-key")).toBeNull();
+  });
+
+  it("starts no engine for an app gone before the engine's chunk is in", async () => {
+    installMockCore({ ...defaultFixture });
+    const added: string[] = [];
+    const add = window.addEventListener.bind(window);
+    window.addEventListener = ((type: string, ...rest: never[]) => {
+      added.push(type);
+      return (add as (...a: unknown[]) => void)(type, ...rest);
+    }) as typeof window.addEventListener;
+    // Gone just after the first paint: the engine's chunk has been asked for, not yet in.
+    const core = (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, ...a: unknown[]) => unknown } })
+      .__TAURI_INTERNALS__;
+    const invoke = core.invoke;
+    let unmounted = false;
+    core.invoke = (cmd, ...a) => {
+      if (cmd === "course_list" && !unmounted) {
+        unmounted = true;
+        cleanup();
+      }
+      return invoke(cmd, ...a);
+    };
+    try {
+      render(() => <App />);
+      await waitFor(() => expect(unmounted).toBe(true));
+      await import("./keys/install");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(added).not.toContain("pointerdown");
+    } finally {
+      window.addEventListener = add;
+    }
+  });
+
   it("holds ␣e pressed before the engine is in, and toggles once it is", async () => {
     installMockCore({ ...defaultFixture });
     render(() => <App />);

@@ -6,6 +6,7 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sampleLecture } from "../../../e2e/mock-core/lectures";
 import type { Edit, Lecture } from "../../core/lecture";
+import { locate } from "../../keys/locate";
 import { Buffer } from "./Buffer";
 import { registerElementMotions } from "./vim";
 
@@ -103,6 +104,21 @@ describe("the lecture buffer", () => {
     expect(line(v)).toBe(16);
     keys(v, "4", "G");
     expect(line(v)).toBe(25);
+  });
+
+  // F-037: the buffer keeps only 10-keymap.md's Vim subset and tells the key engine about itself.
+  it("drops the given-up Vim keys and registers with the key engine while it is shown", () => {
+    const { view } = mount();
+    const v = view();
+    const note = v.state.doc.line(32);
+    v.dispatch({ selection: { anchor: note.from } });
+    keys(v, "S");
+    expect(v.state.doc.line(32).text).toBe("Try it with numbers.");
+    expect(getCM(v)?.state.vim?.insertMode).toBe(false);
+    expect(locate(v.contentDOM)).toMatchObject({ el: "note-line", mode: "normal" });
+    expect(locate(v.contentDOM).buffer?.root.contains(v.contentDOM)).toBe(true);
+    cleanup();
+    expect(locate(v.contentDOM).buffer).toBeNull();
   });
 
   it("switches to insert with i and back with Esc, typing into the block", () => {

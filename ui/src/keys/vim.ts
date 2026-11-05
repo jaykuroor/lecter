@@ -168,7 +168,7 @@ export function lineElement(doc: Text, n: number): "slide-line" | "note-line" | 
 interface VimState {
   insertMode?: boolean;
   visualMode?: boolean;
-  inputState?: { keyBuffer: string[]; operator?: string | null };
+  inputState: { keyBuffer: string[]; operator?: string | null };
 }
 
 /** The buffer `view` (its DOM `root`) as the engine sees it. */
@@ -181,7 +181,7 @@ export function bufferTarget(view: EditorView, root: Element): BufferTarget {
       if (!v) return "normal";
       // Vim in the middle of a command (`d`, `f`, `2d`) gets the next key as it is.
       const input = v.inputState;
-      const busy = (input?.keyBuffer.length ?? 0) > 0 || !!input?.operator;
+      const busy = input.keyBuffer.length > 0 || !!input.operator;
       if (v.insertMode || busy) return "insert";
       return v.visualMode ? "visual" : "normal";
     },

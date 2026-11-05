@@ -47,16 +47,14 @@ const ALIASES: Record<string, string> = {
   lt: "<",
 };
 
-const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "OS", "Hyper", "Super"]);
-
 /**
  * The token a keydown stands for, or `null` for a modifier pressed on its own and keys that type
  * nothing nameable (dead keys, input method keys). Events say which modifier was held (`<C-1>` or
  * `<D-1>`); `parseKeys` turns a binding's `<Mod-…>` into the platform's one.
  */
 export function eventToken(e: KeyboardEvent): string | null {
+  // A modifier alone (`Shift`, `Control`) is a named key with no token: it gives null below.
   const key = e.key;
-  if (MODIFIER_KEYS.has(key)) return null;
   const named = NAMED[key] ?? (/^F\d{1,2}$/.test(key) ? key : undefined);
   if (!e.ctrlKey && !e.altKey && !e.metaKey) {
     if (named) return e.shiftKey ? `<S-${named}>` : `<${named}>`;
@@ -90,8 +88,8 @@ export function parseKeys(keys: string, mac: boolean): string[] {
   const out: string[] = [];
   let i = 0;
   while (i < keys.length) {
-    const m = keys[i] === "<" ? /^<((?:[CASDcasd]-|Mod-|mod-)*)([^<>\s]+?)>/.exec(keys.slice(i)) : null;
-    if (m && (m[1] || m[2] !== "<")) {
+    const m = /^<((?:[CASDcasd]-|Mod-|mod-)*)([^<>\s]+?)>/.exec(keys.slice(i));
+    if (m) {
       out.push(special(m[1] as string, m[2] as string, mac, m[0]));
       i += m[0].length;
       continue;
@@ -134,9 +132,7 @@ export function keyLabel(token: string, mac: boolean): string {
   const words: Record<string, string> = mac
     ? { C: "⌃", A: "⌥", S: "⇧", D: "⌘" }
     : { C: "Ctrl-", A: "Alt-", S: "Shift-", D: "Super-" };
-  return m[1]
-    .split("-")
-    .map((mod) => words[mod])
-    .join("")
-    .concat(base);
+  let prefix = "";
+  for (const mod of "CASD") if (m[1].includes(mod)) prefix += words[mod];
+  return prefix + base;
 }

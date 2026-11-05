@@ -152,6 +152,24 @@ describe("which-key", () => {
     expect(popover()).toBeNull();
   });
 
+  it("keeps its buttons out of the Tab order and runs a clicked key once, with no count", () => {
+    const calls: string[] = [];
+    drops.push(
+      registerCommand("ai.gaps", ({ count, explicit }) => {
+        calls.push(`${count} ${explicit}`);
+        return true;
+      }),
+    );
+    press("3", {});
+    press(" ");
+    vi.advanceTimersByTime(300);
+    const buttons = [...host.querySelectorAll<HTMLButtonElement>(".which-key-item")];
+    expect(buttons.every((b) => b.getAttribute("tabindex") === "-1")).toBe(true);
+    (buttons[0] as HTMLButtonElement).click();
+    (host.querySelector(".which-key-item") as HTMLButtonElement).click();
+    expect(calls).toEqual(["1 false"]);
+  });
+
   it("is gone with the engine", () => {
     press(" ");
     keys.stop();

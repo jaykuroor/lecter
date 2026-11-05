@@ -82,11 +82,10 @@ export function App() {
   const dropCommands = [
     registerCommand("sidebar.toggle", () => {
       layout.toggleSidebar();
-      return true;
     }),
     // Ctrl/Cmd-1…9: the nth course on the rail; without one the key goes on as usual.
     registerCommand("course.go", ({ binding }) => {
-      const known = rail.courses()[binding.arg ?? -1];
+      const known = rail.courses()[binding.arg as number];
       if (!known) return false;
       void course.switchTo(known.path);
       return true;
@@ -109,8 +108,8 @@ export function App() {
       if (gone) return;
       markStartup("shell_first_paint");
       void import("./keys/install").then(({ startKeys }) => {
-        if (gone || !documentColumn) return;
-        const started = startKeys({ mac, host: documentColumn });
+        if (gone) return;
+        const started = startKeys({ mac, host: documentColumn as HTMLDivElement });
         stopKeys = started.stop;
         keys.attach(started.handle);
       });

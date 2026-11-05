@@ -37,10 +37,8 @@ export function bindingModes(b: Binding): readonly Mode[] {
 
 type Row = readonly [keys: string, command: string, desc: string];
 
-function rows(scope: Scope, list: readonly Row[], modes?: readonly Mode[]): Binding[] {
-  return list.map(([keys, command, desc]) =>
-    modes ? { keys, command, scope, desc, modes } : { keys, command, scope, desc },
-  );
+function rows(scope: Scope, list: readonly Row[]): Binding[] {
+  return list.map(([keys, command, desc]) => ({ keys, command, scope, desc }));
 }
 
 // 10-keymap.md#leader-groups.

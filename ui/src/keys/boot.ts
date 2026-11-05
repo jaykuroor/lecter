@@ -7,6 +7,7 @@ import { locate } from "./locate";
 type Handler = (e: KeyboardEvent) => void;
 
 const MODIFIERS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock"]);
+const DIGIT_CODES = new Set(["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9"]);
 
 /** Whether a key pressed before the engine is in is one to hold back for it. */
 function holds(e: KeyboardEvent, armed: boolean, mac: boolean): boolean {
@@ -17,7 +18,7 @@ function holds(e: KeyboardEvent, armed: boolean, mac: boolean): boolean {
     return where.mode !== "insert" && where.el !== "field" && where.el !== "control";
   }
   const mod = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
-  return mod && /^Digit[1-9]$/.test(e.code);
+  return mod && DIGIT_CODES.has(e.code);
 }
 
 /**
@@ -26,7 +27,7 @@ function holds(e: KeyboardEvent, armed: boolean, mac: boolean): boolean {
  */
 export function bootKeys(target: EventTarget, mac: boolean): { attach: (handler: Handler) => void; stop: () => void } {
   let handler: Handler | null = null;
-  let held: KeyboardEvent[] = [];
+  const held: KeyboardEvent[] = [];
   let armed = false;
   const listener = (event: Event) => {
     const e = event as KeyboardEvent;
@@ -48,9 +49,7 @@ export function bootKeys(target: EventTarget, mac: boolean): { attach: (handler:
   return {
     attach: (h) => {
       handler = h;
-      const keys = held;
-      held = [];
-      for (const e of keys) h(e);
+      for (const e of held) h(e);
     },
     stop: () => target.removeEventListener("keydown", listener, { capture: true }),
   };

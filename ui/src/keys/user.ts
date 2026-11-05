@@ -38,7 +38,8 @@ export function stripJsonc(text: string): string {
       out += text.slice(i, end);
       i = end;
     } else if (c === "/" && text[i + 1] === "/") {
-      while (i < text.length && text[i] !== "\n") i++;
+      const nl = text.indexOf("\n", i);
+      i = nl === -1 ? text.length : nl;
     } else if (c === "/" && text[i + 1] === "*") {
       const end = text.indexOf("*/", i + 2);
       i = end === -1 ? text.length : end + 2;
@@ -68,8 +69,8 @@ export function parseUserKeymap(text: string, mac: boolean): { bindings: UserBin
   } catch {
     return { bindings: [], warnings: ["keymaps.jsonc is not valid JSONC; not read"] };
   }
-  const root = doc as { version?: unknown; bindings?: unknown };
-  if (typeof doc !== "object" || doc === null || root.version !== 1 || !Array.isArray(root.bindings)) {
+  const root = (doc ?? {}) as { version?: unknown; bindings?: unknown };
+  if (root.version !== 1 || !Array.isArray(root.bindings)) {
     return { bindings: [], warnings: ['keymaps.jsonc needs "version": 1 and a "bindings" list; not read'] };
   }
   const bindings: UserBinding[] = [];
@@ -151,7 +152,8 @@ export function prefixClashes(bindings: readonly Binding[], mac: boolean): strin
   const tokens = runs.map((b) => id(b, mac));
   runs.forEach((a, i) => {
     runs.forEach((b, j) => {
-      if (i !== j && a.scope === b.scope && (tokens[j] as string).startsWith(`${tokens[i]} `)) {
+      // A binding never starts itself: its keys have no trailing space.
+      if (a.scope === b.scope && (tokens[j] as string).startsWith(`${tokens[i]} `)) {
         out.push(`Keys clash in ${a.scope}: ${show(a)} and ${show(b)}`);
       }
     });
