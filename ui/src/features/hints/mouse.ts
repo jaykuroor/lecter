@@ -1,7 +1,7 @@
 // The mouse way to each hint's action, which the full hint bar shows next to the key
 // (09-ui.md#hint-bar-and-keystroke-overlay: for people who don't use Vim). The paths are the ones
 // 09-ui.md gives: right-click any element for its menu, a gloss's keycap buttons, double-click to
-// edit, the side panel's lists, the course rail.
+// edit, the sidebar's Flags list and the right panel's Doubts tab, the course rail.
 import type { Hint } from "./hints";
 
 const BY_COMMAND: Readonly<Record<string, string>> = {
@@ -13,8 +13,8 @@ const BY_COMMAND: Readonly<Record<string, string>> = {
   "gloss.prev": "scroll",
   "step.next": "scroll",
   "step.prev": "scroll",
-  "flag.next": "Flags tab",
-  "flag.prev": "Flags tab",
+  "flag.next": "Flags in the sidebar",
+  "flag.prev": "Flags in the sidebar",
   "doubt.next": "Doubts tab",
   "doubt.prev": "Doubts tab",
   "course.go": "click the course",

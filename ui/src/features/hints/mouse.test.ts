@@ -36,15 +36,15 @@ describe("mouseAction", () => {
     expect(gloss).toContain("Edit the gloss: double-click");
   });
 
-  it("gives the moves scrolling and the side panel's lists", () => {
+  it("gives the moves scrolling, the sidebar's Flags and the right panel's Doubts", () => {
     const moves = actions("slide-line").filter((a) => /^(Next|Previous) /.test(a));
     expect(moves).toEqual([
       "Next slide: scroll",
       "Previous slide: scroll",
       "Next gloss: scroll",
       "Previous gloss: scroll",
-      "Next flag: Flags tab",
-      "Previous flag: Flags tab",
+      "Next flag: Flags in the sidebar",
+      "Previous flag: Flags in the sidebar",
       "Next doubt: Doubts tab",
       "Previous doubt: Doubts tab",
       "Next build step: scroll",
@@ -64,7 +64,7 @@ describe("mouseAction", () => {
   });
 
   it("falls back to the scope's way for a command with none of its own", () => {
-    const hint = { keys: ["x"], desc: "x", prefix: [], binding: null };
+    const hint = { keys: ["x"], desc: "x", prefix: [], binding: null, tokens: ["x"], family: false };
     expect(mouseAction({ ...hint, scope: "line" })).toBe("right-click the line");
     expect(mouseAction({ ...hint, scope: "gloss" })).toBe("click its keycap");
     expect(mouseAction({ ...hint, scope: "buffer" })).toBe("right-click");

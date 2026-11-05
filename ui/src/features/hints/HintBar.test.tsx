@@ -17,6 +17,8 @@ let field: HTMLInputElement;
 const drops: (() => void)[] = [];
 /** Where the fake buffer's cursor is, and Vim's mode. */
 const cursor: { element: "slide-line" | "note-line" | "gloss"; mode: Mode } = { element: "slide-line", mode: "normal" };
+/** The keys the fake buffer's Vim was handed; `i` puts it in insert mode. */
+const replayed: string[][] = [];
 
 /** A keydown on the focused element, through the engine as the page would send it. */
 function press(key: string, init: KeyboardEventInit = {}): void {
@@ -33,6 +35,17 @@ const shown = (part: "main" | "tail") =>
   [...host.querySelectorAll(`.hint-${part} .hint`)].map((b) =>
     [...b.children].map((c) => `${c.className}=${c.textContent}`).join(" "),
   );
+/** The hint whose words are `desc`. */
+const hintFor = (desc: string) =>
+  [...host.querySelectorAll(".hint")].find((h) => h.querySelector(".hint-desc")?.textContent === desc);
+/** The hint whose words are `desc`, as a button; throws when it isn't one. */
+function button(desc: string): HTMLButtonElement {
+  const hint = hintFor(desc);
+  if (!(hint instanceof HTMLButtonElement)) throw new Error(`${desc} is not a button`);
+  return hint;
+}
+/** Whether the hint whose words are `desc` is a button (clickable) or text (a span). */
+const clickable = (desc: string) => hintFor(desc)?.tagName;
 const words = (part: "main" | "tail" = "main") =>
   [...host.querySelectorAll(`.hint-${part} .hint-desc`)].map((d) => d.textContent);
 
@@ -40,6 +53,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   cursor.element = "slide-line";
   cursor.mode = "normal";
+  replayed.length = 0;
   buffer = document.createElement("div");
   buffer.tabIndex = 0;
   field = document.createElement("input");
@@ -50,7 +64,10 @@ beforeEach(() => {
       root: buffer,
       mode: () => cursor.mode,
       element: () => cursor.element,
-      replay: () => {},
+      replay: (tokens) => {
+        replayed.push([...tokens]);
+        if (tokens[0] === "i") cursor.mode = "insert";
+      },
       focus: () => buffer.focus(),
     }),
   );
@@ -199,8 +216,9 @@ describe("the hint bar", () => {
   it("drops a pending count when a hint runs, so the next key starts afresh", () => {
     press("3");
     expect(keys.engine.pending()).toEqual(["3"]);
-    ([...host.querySelectorAll<HTMLButtonElement>(".hint-main .hint")][1] as HTMLButtonElement).click();
+    button("Edit / fix the line").click();
     expect(keys.engine.pending()).toEqual([]);
+    expect(replayed).toEqual([["i"]]);
   });
 
   it("reads keymaps.jsonc's bindings once refreshed", () => {
@@ -237,7 +255,7 @@ describe("the hint bar", () => {
   });
 
   it("keeps its buttons out of the Tab order: the keys are the keyboard's way", () => {
-    const buttons = [...host.querySelectorAll<HTMLButtonElement>(".hint")];
+    const buttons = [...host.querySelectorAll<HTMLButtonElement>("button.hint")];
     expect(buttons.length).toBeGreaterThan(3);
     expect(buttons.every((b) => b.tabIndex === -1 && b.type === "button")).toBe(true);
   });
@@ -277,5 +295,92 @@ describe("the hint bar", () => {
     bar.stop();
     expect(cancel).toHaveBeenCalledTimes(1);
     bar = startHintBar({ engine: keys.engine, host });
+  });
+
+  it("hands a hint's keys to Vim on a click when no handler runs it, as the key does: i edits", () => {
+    expect(clickable("Edit / fix the line")).toBe("BUTTON");
+    button("Edit / fix the line").click();
+    expect(replayed).toEqual([["i"]]);
+    expect(document.activeElement).toBe(buffer);
+    frame();
+    expect(words()).toEqual(["Course", "Previous pane"]);
+    cursor.mode = "normal";
+    press("Escape");
+    frame();
+    button("Next slide").click();
+    expect(replayed).toEqual([["i"], ["<C-j>"]]);
+  });
+
+  it("shows a hint that a click can't run as text: a given-up key with no handler, a numbered family", () => {
+    // `s` gave up its Vim meaning, so with nobody handling ai.steps neither the key nor a click does anything.
+    expect(clickable("Steps")).toBe("SPAN");
+    expect(clickable("Write for me")).toBe("SPAN");
+    // A click can't say which course: Ctrl-1…9 stays text though course.go has a handler.
+    drops.push(registerCommand("course.go", () => true));
+    expect(clickable("Course")).toBe("SPAN");
+    expect(clickable("Next pane")).toBe("BUTTON");
+    expect(clickable("More")).toBe("BUTTON");
+  });
+
+  it("makes a hint clickable once its command gets a handler, and text again when it goes", () => {
+    expect(clickable("Steps")).toBe("SPAN");
+    const drop = registerCommand("ai.steps", () => true);
+    expect(clickable("Steps")).toBe("BUTTON");
+    drop();
+    expect(clickable("Steps")).toBe("SPAN");
+  });
+
+  it("off the buffer leaves Vim out: only hints with a handler are clickable", () => {
+    keys.setUserKeymap(JSON.stringify({ version: 1, bindings: [{ keys: "<F9>", command: "line.edit" }] }));
+    bar.refresh();
+    field.focus();
+    frame();
+    expect(clickable("Previous pane")).toBe("BUTTON");
+    expect(clickable("Edit / fix the line")).toBe("SPAN");
+    buffer.focus();
+    frame();
+    expect(clickable("Edit / fix the line")).toBe("BUTTON");
+  });
+
+  it("keeps its buttons between a slide line and an own note, which have the same keys", () => {
+    const before = host.querySelector(".hint-main .hint");
+    cursor.element = "note-line";
+    press("j");
+    frame();
+    expect(host.querySelector(".hint-main .hint")).toBe(before);
+  });
+
+  it("keeps what it shows while Vim waits for the rest of a command (d, y, f)", () => {
+    const before = host.querySelector(".hint-main .hint");
+    buffer.setAttribute("data-vim-mode", "normal");
+    cursor.mode = "insert";
+    press("d");
+    frame();
+    expect(host.querySelector(".hint-main .hint")).toBe(before);
+    expect(words()[1]).toBe("Steps");
+    buffer.setAttribute("data-vim-mode", "visual");
+    press("y");
+    frame();
+    expect(words()[1]).toBe("Steps");
+    buffer.setAttribute("data-vim-mode", "insert");
+    press("i");
+    frame();
+    expect(words()).toEqual(["Course", "Previous pane"]);
+  });
+
+  it("starts at the detail it is given (ui.hintBar), and ␣uh steps on from there", () => {
+    const details = () => host.querySelector(".hint-bar")?.getAttribute("data-detail") ?? "none";
+    restart("compact");
+    expect(details()).toBe("compact");
+    press(" ");
+    press("u");
+    press("h");
+    expect(details()).toBe("none");
+    restart("off");
+    expect(details()).toBe("none");
+    press(" ");
+    press("u");
+    press("h");
+    expect(details()).toBe("full");
   });
 });

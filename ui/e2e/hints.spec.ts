@@ -111,4 +111,12 @@ test("␣uh steps the hint bar through full, compact and off; a click on a hint 
   await page.keyboard.press("e");
   await expect(page.locator("#sidebar")).toBeHidden();
   await expect(page.locator(".cm-content")).toBeFocused();
+
+  // A click on a hint does what its key does: `i` edits the line, as typing i would.
+  await bar.locator("button.hint", { hasText: "Edit / fix the line" }).click();
+  await expect(page.locator(".lecture-buffer")).toHaveAttribute("data-vim-mode", "insert");
+  await expect(page.locator(".cm-content")).toBeFocused();
+  // `s` gave up its Vim meaning and nothing handles it yet: its hint is text, not a button.
+  await page.keyboard.press("Escape");
+  await expect(bar.locator(".hint-main span.hint", { hasText: "Steps" })).toHaveCount(1);
 });

@@ -18,6 +18,10 @@ export interface Hint {
   desc: string;
   /** The binding a click runs; `null` for the leader's entry, which opens which-key instead. */
   binding: Binding | null;
+  /** The binding's keys as tokens, which a click hands to Vim when no handler runs it. */
+  tokens: string[];
+  /** A numbered family (`Ctrl-1…9`): one click can't say which, so it isn't clickable. */
+  family: boolean;
   /** The keys a click leaves pending (the leader's entry: `␣`), empty for the rest. */
   prefix: string[];
   /** The scope the hint comes from, for its mouse action (mouse.ts). */
@@ -80,6 +84,7 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
   // Each command's bindings that run here, by the scope that wins (most specific first).
   const byCommand = new Map<string, Binding[]>();
   const labels = new Map<Binding, string>();
+  const tokensOf = new Map<Binding, string[]>();
   let leader = false;
   for (const b of map.bindings) {
     // A leader group (`+ai`) never resolves: only bindings that run are left.
@@ -95,6 +100,7 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
       continue;
     }
     labels.set(b, tokens.map((t) => keyLabel(t, map.mac)).join(""));
+    tokensOf.set(b, tokens);
     const list = byCommand.get(b.command);
     if (list) list.push(b);
     else byCommand.set(b.command, [b]);
@@ -107,6 +113,8 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
       keys: keycaps(bindings, labels),
       desc: wordsFor(bindings),
       binding: first,
+      tokens: tokensOf.get(first) as string[],
+      family: first.arg !== undefined && bindings.length > 1,
       prefix: [],
       scope: first.scope,
     });
@@ -119,6 +127,14 @@ export function hintsFor(map: Keymap, el: Element, mode: Mode): Hints {
   const pane = (h: Hint) => (h.binding as Binding).command === NEXT_PANE;
   const tail = hints.filter(pane);
   if (leader)
-    tail.push({ keys: [keyLabel(LEADER, map.mac)], desc: "More", binding: null, prefix: [LEADER], scope: "app" });
+    tail.push({
+      keys: [keyLabel(LEADER, map.mac)],
+      desc: "More",
+      binding: null,
+      tokens: [LEADER],
+      family: false,
+      prefix: [LEADER],
+      scope: "app",
+    });
   return { main: hints.filter((h) => !pane(h)), tail };
 }
