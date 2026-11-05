@@ -8,6 +8,7 @@ pub mod app;
 pub mod course;
 pub mod error;
 pub mod guard;
+pub mod keymaps;
 pub mod lecture;
 #[cfg(test)]
 mod names;
@@ -35,6 +36,7 @@ pub fn contract() -> Builder<Wry> {
             course::rail::course_reorder,
             course::course_trust,
             course::details::course_details_save,
+            keymaps::keymaps_read,
             lecture::lecture_open,
             lecture::lecture_apply_edits,
             search::search_find

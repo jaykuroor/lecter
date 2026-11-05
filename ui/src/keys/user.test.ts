@@ -72,15 +72,16 @@ describe("parseUserKeymap", () => {
         { keys: "x", command: "" },
         { keys: "x", command: "+group" },
         { keys: "x" },
-        { keys: "x", command: "a", context: "nowhere" },
-        { keys: "x", command: "a", modes: [] },
-        { keys: "x", command: "a", modes: ["normal", "command"] },
-        { keys: "x", command: "a", modes: "normal" },
-        { keys: "y", command: "b", context: "gloss", modes: ["visual"] },
+        { keys: "x", command: "slide.next", context: "nowhere" },
+        { keys: "x", command: "slide.next", modes: [] },
+        { keys: "x", command: "slide.next", modes: ["normal", "command"] },
+        { keys: "x", command: "slide.next", modes: "normal" },
+        { keys: "x", command: "no.such.command" },
+        { keys: "y", command: "gloss.more", context: "gloss", modes: ["visual"] },
       ]),
       false,
     );
-    expect(bindings).toEqual([{ keys: "y", command: "b", context: "gloss", modes: ["visual"] }]);
+    expect(bindings).toEqual([{ keys: "y", command: "gloss.more", context: "gloss", modes: ["visual"] }]);
     expect(warnings).toEqual([
       "keymaps.jsonc binding 1: not an object; ignored",
       "keymaps.jsonc binding 2: not an object; ignored",
@@ -95,14 +96,18 @@ describe("parseUserKeymap", () => {
       'keymaps.jsonc binding 11: "modes" must list normal, visual or insert; ignored',
       'keymaps.jsonc binding 12: "modes" must list normal, visual or insert; ignored',
       'keymaps.jsonc binding 13: "modes" must list normal, visual or insert; ignored',
+      'keymaps.jsonc binding 14: unknown command "no.such.command"; ignored',
     ]);
   });
 
   it("reads at most 2000 bindings", () => {
-    const many = Array.from({ length: 2001 }, (_, i) => ({ keys: "x", command: `c${i}` }));
+    const many = Array.from({ length: 2001 }, (_, i) => ({
+      keys: "x",
+      command: i < 2000 ? "slide.next" : "slide.prev",
+    }));
     const { bindings, warnings } = parseUserKeymap(file(many), false);
     expect(bindings).toHaveLength(2000);
-    expect(bindings.at(-1)?.command).toBe("c1999");
+    expect(bindings.filter((b) => b.command === "slide.prev")).toEqual([]);
     expect(warnings).toEqual(["keymaps.jsonc has more than 2000 bindings; the rest are ignored"]);
     expect(parseUserKeymap(file(many.slice(0, 2000)), false).warnings).toEqual([]);
   });

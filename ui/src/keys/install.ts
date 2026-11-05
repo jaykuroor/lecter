@@ -1,11 +1,12 @@
 // The key engine at work in the page (10-keymap.md): each keydown, before any element sees it,
 // becomes a token, goes through the engine for where the focus is, and is taken, held or let
 // through. Loaded right after the first paint (boot.ts). Everything here is synchronous.
-import { runCommand } from "./commands";
+import { registerCommand, runCommand } from "./commands";
 import { compileKeymap, KeyEngine, unhandled } from "./engine";
 import { type Binding, DEFAULT_KEYMAP, VIM_GIVEN_UP } from "./keymap";
 import { locate, type Where } from "./locate";
 import { eventToken } from "./notation";
+import { cyclePanes } from "./panes";
 import { mergeKeymap, parseUserKeymap } from "./user";
 import { createWhichKey, type WhichKey } from "./WhichKey";
 
@@ -15,6 +16,11 @@ export interface Keys {
   handle: (e: KeyboardEvent) => void;
   /** Problems found in keymaps.jsonc and clashes between bindings. */
   warnings: string[];
+  /**
+   * Lays keymaps.jsonc's text (null: no file) over the defaults from now on, replacing any earlier
+   * file's bindings; returns its problems and clashes. The defaults stay when it has none to use.
+   */
+  setUserKeymap: (text: string | null) => string[];
   whichKey: WhichKey;
   stop: () => void;
 }
@@ -30,9 +36,14 @@ function take(e: Event): void {
  * one); which-key shows in `host`. Clashes and file problems are returned as warnings.
  */
 export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: string | null }): Keys {
-  const user = opts.userKeymap ? parseUserKeymap(opts.userKeymap, opts.mac) : { bindings: [], warnings: [] };
-  const merged = mergeKeymap(DEFAULT_KEYMAP, user.bindings, opts.mac);
-  const engine = new KeyEngine(compileKeymap(merged.bindings, opts.mac));
+  /** The keymap for keymaps.jsonc's `text`, and what was wrong with it. */
+  const build = (text: string | null) => {
+    const user = text ? parseUserKeymap(text, opts.mac) : { bindings: [], warnings: [] };
+    const merged = mergeKeymap(DEFAULT_KEYMAP, user.bindings, opts.mac);
+    return { map: compileKeymap(merged.bindings, opts.mac), warnings: user.warnings.concat(merged.warnings) };
+  };
+  const first = build(opts.userKeymap ?? null);
+  const engine = new KeyEngine(first.map);
   let where: Where = locate(null);
 
   /** Runs a binding (by key or from which-key); `false` when nobody handled it. */
@@ -68,6 +79,11 @@ export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: 
       if (out.take) take(e);
     }
   };
+  // F6 / Shift-F6 move between panes (D-200); with nowhere to go the key goes on.
+  const dropPanes = [
+    registerCommand("focus.next", () => cyclePanes(document, 1)),
+    registerCommand("focus.prev", () => cyclePanes(document, -1)),
+  ];
   // A click elsewhere ends whatever was pending.
   const drop = (e: Event) => {
     if (!whichKey.contains(e.target)) engine.reset();
@@ -76,10 +92,17 @@ export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: 
   return {
     engine,
     handle,
-    warnings: user.warnings.concat(merged.warnings),
+    warnings: first.warnings,
+    setUserKeymap: (text) => {
+      const next = build(text);
+      engine.reset();
+      engine.map = next.map;
+      return next.warnings;
+    },
     whichKey,
     stop: () => {
       window.removeEventListener("pointerdown", drop, { capture: true });
+      for (const d of dropPanes) d();
       whichKey.dispose();
     },
   };

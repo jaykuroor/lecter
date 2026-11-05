@@ -66,6 +66,15 @@ body,
   color: var(--view-fg);
 }
 
+/* keymaps.jsonc's problems (D-199): after the version, dimmed, cut to the line. */
+.keys-notice {
+  margin-left: 12px;
+  overflow: hidden;
+  color: var(--dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status-line {
   display: flex;
   align-items: center;

@@ -138,6 +138,12 @@ pub enum Error {
     /// written. The SQLite error is logged, not shown.
     #[error("Lecter could not remember the window's layout.")]
     LayoutFailed,
+    /// The global `keymaps.jsonc` (D-199) could not be read; the UI keeps the default keys.
+    #[error("Lecter could not read keymaps.jsonc; the default keys are used.")]
+    KeymapsUnreadable(std::io::ErrorKind),
+    /// The global `keymaps.jsonc` is too large or not text; the UI keeps the default keys.
+    #[error("keymaps.jsonc {0}; the default keys are used.")]
+    KeymapsUnusable(&'static str),
     /// A course path the UI sent that isn't on the rail: only a folder the user once picked opens
     /// without the folder dialog (SEC-32, SEC-35).
     #[error("That course isn't on the rail; add its folder with +.")]
@@ -164,7 +170,8 @@ impl Error {
     pub const fn code(&self) -> ErrorCode {
         match self {
             Self::FolderNotFound | Self::LectureNotFound(_) | Self::CourseMoved => ErrorCode::NotFound,
-            Self::CourseListFailed | Self::LayoutFailed => ErrorCode::Io,
+            Self::CourseListFailed | Self::LayoutFailed | Self::KeymapsUnreadable(_) => ErrorCode::Io,
+            Self::KeymapsUnusable(_) => ErrorCode::InvalidArgument,
             Self::CourseNotKnown | Self::BadCourseOrder => ErrorCode::InvalidArgument,
             Self::OutsideCourse(_) | Self::CourseNotTrusted | Self::CourseReadOnly => ErrorCode::NotTrusted,
             Self::Io(_)
@@ -229,6 +236,8 @@ mod tests {
             ),
             (Error::CourseListFailed, ErrorCode::Io),
             (Error::LayoutFailed, ErrorCode::Io),
+            (Error::KeymapsUnreadable(std::io::ErrorKind::PermissionDenied), ErrorCode::Io),
+            (Error::KeymapsUnusable("is not UTF-8 text"), ErrorCode::InvalidArgument),
             (Error::CourseNotKnown, ErrorCode::InvalidArgument),
             (Error::CourseMoved, ErrorCode::NotFound),
             (Error::BadCourseOrder, ErrorCode::InvalidArgument),

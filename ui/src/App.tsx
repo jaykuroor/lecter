@@ -1,4 +1,5 @@
 import { createEffect, createSignal, lazy, onCleanup, onMount, Show } from "solid-js";
+import { readKeymaps } from "./core/keymaps";
 import { markStartup } from "./core/startup";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
@@ -92,6 +93,8 @@ export function App() {
     }),
   ];
   let documentColumn: HTMLDivElement | undefined;
+  // What was wrong with keymaps.jsonc, shown once in the status line (D-199).
+  const [keyNotice, setKeyNotice] = createSignal<string[]>([]);
 
   let gone = false;
   let dropFind: (() => void) | undefined;
@@ -112,6 +115,12 @@ export function App() {
         const started = startKeys({ mac, host: documentColumn as HTMLDivElement });
         stopKeys = started.stop;
         keys.attach(started.handle);
+        // keymaps.jsonc comes after: the default keys work until it is in, and stay when it
+        // can't be used. Nothing on the key path waits for it.
+        void readKeymaps().then((read) => {
+          if (gone) return;
+          setKeyNotice(read.status === "ok" ? started.setUserKeymap(read.data) : [read.error.message]);
+        });
       });
       // Renders the buffer, which starts loading its chunk; `:find` is defined before it shows.
       setPainted(true);
@@ -202,6 +211,13 @@ export function App() {
         <footer class="status-line" role="status" aria-label="Status line">
           <Show when={info()} fallback={<span>Connecting to core…</span>}>
             {(i) => <span>v{i().version}</span>}
+          </Show>
+          <Show when={keyNotice()[0]}>
+            {(first) => (
+              <span class="keys-notice" title={keyNotice().join("\n")}>
+                {keyNotice().length > 1 ? `${first()} (+${keyNotice().length - 1} more)` : first()}
+              </span>
+            )}
           </Show>
         </footer>
       </div>

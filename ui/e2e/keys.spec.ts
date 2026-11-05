@@ -92,4 +92,13 @@ test("the given-up Vim keys do nothing on an own note; kept ones still edit", as
   await page.keyboard.press("0");
   await page.keyboard.press("x");
   await expect(page.locator(".cm-focused-line")).toHaveText("ry it with numbers.");
+  // F6 / Shift-F6 (D-200): Tab is "write for me" here, so F6 leaves the editor for the side
+  // panel, and Shift-F6 comes back, even from insert mode.
+  await page.keyboard.press("F6");
+  await expect(page.locator(".find-input")).toBeFocused();
+  await page.keyboard.press("Shift+F6");
+  await expect(content).toBeFocused();
+  await page.keyboard.press("i");
+  await page.keyboard.press("Shift+F6");
+  await expect(page.getByRole("button", { name: "2026-10-23-l07-covariance.md" })).toBeFocused();
 });

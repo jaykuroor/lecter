@@ -145,9 +145,16 @@ const COURSES: Binding[] = Array.from({ length: 9 }, (_, i) => ({
   arg: i,
 }));
 
+// F6 / Shift-F6: the next / previous pane, in every mode and element (D-200, panes.ts).
+const PANE_KEYS: Binding[] = [
+  { keys: "<F6>", command: "focus.next", scope: "global", desc: "Next pane" },
+  { keys: "<S-F6>", command: "focus.prev", scope: "global", desc: "Previous pane" },
+];
+
 /** The built-in bindings, before keymaps.jsonc (user.ts). */
 export const DEFAULT_KEYMAP: readonly Binding[] = [
   ...COURSES,
+  ...PANE_KEYS,
   ...rows("app", LEADER),
   ...rows("buffer", MOVE),
   // A selection asks too (`v…Enter`).

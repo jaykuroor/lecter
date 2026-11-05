@@ -6,7 +6,7 @@ import { render } from "solid-js/web";
 import { type Choice, choices, type KeyEngine } from "./engine";
 import type { Binding } from "./keymap";
 import type { Where } from "./locate";
-import { keyLabel } from "./notation";
+import { keyLabel, parseKeys } from "./notation";
 import "./WhichKey.css";
 
 /** How long the leader waits before which-key shows (09-ui.md: 300 ms). */
@@ -17,6 +17,8 @@ const LEADER = "<Space>";
 interface Shown {
   prefix: string[];
   choices: Choice[];
+  /** The key that moves to the next pane (F6, D-200), as the keymap has it; null when unbound. */
+  paneKey: string | null;
 }
 
 export interface WhichKey {
@@ -32,7 +34,9 @@ function Popover(props: { shown: Shown; mac: boolean; onPick: (choice: Choice) =
     <div class="which-key" role="dialog" aria-label="Keys that can follow">
       <div class="which-key-title">
         <span class="which-key-prefix">{label(props.shown.prefix)}</span>
-        <span class="which-key-hint">Esc to close</span>
+        <span class="which-key-hint">
+          {props.shown.paneKey ? `Esc to close · ${props.shown.paneKey} next pane` : "Esc to close"}
+        </span>
       </div>
       <ul class="which-key-list">
         <For each={props.shown.choices}>
@@ -85,7 +89,13 @@ export function createWhichKey(opts: {
         mount,
       );
     }
-    setShown({ prefix, choices: choices(opts.engine.map, w.el, w.mode, prefix) });
+    const pane = opts.engine.map.bindings.find((b) => b.command === "focus.next");
+    const paneKey = pane
+      ? parseKeys(pane.keys, opts.mac)
+          .map((k) => keyLabel(k, opts.mac))
+          .join("")
+      : null;
+    setShown({ prefix, choices: choices(opts.engine.map, w.el, w.mode, prefix), paneKey });
   };
 
   const pick = (c: Choice) => {

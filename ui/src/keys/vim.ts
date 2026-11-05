@@ -190,6 +190,7 @@ export function bufferTarget(view: EditorView, root: Element): BufferTarget {
       const state = view.state;
       return lineElement(state.doc, state.doc.lineAt(state.selection.main.head).number);
     },
+    focus: () => view.focus(),
     replay: (tokens) => {
       const cm = getCM(view);
       if (cm) for (const t of tokens) Vim.handleKey(cm, t, "user");

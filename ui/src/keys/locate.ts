@@ -14,9 +14,14 @@ export interface BufferTarget {
   element(): "slide-line" | "note-line" | "gloss";
   /** Hands keys the engine held back to Vim, in order (`3`, `g`): Vim notation, which tokens are. */
   replay(tokens: readonly string[]): void;
+  /** Puts the keyboard focus in the editor (F6, panes.ts). */
+  focus(): void;
 }
 
 let buffer: BufferTarget | null = null;
+
+/** The registered buffer, if a lecture's editor is on screen. */
+export const currentBuffer = (): BufferTarget | null => buffer;
 
 /** Registers the buffer (or none); returns the function that unregisters it. */
 export function setBufferTarget(target: BufferTarget): () => void {

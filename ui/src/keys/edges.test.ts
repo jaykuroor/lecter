@@ -143,6 +143,7 @@ function fake(root: Element, mode: "normal" | "visual" | "insert"): BufferTarget
       return "gloss" as const;
     },
     replay: () => {},
+    focus: () => {},
   };
   return t;
 }
@@ -255,7 +256,7 @@ describe("the engine in the page at its edges", () => {
       mac: false,
       host: document.body,
       userKeymap:
-        '{"version": 1, "bindings": [{"keys": "t", "command": "edge.none", "context": "app"}, {"keys": "gs", "command": "edge.none", "context": "line"}]}',
+        '{"version": 1, "bindings": [{"keys": "t", "command": "ai.gaps", "context": "app"}, {"keys": "gs", "command": "parse.compare", "context": "line"}]}',
     });
     expect(keys.warnings).toEqual([]);
     const page = key({ key: "t" });

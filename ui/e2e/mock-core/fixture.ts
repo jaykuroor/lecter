@@ -32,6 +32,8 @@ export interface MockFixture {
   switch: Record<string, Commands["course_switch"]["result"]>;
   /** The layout saved by an earlier run (`app_layout_get`); `app_layout_save` replaces it. */
   layout: Commands["app_layout_get"]["result"];
+  /** keymaps.jsonc's text (`keymaps_read`; null: no file), or the core's error for an unusable one. */
+  keymaps: Commands["keymaps_read"]["result"] | { error: string };
 }
 
 /** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
@@ -59,4 +61,5 @@ export const defaultFixture: MockFixture = {
   rail: [],
   switch: {},
   layout: { sidebar: true },
+  keymaps: null,
 };

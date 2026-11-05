@@ -278,12 +278,12 @@ describe("the engine in the page", () => {
     const withFile = startKeys({
       mac: false,
       host: document.body,
-      userKeymap: '{ "version": 1, "bindings": [{ "keys": "g", "command": "mine", "context": "line" }, 3] }',
+      userKeymap: '{ "version": 1, "bindings": [{ "keys": "g", "command": "app.quit", "context": "line" }, 3] }',
     });
     expect(withFile.warnings).toEqual([
       "keymaps.jsonc binding 2: not an object; ignored",
-      "Keys clash in line: g (mine) and gd (sources.goto)",
-      "Keys clash in line: g (mine) and gx (parse.compare)",
+      "Keys clash in line: g (app.quit) and gd (sources.goto)",
+      "Keys clash in line: g (app.quit) and gx (parse.compare)",
     ]);
     withFile.stop();
   });

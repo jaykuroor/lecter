@@ -14,6 +14,8 @@ const TABLE = [
   "global | <Mod-7> | course.go | Course 7 | arg 6",
   "global | <Mod-8> | course.go | Course 8 | arg 7",
   "global | <Mod-9> | course.go | Course 9 | arg 8",
+  "global | <F6> | focus.next | Next pane",
+  "global | <S-F6> | focus.prev | Previous pane",
   "app | <leader>a | +ai | AI",
   "app | <leader>ag | ai.gaps | Gap finder",
   "app | <leader>am | ai.pickModel | Pick model",

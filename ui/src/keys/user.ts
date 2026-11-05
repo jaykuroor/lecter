@@ -11,7 +11,7 @@
 //
 // `context` is a scope (keymap.ts; `global` when left out), `modes` an optional list of modes.
 // Everything wrong in the file is reported, never thrown: the defaults still work.
-import { type Binding, type Mode, SCOPES, type Scope } from "./keymap";
+import { type Binding, DEFAULT_KEYMAP, type Mode, SCOPES, type Scope } from "./keymap";
 import { parseKeys } from "./notation";
 
 /** One entry of keymaps.jsonc: a binding, or `command: null` to remove one. */
@@ -84,6 +84,11 @@ export function parseUserKeymap(text: string, mac: boolean): { bindings: UserBin
   return { bindings, warnings };
 }
 
+/** The commands a binding may name: every one the default keymap has (10-keymap.md). */
+const KNOWN_COMMANDS: ReadonlySet<string> = new Set(
+  DEFAULT_KEYMAP.map((b) => b.command).filter((c) => !c.startsWith("+")),
+);
+
 /** One entry, checked; a string says what is wrong with it. */
 function checkEntry(entry: unknown, mac: boolean): UserBinding | string {
   if (typeof entry !== "object" || entry === null) return "not an object";
@@ -97,6 +102,7 @@ function checkEntry(entry: unknown, mac: boolean): UserBinding | string {
   if (e.command !== null && (typeof e.command !== "string" || e.command === "" || e.command.startsWith("+"))) {
     return '"command" must be a command id or null';
   }
+  if (e.command !== null && !KNOWN_COMMANDS.has(e.command)) return `unknown command ${JSON.stringify(e.command)}`;
   const context = e.context ?? "global";
   if (!SCOPES.includes(context as Scope)) return `unknown "context" ${JSON.stringify(context)}`;
   const out: UserBinding = { keys: e.keys, command: e.command, context: context as Scope };
