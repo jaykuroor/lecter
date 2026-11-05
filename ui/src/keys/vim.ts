@@ -151,7 +151,7 @@ export function lineElement(doc: Text, n: number): "slide-line" | "note-line" | 
     const text = doc.line(i).text;
     if (!text.startsWith(":::")) continue;
     // The line starts with `:::` (above): an opening fence has its attributes after the colons.
-    const open = /:::+\s*\{([^}]*)\}/.exec(text);
+    const open = /\{([^}]*)\}/.exec(text);
     if (!open) {
       // A closing fence: the div it closes is not around line n (unless it is line n itself).
       if (i !== n) depth++;

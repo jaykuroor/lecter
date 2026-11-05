@@ -81,6 +81,19 @@ describe("App keys", () => {
   });
 
   it("toggles the sidebar with ␣e from the page, and stops once the app is gone", async () => {
+    // Every capture listener the app puts on the window, and whether it is taken off again.
+    const live = new Set<unknown>();
+    const add = window.addEventListener.bind(window);
+    const remove = window.removeEventListener.bind(window);
+    const capture = (o: unknown) => (o as { capture?: boolean } | undefined)?.capture === true;
+    window.addEventListener = ((type: string, fn: unknown, o?: unknown) => {
+      if (capture(o)) live.add(fn);
+      return (add as (...a: unknown[]) => void)(type, fn, o);
+    }) as typeof window.addEventListener;
+    window.removeEventListener = ((type: string, fn: unknown, o?: unknown) => {
+      if (capture(o)) live.delete(fn);
+      return (remove as (...a: unknown[]) => void)(type, fn, o);
+    }) as typeof window.removeEventListener;
     await start();
     press(document.body, { key: "1", code: "Digit1", ctrlKey: true });
     await screen.findByRole("region", { name: "Course STAT311" });
@@ -91,20 +104,15 @@ describe("App keys", () => {
     press(document.body, { key: " " });
     press(document.body, { key: "e" });
     expect(screen.getByRole("region", { name: "Course STAT311" })).toBeTruthy();
-    const removed: string[] = [];
-    const remove = window.removeEventListener.bind(window);
-    window.removeEventListener = ((type: string, ...rest: never[]) => {
-      const options = rest[1] as { capture?: boolean } | undefined;
-      removed.push(options?.capture ? `${type} capture` : type);
-      return (remove as (...a: unknown[]) => void)(type, ...rest);
-    }) as typeof window.removeEventListener;
     try {
+      expect(live.size).toBeGreaterThanOrEqual(2);
       cleanup();
     } finally {
+      window.addEventListener = add;
       window.removeEventListener = remove;
     }
-    // The engine's own listeners go with the app.
-    expect(removed).toEqual(expect.arrayContaining(["keydown capture", "pointerdown capture"]));
+    // The engine's own listeners (keys, pointer presses) go with the app.
+    expect(live.size).toBe(0);
     expect(press(document.body, { key: " " })).toBe(true);
     expect(press(document.body, { key: "2", code: "Digit2", ctrlKey: true })).toBe(true);
   });
