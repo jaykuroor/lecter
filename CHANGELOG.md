@@ -31,4 +31,5 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - After trusting a course, a short form fills in its name, code, term, professor, icon, colour and folders, saved to .lecter/course.jsonc (F-034)
 - The course rail lists your courses with their icon and colour; drag them (or Shift-J/K) into the order you like, and Ctrl/Cmd-1…9 switches between them (F-035)
 - The course sidebar lists Dashboard, Lectures with their dates, Lists and Sources; j/k and the arrow keys move through it, and Space e or the headerbar button hides it, remembered next time (F-036)
+- Keys follow Lecter's keymap everywhere: Space shows every leader group after a short pause, F6 moves between panes, and your own keymaps.jsonc rebinds or unbinds any key (F-037)
 

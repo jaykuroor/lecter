@@ -203,6 +203,12 @@ Should Space on a focused sidebar or rail row arm the leader (so ␣e works ther
 - Recommended: yes, once the key engine (F-037) owns Space: rows open with Enter and click only.
 - Answer:
 
+## Q-031 · later · blocks: nothing
+Does the real app's keystroke_p99_ms hold with the key engine (F-037)?
+- Context: the real app exits with code 101 in the Claude sandbox even under xvfb-run (.evidence/F-037/sandbox-attempt-perf-real-app.txt); the mocked-core gate passes at 4 / 8 ms.
+- Recommended: Jay runs `bash tests/perf/budgets.sh --only keystroke_p99_ms` locally on hardware rendering (D-146); CI's perf job also covers it.
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 

@@ -1206,3 +1206,33 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: F6 / Shift-F6 cycle focus between rail, sidebar, editor and side panel, from any context and mode; Tab keeps "write for me" on lines (10-keymap). Shown in which-key and the hint bar.
 - Why: Tab in normal mode is taken, so the editor would otherwise trap keyboard focus (WCAG 2.1.2); F6 is the common desktop pane-cycling key.
 - Instead of: Esc in normal mode leaving the editor; deciding later.
+
+## D-201 · Fold keys fold only glosses for now (F-037)
+2026-11-05 · F-037 builder, recorded by the orchestrator · active
+- Decision: za/zM/zR are on the kept Vim list but @replit/codemirror-vim has no fold commands; in v0 they bind fold.toggle/all/none on glosses only.
+- Why: the library lacks them; Vim folds are out of F-037's scope (spec gap, Watch out).
+- Instead of: writing Vim folds in the key engine.
+
+## D-202 · The key engine loads after first paint (F-037)
+2026-11-05 · F-037 builder, recorded by the orchestrator · active
+- Decision: the engine is a lazy chunk; ui/src/keys/boot.ts holds ␣, the key after it and Ctrl/Cmd-1..9 until it loads, then replays them.
+- Why: the cold_open_ms and main-bundle budgets.
+- Instead of: putting the engine in the entry chunk.
+
+## D-203 · keymaps.jsonc size is capped twice (F-037)
+2026-11-05 · F-037 builder, recorded by the orchestrator · active
+- Decision: the core refuses a file over 256 KB, reading at most limit+1 bytes; the UI parser refuses over 256 KB and over 2000 bindings.
+- Why: untrusted file on disk (13-security).
+- Instead of: a core-only check.
+
+## D-204 · keymaps.jsonc problems show as one status-line notice (F-037)
+2026-11-05 · F-037 builder, recorded by the orchestrator · active
+- Decision: one `.keys-notice` shows the first problem with "(+N more)"; its title lists them all.
+- Why: D-199 asks for one warning.
+- Instead of: a toast per problem.
+
+## D-205 · Unknown commands in keymaps.jsonc are refused (F-037)
+2026-11-05 · F-037 builder, recorded by the orchestrator · active
+- Decision: a binding must name a command from the default keymap; otherwise it is skipped with a warning.
+- Why: catches typos and stale names.
+- Instead of: accepting any string.

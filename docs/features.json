@@ -1231,7 +1231,7 @@
     "screenshot:which-key"
    ],
    "try": "Press Space and wait: which-key lists every group",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3032,
    "base": "48b7a93e05dc411a7e6a4d44fc3898d09838d5ce"
