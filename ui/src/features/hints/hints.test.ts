@@ -198,6 +198,8 @@ describe("hintsFor", () => {
         B("<S-F12>", "zoom.go", { scope: "global", desc: "Zoom 2", arg: 1 }),
         B("<A-a>", "tab.go", { scope: "global", desc: "Tab 1", arg: 0 }),
         B("<A-b>", "tab.go", { scope: "global", desc: "Tab 2", arg: 1 }),
+        B("1ga", "page.go", { scope: "global", desc: "Page 1", arg: 0 }),
+        B("1gb", "page.go", { scope: "global", desc: "Page 2", arg: 1 }),
       ],
       false,
     );
@@ -207,6 +209,7 @@ describe("hintsFor", () => {
       "F3 Pane",
       "Shift-F1…12 Zoom",
       "Alt-a…b Tab",
+      "1ga…b Page",
     ]);
   });
 
