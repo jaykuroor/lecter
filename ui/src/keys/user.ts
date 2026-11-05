@@ -1,5 +1,5 @@
 // keymaps.jsonc (12-settings-theme-onboarding.md#settings): the user's bindings, laid over the
-// defaults. Proposed format (NEEDS_MAINTAINER; see the F-037 report):
+// defaults. Its format (D-199); the core reads the text (`keymaps_read`, at most 256 KB):
 //
 //   {
 //     "version": 1,
