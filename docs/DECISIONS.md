@@ -1175,3 +1175,22 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the ␣e / headerbar sidebar toggle is remembered across restarts (stored with the other app UI state, e.g. `<data>/state.db` beside the rail order, D-188); first start shows it.
 - Why: the maintainer wants the sidebar to come back the way it was left.
 - Instead of: a session-only toggle shown at every start.
+
+## D-196 · Sidebar keys until the key engine exists (F-036)
+2026-11-05 · F-036 builder, recorded by the orchestrator · active
+- Decision: ␣e is a window capture listener in ui/src/features/sidebar/leader.ts (like rail/keys.ts). Space arms the leader only where it means nothing else: the page, a non-control element, or the buffer in normal/visual mode (not fields, the : and / prompts, buttons or links; IME composition ignored). The next key: e toggles, Esc cancels, another letter is dropped, anything else passes through. On sidebar and rail rows Space still opens the row (D-190), so ␣e doesn't fire there. In the sidebar j/k and ↑/↓ move, gg/Home and G/End jump, Enter/Space open; ←/→ are unbound. F-037 binds ␣e and drops `installSidebarToggle`.
+- Why: no key engine yet; Vim.map is global.
+- Instead of: Vim.map; changing what Space does on rows.
+
+## D-197 · Sidebar face and loading (F-036)
+2026-11-05 · F-036 builder, recorded by the orchestrator · active
+- Decision: the sidebar replaces CoursePanel in the rail column (course name, Dashboard, Lectures, Lists with their ␣x keycaps, Sources with "Slides" and "Readings" sub-sections) and keeps the DOM the real-app flows used; lecture rows carry `data-path` and names sit in `.sidebar-name`. Dashboard and Lists rows are aria-disabled until the app passes `onOpenView`; slide rows are reachable but don't open yet. Dates show as fixed English "Oct 23"; an invalid day or a non-positive open count shows nothing. ␣e hides the sidebar only (the course rail stays); the headerbar "Sidebar" button (aria-expanded, keycap ␣e) is the mouse path. The Sidebar is its own lazy chunk (features/sidebar/load.ts) loaded right after the shell's first paint, with an empty `#sidebar` frame until a course is open; no JSX spreads (they pull Solid's attribute tables into the first-paint chunk).
+- Why: the sidebar in the first-paint chunk cost Linux cold open ~14 ms (45.4 → 57.4 kB) and failed its 1080 ms budget on CI.
+- Instead of: a new DOM with blind flow edits; the sidebar in the first-paint chunk.
+
+## D-198 · Lecture dates, sources and the layout store in the core (F-036)
+2026-11-05 · F-036 builder, recorded by the orchestrator · active
+- Decision: course/front.rs reads ≤ 4096 bytes from the path the listing checked (re-checks is_file on the open handle, complete lines only); front matter must open with `---`, the first top-level `date:` wins, quotes and ` # comment` allowed, only a `YYYY-MM-DD` shape is returned, any error means no date. The listing sends `lectures: {name, path, date|null}` and `sources: CourseFile[]` (top-level files, slides rules), but an entry or a sources/ folder linking out of the course is left out and a read error lists it empty, never failing the open. The sidebar's shown state is `meta` key `layout` in `<data>/state.db` as `{"sidebar":bool}` (bad value → shown; unknown keys kept), through new IPC `app_layout_get()` / `app_layout_save(layout)` (capabilities allow-app-layout-get/save, `Error::LayoutFailed` E_IO); the UI loads it after first paint, saves without awaiting, and a toggle made before the load wins. `identity::open_state_db_creating` is shared by known.rs and layout.rs.
+- Why: D-194, D-195; sources are only shown, so a course that opened before still opens.
+- Instead of: failing the open on a bad sources/ entry like slides; a settings key for the layout.
+- Revisit if: 18-contracts#ipc is next edited (add `app_layout_get`/`app_layout_save`).

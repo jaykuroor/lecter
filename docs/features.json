@@ -1193,7 +1193,7 @@
     "screenshot:sidebar"
    ],
    "try": "Toggle the sidebar with Space e and open a lecture from it",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3031,
    "base": "afc300c12e1204be928c91ac27ecc55cdaaf336c"

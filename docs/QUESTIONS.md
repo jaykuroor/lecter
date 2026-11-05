@@ -176,6 +176,7 @@ Should the macOS ttft_overhead_ms target (42 ms, D-165) be re-measured?
 The macOS mocked-core keystroke check (keystroke_p99_ms 12 ms, Playwright) failed in 3 of 5 CI runs (34.2/23.3, 16.3/16.3, 17.9/16.5). The spec allows no per_os target for keystroke. Should it get one, or run only on Linux?
 - Context: F-025 attempt 1 of dispatch 41762048574 failed on it and passed on re-run. The nightly perf job on macOS (F-174) will often be red.
 - Recommended: gate the mocked-core keystroke check on Linux and report it on macOS/Windows (runner noise, mocked core); decide in planning before F-174.
+- Update 2026-11-05: still failing first attempts on most branches (F-033 both attempts; F-035; F-036 two attempts at 29.1 and 13.9, green on the third). F-036's local A/B showed no branch cost (.evidence/F-036/keystroke-ab.txt). Options: report-only on macOS (like Windows idle CPU), more warm-up, or a quieter runner.
 - Answer:
 
 ## Q-027 · later · blocks: nothing
@@ -188,6 +189,18 @@ Should F-061 switch the skeleton flow's parse step (tests/e2e/flows/skeleton.ts,
 Should F-071's state.db migration runner also manage the app-wide `<data>/state.db` (D-178), or treat it as separate from course databases?
 - Context: F-032 created `<data>/state.db` with only a `meta` table at user_version 0; 18-contracts' schema is per course at user_version 1.
 - Recommended: one runner with two schema sets (app and course); its first app migration uses CREATE TABLE IF NOT EXISTS meta and sets user_version 1. Decide in planning before F-071.
+- Answer:
+
+## Q-029 · later · blocks: nothing
+Should sources/ subfolders (e.g. past-papers/) show in the sidebar's Sources section?
+- Context: F-036 lists only top-level sources/ files, with the slides rules (D-198).
+- Recommended: yes, as collapsible groups, when the sources card (F-146 or the readings card) defines them; decide in planning.
+- Answer:
+
+## Q-030 · later · blocks: nothing
+Should Space on a focused sidebar or rail row arm the leader (so ␣e works there) instead of opening the row?
+- Context: D-190/D-196: Space opens the row, Enter also opens it, so ␣e does nothing while a row has focus.
+- Recommended: yes, once the key engine (F-037) owns Space: rows open with Enter and click only.
 - Answer:
 
 ## Gate notes
