@@ -28,11 +28,13 @@ export const noteFor = (key: string, json: string): string | null => NOTES[key]?
 export function planSet(args: string, specs: readonly SettingSpec[]): SetPlan {
   const text = args.trim();
   const eq = text.indexOf("=");
-  const key = (eq >= 0 ? text.slice(0, eq) : text.endsWith("?") ? text.slice(0, -1) : "").trim();
+  const asks = eq < 0;
+  if (asks && !text.endsWith("?")) return { op: "refuse", reason: SET_USAGE };
+  const key = (asks ? text.slice(0, -1) : text.slice(0, eq)).trim();
   if (key === "" || /\s/.test(key)) return { op: "refuse", reason: SET_USAGE };
   const spec = specs.find((s) => s.key === key);
   if (!spec) return { op: "refuse", reason: `${key} is not a setting` };
-  if (eq < 0) return { op: "show", key };
+  if (asks) return { op: "show", key };
   const checked = checkValue(spec, text.slice(eq + 1));
   return checked.ok ? { op: "write", key, json: checked.json } : { op: "refuse", reason: checked.reason };
 }

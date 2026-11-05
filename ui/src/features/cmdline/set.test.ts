@@ -40,9 +40,19 @@ describe("planSet", () => {
   });
 
   it("refuses anything that is neither form", () => {
-    for (const args of ["", "  ", "ui.performance", "?", "=quality", "ui performance?", "ui. performance=x"]) {
+    expect(SET_USAGE).toBe("Use :set key=value or :set key?");
+    for (const args of ["", "  ", "ui.performance", "?", "=quality", "=x?", "ui performance?", "ui. performance=x"]) {
       expect(planSet(args, specs), args).toEqual({ op: "refuse", reason: SET_USAGE });
     }
+  });
+
+  it("allows spaces around the key", () => {
+    expect(planSet("ui.performance =quality", specs)).toEqual({
+      op: "write",
+      key: "ui.performance",
+      json: '"quality"',
+    });
+    expect(planSet("ui.performance ?", specs)).toEqual({ op: "show", key: "ui.performance" });
   });
 });
 

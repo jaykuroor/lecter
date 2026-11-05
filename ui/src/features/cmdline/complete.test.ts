@@ -65,6 +65,7 @@ describe("complete", () => {
   it("offers nothing past the arguments it knows", () => {
     expect(lines("set ui.performance=quality now")).toEqual([]);
     expect(lines("find covariance")).toEqual([]);
+    expect(lines("find s")).toEqual([]);
     expect(complete("set ", [])).toEqual([]);
   });
 });

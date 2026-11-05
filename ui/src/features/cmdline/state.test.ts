@@ -82,6 +82,15 @@ describe("the command line", () => {
     c.move(1);
     c.move(1);
     expect(c.picked()).toBe(-1);
+    // From the first, up goes back to none.
+    c.move(1);
+    c.move(-1);
+    expect(c.picked()).toBe(-1);
+    c.move(-1);
+    c.move(-1);
+    expect(c.picked()).toBe(1);
+    c.move(1);
+    c.move(1);
     c.take(2);
     expect(c.text()).toBe("set ui.performance=quality");
     c.setText("set zzz");
@@ -187,6 +196,7 @@ describe("the command line", () => {
     await settle();
     expect(c.isOpen()).toBe(true);
     expect(c.refusal()).toBe(UNREAD);
+    expect(UNREAD).toBe("Lecter could not read the settings; try again.");
   });
 
   it("shows the core's refusal as an error message", async () => {

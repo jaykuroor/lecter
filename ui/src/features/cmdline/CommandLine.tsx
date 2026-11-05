@@ -11,7 +11,6 @@ const optionId = (i: number) => `cmdline-option-${i}`;
 
 export function CommandLine(props: { cmdline: Cmdline }) {
   const c = props.cmdline;
-  let input: HTMLInputElement | undefined;
 
   const onKeyDown = (e: KeyboardEvent) => {
     const key = e.key;
@@ -22,7 +21,6 @@ export function CommandLine(props: { cmdline: Cmdline }) {
     else if (key === "ArrowUp") c.move(-1);
     else return;
     e.preventDefault();
-    e.stopPropagation();
   };
 
   return (
@@ -38,7 +36,6 @@ export function CommandLine(props: { cmdline: Cmdline }) {
             </span>
             <input
               ref={(el) => {
-                input = el;
                 // Focus once it is in the page, before the next key: the keys typed right after `:`
                 // must land here, not in the buffer.
                 queueMicrotask(() => el.focus());
@@ -78,7 +75,6 @@ export function CommandLine(props: { cmdline: Cmdline }) {
                     // Keep the focus in the line.
                     e.preventDefault();
                     c.take(i());
-                    input?.focus();
                   }}
                 >
                   <span class="cmdline-completion-label">{item.label}</span>

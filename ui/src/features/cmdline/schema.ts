@@ -30,7 +30,23 @@ type Node = Record<string, unknown>;
 const isNode = (v: unknown): v is Node => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** The largest value of an unsigned integer format; JavaScript holds integers exactly up to 2^53 − 1. */
-const FORMAT_MAX: Record<string, number> = { uint8: 255, uint16: 65535, uint32: 4294967295 };
+const FORMAT_MAX = new Map<unknown, number>([
+  ["uint8", 255],
+  ["uint16", 65535],
+  ["uint32", 4294967295],
+]);
+
+/** What `parseJson` gives for text that isn't JSON. */
+const NOT_JSON = Symbol("not JSON");
+
+/** The JSON value of `text`, or `NOT_JSON`. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return NOT_JSON;
+  }
+}
 
 /** Follows a `$ref` into `$defs`. */
 function deref(root: Node, node: Node): Node {
@@ -72,7 +88,7 @@ function leaf(root: Node, key: string, node: Node): SettingSpec {
   if (t.includes("boolean")) return { ...base, kind: "boolean" };
   if (t.includes("integer")) {
     const min = typeof n.minimum === "number" ? n.minimum : Number.MIN_SAFE_INTEGER;
-    const max = FORMAT_MAX[typeof n.format === "string" ? n.format : ""] ?? Number.MAX_SAFE_INTEGER;
+    const max = FORMAT_MAX.get(n.format) ?? Number.MAX_SAFE_INTEGER;
     return { ...base, kind: "integer", min, max };
   }
   if (t.includes("number")) return { ...base, kind: "number" };
@@ -95,12 +111,7 @@ function walk(root: Node, node: Node, prefix: string, out: SettingSpec[]): void 
 
 /** The settings of the schema text the core serves, sorted by key; none for text that isn't a schema. */
 export function readSchema(text: string): SettingSpec[] {
-  let root: unknown;
-  try {
-    root = JSON.parse(text);
-  } catch {
-    return [];
-  }
+  const root = parseJson(text);
   if (!isNode(root)) return [];
   const out: SettingSpec[] = [];
   walk(root, root, "", out);
@@ -158,12 +169,8 @@ export function checkValue(spec: SettingSpec, raw: string): Checked {
 
 /** A value the core sent (JSON text) as `:set` shows it: text without quotes, a list comma-separated. */
 export function showValue(json: string): string {
-  let value: unknown;
-  try {
-    value = JSON.parse(json);
-  } catch {
-    return json;
-  }
+  const value = parseJson(json);
+  if (value === NOT_JSON) return json;
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(",");
   return JSON.stringify(value);

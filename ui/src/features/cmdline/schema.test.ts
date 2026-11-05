@@ -81,6 +81,15 @@ describe("readSchema", () => {
       ["b", "boolean", []],
       ["c", "text", []],
     ]);
+    // A node without a description has none.
+    expect(read.map((s) => s.description)).toEqual(["", "", ""]);
+  });
+
+  it("sorts keys whatever order the schema lists them in", () => {
+    const text = JSON.stringify({
+      properties: { zeta: { type: "boolean" }, alpha: { type: "boolean" }, mid: { type: "boolean" } },
+    });
+    expect(readSchema(text).map((s) => s.key)).toEqual(["alpha", "mid", "zeta"]);
   });
 
   it("takes an integer's range from its minimum and format", () => {
@@ -88,11 +97,13 @@ describe("readSchema", () => {
       properties: {
         small: { type: "integer", format: "uint8", minimum: 1 },
         wide: { type: "integer", format: "uint16" },
+        xodd: { type: "integer", format: 32 },
       },
     });
-    const [small, wide] = readSchema(text);
+    const [small, wide, odd] = readSchema(text);
     expect([small?.min, small?.max]).toEqual([1, 255]);
     expect([wide?.min, wide?.max]).toEqual([Number.MIN_SAFE_INTEGER, 65535]);
+    expect(odd?.max).toBe(Number.MAX_SAFE_INTEGER);
   });
 });
 
@@ -147,6 +158,12 @@ describe("checkValue", () => {
     expect(checkValue(spec("ai.budget.daily"), "-3")).toEqual({ ok: true, json: "-3" });
     expect(checkValue(spec("ai.budget.daily"), ".5")).toEqual({ ok: true, json: "0.5" });
     expect(checkValue(spec("ai.budget.daily"), "5.")).toEqual({ ok: true, json: "5" });
+    expect(checkValue(spec("ai.budget.daily"), "12.5")).toEqual({ ok: true, json: "12.5" });
+    expect(checkValue(spec("ai.budget.daily"), ".25")).toEqual({ ok: true, json: "0.25" });
+    expect(checkValue(spec("ai.budget.daily"), "a5").ok).toBe(false);
+    expect(checkValue(spec("ai.budget.daily"), "5a").ok).toBe(false);
+    // Nothing is not a number, even where null is allowed (only text takes nothing as null).
+    expect(checkValue(spec("ai.budget.perLecture"), "").ok).toBe(false);
     expect(checkValue(spec("ai.budget.daily"), "five")).toEqual({
       ok: false,
       reason: "ai.budget.daily must be a number",
@@ -184,6 +201,7 @@ describe("showValue", () => {
     expect(showValue("null")).toBe("null");
     expect(showValue('["a.org","b.com"]')).toBe("a.org,b.com");
     expect(showValue("[1,true]")).toBe("1,true");
+    expect(showValue('[{"a":1},"b"]')).toBe('{"a":1},b');
     expect(showValue('{"a":1}')).toBe('{"a":1}');
     expect(showValue("not json")).toBe("not json");
   });

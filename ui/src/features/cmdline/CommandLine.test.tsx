@@ -46,7 +46,10 @@ describe("CommandLine", () => {
     expect(host.querySelector(".cmdline-prompt")?.textContent).toBe(":");
     expect(input.getAttribute("role")).toBe("combobox");
     expect(input.getAttribute("aria-controls")).toBe("cmdline-completions");
+    expect(input.getAttribute("spellcheck")).toBe("false");
     expect(document.activeElement).toBe(input);
+    // Options are reached through the line (aria-activedescendant), not by Tab.
+    expect((host.querySelector('[role="option"]') as HTMLElement).tabIndex).toBe(-1);
   });
 
   it("lists completions as options; Tab and ↑/↓ pick, a click takes one (F-040 criterion 1)", async () => {
@@ -87,6 +90,7 @@ describe("CommandLine", () => {
     expect(document.activeElement).toBe(buffer);
     await settle();
     const status = host.querySelector('[role="status"]');
+    expect(status?.className).toBe("cmdline-message");
     expect(status?.querySelector(".cmdline-message-line")?.textContent).toBe("ui.performance=balanced (default)");
     expect(status?.querySelector(".cmdline-message-note")).toBe(null);
     expect(status?.classList.contains("cmdline-message-error")).toBe(false);
@@ -138,6 +142,9 @@ describe("CommandLine", () => {
     expect(document.activeElement).toBe(buffer);
     cmdline.open({ run: () => undefined, focus: () => buffer.focus() });
     await settle();
+    // On an empty line other keys type.
+    expect(press("x").defaultPrevented).toBe(false);
+    expect(host.querySelector(".cmdline")).not.toBe(null);
     expect(press("Backspace").defaultPrevented).toBe(true);
     expect(host.querySelector(".cmdline")).toBe(null);
   });

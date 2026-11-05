@@ -65,10 +65,14 @@ export function createCmdline(deps: CmdlineDeps) {
     return loading;
   };
 
-  const say = (m: Message | null) => {
+  const unsay = () => {
+    clearTimeout(timer);
+    setMessageSignal(null);
+  };
+  const say = (m: Message) => {
     clearTimeout(timer);
     setMessageSignal(m);
-    if (m) timer = setTimeout(() => setMessageSignal(null), MESSAGE_MS);
+    timer = setTimeout(() => setMessageSignal(null), MESSAGE_MS);
   };
 
   const completions = (): Completion[] => complete(text(), specs());
@@ -120,7 +124,7 @@ export function createCmdline(deps: CmdlineDeps) {
     message,
     /** Opens the box for `where`, empty; the settings load in the background. */
     open(where: ExTarget) {
-      say(null);
+      unsay();
       setText("");
       setTarget(where);
       void loadSpecs();
@@ -129,7 +133,6 @@ export function createCmdline(deps: CmdlineDeps) {
     /** Moves the pick through the completions, wrapping; `-1` (none) sits between the ends. */
     move(step: 1 | -1) {
       const n = completions().length;
-      if (n === 0) return;
       const next = picked() + step;
       setPicked(next < -1 ? n - 1 : next >= n ? -1 : next);
     },
