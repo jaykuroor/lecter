@@ -6,7 +6,7 @@ export type HintDetail = "full" | "compact" | "off";
 
 const HINT_DETAILS: readonly HintDetail[] = ["full", "compact", "off"];
 
-/** The detail before anything sets `ui.hintBar` (onboarding's Vim step, Settings, `:set`). */
+/** The detail before anything sets `ui.hintBar` (onboarding's Vim step, Settings, `:set`): full (D-206). */
 export const DEFAULT_HINT_DETAIL: HintDetail = "full";
 
 /** The detail after `detail` (␣uh): full → compact → off → full. */
