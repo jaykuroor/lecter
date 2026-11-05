@@ -51,13 +51,8 @@ export function startOverlay(opts: {
     clearTimeout(fadeTimer);
     clearTimeout(goneTimer);
   };
-  const clear = () => {
-    clearTimers();
-    batch(() => {
-      setFading(false);
-      setStrip(EMPTY_STRIP);
-    });
-  };
+  // Gone: the next key starts a new strip (and sets `fading` back).
+  const clear = () => setStrip(EMPTY_STRIP);
 
   /** The frame's work: the keys queued since the last frame, and what the engine holds now. */
   const flush = () => {
@@ -75,7 +70,7 @@ export function startOverlay(opts: {
     const pending = opts.engine.pending().length;
     if (tokens.length === 0) {
       // Only the engine changed (a click ended a sequence): the marks follow, the timers stay.
-      if (strip().keys.length > 0) setStrip(addKeys(strip(), [], pending));
+      setStrip(addKeys(strip(), [], pending));
       return;
     }
     batch(() => {

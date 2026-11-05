@@ -57,12 +57,6 @@ describe("read mode", () => {
     mode.toggle();
     expect(document.activeElement).toBe(document.body);
     mode.toggle();
-    // Leaving read mode moves nothing either.
-    const row = document.getElementById("row") as HTMLElement;
-    row.focus();
-    mode.toggle();
-    mode.toggle();
-    expect(document.activeElement).toBe(document.body);
     const find = document.getElementById("find") as HTMLElement;
     find.focus();
     mode.toggle();

@@ -15,6 +15,8 @@ let buffer: HTMLElement;
 let overlay: OverlayHandle;
 let hidden = false;
 let dropBuffer: () => void;
+/** The engine's listener before the overlay started (which-key's). */
+let whichKeyListener: (pending: readonly string[]) => void;
 
 /** A keydown on `target` (the buffer by default), through the engine and then the overlay, as App does. */
 function press(key: string, init: KeyboardEventInit = {}, target: Element = buffer): void {
@@ -27,7 +29,7 @@ function press(key: string, init: KeyboardEventInit = {}, target: Element = buff
 const frame = () => vi.advanceTimersToNextFrame();
 /** The overlay's keycaps as they read, a pending one with a `*`; `[]` when it doesn't show. */
 const shown = () =>
-  [...host.querySelectorAll(".keystroke-overlay kbd")].map(
+  [...host.querySelectorAll(".keystroke-overlay kbd.keystroke-key")].map(
     (k) => `${k.textContent}${k.classList.contains("keystroke-pending") ? "*" : ""}`,
   );
 const fading = () => host.querySelector(".keystroke-overlay")?.classList.contains("keystroke-overlay-fading");
@@ -49,12 +51,14 @@ beforeEach(() => {
   });
   keys = startKeys({ mac: false, host });
   buffer.focus();
+  whichKeyListener = keys.engine.onChange;
   overlay = startOverlay({ engine: keys.engine, host, mac: false, hidden: () => hidden });
 });
 afterEach(() => {
   overlay.stop();
   keys.stop();
   dropBuffer();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -129,6 +133,29 @@ describe("the keystroke overlay", () => {
     expect(shown()).toEqual(["x"]);
   });
 
+  it("draws once per frame, however many keys come in it", () => {
+    const frames = vi.spyOn(window, "requestAnimationFrame");
+    press("j");
+    press("k");
+    press(" ");
+    expect(frames).toHaveBeenCalledTimes(1);
+    frame();
+    expect(shown()).toEqual(["j", "k", "␣*"]);
+    press("Escape");
+    expect(frames).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps its time when only the engine changes: a click doesn't hold the fade back", () => {
+    press(" ");
+    frame();
+    vi.advanceTimersByTime(1000);
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    frame();
+    expect(shown()).toEqual(["␣"]);
+    vi.advanceTimersByTime(500);
+    expect(fading()).toBe(true);
+  });
+
   it("shows the last eight keys", () => {
     for (const k of "abcdefghi") press(k);
     frame();
@@ -195,6 +222,30 @@ describe("the keystroke overlay", () => {
     press("k", { metaKey: true, code: "KeyK" });
     frame();
     expect(shown()).toEqual(["⌘k"]);
+  });
+
+  it("stops with nothing left waiting: no frame, no timer, even for keys after it", () => {
+    press("j");
+    frame();
+    press("k");
+    overlay.stop();
+    expect(vi.getTimerCount()).toBe(0);
+    overlay.typed(new KeyboardEvent("keydown", { key: "l" }));
+    expect(vi.getTimerCount()).toBe(0);
+    overlay = startOverlay({ engine: keys.engine, host, mac: false, hidden: () => hidden });
+  });
+
+  it("hands the engine's listener back on stop, unless something else took it since", () => {
+    expect(keys.engine.onChange).not.toBe(whichKeyListener);
+    overlay.stop();
+    expect(keys.engine.onChange).toBe(whichKeyListener);
+    overlay = startOverlay({ engine: keys.engine, host, mac: false, hidden: () => hidden });
+    const other = () => {};
+    keys.engine.onChange = other;
+    overlay.stop();
+    expect(keys.engine.onChange).toBe(other);
+    keys.engine.onChange = whichKeyListener;
+    overlay = startOverlay({ engine: keys.engine, host, mac: false, hidden: () => hidden });
   });
 
   it("stops: no overlay, ␣uk no longer handled, and which-key still follows the engine", () => {

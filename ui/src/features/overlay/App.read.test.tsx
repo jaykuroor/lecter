@@ -41,9 +41,11 @@ describe("read mode and the keystroke overlay in the app", () => {
     await start();
     expect(frame().classList.contains("read-mode")).toBe(false);
     expect(readButton().getAttribute("aria-pressed")).toBe("false");
+    expect(readButton().title).toBe("Read mode: hide the rail, sidebar and hints (␣ur)");
     typeKeys(" ", "u", "r");
     expect(frame().classList.contains("read-mode")).toBe(true);
     expect(readButton().getAttribute("aria-pressed")).toBe("true");
+    expect(readButton().title).toBe("Leave read mode (␣ur)");
     // What read mode hides: the rail column (rail and sidebar), the hint bar and the overlay.
     expect(document.querySelector(".read-mode .rail #sidebar")).not.toBeNull();
     expect(document.querySelector(".read-mode .hint-bar-host .hint-bar")).not.toBeNull();

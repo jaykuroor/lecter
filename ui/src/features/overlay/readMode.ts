@@ -29,9 +29,9 @@ export function createReadMode(): ReadMode {
   return {
     on,
     toggle: () => {
-      const next = !on();
-      setOn(next);
-      if (next) leaveHidden();
+      setOn(!on());
+      // Only going in can hide the focus: what read mode hides can't hold it while it is on.
+      leaveHidden();
     },
   };
 }
