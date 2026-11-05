@@ -1144,3 +1144,16 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: on a focused course rail row, Shift-J / Shift-K move the course down / up; j/k and the arrow keys move focus; Enter or Space opens the course. Ctrl/Cmd-1..9 switch to the nth course from anywhere (digit row by `e.code`, not the keypad).
 - Why: matches the dashboard's J/K reorder (11-dashboard); every drag action needs a key path (AGENTS.md).
 - Instead of: Alt-Up / Alt-Down.
+
+## D-191 · `course_switch` opens a rail course; one plain path form (F-035)
+2026-11-05 · F-035 builder, recorded by the orchestrator · active
+- Decision: a new IPC command `course_switch(course)` opens a course already on the rail, without the folder dialog: the path must be on the stored list and canonicalise to exactly the stored path (else `CourseNotKnown` E_INVALID_ARGUMENT / `CourseMoved` E_NOT_FOUND), then it goes through the same trust review as a picked folder. Only `course_open` (after the dialog) adds to the rail. Paths are stored and returned in one form, `course::plain` (Windows `\\?\X:` stripped, `\\?\UNC\` → `\\`), on every way in. `course_reorder` takes exactly the rail's courses, each once (`BadCourseOrder` otherwise). The `courses` value read from state.db keeps only absolute, control-free paths ≤ 4096 bytes, deduped, ≤ 10,000; anything else reads as no courses. Capabilities add only `core:event:allow-listen/unlisten` for `course:changed`. A failed rail save doesn't fail the open.
+- Why: `course_open` is pinned to no arguments (F-016); the dialog stays the only way to add a folder (SEC-32/35); canonicalize's verbatim paths broke reopening on Windows (CI).
+- Instead of: a path argument on `course_open`; storing canonicalize output as is.
+- Revisit if: 18-contracts#ipc is next edited (add `course_switch`).
+
+## D-192 · Course rail face, drag and key handling (F-035)
+2026-11-05 · F-035 builder, recorded by the orchestrator · active
+- Decision: the course rail is a "Courses" section of rows in the 208 px rail (Ctrl-number slot, 22 px icon on the course colour, name), then "+ Add a course"; components.md#rail describes the slide rail, so rows follow its row styling. Name, icon and colour come from course.jsonc through F-034's checks; the UI uses a colour only if it is exactly #rrggbb and an image only from lecter://. Drag uses pointer events with a 4 px start (Escape or a cancelled pointer drops nothing). Ctrl/Cmd-1..9 use the platform's modifier, read from `navigator.platform` (user agent only when blank), match the digit row by `e.code`, and fire only when that course exists.
+- Why: HTML5 drag can be swallowed by the webview's file drop; Playwright's Safari device sends a Mac UA on Linux.
+- Instead of: a separate Discord-style column; HTML5 drag and drop; detecting Mac by user agent.

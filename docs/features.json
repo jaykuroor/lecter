@@ -1163,7 +1163,7 @@
     "screenshot:rail"
    ],
    "try": "Add two courses; reorder them by dragging; switch with Ctrl-1/Ctrl-2",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3030,
    "base": "47fd30b158908d668e659d8ea940dd51240e1eea"
