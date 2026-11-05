@@ -98,7 +98,10 @@ fn the_skeleton_path_runs_through_the_harness_with_no_gui() {
     assert_eq!(text, EXPECTED);
     std::fs::write(dir.join(LECTURE), &text).unwrap_or_else(|e| panic!("{e}"));
     let listing = harness(&env, &["course", "open", dir_s]);
-    assert_eq!(listing["lectures"], json!([{ "name": "2026-10-27-l12-entropy.md", "path": LECTURE }]));
+    assert_eq!(
+        listing["lectures"],
+        json!([{ "name": "2026-10-27-l12-entropy.md", "path": LECTURE, "date": "2026-10-27" }])
+    );
 
     // Edit the first block through the core's save session, then quit (which saves).
     let at = u32::try_from(EXPECTED.find(FIRST).unwrap_or_else(|| panic!("no first block"))).unwrap_or(u32::MAX);

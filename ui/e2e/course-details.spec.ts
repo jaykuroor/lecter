@@ -13,6 +13,7 @@ test.use({
       name: "STAT311 - Probability and Statistics",
       lectures: [{ name: "2026-10-23-l07-covariance.md", path: "lectures/2026-10-23-l07-covariance.md" }],
       slides: [{ name: "07-covariance.pdf", path: "slides/07-covariance.pdf" }],
+      sources: [],
       trust: "ask",
       screen: { ...trustScreen, lectures: 6, slides: 12, sources: 3 },
     },

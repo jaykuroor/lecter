@@ -25,6 +25,7 @@ describe("editor pre-warm", () => {
         name: "STAT311",
         lectures: [l07],
         slides: [],
+        sources: [],
         trust: "trusted",
         screen: trustScreen,
       },

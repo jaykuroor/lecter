@@ -100,7 +100,7 @@ async function relaunch(): Promise<void> {
 /** Opens the course (the dialog answers LECTER_TEST_PICK) and the lecture, with the mouse. */
 async function openLecture(): Promise<void> {
   await $("button.rail-add").click();
-  await $(`button.course-file-open=${NAME}`).click();
+  await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
 }
 

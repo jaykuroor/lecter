@@ -15,6 +15,7 @@ const stat311: CourseOpened = {
     { name: "2026-09-09-l02-probability.md", path: "lectures/2026-09-09-l02-probability.md" },
   ],
   slides: [{ name: "07-covariance.pdf", path: "slides/07-covariance.pdf" }],
+  sources: [],
   trust: "ask",
   screen: trustScreen,
 };
@@ -86,7 +87,7 @@ describe("CoursePanel", () => {
   });
 
   it("says when a course has no lectures or slides yet", async () => {
-    installMockCore({ ...defaultFixture, courseOpen: { ...stat311, lectures: [], slides: [] } });
+    installMockCore({ ...defaultFixture, courseOpen: { ...stat311, lectures: [], slides: [], sources: [] } });
     fireEvent.click(mount());
     expect(await screen.findByText("No lectures yet")).toBeTruthy();
     expect(screen.getByText("No slides yet")).toBeTruthy();

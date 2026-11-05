@@ -104,7 +104,7 @@ async function openLecture(): Promise<void> {
   );
   if (open !== `lectures/${NAME}`) {
     await $("button.rail-add").click();
-    await $(`button.course-file-open=${NAME}`).click();
+    await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
   }
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
   await installProbe();

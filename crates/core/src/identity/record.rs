@@ -25,6 +25,20 @@ pub(crate) fn open(path: &Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
+/// [`open`], creating `path`'s folder first: on a first run the data folder may not exist yet.
+#[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
+pub(crate) fn open_creating(path: &Path) -> rusqlite::Result<Connection> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| {
+            rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+                Some(e.to_string()),
+            )
+        })?;
+    }
+    open(path)
+}
+
 /// Switches to WAL. Two connections switching a new file at once deadlock, and SQLite answers one
 /// of them "busy" at once rather than waiting; that one waits for the other's write lock (which
 /// does wait, up to the busy timeout) and tries again, by when the file is in WAL already.

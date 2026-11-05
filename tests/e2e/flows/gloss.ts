@@ -104,7 +104,7 @@ describe("a gloss from the provider", function () {
 
   it("streams an answer under the block after a, a question and Enter, and saves it", async () => {
     await $("button.rail-add").click();
-    await $(`button.course-file-open=${NAME}`).click();
+    await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
     await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
 

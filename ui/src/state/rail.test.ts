@@ -51,7 +51,15 @@ describe("rail state", () => {
     installMockCore({
       ...defaultFixture,
       rail: [stat],
-      courseOpen: { path: "/c/bio", name: "Biology", lectures: [], slides: [], trust: "ask", screen: trustScreen },
+      courseOpen: {
+        path: "/c/bio",
+        name: "Biology",
+        lectures: [],
+        slides: [],
+        sources: [],
+        trust: "ask",
+        screen: trustScreen,
+      },
     });
     const r = rail();
     await r.load();
@@ -65,7 +73,15 @@ describe("rail state", () => {
     installMockCore({
       ...defaultFixture,
       rail: [stat],
-      courseOpen: { path: "/c/bio", name: "Biology", lectures: [], slides: [], trust: "ask", screen: trustScreen },
+      courseOpen: {
+        path: "/c/bio",
+        name: "Biology",
+        lectures: [],
+        slides: [],
+        sources: [],
+        trust: "ask",
+        screen: trustScreen,
+      },
     });
     const r = rail();
     await r.load();
@@ -173,7 +189,15 @@ describe("rail state", () => {
     installMockCore({
       ...defaultFixture,
       rail: [stat],
-      courseOpen: { path: "/c/bio", name: "Biology", lectures: [], slides: [], trust: "ask", screen: trustScreen },
+      courseOpen: {
+        path: "/c/bio",
+        name: "Biology",
+        lectures: [],
+        slides: [],
+        sources: [],
+        trust: "ask",
+        screen: trustScreen,
+      },
     });
     const r = rail();
     const loading = r.load();

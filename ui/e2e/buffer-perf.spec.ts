@@ -48,6 +48,7 @@ const fixture: MockFixture = {
     name: "STAT311",
     lectures: [{ name: "2026-10-23-l07-fixture.md", path: lecturePath }],
     slides: [],
+    sources: [],
     trust: "trusted",
     screen: trustScreen,
   },

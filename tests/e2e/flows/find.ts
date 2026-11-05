@@ -110,7 +110,7 @@ describe(":find", function () {
 
   it("lists the ranked hits of :find words in the side panel", async () => {
     await $("button.rail-add").click();
-    await $(`button.course-file-open=${NAME}`).click();
+    await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
     await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
 

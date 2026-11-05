@@ -31,6 +31,8 @@ export function installMockCore(fixture: MockFixture): void {
   // The course rail as the core keeps it, and the `course:changed` listeners: event id → callback id.
   let rail = fixture.rail.map((c) => ({ ...c }));
   const switchable = { ...fixture.switch };
+  let layout = { ...fixture.layout };
+  delete (window as unknown as { __mockLayout?: unknown }).__mockLayout;
   const listeners = new Map<number, number>();
   // Each install starts a fresh record of switches.
   delete (window as unknown as { __mockSwitches?: string[] }).__mockSwitches;
@@ -46,6 +48,16 @@ export function installMockCore(fixture: MockFixture): void {
   };
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
+    // The layout the app starts with; each save is kept for the test to read back
+    // (window.__mockLayout), and is what the next app_layout_get answers.
+    app_layout_get: () => ({ ...layout }),
+    app_layout_save: ({ layout: saved }) => {
+      const w = window as unknown as { __mockLayout?: { sidebar: boolean }[] };
+      w.__mockLayout ??= [];
+      w.__mockLayout.push({ ...saved });
+      layout = { ...saved };
+      return null;
+    },
     // Records each paint, with its time, for the test to read back (window.__mockStartup).
     app_mark_startup: ({ paint }) => {
       const w = window as unknown as { __mockStartup?: { paint: string; at: number }[] };

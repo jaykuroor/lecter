@@ -3,10 +3,13 @@ import { markStartup } from "./core/startup";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
 import { RailColumn } from "./features/rail/RailColumn";
+import { loadSidebar } from "./features/sidebar/load";
+import { SidebarToggle } from "./features/sidebar/SidebarToggle";
 import { TrustScreen } from "./features/trust/TrustScreen";
 import { createAppInfo } from "./state/appInfo";
 import { createCourse } from "./state/course";
 import { createFind } from "./state/find";
+import { createLayout } from "./state/layout";
 import { createLecture } from "./state/lecture";
 import { createRail } from "./state/rail";
 import "./App.css";
@@ -64,6 +67,8 @@ export function App() {
   const rail = createRail();
   const lecture = createLecture();
   const find = createFind();
+  // The sidebar (F-036): ␣e or the headerbar button toggles it, and the next start keeps it (D-195).
+  const layout = createLayout();
   // `:find words` in the buffer and the Find field both search the open course (F-022).
   const runFind = (words: string) => void find.run(course.course()?.path ?? null, words);
 
@@ -79,8 +84,12 @@ export function App() {
       markStartup("shell_first_paint");
       // Renders the buffer, which starts loading its chunk; `:find` is defined before it shows.
       setPainted(true);
-      // The course rail's courses (state.db) aren't needed for the first paint.
+      // The course rail's courses and the saved layout (state.db) aren't needed for the first
+      // paint: no course is open yet, so the sidebar has nothing to show.
       void rail.load();
+      void layout.load();
+      // The sidebar's chunk, so it is in by the time a course opens (features/sidebar/load.ts).
+      void loadSidebar();
       void loadEditor().then(([, ex, warm]) => {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);
@@ -105,6 +114,9 @@ export function App() {
   return (
     <div class="app-frame">
       <header class="headerbar">
+        <div class="headerbar-start">
+          <SidebarToggle shown={layout.sidebar()} onToggle={layout.toggleSidebar} />
+        </div>
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
       </header>
       <nav class="rail" aria-label="Course rail">
@@ -113,6 +125,7 @@ export function App() {
           rail={rail}
           onOpenLecture={(path, file) => void lecture.open(path, file)}
           openLecture={lecture.lecture()?.path ?? null}
+          sidebarShown={layout.sidebar()}
         />
       </nav>
       <div class="document-column">

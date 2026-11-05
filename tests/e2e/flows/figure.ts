@@ -204,7 +204,7 @@ describe("a described figure", function () {
 
   it("draws the answer's fnplot spec as a plot inside the gloss, with no network request", async () => {
     await $("button.rail-add").click();
-    await $(`button.course-file-open=${NAME}`).click();
+    await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
     await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
     expect(await figure()).toBe(null);

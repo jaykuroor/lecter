@@ -134,6 +134,10 @@ pub enum Error {
     /// written. The SQLite error is logged, not shown.
     #[error("Lecter could not use its list of courses.")]
     CourseListFailed,
+    /// The app's `state.db`, which keeps the window's layout (D-195), could not be read or
+    /// written. The SQLite error is logged, not shown.
+    #[error("Lecter could not remember the window's layout.")]
+    LayoutFailed,
     /// A course path the UI sent that isn't on the rail: only a folder the user once picked opens
     /// without the folder dialog (SEC-32, SEC-35).
     #[error("That course isn't on the rail; add its folder with +.")]
@@ -160,7 +164,7 @@ impl Error {
     pub const fn code(&self) -> ErrorCode {
         match self {
             Self::FolderNotFound | Self::LectureNotFound(_) | Self::CourseMoved => ErrorCode::NotFound,
-            Self::CourseListFailed => ErrorCode::Io,
+            Self::CourseListFailed | Self::LayoutFailed => ErrorCode::Io,
             Self::CourseNotKnown | Self::BadCourseOrder => ErrorCode::InvalidArgument,
             Self::OutsideCourse(_) | Self::CourseNotTrusted | Self::CourseReadOnly => ErrorCode::NotTrusted,
             Self::Io(_)
@@ -224,6 +228,7 @@ mod tests {
                 ErrorCode::InvalidArgument,
             ),
             (Error::CourseListFailed, ErrorCode::Io),
+            (Error::LayoutFailed, ErrorCode::Io),
             (Error::CourseNotKnown, ErrorCode::InvalidArgument),
             (Error::CourseMoved, ErrorCode::NotFound),
             (Error::BadCourseOrder, ErrorCode::InvalidArgument),

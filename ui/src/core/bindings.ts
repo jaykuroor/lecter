@@ -32,6 +32,13 @@ export const commands = {
 	 *  other phase name, so there is nothing else to validate (SEC-32).
 	 */
 	appMarkStartup: (paint: StartupPaint) => __TAURI_INVOKE<void>("app_mark_startup", { paint }),
+	/**  The saved layout; the first start's (the sidebar shows) when none was saved. */
+	appLayoutGet: () => typedError<Layout, IpcError_Serialize>(__TAURI_INVOKE("app_layout_get")),
+	/**
+	 *  Saves `layout`, which the next start opens with. serde refuses anything but
+	 *  `{ sidebar: boolean }`, so there is nothing else to validate (SEC-32).
+	 */
+	appLayoutSave: (layout: Layout) => typedError<null, IpcError_Serialize>(__TAURI_INVOKE("app_layout_save", { layout })),
 	/**
 	 *  Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 	 *  listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
@@ -156,16 +163,18 @@ export type CourseFolders = {
 	pastPapers: string,
 };
 
-/**  An opened course folder and the files in its `lectures/` and `slides/`. */
+/**  An opened course folder and the files in its `lectures/`, `slides/` and `sources/`. */
 export type CourseListing = {
 	/**  Canonical absolute path. */
 	path: string,
 	/**  The folder's own name. */
 	name: string,
 	/**  The lecture files (`lectures/*.md`), by name. */
-	lectures: CourseFile[],
+	lectures: LectureFile[],
 	/**  The slide files (`slides/*`), by name. */
 	slides: CourseFile[],
+	/**  The source files directly in `sources/` (textbooks, papers, past exams), by name. */
+	sources: CourseFile[],
 };
 
 /**
@@ -352,6 +361,12 @@ export type KnownCourse = {
 	missing: boolean,
 };
 
+/**  Which parts of the window show. The first start shows everything. */
+export type Layout = {
+	/**  Whether the sidebar (dashboard, lectures, lists, sources) shows beside the course rail. */
+	sidebar: boolean,
+};
+
 /**  An opened lecture file. */
 export type Lecture = {
 	/**  The path relative to the course root with `/` separators, e.g. `lectures/l07.md`. */
@@ -360,6 +375,19 @@ export type Lecture = {
 	name: string,
 	/**  The whole file: front matter and body, exactly as on disk. */
 	text: string,
+};
+
+/**  One lecture file in `lectures/`, with its front-matter date when it has one. */
+export type LectureFile = {
+	/**  The file name, e.g. `2026-10-23-l07-covariance.md`. */
+	name: string,
+	/**  The path relative to the course root with `/` separators, e.g. `lectures/l07.md`. */
+	path: string,
+	/**
+	 *  The front matter's `date`, shaped `YYYY-MM-DD` (not checked to be a real day), e.g.
+	 *  `2026-10-23`; `null` when there is none in the file's first 4 KB.
+	 */
+	date?: string | null,
 };
 
 /**  A startup paint the UI reports to `app_mark_startup`. */
@@ -467,6 +495,16 @@ export type Commands = {
     args: { paint: Parameters<typeof commands.appMarkStartup>[0] };
     result: CommandOk<Awaited<ReturnType<typeof commands.appMarkStartup>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.appMarkStartup>>>;
+  };
+  app_layout_get: {
+    args: Record<string, never>;
+    result: CommandOk<Awaited<ReturnType<typeof commands.appLayoutGet>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.appLayoutGet>>>;
+  };
+  app_layout_save: {
+    args: { layout: Parameters<typeof commands.appLayoutSave>[0] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.appLayoutSave>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.appLayoutSave>>>;
   };
   course_open: {
     args: Record<string, never>;

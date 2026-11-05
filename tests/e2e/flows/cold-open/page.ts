@@ -74,7 +74,7 @@ export async function openInPage(file: string): Promise<PageTimes> {
     const row = await until(
       () =>
         Array.from(document.querySelectorAll<HTMLButtonElement>("button.course-file-open")).find(
-          (b) => b.textContent?.trim() === name,
+          (b) => b.dataset.path === `lectures/${name}`,
         ),
       `${name} in the rail`,
     );

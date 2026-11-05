@@ -7,6 +7,8 @@ pub const COMMANDS: &[&str] = &[
     "gloss_cancel",
     "app_info",
     "app_mark_startup",
+    "app_layout_get",
+    "app_layout_save",
     "course_open",
     "course_list",
     "course_switch",

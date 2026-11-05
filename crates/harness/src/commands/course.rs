@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use lecter_core::course::{self, CourseFile, CourseListing};
+use lecter_core::course::{self, CourseFile, CourseListing, LectureFile};
 
 use super::{Command, Reply, course_rail, course_trust};
 use crate::error::HarnessError;
@@ -47,10 +47,17 @@ pub(super) fn absolute(dir: &Path) -> Result<PathBuf, HarnessError> {
         .map_err(|_| HarnessError::invalid_argument("the folder path can't be made absolute (no working directory?)"))
 }
 
-/// The listing for a person: the folder, then each subfolder's files.
+/// The listing for a person: the folder, then each subfolder's files, a lecture with its date.
 fn text(listing: &CourseListing) -> String {
     let mut out = format!("{} ({})", listing.name, listing.path);
-    for (label, files) in [("lectures", &listing.lectures), ("slides", &listing.slides)] {
+    out.push_str(&format!("\nlectures: {}", listing.lectures.len()));
+    for LectureFile { path, date, .. } in &listing.lectures {
+        match date {
+            Some(date) => out.push_str(&format!("\n  {path} ({date})")),
+            None => out.push_str(&format!("\n  {path}")),
+        }
+    }
+    for (label, files) in [("slides", &listing.slides), ("sources", &listing.sources)] {
         out.push_str(&format!("\n{label}: {}", files.len()));
         for CourseFile { path, .. } in files {
             out.push_str(&format!("\n  {path}"));
@@ -90,9 +97,16 @@ mod tests {
         let listing = CourseListing {
             path: "/c/STAT311".into(),
             name: "STAT311".into(),
-            lectures: vec![CourseFile { name: "l01.md".into(), path: "lectures/l01.md".into() }],
+            lectures: vec![
+                LectureFile { name: "l01.md".into(), path: "lectures/l01.md".into(), date: None },
+                LectureFile { name: "l02.md".into(), path: "lectures/l02.md".into(), date: Some("2026-10-23".into()) },
+            ],
             slides: vec![],
+            sources: vec![CourseFile { name: "book.pdf".into(), path: "sources/book.pdf".into() }],
         };
-        assert_eq!(text(&listing), "STAT311 (/c/STAT311)\nlectures: 1\n  lectures/l01.md\nslides: 0");
+        assert_eq!(
+            text(&listing),
+            "STAT311 (/c/STAT311)\nlectures: 2\n  lectures/l01.md\n  lectures/l02.md (2026-10-23)\nslides: 0\nsources: 1\n  sources/book.pdf"
+        );
     }
 }
