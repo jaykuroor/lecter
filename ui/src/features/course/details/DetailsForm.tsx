@@ -171,7 +171,7 @@ export function DetailsForm(props: {
         <button type="button" class="btn" disabled={props.busy} onClick={() => props.onSkip()}>
           Later <kbd class="details-key">Esc</kbd>
         </button>
-        <button type="submit" class="btn sug" disabled={props.busy || !named()}>
+        <button type="button" class="btn sug" disabled={props.busy || !named()} onClick={save}>
           Save <kbd class="details-key">Enter</kbd>
         </button>
       </div>

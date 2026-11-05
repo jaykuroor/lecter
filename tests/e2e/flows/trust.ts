@@ -8,64 +8,13 @@
 // flow's own and is stopped in `after`; the next flow's worker finds the port closed and the
 // service starts a fresh app.
 
-import { type ChildProcess, spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { ownCourse, relaunchWithoutTrustHook, stopRelaunched } from "../support/relaunch.ts";
 import { shot } from "../support/shot.ts";
-import { skipFocusCheck } from "../support/window.ts";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const APP = join(root, "target", "debug", process.platform === "win32" ? "lecter-app.exe" : "lecter-app");
-const HOOK = "LECTER_TEST_TRUST";
 
 /** A course of this flow's own, next to the shared one, so no stored answer covers it. */
-function course(): string {
-  const shared = process.env.LECTER_TEST_PICK;
-  if (!shared) throw new Error("LECTER_TEST_PICK is not set: run flows through scripts/e2e-app.sh");
-  return join(dirname(shared), "Trust Course");
-}
-
-const port = (): number => browser.options.port ?? 4445;
-const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function alive(): Promise<boolean> {
-  try {
-    return (await fetch(`http://127.0.0.1:${port()}/status`, { signal: AbortSignal.timeout(1000) })).ok;
-  } catch {
-    return false;
-  }
-}
-
-/** Polls `done` until it holds or `ms` pass. */
-async function waitFor(done: () => Promise<boolean>, ms: number, what: string): Promise<void> {
-  const deadline = Date.now() + ms;
-  while (!(await done())) {
-    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
-    await tick(50);
-  }
-}
-
-let relaunched: ChildProcess | null = null;
-
-/** Starts the app again without the trust hook, its folder dialog answering this flow's course. */
-async function relaunchWithoutHook(): Promise<void> {
-  const out = process.env.LECTER_E2E_OUT;
-  const log = out ? openSync(join(out, "trust-relaunch.log"), "w") : "ignore";
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    LECTER_TEST_PICK: course(),
-    TAURI_WEBDRIVER_PORT: String(port()),
-    WDIO_EMBEDDED_SERVER: "true",
-  };
-  delete env[HOOK];
-  relaunched = spawn(APP, [], { env, stdio: ["ignore", log, log] });
-  if (typeof log === "number") closeSync(log);
-  await waitFor(alive, 60_000, "the relaunched app's WebDriver server");
-  await browser.reloadSession();
-  // A new session: switch the service's focus check off again (wdio.conf.ts did the first one).
-  await skipFocusCheck(browser);
-}
+const course = (): string => ownCourse("Trust Course");
 
 /** `search_find` on `path`, called as the UI does; the core's error code, or "ok". */
 async function searchCode(path: string): Promise<string> {
@@ -97,18 +46,13 @@ describe("trust screen", () => {
   });
 
   after(async () => {
-    // End the session while its app still runs, then stop the app (see restart.ts).
-    await browser.deleteSession().catch(() => undefined);
-    (browser as unknown as { sessionId?: string }).sessionId = undefined;
-    relaunched?.kill();
+    await stopRelaunched();
     rmSync(course(), { recursive: true, force: true });
   });
 
   it("asks on the first open, and Open read-only keeps indexing off", async () => {
     // Quit the service's app (it has the hook) and start one without it.
-    await browser.closeWindow().catch(() => undefined);
-    await waitFor(async () => !(await alive()), 30_000, "the app to quit");
-    await relaunchWithoutHook();
+    await relaunchWithoutTrustHook(course(), "trust-relaunch");
 
     await $("button.course-open").click();
     const dialog = $(".trust");
