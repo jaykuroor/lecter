@@ -1163,9 +1163,10 @@
     "screenshot:rail"
    ],
    "try": "Add two courses; reorder them by dragging; switch with Ctrl-1/Ctrl-2",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3030
+   "priority": 3030,
+   "base": "47fd30b158908d668e659d8ea940dd51240e1eea"
   },
   {
    "id": "F-036",
