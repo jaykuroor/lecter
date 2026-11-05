@@ -111,6 +111,29 @@ describe("RailColumn", () => {
     expect(screen.queryByRole("region", { name: /^Course / })).toBeNull();
   });
 
+  // F-036: before a course opens, only the sidebar's empty frame is there (the headerbar toggle
+  // controls it); it shows unless the toggle is off.
+  it("keeps the sidebar's frame before a course opens, hidden only when toggled off", () => {
+    installMockCore({ ...defaultFixture });
+    for (const [shown, hidden] of [
+      [undefined, false],
+      [true, false],
+      [false, true],
+    ] as const) {
+      render(() => {
+        // Created before the JSX: a prop expression runs again on every read.
+        const course = createCourse();
+        const rail = createRail();
+        return (
+          <RailColumn course={course} rail={rail} onOpenLecture={() => {}} openLecture={null} sidebarShown={shown} />
+        );
+      });
+      expect(document.getElementById("sidebar")?.hidden, String(shown)).toBe(hidden);
+      expect(screen.queryByRole("region", { name: /^Course / })).toBeNull();
+      cleanup();
+    }
+  });
+
   it("shows the image icon's course by its first letter for now", async () => {
     installMockCore({ ...defaultFixture, rail: [onRail(stat, { icon: ".lecter/icon.png" })] });
     await mount();

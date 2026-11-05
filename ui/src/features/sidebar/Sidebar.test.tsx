@@ -209,7 +209,17 @@ describe("Sidebar", () => {
     const buttons = within(lists).getAllByRole("button");
     for (const b of buttons) fireEvent.keyDown(b, { key: "Enter" });
     fireEvent.click(buttons[1] as HTMLElement);
-    expect(out.views).toEqual(["dashboard", "doubts", "flags", "office-hours", "later", "revise", "flags"]);
+    fireEvent.click(dashboard);
+    expect(out.views).toEqual([
+      "dashboard",
+      "doubts",
+      "flags",
+      "office-hours",
+      "later",
+      "revise",
+      "flags",
+      "dashboard",
+    ]);
   });
 
   it("marks the dashboard and lists unavailable while the app has nowhere to show them", () => {
