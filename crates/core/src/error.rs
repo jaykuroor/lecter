@@ -108,6 +108,15 @@ pub enum Error {
     /// Writing `trusted.jsonc` in the config folder failed.
     #[error("Lecter could not save your answer for this folder.")]
     TrustFileWrite(std::io::ErrorKind),
+    /// One of the course's AI files (`AGENTS.md`, a role file, a skill's file) is too large for
+    /// the trust check to read whole, so the course can't be trusted (02-course-folder.md#trust).
+    #[error("{path} is larger than {limit} bytes.")]
+    AiFileTooLarge {
+        /// The course-relative path, e.g. `.lecter/skills/data/big.bin`.
+        path: String,
+        /// The most bytes the check reads.
+        limit: u64,
+    },
 }
 
 impl Error {
@@ -129,6 +138,7 @@ impl Error {
             | Self::TooManyEntries { .. }
             | Self::NotALecture(_)
             | Self::LectureTooLarge { .. }
+            | Self::AiFileTooLarge { .. }
             | Self::NotUtf8(_) => ErrorCode::InvalidArgument,
             Self::NoHome => ErrorCode::Internal,
             Self::ParseFailed(_) => ErrorCode::ParseFailed,
@@ -162,6 +172,7 @@ mod tests {
             (Error::CourseNotTrusted, ErrorCode::NotTrusted),
             (Error::CourseReadOnly, ErrorCode::NotTrusted),
             (Error::TrustFileWrite(std::io::ErrorKind::PermissionDenied), ErrorCode::Io),
+            (Error::AiFileTooLarge { path: "AGENTS.md".into(), limit: 16 }, ErrorCode::InvalidArgument),
         ];
         for (err, code) in cases {
             assert_eq!(err.code(), code, "{err:?}");

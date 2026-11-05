@@ -64,6 +64,7 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
         skills: vec![],
         overrides: vec![],
         changed: false,
+        blocked: None,
     };
     let json = serde_json::to_value(CourseOpened { course, trust: TrustState::ReadOnly, screen }).unwrap();
     assert_eq!(
@@ -76,7 +77,8 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
             "trust": "read_only",
             "screen": {
                 "lectures": 1, "slides": 1, "sources": 0, "provider": "sample", "webSearch": true,
-                "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [], "changed": false
+                "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [], "changed": false,
+                "blocked": null
             },
         })
     );

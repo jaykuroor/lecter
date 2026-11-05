@@ -87,6 +87,7 @@ fn a_first_open_asks_and_shows_what_is_inside() {
             skills: vec![".lecter/skills/flashcards".into()],
             overrides: vec!["ai.hedgeAfterMs".into(), "ui.performance".into()],
             changed: false,
+            blocked: None,
         }
     );
     assert_eq!(r.fingerprint.len(), 64, "{}", r.fingerprint);

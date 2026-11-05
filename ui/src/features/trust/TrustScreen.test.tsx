@@ -19,6 +19,7 @@ const full: Screen = {
   skills: [".lecter/skills/flashcards"],
   overrides: ["ai.hedgeAfterMs", "ui.performance"],
   changed: false,
+  blocked: null,
 };
 
 function show(s: Screen, busy = false): TrustChoice[] {
@@ -102,6 +103,22 @@ describe("the trust screen", () => {
     setBusy(true);
     setBusy(false);
     expect(document.activeElement).toBe(trust);
+  });
+
+  // A course whose AI files the core can't check can only be opened read-only.
+  it("offers only Open read-only when the core can't check the course", () => {
+    const answers = show({ ...full, blocked: ".lecter/skills/ holds more than 10000 entries." });
+    expect(screen.getByRole("note").textContent).toBe(
+      "!Lecter can't check this course's AI setup, so it can only open it read-only: .lecter/skills/ holds more than 10000 entries.",
+    );
+    const trust = screen.getByRole("button", { name: "Trust" }) as HTMLButtonElement;
+    expect(trust.disabled).toBe(true);
+    fireEvent.click(trust);
+    fireEvent.click(screen.getByRole("button", { name: "Open read-only" }));
+    expect(answers).toEqual(["read_only"]);
+    cleanup();
+    show(full);
+    expect((screen.getByRole("button", { name: "Trust" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("takes no second answer while one is being saved", () => {

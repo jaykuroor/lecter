@@ -60,6 +60,16 @@ export function TrustScreen(props: {
           This course's AI instructions changed since you last answered.
         </p>
       </Show>
+      <Show when={props.screen.blocked}>
+        {(why) => (
+          <p class="trust-changed trust-blocked" role="note">
+            <span class="trust-changed-icon" aria-hidden="true">
+              !
+            </span>
+            Lecter can't check this course's AI setup, so it can only open it read-only: {why()}
+          </p>
+        )}
+      </Show>
       <p id="trust-inside" class="trust-inside">
         {inside(props.screen)}
       </p>
@@ -103,7 +113,7 @@ export function TrustScreen(props: {
         <button
           type="button"
           class="btn sug"
-          disabled={props.busy}
+          disabled={props.busy || props.screen.blocked !== null}
           onClick={() => props.onAnswer("trusted")}
           onKeyDown={keys("trusted")}
         >

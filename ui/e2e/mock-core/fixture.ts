@@ -28,6 +28,7 @@ export const trustScreen: NonNullable<MockFixture["courseOpen"]>["screen"] = {
   skills: [],
   overrides: [],
   changed: false,
+  blocked: null,
 };
 
 export const defaultFixture: MockFixture = {

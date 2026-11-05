@@ -56,10 +56,34 @@ fn a_first_open_shows_the_trust_screen() {
             "screen": {
                 "lectures": 1, "slides": 2, "sources": 1, "provider": "sample", "webSearch": true,
                 "agents": ["AGENTS.md"], "roles": [".lecter/agents/tutor.md"], "skills": [], "overrides": [],
-                "changed": false
+                "changed": false, "blocked": null
             }
         })
     );
+}
+
+/// Criteria 2 and 6 when the core can't check the AI files (more than 10000 entries in
+/// `.lecter/skills/`): the screen says why, Trust is refused with E_NOT_TRUSTED, and read-only
+/// still opens.
+#[test]
+fn a_course_too_large_to_check_opens_read_only_only() {
+    let env = env();
+    let c = course(&env);
+    let skill = c.join(".lecter/skills/big");
+    std::fs::create_dir_all(&skill).unwrap_or_else(|e| panic!("{e}"));
+    for i in 0..10_000 {
+        std::fs::write(skill.join(format!("f{i:05}")), "").unwrap_or_else(|e| panic!("{e}"));
+    }
+    let (status, v) = harness(&env, &["course", "trust", "Sample Course"]);
+    assert_eq!(status, Some(0), "{v}");
+    assert_eq!(
+        (&v["trust"], &v["screen"]["blocked"]),
+        (&json!("ask"), &json!(".lecter/skills/ holds more than 10000 entries."))
+    );
+    let (status, v) = harness(&env, &["course", "trust", "Sample Course", "trusted"]);
+    assert_eq!((status, &v["error"]["code"]), (Some(1), &json!("E_NOT_TRUSTED")), "{v}");
+    let (status, v) = harness(&env, &["course", "trust", "Sample Course", "read-only"]);
+    assert_eq!((status, &v["trust"]), (Some(0), &json!("read_only")), "{v}");
 }
 
 /// Criterion 3: the answer is stored in `<config>/trusted.jsonc` under the course's absolute

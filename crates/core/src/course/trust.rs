@@ -88,6 +88,9 @@ pub struct TrustScreen {
     pub overrides: Vec<String>,
     /// The question is asked again because the files above changed since the last answer.
     pub changed: bool,
+    /// Why Lecter can't check this course's AI files (too many skill entries, a file too large to
+    /// read, a folder it may not read), so it can't be trusted, only opened read-only.
+    pub blocked: Option<String>,
 }
 
 /// [`review`]'s answer: where the course stands, what to show, and the fingerprint of the AI files
@@ -106,14 +109,13 @@ pub struct Review {
 /// the stored answer. `provider` names the provider that would receive excerpts.
 pub fn review(store: &TrustStore, listing: &CourseListing, provider: &str) -> Result<Review> {
     let root = Path::new(&listing.path);
-    let found = survey::survey(root)?;
-    let entry = store.get(&listing.path)?;
-    let (state, changed) = match entry {
-        None => (TrustState::Ask, false),
-        Some(e) if e.fingerprint != found.fingerprint => (TrustState::Ask, true),
-
-        Some(e) => (e.choice.into(), false),
+    // A survey that can't see everything blocks trust, but the course still opens read-only.
+    let (found, blocked) = match survey::survey(root) {
+        Ok(found) => (found, None),
+        Err(e) => (survey::Found { fingerprint: BLOCKED.to_owned(), ..survey::Found::default() }, Some(e.to_string())),
     };
+    let entry = store.get(&listing.path)?;
+    let (state, changed) = standing(entry, &found.fingerprint);
     let settings =
         SettingsStore::open_files(store.config_dir().join(GLOBAL_FILE), Some(root.join(".lecter").join(COURSE_FILE)))
             .settings();
@@ -128,6 +130,7 @@ pub fn review(store: &TrustStore, listing: &CourseListing, provider: &str) -> Re
         skills: found.skills,
         overrides: found.overrides,
         changed,
+        blocked,
     };
     Ok(Review { state, screen, fingerprint: found.fingerprint })
 }
@@ -135,21 +138,40 @@ pub fn review(store: &TrustStore, listing: &CourseListing, provider: &str) -> Re
 /// Stores `choice` for the course at `course` (the canonical path [`super::open`] returned) with
 /// the `fingerprint` of the AI files the user saw on the screen. If those files changed in the
 /// meantime, the next check finds a different fingerprint and asks again.
+///
+/// A course whose survey failed (`fingerprint` is [`BLOCKED`]) can't be trusted:
+/// [`Error::CourseNotTrusted`], and nothing is stored.
 pub fn decide(store: &TrustStore, course: &str, choice: TrustChoice, fingerprint: &str) -> Result<TrustState> {
+    if choice == TrustChoice::Trusted && fingerprint == BLOCKED {
+        return Err(Error::CourseNotTrusted);
+    }
     store.set(course, TrustEntry { choice, fingerprint: fingerprint.to_owned() })?;
     Ok(choice.into())
 }
 
 /// Where the course at `course` (any absolute path to it) stands now: its stored answer, if its
-/// AI files are unchanged since; otherwise [`TrustState::Ask`].
+/// AI files are unchanged since; otherwise [`TrustState::Ask`]. A course whose AI files can't be
+/// surveyed is never trusted.
 pub fn state(store: &TrustStore, course: &Path) -> Result<TrustState> {
     let root = canonical_folder(course)?;
     let path = plain(root.to_str().ok_or(Error::NotUnicode)?);
     let Some(entry) = store.get(&path)? else { return Ok(TrustState::Ask) };
-    if survey::fingerprint(Path::new(&path))? == entry.fingerprint {
-        Ok(entry.choice.into())
-    } else {
-        Ok(TrustState::Ask)
+    let now = survey::fingerprint(Path::new(&path)).unwrap_or_else(|_| BLOCKED.to_owned());
+    Ok(standing(Some(entry), &now).0)
+}
+
+/// The fingerprint of a course whose survey failed: it matches no real one (64 hex digits).
+pub const BLOCKED: &str = "";
+
+/// What the stored `entry` means for AI files whose fingerprint is now `now`: the state, and
+/// whether it asks again because they changed. A blocked course is at most read-only, whatever
+/// the file says.
+fn standing(entry: Option<TrustEntry>, now: &str) -> (TrustState, bool) {
+    match entry {
+        None => (TrustState::Ask, false),
+        Some(e) if e.fingerprint != now => (TrustState::Ask, true),
+        Some(e) if now == BLOCKED && e.choice == TrustChoice::Trusted => (TrustState::Ask, false),
+        Some(e) => (e.choice.into(), false),
     }
 }
 
@@ -171,6 +193,8 @@ fn count(n: usize) -> u32 {
 
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_blocked;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_paths;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]

@@ -67,6 +67,9 @@ fn text(state: TrustState, s: &TrustScreen) -> String {
     {
         out.push_str(&format!("\n{label}: {}", if list.is_empty() { "none".to_owned() } else { list.join(", ") }));
     }
+    if let Some(why) = &s.blocked {
+        out.push_str(&format!("\ncan't be trusted: {why}"));
+    }
     out
 }
 
@@ -108,6 +111,7 @@ mod tests {
             skills: vec![],
             overrides: vec!["ui.performance".into()],
             changed: true,
+            blocked: None,
         };
         assert_eq!(
             text(TrustState::Ask, &screen),
@@ -116,7 +120,15 @@ mod tests {
              overrides: ui.performance"
         );
         assert!(
-            text(TrustState::ReadOnly, &TrustScreen { changed: false, ..screen }).starts_with("trust: read-only\n")
+            text(TrustState::ReadOnly, &TrustScreen { changed: false, ..screen.clone() })
+                .starts_with("trust: read-only\n")
+        );
+        let blocked = TrustScreen { blocked: Some(".lecter/skills/ holds more than 10000 entries.".into()), ..screen };
+        assert!(
+            text(TrustState::Ask, &blocked)
+                .ends_with("\ncan't be trusted: .lecter/skills/ holds more than 10000 entries."),
+            "{}",
+            text(TrustState::Ask, &blocked)
         );
     }
 }

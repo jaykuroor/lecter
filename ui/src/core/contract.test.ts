@@ -16,6 +16,7 @@ const screen: TrustScreen = {
   skills: [],
   overrides: [],
   changed: false,
+  blocked: null,
 };
 
 const matching: MockHandlers = {

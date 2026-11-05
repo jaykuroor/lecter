@@ -1,8 +1,11 @@
 //! F-033 criteria 3 and 5: the stored answer stays in force while the course's AI files are as the
 //! user saw them, and every change to them asks again (SEC-25), up to the edges of the survey:
-//! the hashed window of a file, the list cap, hidden files and a folder the OS won't let it read.
+//! the list cap, hidden files, depth, and links inside the course (tests_blocked.rs has the
+//! surveys that can't finish).
 
 #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
+
+use std::path::Path;
 
 use super::tests::{course, env, link, reviewed, state_of, store, trust, write};
 use super::*;
@@ -20,22 +23,6 @@ fn a_stored_answer_is_in_force_on_the_next_review() {
         let r = reviewed(&st, &c);
         assert_eq!((r.state, r.screen.changed), (want, false), "{choice:?}");
     }
-}
-
-/// Criterion 5: an edit that keeps a file's length still asks again, even in the last byte the
-/// fingerprint reads (16 MiB into the file).
-#[test]
-fn a_same_length_edit_at_the_end_of_the_hashed_window_asks_again() {
-    const WINDOW: usize = 16 * 1024 * 1024;
-    let env = env();
-    let c = course(&env, "STAT311");
-    let mut text = vec![b'a'; WINDOW];
-    std::fs::write(c.join("AGENTS.md"), &text).unwrap_or_else(|e| panic!("{e}"));
-    let st = store(&env);
-    trust(&st, &c, TrustChoice::Trusted);
-    text[WINDOW - 1] = b'b';
-    std::fs::write(c.join("AGENTS.md"), &text).unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(state_of(&st, &c), TrustState::Ask);
 }
 
 /// A list of exactly MAX_LISTED names is shown whole, with no "… and N more" line.
@@ -66,32 +53,6 @@ fn hidden_roles_are_not_listed_but_hidden_skill_files_count() {
     assert_eq!(state_of(&st, &c), TrustState::Ask);
 }
 
-/// A `.lecter` folder the OS won't let Lecter look into fails the review: its roles and skills
-/// can't be listed, so they are never taken as absent.
-#[cfg(unix)]
-#[test]
-fn an_unreadable_lecter_folder_fails_the_review_instead_of_looking_empty() {
-    use std::os::unix::fs::PermissionsExt;
-    let env = env();
-    let c = env.home().join("Locked");
-    std::fs::create_dir_all(c.join("lectures")).unwrap_or_else(|e| panic!("{e}"));
-    // An empty folder, so the test home can still be removed if this test is killed.
-    let locked = c.join(".lecter");
-    std::fs::create_dir_all(&locked).unwrap_or_else(|e| panic!("{e}"));
-    let listing = crate::course::open(&c).unwrap_or_else(|e| panic!("{e:?}"));
-    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o600)).unwrap_or_else(|e| panic!("{e}"));
-    if std::fs::symlink_metadata(locked.join("agents")).map(drop).map_err(|e| e.kind())
-        != Err(std::io::ErrorKind::PermissionDenied)
-    {
-        // Running as root: permissions don't apply, so there is nothing to observe.
-        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap_or_else(|e| panic!("{e}"));
-        return;
-    }
-    let result = review(&store(&env), &listing, "sample").map(|r| r.screen);
-    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(result, Err(Error::Io(std::io::ErrorKind::PermissionDenied)));
-}
-
 /// Criterion 5 at any depth: a file deep inside a skill is covered like any other.
 #[test]
 fn a_file_deep_inside_a_skill_still_asks_again() {
@@ -103,26 +64,6 @@ fn a_file_deep_inside_a_skill_still_asks_again() {
     trust(&st, &c, TrustChoice::Trusted);
     write(&c, &deep, "echo two\n");
     assert_eq!(state_of(&st, &c), TrustState::Ask);
-}
-
-/// The skills walk looks at MAX_ENTRIES entries in all, then fails rather than skip the rest.
-#[test]
-fn the_skills_walk_stops_past_max_entries() {
-    let env = env();
-    let c = env.home().join("Big");
-    std::fs::create_dir_all(c.join("lectures")).unwrap_or_else(|e| panic!("{e}"));
-    // The skill folder itself and MAX_ENTRIES - 1 files in it: MAX_ENTRIES entries.
-    for i in 0..MAX_ENTRIES - 1 {
-        write(&c, &format!(".lecter/skills/s/f{i:05}"), "");
-    }
-    let st = store(&env);
-    assert_eq!(reviewed(&st, &c).screen.skills, vec![".lecter/skills/s".to_owned()]);
-    write(&c, ".lecter/skills/s/one-more", "");
-    let listing = crate::course::open(&c).unwrap_or_else(|e| panic!("{e:?}"));
-    assert_eq!(
-        review(&st, &listing, "sample").map(|r| r.screen),
-        Err(Error::TooManyEntries { folder: ".lecter/skills", limit: MAX_ENTRIES })
-    );
 }
 
 /// Criterion 1: the sources count stops at MAX_ENTRIES entries looked at; a `sources` that is a
@@ -172,4 +113,67 @@ fn what_a_skill_links_to_inside_the_course_counts() {
     std::fs::remove_file(c.join(".lecter/skills/flashcards/data")).unwrap_or_else(|e| panic!("{e}"));
     link(&c.join("data/b"), &c.join(".lecter/skills/flashcards/data"));
     assert_eq!(state_of(&st, &c), TrustState::Ask, "folder link re-pointed");
+}
+
+/// Criterion 5 inside a linked folder: a skill that is a link to a folder elsewhere in the course
+/// is that folder's files, so editing, adding or removing one asks again.
+#[test]
+fn a_change_inside_a_folder_a_skill_links_to_asks_again() {
+    type Change = fn(&Path);
+    let changes: [(&str, Change); 4] = [
+        ("file edited", |c| drop(write(c, "notes/pack/SKILL.md", "Make many cards.\n"))),
+        ("file added", |c| drop(write(c, "notes/pack/scripts/run.sh", "echo hi\n"))),
+        ("file removed", |c| std::fs::remove_file(c.join("notes/pack/SKILL.md")).unwrap_or_else(|e| panic!("{e}"))),
+        ("nested file edited", |c| drop(write(c, "notes/pack/deck/cards.md", "Q2\n"))),
+    ];
+    for (what, change) in changes {
+        let env = env();
+        let c = course(&env, "STAT311");
+        write(&c, "notes/pack/SKILL.md", "Make cards.\n");
+        write(&c, "notes/pack/deck/cards.md", "Q1\n");
+        link(&c.join("notes/pack"), &c.join(".lecter/skills/pack"));
+        let st = store(&env);
+        assert_eq!(reviewed(&st, &c).screen.skills, vec![".lecter/skills/flashcards", ".lecter/skills/pack"]);
+        trust(&st, &c, TrustChoice::Trusted);
+        assert_eq!(state_of(&st, &c), TrustState::Trusted, "{what}: before");
+        change(&c);
+        assert_eq!(state_of(&st, &c), TrustState::Ask, "{what}");
+    }
+}
+
+/// Links that lead back to a folder the walk already covers (the skills folder, a skill, each
+/// other) are covered once and don't loop.
+#[test]
+fn links_back_into_the_skills_are_walked_once() {
+    let env = env();
+    let c = course(&env, "STAT311");
+    link(&c.join(".lecter/skills"), &c.join(".lecter/skills/flashcards/all"));
+    write(&c, "notes/a/x.md", "x\n");
+    link(&c.join("notes"), &c.join("notes/a/up"));
+    link(&c.join("notes/a"), &c.join(".lecter/skills/a"));
+    let st = store(&env);
+    trust(&st, &c, TrustChoice::Trusted);
+    assert_eq!(state_of(&st, &c), TrustState::Trusted);
+    write(&c, "notes/a/x.md", "y\n");
+    assert_eq!(state_of(&st, &c), TrustState::Ask);
+}
+
+/// SEC-25 for names that aren't Unicode: such a file in a skill is still covered, by its bytes,
+/// and such a skill is listed.
+#[cfg(unix)]
+#[test]
+fn names_that_are_not_unicode_are_covered() {
+    use std::os::unix::ffi::OsStrExt;
+    let env = env();
+    let c = course(&env, "STAT311");
+    let odd = std::ffi::OsStr::from_bytes(b"run\xff.sh");
+    let at = c.join(".lecter/skills/flashcards").join(odd);
+    std::fs::write(&at, "echo one\n").unwrap_or_else(|e| panic!("{e}"));
+    std::fs::create_dir_all(c.join(".lecter/skills").join(std::ffi::OsStr::from_bytes(b"q\xfe")))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let st = store(&env);
+    assert_eq!(reviewed(&st, &c).screen.skills, vec![".lecter/skills/flashcards", ".lecter/skills/q\u{FFFD}"]);
+    trust(&st, &c, TrustChoice::Trusted);
+    std::fs::write(&at, "echo two\n").unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(state_of(&st, &c), TrustState::Ask);
 }

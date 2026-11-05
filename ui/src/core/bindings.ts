@@ -314,6 +314,11 @@ export type TrustScreen = {
 	overrides: string[],
 	/**  The question is asked again because the files above changed since the last answer. */
 	changed: boolean,
+	/**
+	 *  Why Lecter can't check this course's AI files (too many skill entries, a file too large to
+	 *  read, a folder it may not read), so it can't be trusted, only opened read-only.
+	 */
+	blocked: string | null,
 };
 
 /**  Where a course stands: the question still to ask, or the answer in force. */

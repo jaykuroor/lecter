@@ -80,7 +80,7 @@ async fn open(
     let (course, review) = blocking("Lecter could not check that folder.", move || {
         let course = course::open(&picked)?;
         let mut review = trust::review(&store, &course, &provider)?;
-        if answered && review.state == TrustState::Ask {
+        if answered && review.state == TrustState::Ask && review.screen.blocked.is_none() {
             review.state = trust::decide(&store, &course.path, TrustChoice::Trusted, &review.fingerprint)?;
             review.screen.changed = false;
         }
