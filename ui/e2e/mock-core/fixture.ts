@@ -34,6 +34,13 @@ export interface MockFixture {
   layout: Commands["app_layout_get"]["result"];
   /** keymaps.jsonc's text (`keymaps_read`; null: no file), or the core's error for an unusable one. */
   keymaps: Commands["keymaps_read"]["result"] | { error: string };
+  /**
+   * The settings: the schema text `settings_schema` serves, and each key's value in force (JSON
+   * text) with its level. `settings_get` answers from `values` (another key is E_NOT_FOUND);
+   * `settings_set` keeps the value as global and records the call (window.__mockSettings). The
+   * mock trusts the UI's own check of the value against the schema.
+   */
+  settings: { schema: string; values: Record<string, Omit<Commands["settings_get"]["result"], "key">> };
 }
 
 /** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
@@ -62,4 +69,5 @@ export const defaultFixture: MockFixture = {
   switch: {},
   layout: { sidebar: true },
   keymaps: null,
+  settings: { schema: '{"type":"object","properties":{}}', values: {} },
 };

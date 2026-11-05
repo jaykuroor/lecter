@@ -44,6 +44,9 @@ const matching: MockHandlers = {
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
   keymaps_read: () => null,
+  settings_schema: () => "{}",
+  settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
+  settings_set: ({ key, value }) => ({ key, value, source: "global" }),
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -70,6 +73,9 @@ const wrongResult: MockHandlers = {
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
   keymaps_read: () => null,
+  settings_schema: () => "{}",
+  settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
+  settings_set: ({ key, value }) => ({ key, value, source: "global" }),
 };
 
 const wrongEnum: MockHandlers = {
@@ -90,6 +96,9 @@ const wrongEnum: MockHandlers = {
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
   keymaps_read: () => null,
+  settings_schema: () => "{}",
+  settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
+  settings_set: ({ key, value }) => ({ key, value, source: "global" }),
 };
 
 const extra: MockHandlers = {
@@ -109,6 +118,9 @@ const extra: MockHandlers = {
   course_reorder: () => [],
   course_switch: () => ({ path: "/c", name: "c", lectures: [], slides: [], sources: [], trust: "ask", screen }),
   keymaps_read: () => null,
+  settings_schema: () => "{}",
+  settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
+  settings_set: ({ key, value }) => ({ key, value, source: "global" }),
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -133,6 +145,9 @@ const commandNames: CommandName[] = [
   "lecture_open",
   "lecture_apply_edits",
   "search_find",
+  "settings_schema",
+  "settings_get",
+  "settings_set",
 ];
 const noArgs: Commands["course_open"]["args"] = {};
 

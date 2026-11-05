@@ -19,4 +19,7 @@ pub const COMMANDS: &[&str] = &[
     "lecture_open",
     "lecture_apply_edits",
     "search_find",
+    "settings_schema",
+    "settings_get",
+    "settings_set",
 ];
