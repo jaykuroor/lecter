@@ -56,6 +56,17 @@ describe("isMacPlatform", () => {
     expect(isMacPlatform({ platform: "", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5)" })).toBe(true);
     expect(isMacPlatform({ platform: "Linux x86_64", userAgent: "Mozilla/5.0 (X11; Linux x86_64)" })).toBe(false);
     expect(isMacPlatform({ platform: "Win32", userAgent: "Mozilla/5.0 (Windows NT 10.0)" })).toBe(false);
+    expect(isMacPlatform({ platform: "", userAgent: "Mozilla/5.0 (X11; Linux x86_64)" })).toBe(false);
+  });
+
+  // WebKit on Linux (Playwright's Desktop Safari, some WebKitGTK builds) sends Safari's Mac user
+  // agent: the platform wins, so Ctrl-1…9 keep working there.
+  it("believes the platform over a user agent that claims a Mac", () => {
+    const safari =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari/605.1.15";
+    expect(isMacPlatform({ platform: "Linux x86_64", userAgent: safari })).toBe(false);
+    expect(isMacPlatform({ platform: "Win32", userAgent: safari })).toBe(false);
+    expect(isMacPlatform({ platform: "MacIntel", userAgent: safari })).toBe(true);
   });
 });
 

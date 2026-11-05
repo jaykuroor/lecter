@@ -20,9 +20,13 @@ export function courseSlot(e: KeyboardEvent, mac: boolean): number | null {
 const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const DIGIT_CODES = DIGITS.map((d) => `Digit${d}`);
 
-/** Whether the app runs on macOS, where the course keys use Cmd. */
+/**
+ * Whether the app runs on macOS, where the course keys use Cmd. The platform decides; the user
+ * agent only when the platform is blank. A user agent can claim a Mac anywhere (WebKit on Linux
+ * often sends Safari's), and trusting it would leave Ctrl-1…9 dead there.
+ */
 export function isMacPlatform(nav: Pick<Navigator, "platform" | "userAgent"> = navigator): boolean {
-  return /Mac/.test(nav.platform) || /Macintosh/.test(nav.userAgent);
+  return nav.platform ? /Mac/.test(nav.platform) : /Macintosh/.test(nav.userAgent);
 }
 
 /**

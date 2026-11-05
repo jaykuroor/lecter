@@ -68,10 +68,13 @@ test("shows one icon per course; + adds one; drag reorders; Ctrl-1/2 switch @smo
   if (process.env.LECTER_EVIDENCE_DIR)
     await page.screenshot({ path: `${process.env.LECTER_EVIDENCE_DIR}/rail-mock.png` });
 
-  // Ctrl-2 and Ctrl-3 switch by the order on screen, from anywhere.
-  await page.keyboard.press("Control+2");
+  // Ctrl-2 and Ctrl-3 (Cmd on macOS) switch by the order on screen, from anywhere. The rail goes
+  // by the platform, not the user agent: Desktop Safari's is a Mac one even on Linux.
+  const mod = await page.evaluate(() => (/Mac/.test(navigator.platform) ? "Meta" : "Control"));
+  await expect(rows(page).nth(0)).toHaveAttribute("aria-keyshortcuts", `${mod}+1`);
+  await page.keyboard.press(`${mod}+2`);
   await expect(page.getByRole("region", { name: "Course Probability and Statistics" })).toBeVisible();
-  await page.keyboard.press("Control+3");
+  await page.keyboard.press(`${mod}+3`);
   await expect(page.getByRole("region", { name: "Course Calculus II" })).toBeVisible();
   await expect(rows(page).nth(2)).toHaveAttribute("aria-current", "true");
 });
