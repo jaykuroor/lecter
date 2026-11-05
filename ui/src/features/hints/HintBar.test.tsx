@@ -359,9 +359,10 @@ describe("the hint bar", () => {
     expect(host.querySelector(".hint-main .hint")).toBe(before);
     expect(words()[1]).toBe("Steps");
     buffer.setAttribute("data-vim-mode", "visual");
-    press("y");
+    press("f");
     frame();
-    expect(words()[1]).toBe("Steps");
+    // In visual mode Vim waiting on `"` or `f` keeps the selection's keys.
+    expect(words()).toEqual(["Ask about this line", "Course", "Previous pane"]);
     buffer.setAttribute("data-vim-mode", "insert");
     press("i");
     frame();

@@ -64,7 +64,7 @@ describe("mouseAction", () => {
   });
 
   it("falls back to the scope's way for a command with none of its own", () => {
-    const hint = { keys: ["x"], desc: "x", prefix: [], binding: null, tokens: ["x"], family: false };
+    const hint = { keys: ["x"], desc: "x", prefix: [], binding: null, family: false };
     expect(mouseAction({ ...hint, scope: "line" })).toBe("right-click the line");
     expect(mouseAction({ ...hint, scope: "gloss" })).toBe("click its keycap");
     expect(mouseAction({ ...hint, scope: "buffer" })).toBe("right-click");

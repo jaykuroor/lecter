@@ -7,8 +7,9 @@ import { render } from "solid-js/web";
 import { hasCommand, registerCommand, watchCommands } from "../../keys/commands";
 import { runWithoutKey, vimTakes } from "../../keys/dispatch";
 import { type Element, inBuffer, type KeyEngine, scopesFor } from "../../keys/engine";
-import type { Mode } from "../../keys/keymap";
-import { locate } from "../../keys/locate";
+import type { Binding, Mode } from "../../keys/keymap";
+import { type BufferTarget, locate } from "../../keys/locate";
+import { parseKeys } from "../../keys/notation";
 import { DEFAULT_HINT_DETAIL, type HintDetail, nextDetail } from "./detail";
 import { HintBar } from "./HintBar";
 import { type Hint, hintsFor } from "./hints";
@@ -29,16 +30,23 @@ interface Place {
   key: string;
 }
 
+const at = (el: Element, mode: Mode): Place => ({
+  el,
+  mode,
+  key: `${scopesFor(el, mode).join()} ${mode} ${inBuffer(el)}`,
+});
+
 /**
- * Where the focus is now, or `null` while Vim waits for the rest of a command (`d`, `y`, `f`): the
- * key engine then counts the buffer as typing, but Vim's mode (`data-vim-mode`) is still normal, and
- * the bar keeps what it showed.
+ * Where the focus is now. While Vim waits for the rest of a command (`d`, `y`, `f`) the key engine
+ * counts the buffer as typing, but Vim's own mode (`data-vim-mode`) is still normal or visual: the
+ * bar goes by that, so it keeps what it showed.
  */
-function place(): Place | null {
+function place(): Place {
   const w = locate(document.activeElement);
-  const vim = w.buffer?.root.getAttribute("data-vim-mode");
-  if (w.mode === "insert" && (vim === "normal" || vim === "visual")) return null;
-  return { el: w.el, mode: w.mode, key: `${scopesFor(w.el, w.mode).join()} ${w.mode} ${inBuffer(w.el)}` };
+  const buffer = w.buffer;
+  const vim = buffer?.root.getAttribute("data-vim-mode");
+  if (vim === "normal" || vim === "visual") return at((buffer as BufferTarget).element(), vim);
+  return at(w.el, w.mode);
 }
 
 /**
@@ -46,7 +54,7 @@ function place(): Place | null {
  * `ui.hintBar` (full when there is none, D-206), and ␣uh steps it on.
  */
 export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detail?: HintDetail }): HintBarHandle {
-  const [where, setWhere] = createSignal<Place>(place() ?? { el: "page", mode: "normal", key: "" }, {
+  const [where, setWhere] = createSignal<Place>(place(), {
     equals: (a, b) => a.key === b.key,
   });
   const [detail, setDetail] = createSignal<HintDetail>(opts.detail ?? DEFAULT_HINT_DETAIL);
@@ -55,11 +63,13 @@ export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detai
   const [keymap, keymapChanged] = createSignal(undefined, { equals: false });
   const [commands, commandsChanged] = createSignal(undefined, { equals: false });
 
+  /** A binding's keys as tokens (the hint bar shows only bindings whose keys parse). */
+  const tokens = (b: Binding) => parseKeys(b.keys, opts.engine.map.mac);
+
   let frame = 0;
   const look = () => {
     frame = 0;
-    const now = place();
-    if (now) setWhere(now);
+    setWhere(place());
   };
   /** Looks once, in the next frame: after the key or click is done with, before it shows. */
   const schedule = () => {
@@ -72,14 +82,14 @@ export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detai
    */
   const canPick = (hint: Hint): boolean => {
     commands();
-    if (!hint.binding) return true;
     if (hint.family) return false;
-    return hasCommand(hint.binding.command) || (inBuffer(where().el) && vimTakes(hint.tokens));
+    if (!hint.binding) return true;
+    return hasCommand(hint.binding.command) || (inBuffer(where().el) && vimTakes(tokens(hint.binding)));
   };
   const pick = (hint: Hint) => {
     if (hint.binding) {
       opts.engine.reset();
-      runWithoutKey(hint.binding, hint.tokens, locate(document.activeElement).buffer);
+      runWithoutKey(hint.binding, tokens(hint.binding), locate(document.activeElement).buffer);
     } else opts.engine.setPrefix(hint.prefix);
     schedule();
   };

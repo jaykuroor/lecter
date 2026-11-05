@@ -220,4 +220,23 @@ describe("hintsFor", () => {
     );
     expect(hintsFor(map, "page", "normal").main.map(read)[0]).toBe("Ctrl-1…2 Course");
   });
+
+  it("marks a numbered family of two or more as one a click can't pick, and nothing else", () => {
+    const family = (keep: (b: Binding) => boolean) =>
+      hintsFor(compileKeymap(DEFAULT_KEYMAP.filter(keep), false), "slide-line", "normal").main.map((h) => [
+        h.desc,
+        h.family,
+      ]);
+    const courses = (n: number) => (b: Binding) => b.command !== "course.go" || (b.arg as number) < n;
+    expect(family(courses(9))).toContainEqual(["Course", true]);
+    expect(family(courses(2))).toContainEqual(["Course", true]);
+    // One course key is that course: a click can go there.
+    expect(family(courses(1))).toContainEqual(["Course", false]);
+    // Two keys of one command (Ctrl-j, ]]) do the same: a click runs either.
+    expect(family(courses(9))).toContainEqual(["Next slide", false]);
+    expect(hintsFor(defaults, "page", "normal").tail.map((h) => [h.desc, h.family])).toEqual([
+      ["Next pane", false],
+      ["More", false],
+    ]);
+  });
 });
