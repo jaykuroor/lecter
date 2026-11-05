@@ -1125,3 +1125,22 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: one prompt right after the trust decision; a broken guess must never undo the trust answer.
 - Instead of: offering the form on every open until saved.
 - Revisit if: a settings or course menu needs a way back to the form.
+
+## D-188 · Known courses and rail order live in `<data>/state.db` (F-035)
+2026-11-04 · orchestrator, decider: maintainer · active
+- Decision: the list of known courses and their rail order is stored in the app-wide `<data>/state.db` (D-178), in the `meta` table under key `courses`: a JSON array of canonical course root paths, in rail order.
+- Why: it's per-machine data (absolute paths), not configuration; config folders are often synced between machines.
+- Instead of: `<config>/courses.jsonc` beside trusted.jsonc.
+- Revisit if: F-071's migration runner adopts state.db (Q-028); move the key into its own table then.
+
+## D-189 · F-035 builds the course list commands outside its owned paths (F-035)
+2026-11-04 · orchestrator, decider: maintainer · active
+- Decision: F-035 also builds `course_list`, `course_reorder` and the `course:changed` event (core, app IPC, harness; 18-contracts#ipc), opening a stored course without the folder dialog, and the App/state/mock-core wiring. The out-of-path files are recorded under PROGRESS spec drift, and the review runs with SECURITY (stored course roots must pass the same path rules, SEC-32/35; read-only courses included).
+- Why: no card builds these commands, and the rail's criteria need them; one builder with the context is cheaper than a new card.
+- Instead of: a new core card through the planning session first.
+
+## D-190 · Keyboard reorder on the course rail: Shift-J / Shift-K (F-035)
+2026-11-04 · orchestrator, decider: maintainer · active
+- Decision: on a focused course rail row, Shift-J / Shift-K move the course down / up; j/k and the arrow keys move focus; Enter or Space opens the course. Ctrl/Cmd-1..9 switch to the nth course from anywhere (digit row by `e.code`, not the keypad).
+- Why: matches the dashboard's J/K reorder (11-dashboard); every drag action needs a key path (AGENTS.md).
+- Instead of: Alt-Up / Alt-Down.
