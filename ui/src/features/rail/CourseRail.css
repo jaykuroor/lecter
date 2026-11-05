@@ -1,0 +1,115 @@
+/* The course rail (docs/design/components.md#rail): a section with an .rlab label, then rows like
+   the slide rows: an 18px number column (here the course's Ctrl/Cmd key, mono 11px --faint), the
+   icon and the name (12.5px 600, ellipsis); radius 7px, padding 6px 8px. Hover is mix.hover, the
+   open course mix.selected, keyboard focus a 2px --accent outline with 2px offset. The icon tile
+   is the course's own colour (`--c`, from course.jsonc), the accent when it has none. */
+.course-rail {
+  display: flex;
+  flex-direction: column;
+}
+
+.course-rail .rlab {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--dim);
+}
+
+.rail-courses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-row {
+  border-radius: 7px;
+}
+
+.rail-row.dragging {
+  opacity: 0.55;
+}
+
+.rail-row[data-drop="before"] {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.rail-row[data-drop="after"] {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.rail-course,
+.rail-add {
+  display: grid;
+  grid-template-columns: 18px 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--window-fg);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  /* A touch drag reorders instead of scrolling the rail. */
+  touch-action: none;
+  user-select: none;
+}
+
+.rail-course:hover,
+.rail-add:hover {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+}
+
+.rail-course[aria-current="true"] {
+  background: color-mix(in srgb, var(--window-fg) 11%, transparent);
+}
+
+.rail-course:focus-visible,
+.rail-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rail-slot {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.rail-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--c, var(--accent-bg));
+  color: var(--accent-fg);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rail-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rail-icon-add {
+  background: transparent;
+  border: 1px dashed var(--borders);
+  box-sizing: border-box;
+  color: var(--dim);
+}
+
+.rail-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
