@@ -1,0 +1,30 @@
+/* Synthetic fixture: a libadwaita-style light theme. */
+@define-color accent_bg_color #3584e4;
+@define-color accent_fg_color #ffffff;
+@define-color window_bg_color #fafafa;
+@define-color window_fg_color #323232;
+@define-color view_bg_color #ffffff;
+@define-color view_fg_color #000000;
+@define-color headerbar_bg_color #ebebeb;
+@define-color headerbar_border_color #d0d0d0;
+@define-color sidebar_bg_color #f0f0f0;
+@define-color card_bg_color #fdfdfd;
+@define-color popover_bg_color #fefefe;
+@define-color blue_1 #99c0f1;
+@define-color blue_4 #1c70d8;
+@define-color green_1 #8ff0a5;
+@define-color green_4 #2ec27e;
+@define-color green_5 #26a269;
+@define-color yellow_2 #f8e45c;
+@define-color yellow_5 #e5a50a;
+@define-color orange_2 #ffa348;
+@define-color orange_5 #c64600;
+@define-color red_1 #f66151;
+@define-color red_4 #c01c28;
+@define-color purple_1 #dc8bdd;
+@define-color purple_4 #803c9c;
+@define-color dark_1 #77767b;
+@define-color light_4 #c0bfbc;
+
+window { background-color: @window_bg_color; color: @window_fg_color; }
+headerbar { background-color: @headerbar_bg_color; }

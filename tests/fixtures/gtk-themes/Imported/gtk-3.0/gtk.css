@@ -1,0 +1,2 @@
+/* Synthetic fixture: everything lives in a resource it imports. */
+@import url("resource:///org/example/theme/gtk-main.css");
