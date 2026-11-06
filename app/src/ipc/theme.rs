@@ -77,9 +77,11 @@ impl Themes {
     pub fn standard() -> Self {
         let linux = cfg!(target_os = "linux");
         #[cfg(any(debug_assertions, feature = "test-hooks"))]
+        let hooked_bundled = crate::test_hooks::bundled_offered();
+        #[cfg(any(debug_assertions, feature = "test-hooks"))]
         if let Some((dirs, tools)) = crate::test_hooks::gtk_desktop() {
             let themes = Self::new(dirs, tools);
-            return if !linux || crate::test_hooks::bundled_offered() { themes.offer_bundled() } else { themes };
+            return if !linux || hooked_bundled { themes.offer_bundled() } else { themes };
         }
         let env = |k: &str| std::env::var_os(k);
         if linux {

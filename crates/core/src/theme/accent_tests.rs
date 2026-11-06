@@ -52,15 +52,14 @@ fn windows_ignores_other_values_kinds_and_bad_numbers() {
 }
 
 #[test]
-fn the_current_os_reads_only_on_macos_and_windows() {
-    let expected = if cfg!(target_os = "macos") {
-        Some(Os::MacOs)
-    } else if cfg!(windows) {
-        Some(Os::Windows)
-    } else {
-        None
-    };
-    assert_eq!(Os::current(), expected);
+fn only_macos_and_windows_read_their_accent_here() {
+    assert_eq!(Os::named("macos"), Some(Os::MacOs));
+    assert_eq!(Os::named("windows"), Some(Os::Windows));
+    for other in ["linux", "freebsd", "ios", "Windows", ""] {
+        assert_eq!(Os::named(other), None, "{other:?}");
+    }
+    assert_eq!(Os::current(), Os::named(std::env::consts::OS));
+    assert_eq!(Os::current().is_some(), cfg!(any(target_os = "macos", windows)));
 }
 
 /// Running the tools: fakes are `#!/bin/sh` scripts, which only Unix runs.

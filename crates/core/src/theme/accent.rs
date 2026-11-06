@@ -44,12 +44,15 @@ pub enum Os {
 impl Os {
     /// The OS this build runs on, when it is one that reads its accent here.
     pub fn current() -> Option<Self> {
-        if cfg!(target_os = "macos") {
-            Some(Self::MacOs)
-        } else if cfg!(windows) {
-            Some(Self::Windows)
-        } else {
-            None
+        Self::named(std::env::consts::OS)
+    }
+
+    /// The OS `std::env::consts::OS` names, when it reads its accent here.
+    pub fn named(os: &str) -> Option<Self> {
+        match os {
+            "macos" => Some(Self::MacOs),
+            "windows" => Some(Self::Windows),
+            _ => None,
         }
     }
 }
@@ -85,9 +88,8 @@ pub fn windows(text: &str, name: &str) -> Option<Rgba> {
         }
         let digits = words.next()?;
         let digits = digits.strip_prefix("0x").or_else(|| digits.strip_prefix("0X"))?;
-        let abgr = u32::from_str_radix(digits, 16).ok()?;
-        let (r, g, b) = (abgr & 0xff, (abgr >> 8) & 0xff, (abgr >> 16) & 0xff);
-        Some(Rgba::from_hex((r << 16) | (g << 8) | b))
+        let [r, g, b, _alpha] = u32::from_str_radix(digits, 16).ok()?.to_le_bytes();
+        Some(Rgba::from_hex(u32::from_be_bytes([0, r, g, b])))
     })
 }
 
