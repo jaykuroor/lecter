@@ -1492,9 +1492,10 @@
     "screenshot:settings-performance-quality"
    ],
    "try": "Open Settings with Ctrl-, and change the hint bar detail",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "Settings > Performance page with the D-081 preset and a lag note on Quality. Criteria pending Q-006. | Q-006 applied (D-143): Performance page criterion added. | From F-038 review: add ui.hintBar (full|compact|off, default full per D-206) to the settings schema (D-171), pass it to startHintBar as detail (ui/src/App.tsx), and make ␣uh (ui.hintDetail) write it; until then the hint bar is session-only.",
-   "priority": 3040
+   "priority": 3040,
+   "base": "bb2595344878091bcc2c712ff5ca849042f6f550"
   },
   {
    "id": "F-046",
