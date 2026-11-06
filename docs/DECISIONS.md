@@ -1350,3 +1350,17 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: one entry point without re-implementing existing ex commands.
 - Instead of: a general ex parser in F-040.
 - Revisit if: a later card needs ranges or abbreviations.
+
+## D-223 · Linux cold open: investigate, research CI-on-VM practice, then plan (orchestrator)
+2026-11-05 · maintainer · active
+- Decision: before any gate change, find why Linux cold_open_ms rose (1103-1130 ms vs the 1080 target on three main runs since F-037..F-040) and research whether such CI numbers mean much on VM runners (how other open-source desktop/editor projects gate startup and memory in CI, and how they handle VM variance); run the planning session (Q-023's unapplied answer) if the findings call for it.
+- Why: the maintainer wants evidence that the CI budgets measure something real on shared VMs before changing or keeping them.
+- Instead of: applying Q-023 straight away, or treating the misses as flakes.
+- Revisit if: the bisect shows a clear regression from one feature.
+
+## D-224 · macOS 300-slide memory: bisect in CI (orchestrator)
+2026-11-05 · maintainer · active
+- Decision: run branch CI at the F-037, F-038 and F-039 merges (the latter two with CI-bdabbe9's width fix applied) to find which feature raised macOS rss_300_slides_mb (318 → 387 MB WebContent since F-036), then dispatch a targeted fix.
+- Why: the rise is WebKit footprint, not JS heap, and can't be measured in the sandbox.
+- Instead of: deferring to the planning session or fixing blind.
+- Revisit if: the bisect points don't separate beyond run-to-run noise (~±20 MB).
