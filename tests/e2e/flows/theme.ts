@@ -6,10 +6,11 @@
 // - Linux: GTK_THEME=Adwaita[:dark], which WebKitGTK reads for prefers-color-scheme. The session
 //   bus points nowhere, so the desktop's own colour scheme (the settings portal, which tao applies
 //   at window creation) can't override the run's choice on a developer's desktop.
-// - macOS: `-AppleInterfaceStyle Dark|Light` on the command line, the per-app form of the system
-//   appearance default (NSArgumentDomain), which AppKit and WKWebView follow.
-// - Windows: HKCU …\Themes\Personalize AppsUseLightTheme, the setting Settings → Colours writes;
-//   tao reads it when the window opens and hands it to WebView2. The flow restores it after.
+// - macOS: the global AppleInterfaceStyle default (System Settings → Appearance).
+// - Windows: HKCU …\Themes\Personalize AppsUseLightTheme (Settings → Colours).
+// These two are the user's own settings, so the flow changes them only on CI (`CI` set) and puts
+// them back in `after` (and on exit). Elsewhere it leaves them alone and checks that the app
+// follows the scheme they hold now. Each test logs the lever and the webview's matchMedia result.
 //
 // Then it opens a synthetic lecture, opens a gloss prompt (a) and saves theme-light.png / theme-dark.png.
 // The live switch (an OS change while the app runs) is the page's prefers-color-scheme media query;
@@ -72,43 +73,6 @@ function course(): string {
   return dir;
 }
 
-// Windows: the apps' light/dark switch, and what it held before the flow.
-const PERSONALIZE = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
-let savedWindowsValue: string | null | undefined;
-
-function readAppsUseLightTheme(): string | null {
-  try {
-    const out = execFileSync("reg", ["query", PERSONALIZE, "/v", "AppsUseLightTheme"], { encoding: "utf8" });
-    return /AppsUseLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(out)?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeAppsUseLightTheme(value: string): void {
-  execFileSync("reg", ["add", PERSONALIZE, "/v", "AppsUseLightTheme", "/t", "REG_DWORD", "/d", value, "/f"]);
-}
-
-/** How to start the app so the OS hands it `scheme`. */
-function launchIn(scheme: Scheme): Relaunch {
-  const how: Relaunch = { log: `theme-${scheme}` };
-  if (process.platform === "linux") {
-    how.env = {
-      GTK_THEME: scheme === "dark" ? "Adwaita:dark" : "Adwaita",
-      DBUS_SESSION_BUS_ADDRESS: `unix:path=${join(tmpdir(), "lecter-e2e-no-session-bus")}`,
-      NO_AT_BRIDGE: "1",
-    };
-  } else if (process.platform === "darwin") {
-    how.args = ["-AppleInterfaceStyle", scheme === "dark" ? "Dark" : "Light"];
-  } else if (process.platform === "win32") {
-    how.whileClosed = () => {
-      if (savedWindowsValue === undefined) savedWindowsValue = readAppsUseLightTheme();
-      writeAppsUseLightTheme(scheme === "dark" ? "0" : "1");
-    };
-  }
-  return how;
-}
-
 /** `#rrggbb` as getComputedStyle prints a colour. */
 function rgb(hex: string): string {
   if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`tokens.json colour "${hex}" is not #rrggbb`);
@@ -117,21 +81,125 @@ function rgb(hex: string): string {
 }
 
 /**
+ * A per-user OS setting that holds the light/dark preference. The flow changes it only on CI
+ * (`CI` set): never on a developer's machine. `null` means the setting is absent (light).
+ */
+interface OsSetting {
+  /** For the log: where the preference lives. */
+  name: string;
+  read(): string | null;
+  write(value: string | null): void;
+  valueFor(scheme: Scheme): string | null;
+  schemeOf(value: string | null): Scheme;
+}
+
+const run = (cmd: string, args: string[]): string =>
+  execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+const tryRun = (cmd: string, args: string[]): string | null => {
+  try {
+    return run(cmd, args);
+  } catch {
+    return null;
+  }
+};
+
+// macOS: the global AppleInterfaceStyle default, which System Settings → Appearance writes ("Dark",
+// or absent for light). AppKit reads it when an app starts; tao leaves NSApp's appearance unset,
+// so the window and WKWebView follow it. (The per-process `-AppleInterfaceStyle` argument did not
+// reach WKWebView's prefers-color-scheme on CI.)
+const MAC: OsSetting = {
+  name: "defaults -g AppleInterfaceStyle",
+  read: () => tryRun("defaults", ["read", "-g", "AppleInterfaceStyle"])?.trim() ?? null,
+  write: (v) => {
+    if (v === null) tryRun("defaults", ["delete", "-g", "AppleInterfaceStyle"]);
+    else run("defaults", ["write", "-g", "AppleInterfaceStyle", v]);
+  },
+  valueFor: (s) => (s === "dark" ? "Dark" : null),
+  schemeOf: (v) => (v === "Dark" ? "dark" : "light"),
+};
+
+// Windows: HKCU …\Themes\Personalize AppsUseLightTheme (0 dark, 1 or absent light), which
+// Settings → Colours writes; tao reads it when the window opens and hands it to WebView2.
+const PERSONALIZE = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+const WINDOWS: OsSetting = {
+  name: "HKCU Personalize AppsUseLightTheme",
+  read: () => {
+    const hex = /AppsUseLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(
+      tryRun("reg", ["query", PERSONALIZE, "/v", "AppsUseLightTheme"]) ?? "",
+    )?.[1];
+    return hex === undefined ? null : String(Number.parseInt(hex, 16));
+  },
+  write: (v) => {
+    if (v === null) tryRun("reg", ["delete", PERSONALIZE, "/v", "AppsUseLightTheme", "/f"]);
+    else run("reg", ["add", PERSONALIZE, "/v", "AppsUseLightTheme", "/t", "REG_DWORD", "/d", v, "/f"]);
+  },
+  valueFor: (s) => (s === "dark" ? "0" : "1"),
+  schemeOf: (v) => (v === "0" ? "dark" : "light"),
+};
+
+const setting: OsSetting | null = process.platform === "darwin" ? MAC : process.platform === "win32" ? WINDOWS : null;
+// Linux sets the preference for the relaunched app alone (environment), so it runs anywhere.
+const canSwitch = setting === null || Boolean(process.env.CI);
+const LINUX_NO_BUS = `unix:path=${join(tmpdir(), "lecter-e2e-no-session-bus")}`;
+
+/** The OS setting's value before the flow touched it (`undefined`: untouched). */
+let saved: string | null | undefined;
+
+function putBack(): void {
+  if (setting === null || saved === undefined) return;
+  setting.write(saved);
+  saved = undefined;
+}
+
+/** How to start the app so the OS hands it `scheme`; `null` leaves the OS as it is. */
+function launchIn(scheme: Scheme | null): Relaunch {
+  const how: Relaunch = { log: `theme-${scheme ?? "current"}` };
+  if (scheme === null) return how;
+  if (setting === null) {
+    how.env = {
+      GTK_THEME: scheme === "dark" ? "Adwaita:dark" : "Adwaita",
+      DBUS_SESSION_BUS_ADDRESS: LINUX_NO_BUS,
+      NO_AT_BRIDGE: "1",
+    };
+  } else {
+    const os = setting;
+    how.whileClosed = () => {
+      if (saved === undefined) saved = os.read();
+      os.write(os.valueFor(scheme));
+    };
+  }
+  return how;
+}
+
+/** For the log (the CI evidence): the OS lever as the app saw it. */
+function lever(launch: Relaunch): string {
+  if (setting === null) return `GTK_THEME=${launch.env?.GTK_THEME ?? "(unset)"}`;
+  const auto =
+    process.platform === "darwin"
+      ? tryRun("defaults", ["read", "-g", "AppleInterfaceStyleSwitchesAutomatically"])
+      : null;
+  return `${setting.name} = ${setting.read() ?? "(unset)"}${auto === null ? "" : `, switches automatically = ${auto.trim()}`}`;
+}
+
+/**
  * What the webview resolved, in one call: its colour scheme, every token as the colour it paints
  * (a probe element's computed `color: var(--token)`), and the frame's two colours. Resolved
- * colours, not the properties' text: the release CSS is minified (`#ffffff` → `#fff`).
+ * colours, not the properties' text: the release CSS is minified (`#ffffff` → `#fff`). The probe
+ * sits in a parent painted rgb(1, 2, 3), so a missing token (which would inherit) can't match.
  */
 function resolved(
   names: string[],
 ): Promise<{ dark: boolean; tokens: Record<string, string>; frame: string; text: string }> {
   return browser.execute((list: string[]) => {
-    const probe = document.body.appendChild(document.createElement("span"));
+    const parent = document.body.appendChild(document.createElement("div"));
+    parent.style.color = "rgb(1, 2, 3)";
+    const probe = parent.appendChild(document.createElement("span"));
     const paint = (n: string) => {
       probe.style.color = `var(--${n})`;
       return getComputedStyle(probe).color;
     };
     const tokens = Object.fromEntries(list.map((n) => [n, paint(n)]));
-    probe.remove();
+    parent.remove();
     const frame = document.querySelector(".app-frame");
     return {
       dark: matchMedia("(prefers-color-scheme: dark)").matches,
@@ -142,44 +210,52 @@ function resolved(
   }, names);
 }
 
+/** Relaunches as `launch` says and checks the app shows the Lecter theme's `scheme`. */
+async function followsScheme(launch: Relaunch, scheme: Scheme): Promise<void> {
+  await relaunch(launch);
+  await expect($(".app-frame")).toBeDisplayed();
+  const got = await resolved(COLOURS.map(([name]) => name));
+  console.log(`theme: want ${scheme}; ${lever(launch)}; webview prefers-color-scheme: dark = ${got.dark}`);
+  expect(got.dark).toBe(scheme === "dark");
+  expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
+  expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
+  expect(got.text).toBe(rgb(tokens.color?.["window-fg"]?.[scheme] ?? ""));
+
+  // The course and the lecture, by mouse (the folder dialog answers LECTER_TEST_PICK).
+  await $("button.rail-add").click();
+  await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
+  await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
+  // A gloss card in its kind's colour: `a` opens the prompt under the first block.
+  await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
+  await browser.keys("a");
+  await expect($(".gloss-prompt-input")).toBeExisting();
+  await shot(`theme-${scheme}`);
+}
+
 describe("theme", () => {
   before(() => {
     mkdirSync(join(course(), "lectures"), { recursive: true });
     writeFileSync(join(course(), "lectures", NAME), LECTURE);
+    // A crash between a test and `after` must not leave the OS switched either.
+    process.once("exit", putBack);
   });
 
   after(async () => {
+    putBack();
     await stopRelaunched();
-    if (process.platform === "win32" && savedWindowsValue !== undefined) {
-      if (savedWindowsValue === null) {
-        execFileSync("reg", ["delete", PERSONALIZE, "/v", "AppsUseLightTheme", "/f"]);
-      } else {
-        writeAppsUseLightTheme(String(Number.parseInt(savedWindowsValue, 16)));
-      }
-    }
     // Other flows list this course's lectures exactly.
     rmSync(join(course(), "lectures", NAME), { force: true });
   });
 
-  for (const scheme of ["light", "dark"] as const) {
-    it(`follows the OS ${scheme} preference with the Lecter theme`, async () => {
-      await relaunch(launchIn(scheme));
-      await expect($(".app-frame")).toBeDisplayed();
-      const got = await resolved(COLOURS.map(([name]) => name));
-      expect(got.dark).toBe(scheme === "dark");
-      expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
-      expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
-      expect(got.text).toBe(rgb(tokens.color?.["window-fg"]?.[scheme] ?? ""));
-
-      // The course and the lecture, by mouse (the folder dialog answers LECTER_TEST_PICK).
-      await $("button.rail-add").click();
-      await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
-      await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
-      // A gloss card in its kind's colour: `a` opens the prompt under the first block.
-      await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
-      await browser.keys("a");
-      await expect($(".gloss-prompt-input")).toBeExisting();
-      await shot(`theme-${scheme}`);
-    });
+  if (canSwitch) {
+    for (const scheme of ["light", "dark"] as const) {
+      it(`follows the OS ${scheme} preference with the Lecter theme`, () => followsScheme(launchIn(scheme), scheme));
+    }
+  } else if (setting !== null) {
+    // Not on CI: the OS setting stays as the developer left it; check the app follows that one.
+    const current = setting.schemeOf(setting.read());
+    console.log(`theme: CI is not set, so ${setting.name} is left as is; checking the current ${current} preference`);
+    it(`follows the OS's current ${current} preference with the Lecter theme`, () =>
+      followsScheme(launchIn(null), current));
   }
 });

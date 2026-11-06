@@ -39,14 +39,17 @@ function rgb(hex: string): string {
 function tokenValues(page: Page): Promise<Record<string, string>> {
   return page.evaluate(
     (names) => {
-      const probe = document.body.appendChild(document.createElement("span"));
+      // A parent painted rgb(1, 2, 3): a missing token would inherit it, so it can't pass.
+      const parent = document.body.appendChild(document.createElement("div"));
+      parent.style.color = "rgb(1, 2, 3)";
+      const probe = parent.appendChild(document.createElement("span"));
       const out = Object.fromEntries(
         names.map((n) => {
           probe.style.color = `var(--${n})`;
           return [n, getComputedStyle(probe).color];
         }),
       );
-      probe.remove();
+      parent.remove();
       return out;
     },
     colours.map(([name]) => name),
