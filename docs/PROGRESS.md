@@ -37,6 +37,8 @@
 <!-- LOG -->
 
 ## Log (newest first)
+### 2026-11-05 · plan: Q-033 applied
+- CI real-app cold_open, rss_300_slides, idle_rss and the macOS mocked keystroke check now REPORT on CI (14-quality#performance-budgets, D-225). New F-181 (M1, next up: makes budgets.sh do it) and F-182 (M6, same-job main-vs-branch comparison). Q-033 marked answered.
 ### 2026-11-05 · CI-9e68fff · merged
 - Fixed: F-040 broke real-app :find/skeleton flows on all OSes (they used codemirror-vim's prompt); now `.cmdline-input`. Fixed three teardown leaks behind flaky ui-tests (which-key timer, editor warm-up, late lazy chunk).
 - Branch run 42138784405: flows green on Linux, macOS, Windows; red only on Linux cold open (1119/1080) and the macOS mocked keystroke check.

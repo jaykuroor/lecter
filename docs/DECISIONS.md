@@ -1364,3 +1364,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the rise is WebKit footprint, not JS heap, and can't be measured in the sandbox.
 - Instead of: deferring to the planning session or fixing blind.
 - Revisit if: the bisect points don't separate beyond run-to-run noise (~±20 MB).
+
+## D-225 · CI real-app perf budgets REPORT on VM runners (Q-033)
+2026-11-05 · maintainer · active
+- Decision: with `--ci`, real-app cold_open_ms, rss_300_slides_mb, idle_rss_mb and the macOS mocked keystroke check print REPORT and never fail; they gate on the maintainer's machine at milestone gates (median of 5 + 10 %). macOS memory is the median of several settles. A same-job main-vs-branch comparison (F-182, M6) will fail only on changes over 10-15 % beyond a control's spread. This completes Q-023 / D-155. Applied in 14-quality#performance-budgets; the code change is F-181.
+- Why: the same code swung ~200 MB (macOS) and ~100 ms (Linux) between runs on shared VMs.
+- Instead of: keeping absolute gates on noisy runners, or loosening the numbers.
+- Revisit if: the same-job comparison shows CI can gate absolute values reliably.

@@ -5094,6 +5094,67 @@
    "status": "todo",
    "notes": "",
    "priority": 8144
+  },
+  {
+   "id": "F-181",
+   "milestone": "M1",
+   "kind": "feature",
+   "title": "CI perf budgets on VM runners only report",
+   "spec": [
+    "14-quality.md#performance-budgets"
+   ],
+   "depends_on": [
+    "F-025"
+   ],
+   "paths": [
+    "tests/perf/**",
+    "tests/e2e/flows/cold-open*"
+   ],
+   "acceptance": [
+    "WHEN budgets.sh runs with --ci THEN the real-app cold_open_ms, rss_300_slides_mb and idle_rss_mb SHALL print REPORT with the measured value and exit zero on every OS, and without --ci they SHALL gate against their targets (asserted in a test of budgets.sh).",
+    "WHEN the e2e-app cold-open flow runs in CI THEN it SHALL report the median of 5 launches without failing on the target.",
+    "WHEN the macOS mocked-core keystroke check runs with --ci THEN it SHALL print REPORT and not fail, and the Linux check SHALL still gate at 8 ms with the x1.5 rule.",
+    "The macOS rss_300_slides_mb sample SHALL be the median of at least 3 settles, and the report SHALL list every sample."
+   ],
+   "verify": [
+    "tests/perf/budgets.sh --ci"
+   ],
+   "evidence": [
+    "perf"
+   ],
+   "priority": 2030,
+   "status": "todo",
+   "notes": ""
+  },
+  {
+   "id": "F-182",
+   "milestone": "M6",
+   "kind": "feature",
+   "title": "Same-job main-vs-branch perf comparison",
+   "spec": [
+    "14-quality.md#performance-budgets",
+    "16-ci-cd.md#ciyml-every-push-to-main-every-pull-request-manual-dispatch"
+   ],
+   "depends_on": [
+    "F-181"
+   ],
+   "paths": [
+    "tests/perf/**"
+   ],
+   "acceptance": [
+    "WHEN a pull request runs in CI THEN the perf job SHALL build main and the branch in the same job and measure cold_open_ms and rss_300_slides_mb interleaved, several rounds each.",
+    "WHEN the branch is worse than main by more than 10 % and by more than the spread of main re-measured against itself THEN the job SHALL fail and print both series.",
+    "WHEN the branch is within that margin THEN the job SHALL pass and print the difference (asserted in a test with a deliberately slowed fixture)."
+   ],
+   "verify": [
+    "tests/perf/budgets.sh --compare"
+   ],
+   "evidence": [
+    "perf"
+   ],
+   "priority": 6900,
+   "status": "todo",
+   "notes": ""
   }
  ]
 }
