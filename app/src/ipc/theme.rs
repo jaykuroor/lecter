@@ -6,6 +6,7 @@
 //! The UI applies an update as one batch of CSS custom properties on the root (D-240). The
 //! monitor child is stopped, killed and reaped when the app exits ([`Themes::shutdown`]).
 
+use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -135,7 +136,9 @@ impl Themes {
 #[specta::specta]
 pub async fn theme_get(themes: State<'_, Themes>) -> Result<ThemeUpdate, IpcError> {
     let themes = themes.inner().clone();
-    blocking(move || themes.current()).await
+    let update = blocking(move || themes.current()).await?;
+    diag(format_args!("theme_get answered: {}", summary(&update)));
+    Ok(update)
 }
 
 /// The installed GTK themes (`/usr/share/themes`, `~/.themes`, `~/.local/share/themes`,
@@ -156,12 +159,14 @@ pub fn follow(app: &AppHandle, dirs: AppDirs) {
         let chosen = themes.clone();
         let _ = tauri::async_runtime::spawn_blocking(move || {
             let theme = SettingsStore::open(&dirs, None).settings().ui.theme;
+            diag(format_args!("ui.theme {theme:?}"));
             chosen.with(|s| s.follower.choose(theme));
         })
         .await;
         if cfg!(target_os = "linux") {
             follow_desktop(&app, &themes).await;
         } else {
+            diag(format_args!("not Linux: the desktop's GTK settings aren't read"));
             announce(&app, &themes).await;
         }
     });
@@ -170,13 +175,15 @@ pub fn follow(app: &AppHandle, dirs: AppDirs) {
 async fn follow_desktop(app: &AppHandle, themes: &Themes) {
     use lecter_core::theme::gtk::monitor::read;
     let Some((desktop, source)) = read(&themes.tools).await else {
-        tracing::info!(target: "theme", "no desktop settings; the Lecter theme applies");
+        let tools = &themes.tools;
+        diag(format_args!("no desktop settings: neither {:?} nor {:?} answered", tools.gdbus, tools.gsettings));
         announce(app, themes).await;
         return;
     };
+    diag(format_args!("desktop read from {source:?}: {desktop:?}"));
     themes.with(|s| s.follower.set_desktop(desktop));
     announce(app, themes).await;
-    tracing::info!(target: "theme", source = ?source, "following the desktop's theme");
+    diag(format_args!("following changes through the {source:?} monitor"));
     let result = themes
         .watch_desktop(source, |change: Change| {
             if themes.with(|s| s.follower.change(change)) {
@@ -189,9 +196,13 @@ async fn follow_desktop(app: &AppHandle, themes: &Themes) {
         None | Some(Ok(Ended::Stopped)) => {}
         // Not restarted: the theme stays as it is until the next start.
         Some(Ok(Ended::Exited)) => {
+            diag(format_args!("the {source:?} monitor ended; changes are no longer followed"));
             tracing::warn!(target: "theme", source = ?source, "the desktop's settings monitor ended; changes are no longer followed")
         }
-        Some(Err(e)) => tracing::warn!(target: "theme", error = %e, "the desktop's settings can't be followed"),
+        Some(Err(e)) => {
+            diag(format_args!("the {source:?} monitor can't run: {e}"));
+            tracing::warn!(target: "theme", error = %e, "the desktop's settings can't be followed")
+        }
     }
 }
 
@@ -206,13 +217,30 @@ pub async fn chosen(app: &AppHandle, theme: Option<String>) {
 /// Sends `theme:changed` when the update differs from the last one.
 async fn announce(app: &AppHandle, themes: &Themes) {
     let themes = themes.clone();
-    let Ok(Some(update)) = tauri::async_runtime::spawn_blocking(move || themes.changed()).await else { return };
-    let tokens = update.tokens.len();
+    let work = move || themes.changed().map(|u| (u, themes.with(|s| s.follower.stylesheet().map(Path::to_path_buf))));
+    let Ok(Some((update, stylesheet))) = tauri::async_runtime::spawn_blocking(work).await else { return };
+    let line = format!("{} from {stylesheet:?}", summary(&update));
     if let Err(e) = (ThemeChanged { update }).emit(app) {
+        diag(format_args!("theme:changed not sent ({line}): {e}"));
         tracing::warn!(target: "ipc", event = "theme:changed", error = %e, "event not sent");
     } else {
-        tracing::debug!(target: "theme", tokens, "theme:changed sent");
+        diag(format_args!("theme:changed sent: {line}"));
     }
+}
+
+/// An update in a few words: the theme, the scheme and how many tokens.
+fn summary(update: &ThemeUpdate) -> String {
+    format!("theme {:?}, scheme {:?}, {} tokens", update.theme, update.scheme, update.tokens.len())
+}
+
+/// One `theme: …` line on stderr for the real-app e2e logs (the app installs no tracing
+/// subscriber): the desktop source read, the stylesheet used, what was sent. Debug and test-hooks
+/// builds only; theme names and paths, never user text.
+fn diag(line: std::fmt::Arguments<'_>) {
+    #[cfg(any(debug_assertions, feature = "test-hooks"))]
+    eprintln!("theme: {line}");
+    #[cfg(not(any(debug_assertions, feature = "test-hooks")))]
+    let _ = line;
 }
 
 async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Result<T, IpcError> {

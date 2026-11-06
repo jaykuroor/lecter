@@ -17,6 +17,7 @@ import {
   openSync,
   readFileSync,
   rmSync,
+  writeFileSync,
   writeSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -56,7 +57,9 @@ function fakeDesktop(): void {
     "esac",
     "",
   ].join("\n");
-  writeSync(openSync(gdbus, "w"), script);
+  // Written and closed in one call: a script still open for writing can't be run (ETXTBSY), and
+  // the app's spawn would give up on it, so no desktop would be read.
+  writeFileSync(gdbus, script, { mode: 0o755 });
   chmodSync(gdbus, 0o755);
 }
 
@@ -74,6 +77,19 @@ function painted(names: string[]): Promise<{ scheme: string | null; tokens: Reco
     parent.remove();
     return { scheme: document.documentElement.dataset.theme ?? null, tokens: out };
   }, names);
+}
+
+/** What the core answers `theme_get` with right now, for a failure message. */
+async function coreTheme(): Promise<string> {
+  return await browser.execute(async () => {
+    type Internals = { invoke: (cmd: string, args?: unknown) => Promise<unknown> };
+    const internals = (window as unknown as { __TAURI_INTERNALS__: Internals }).__TAURI_INTERNALS__;
+    try {
+      return JSON.stringify(await internals.invoke("theme_get", {}));
+    } catch (e) {
+      return `theme_get failed: ${String(e)}`;
+    }
+  });
 }
 
 describe("gtk-theme", () => {
@@ -104,10 +120,17 @@ describe("gtk-theme", () => {
       await shot("gtk-theme-not-linux");
       return;
     }
-    await browser.waitUntil(async () => (await painted(["window-bg"])).tokens["window-bg"] === rgb("#f7f7f7"), {
-      timeout: 5000,
-      timeoutMsg: "Greyish's window colour never painted",
-    });
+    await browser
+      .waitUntil(async () => (await painted(["window-bg"])).tokens["window-bg"] === rgb("#f7f7f7"), {
+        timeout: 5000,
+        timeoutMsg: "Greyish's window colour never painted",
+      })
+      .catch(async (e: Error) => {
+        // Which side failed: the page's tokens, and what the core would answer now. The core's
+        // `theme:` lines in gtk-theme.log say which source it read and which stylesheet it used.
+        const page = JSON.stringify(await painted(["window-bg"]));
+        throw new Error(`${e.message}; page ${page}; core ${await coreTheme()}; see the theme: lines in gtk-theme.log`);
+      });
     const greyish = await painted(names);
     expect(greyish.scheme).toBe("light");
     expect(greyish.tokens).toEqual({
@@ -132,7 +155,8 @@ describe("gtk-theme", () => {
         }
       }).observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-theme"] });
     });
-    const fifo = openSync(FIFO, "w");
+    // Non-blocking: with no monitor reading the FIFO this fails at once (ENXIO) instead of hanging.
+    const fifo = openSync(FIFO, fsConstants.O_WRONLY | fsConstants.O_NONBLOCK);
     const sent = Date.now();
     writeSync(fifo, `${SIGNAL} ('org.gnome.desktop.interface', 'gtk-theme', <'Nightish'>)\n`);
     await browser.waitUntil(

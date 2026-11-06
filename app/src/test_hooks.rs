@@ -70,7 +70,9 @@ mod tests {
     fn gtk_points_tools_and_themes_into_the_folder() {
         let (dirs, tools) = gtk_from(Some("/fake".into())).unwrap();
         assert_eq!(dirs, ThemeDirs::new(vec![PathBuf::from("/fake/themes")], vec![]));
-        assert_eq!(tools, Tools { gdbus: "/fake/gdbus".into(), gsettings: "/fake/gsettings".into() });
+        // Compared as paths (by component), so the platform's separator doesn't matter.
+        assert_eq!(std::path::Path::new(&tools.gdbus), std::path::Path::new("/fake/gdbus"));
+        assert_eq!(std::path::Path::new(&tools.gsettings), std::path::Path::new("/fake/gsettings"));
         assert_eq!(gtk_from(None), None);
         assert_eq!(gtk_from(Some(OsString::new())), None);
     }

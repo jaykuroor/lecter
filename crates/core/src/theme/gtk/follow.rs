@@ -37,12 +37,13 @@ pub struct Follower {
     chosen: Option<String>,
     cache: Vec<(PathBuf, Option<SystemTime>, Arc<ThemeColors>)>,
     reads: usize,
+    stylesheet: Option<PathBuf>,
 }
 
 impl Follower {
     /// Looks themes up in `dirs`.
     pub fn new(dirs: ThemeDirs) -> Self {
-        Self { dirs, desktop: Desktop::default(), chosen: None, cache: Vec::new(), reads: 0 }
+        Self { dirs, desktop: Desktop::default(), chosen: None, cache: Vec::new(), reads: 0, stylesheet: None }
     }
 
     /// The theme folders.
@@ -70,6 +71,16 @@ impl Follower {
         changed
     }
 
+    /// The desktop's state as last set or changed.
+    pub fn desktop(&self) -> &Desktop {
+        &self.desktop
+    }
+
+    /// The stylesheet the last [`Self::update`] used; `None` when no GTK theme applied.
+    pub fn stylesheet(&self) -> Option<&Path> {
+        self.stylesheet.as_deref()
+    }
+
     /// How many stylesheets have been read and parsed so far.
     pub fn reads(&self) -> usize {
         self.reads
@@ -85,8 +96,15 @@ impl Follower {
             .flatten()
             .find_map(|name| self.dirs.find(name).map(|files| (name.to_owned(), files)));
         let (theme, colors) = match found {
-            Some((name, files)) => (Some(name), Some(self.colors(files.for_scheme(preference)))),
-            None => (None, None),
+            Some((name, files)) => {
+                let css = files.for_scheme(preference);
+                self.stylesheet = Some(css.to_path_buf());
+                (Some(name), Some(self.colors(css)))
+            }
+            None => {
+                self.stylesheet = None;
+                (None, None)
+            }
         };
         let scheme = colors.as_ref().and_then(|c| c.scheme()).or(preference);
         let dark = scheme == Some(Scheme::Dark);

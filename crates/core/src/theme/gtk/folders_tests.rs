@@ -131,11 +131,15 @@ fn the_list_stops_at_max_themes() {
 #[test]
 fn sorting_ignores_case() {
     let env = TestEnv::new().unwrap();
+    // "alpha" sits in a folder of its own: a case-insensitive file system (APFS, NTFS) can't hold
+    // it beside "Alpha". Different case is a different name, so both are listed.
     let root = env.home().join("themes");
-    for name in ["beta", "Alpha", "alpha", "Gamma"] {
+    let other = env.home().join("more-themes");
+    for name in ["beta", "Alpha", "Gamma"] {
         theme(&root, name, "gtk-3.0");
     }
-    assert_eq!(names(&ThemeDirs::new(vec![root], vec![]).list()), ["Alpha", "alpha", "beta", "Gamma"]);
+    theme(&other, "alpha", "gtk-3.0");
+    assert_eq!(names(&ThemeDirs::new(vec![other, root], vec![]).list()), ["Alpha", "alpha", "beta", "Gamma"]);
 }
 
 fn env_of(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {

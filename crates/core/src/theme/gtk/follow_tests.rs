@@ -48,9 +48,16 @@ fn a_dark_stylesheet_is_used_when_the_desktop_prefers_dark() {
     f.set_desktop(desktop(Some("Variant"), Some(Scheme::Dark), None));
     let dark = f.update();
     assert_eq!((dark.scheme, token(&dark, "window-bg")), (Some(Scheme::Dark), Some("#202020")));
+    assert_eq!(f.stylesheet(), Some(fixture("Variant/gtk-3.0/gtk-dark.css").as_path()));
     f.change(Change::Scheme(None));
+    assert_eq!(f.desktop().scheme, None);
     let light = f.update();
     assert_eq!((light.scheme, token(&light, "window-bg")), (Some(Scheme::Light), Some("#fafafa")));
+    assert_eq!(f.stylesheet(), Some(fixture("Variant/gtk-3.0/gtk.css").as_path()));
+    // A theme that isn't installed applies nothing, and no stylesheet was used.
+    f.change(Change::Theme(Some("NotInstalled".into())));
+    assert_eq!(f.update().theme, None);
+    assert_eq!(f.stylesheet(), None);
 }
 
 #[test]
