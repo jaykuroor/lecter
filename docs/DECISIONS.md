@@ -1489,3 +1489,40 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: one more round for F-043 after two fix rounds: the real-app gtk-theme flow retries its non-blocking FIFO open on ENXIO until a deadline (a few seconds) instead of failing at once, plus the reviewer's minor (build the `announce` diagnostic line only in debug/test-hooks builds). Then re-check and branch CI before merging.
 - Why: the remaining major is a race in the test harness (the flow can write before the fake monitor opens the FIFO on a slow runner), not in the product; the product fixes (orphaned monitor, ETXTBSY root cause, Windows paths, macOS case-insensitive fixture) are in and the cold-open shard is already green in CI.
 - Instead of: blocking F-043 (protocol default), or merging with a known flaky test.
+
+## D-245 · Read the Linux desktop through gdbus and gsettings
+2026-11-06 · session F-043 · active
+- Decision: the core reads org.freedesktop.portal.Settings (color-scheme, accent-color, gtk-theme) with `gdbus call`, falls back to `gsettings get`, and follows changes through one long-lived `gdbus monitor` (portal) or `gsettings monitor` child whose lines are pushed to the app; nothing polls. Reads have a 3 s timeout, output caps and a 64 KiB line cap; "text file busy" is retried; arguments are fixed literals.
+- Why: no D-Bus crate (no dependency approval needed), and both tools ship with every GTK desktop; D-237 (event-driven).
+- Instead of: zbus/ashpd, or re-reading settings on a timer.
+- Revisit if: process spawning shows up in startup cost or a portal-only desktop lacks gdbus.
+
+## D-246 · gtk.css is parsed as untrusted input
+2026-11-06 · session F-043 · active
+- Decision: only @define-color is read: 2 MiB cap, @import never followed, reference depth 24, 50k steps, 4096 defines. Colours are re-formatted from numbers in the core and re-validated by regex in the UI before setProperty. Theme names with `/`, `\`, `:`, NUL, control characters, a leading `.` or over 128 bytes are refused; folder reads are capped and FIFOs aren't opened.
+- Why: 13-security.md; a theme folder is user-writable and may be hostile.
+- Instead of: a full CSS parser, or passing values through as text.
+
+## D-247 · The theme follower and `ui.theme`
+2026-11-06 · session F-043 · active
+- Decision: `ui.theme` (settings schema) names a GTK theme or is unset (follow the desktop). The core sends `theme:changed` with the tokens; `theme_get` and `theme_list` IPC (no arguments) back it. The UI follower is a lazy chunk imported after first paint (0.54 KB; entry +0.09 KB gz) and applies tokens in one batch of custom properties (D-240). The Settings → Appearance list is F-045's.
+- Why: D-237 and the first-paint budget; criterion 3 needs list-and-apply before the settings window exists.
+- Instead of: a static import, or a theme picker inside F-043.
+
+## D-248 · The desktop monitor dies with the app
+2026-11-06 · session F-043 · active
+- Decision: `watch()` takes a stop future and kills and reaps the child on stop; `Themes::shutdown(1 s)` runs on RunEvent::Exit (Tauri's run ends in process::exit, so kill_on_drop never fires). On Linux every child also gets prctl(PR_SET_PDEATHSIG, SIGTERM) plus a getppid race check in pre_exec (the first `unsafe` in lecter-core, SAFETY-commented), via a direct `libc` dependency (already in Cargo.lock). PDEATHSIG follows the spawning thread, so children are spawned only from tokio worker threads.
+- Why: an orphaned monitor per launch held CI's cold-open flow (timed out waiting for the app's processes) and would leak on users' desktops.
+- Instead of: nix or rustix for one call; a pid kept and killed by hand.
+
+## D-249 · XDG_DATA_DIRS splits on ':' on every OS
+2026-11-06 · session F-043 · active
+- Decision: `folders::xdg_dirs` splits XDG variables on ':' as the XDG Base Directory spec says, keeps entries with a root, drops empty and relative ones, and splits bytes on Unix so non-UTF-8 folder names survive.
+- Why: std::env::split_paths uses ';' on Windows, which broke the shared folder code there.
+- Instead of: Linux-only folder tests.
+
+## D-250 · Theme diagnostics only in debug and test builds
+2026-11-06 · session F-043 · active
+- Decision: `theme:` lines (source read, monitor started, tokens sent, theme_get answers, monitor ended) go to stderr only under cfg(any(debug_assertions, feature = "test-hooks")), built lazily so release does no formatting; they carry theme names and paths, never user text. Release keeps tracing::warn! for a monitor that ends or can't run. The desktop-monitor tests run on Unix only (sh and mkfifo fakes; the desktop is read only on Linux).
+- Why: the app installs no tracing subscriber, so CI's app log is the only place a failure shows; release shouldn't pay for it.
+- Instead of: tracing::info lines nobody sees.

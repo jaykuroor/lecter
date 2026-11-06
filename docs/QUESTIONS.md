@@ -235,6 +235,12 @@ Should Ctrl/Cmd-P list lectures from every course on the rail, not only the open
 - Answer: (maintainer 2026-11-05) yes; each lecture row in the switcher shows the course it comes from (D-236).
 - Planning input (D-237): the card must also make the switcher's matching scale: per-item precomputed lower-case text and word boundaries, a subsequence pre-reject, incremental narrowing while the query grows, top-k (200) selection instead of a full sort, no Map allocations in the scoring loop; criterion: p95 per-keystroke filter ≤ 2 ms at 10 000 entries (measured 31.7 ms today), with a perf test.
 
+## Q-036 · later · blocks: nothing
+Should the Linux desktop monitor restart (with backoff) when it exits by itself, for example after a portal restart?
+- Context: F-043 (D-245) follows theme changes through one long-lived `gdbus`/`gsettings monitor` child. If it exits, the app logs a warning and stops following until the next launch; the source (portal or gsettings) is also fixed at start. gdbus usually keeps its match across a portal owner change, so this is rare.
+- Recommended: yes, later: restart with exponential backoff (1 s → 60 s, capped), re-read once after each restart to close the gap, and switch to the portal if it appears. (applied as default: no)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 
