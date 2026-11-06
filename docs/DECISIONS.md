@@ -1528,7 +1528,7 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Instead of: tracing::info lines nobody sees.
 
 ## D-251 · Yaru and Breeze ship as colour values
-2026-11-06 · session F-044 · active · decider: maintainer
+2026-11-06 · maintainer · active
 - Decision: the bundled Yaru (GPL-3.0/CC-BY-SA-4.0) and Breeze (LGPL/GPL) themes ship as transcribed hex colour values only, with no theme code, CSS or assets copied. Catppuccin, Gruvbox and Nord are MIT; Adwaita's values already ship in tokens.json.
 - Why: colour values are facts, not code, so the "never GPL" dependency rule isn't touched; the spec lists all six themes.
 - Instead of: dropping Yaru and Breeze, or renaming them to neutral names.
