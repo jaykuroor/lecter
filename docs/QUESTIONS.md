@@ -228,6 +228,12 @@ Which local (author's machine) targets should the memory budgets gate against of
 - Recommended: measure each on the author's machine at the M1 gate (median of 5), set local = that + 10 % in budgets.json through a planning change.
 - Answer: (maintainer 2026-11-05) take the median of several runs on the author's PC, compare with well-known apps of the same kind, and pick a target in between (D-229).
 
+## Q-035 · later · blocks: nothing
+Should Ctrl/Cmd-P list lectures from every course on the rail, not only the open one?
+- Context: F-041 (D-232) lists rail courses plus the open course's files, because the core sends files only for the open course; covering all courses needs a new core call (and per-course trust checks).
+- Recommended: yes, later: add a core listing for known courses' lectures when the dashboard/lists cards build cross-course views. (applied as default: no)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 

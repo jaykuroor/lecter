@@ -1397,3 +1397,39 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: D-225 moved memory gating to the author's machine, but budgets.json has no `local` memory targets, so off CI they gate against per_os (partly CI-runner numbers).
 - Instead of: own median + 10 % alone (no outside reference), or keeping the CI-runner numbers.
 - Revisit if: the comparable apps differ so much that no single target makes sense.
+
+## D-230 · Palette keys live in DEFAULT_KEYMAP
+2026-11-05 · session F-041 · active
+- Decision: `<Mod-S-p>` palette.open and `<Mod-p>` switcher.open are global bindings in ui/src/keys/keymap.ts; Ctrl/Cmd-K stays unbound.
+- Why: keymaps.jsonc, the hint bar and which-key read only that table.
+- Instead of: a second key table inside the palette.
+
+## D-231 · The palette lists every keymap command
+2026-11-05 · session F-041 · active
+- Decision: one row per command and argument, every bound key shown as keycaps plus where it works; rows that can't run where the focus was are greyed. Ex `:` commands and Vim motions are left out.
+- Why: the spec asks for every command with its key.
+- Instead of: listing only commands runnable at the focus.
+
+## D-232 · Switcher scope: rail courses and the open course
+2026-11-05 · session F-041 · active
+- Decision: Ctrl/Cmd-P lists the rail's courses, then the open course's lectures, lists and sources (slides, readings). A list runs its `lists.*` command when a feature handles it; until then lists and sources show the sidebar and focus their row.
+- Why: the core sends files only for the open course; list views and source opening don't exist yet.
+- Instead of: a new IPC call for every course's files (Q-035), or leaving lists and sources out.
+
+## D-233 · Headerbar "Go to" and "Commands" buttons
+2026-11-05 · session F-041 · active
+- Decision: two headerbar buttons with keycaps open the switcher and the palette through keys/commands.ts.
+- Why: every action needs a mouse path; docs/design/components.md has no palette entry.
+- Instead of: relying on the hint bar alone.
+
+## D-234 · Palette is a lazy chunk with its own fuzzy scorer
+2026-11-05 · session F-041 · active
+- Decision: the palette chunk starts loading when the key engine starts, and a key pressed before it loads opens it once loaded. Inside the box: ↑/↓, Tab/Shift-Tab, Ctrl-j/Ctrl-k, Enter, Esc (j/k type). Matching is an in-house O(m·n) scorer (ui/src/features/palette/fuzzy.ts), at most 200 rows shown.
+- Why: keeps it out of first paint (ui_main_chunk_kb_gz 178 / 250); the scorer is under 150 lines and fully tested.
+- Instead of: loading on first use, or a fuzzy-match dependency.
+
+## D-235 · A keymap swap keeps pending keys
+2026-11-05 · session F-041 · active
+- Decision: when keymaps.jsonc arrives, setUserKeymap swaps the engine's map without reset(), keeps the pending sequence and calls engine.onChange(pending); the next key resolves on the new map and a sequence it no longer continues is broken off.
+- Why: the reset dropped a ␣ handed over by boot.ts, so ␣e right after start did nothing (WebKit CI, sidebar.spec.ts:129). Reverses F-037's tested "drops a pending key" behaviour.
+- Instead of: resetting the engine, or making the e2e wait longer.
