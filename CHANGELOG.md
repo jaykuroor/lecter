@@ -4,6 +4,9 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+- CI's speed and memory checks on shared runners now report their numbers instead of failing; they still gate on the maintainer's machine (F-181)
+
 ### Added
 - Project skeleton: the Rust workspace and a `lecter` command that prints its version (F-010)
 - UI scaffold: the app shell runs in a browser against a mocked core (`pnpm -C ui run dev`) (F-011)

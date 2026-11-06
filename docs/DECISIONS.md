@@ -1371,3 +1371,22 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the same code swung ~200 MB (macOS) and ~100 ms (Linux) between runs on shared VMs.
 - Instead of: keeping absolute gates on noisy runners, or loosening the numbers.
 - Revisit if: the same-job comparison shows CI can gate absolute values reliably.
+
+## D-226 · CI report-only list lives in harness.py
+2026-11-05 · session F-181 · active
+- Decision: tests/perf/harness.py holds `VM_REPORT = {cold_open_ms, rss_300_slides_mb, idle_rss_mb}` and `QUICK_VM_REPORT = {keystroke_p99_ms: {darwin}}`; under --ci these print REPORT. The cold-open flow's `verdict(values, os, targets, ci=false)` takes an explicit flag, and the flow passes `onCi(process.env)` (same rule as the harness). settle.ts reuses `median` from tests/e2e/flows/cold-open/budget.ts.
+- Why: budgets.json is protected and not in F-181's `protected` list; vitest itself runs with CI set, so reading the environment by default would break the off-CI gate tests.
+- Instead of: an `on_ci: "report"` field in budgets.json.
+- Revisit if: budgets.json is opened to a card; move the list into the data then.
+
+## D-227 · `--quick --ci` gates the Linux keystroke check
+2026-11-05 · session F-181 · active
+- Decision: with `--quick --ci`, keystroke_p99_ms is gated by the quick (mocked-core) script on Linux and Windows at 8 ms x1.5 and reported on macOS. Before, it printed REPORT on every OS because the real-app report rule didn't know --quick measures with the quick script.
+- Why: F-181 criterion 3 says Linux keeps gating.
+- Instead of: leaving the gap (CI doesn't run --quick today).
+
+## D-228 · macOS 300-slide memory: median of 3 settles
+2026-11-05 · session F-181 · active
+- Decision: on macOS, rss_300_slides_mb is the median of 3 settles of 5 s each (15 s in all), and the detail lists every sample; other OSes keep one settle.
+- Why: D-225 and F-181 criterion 4 ("at least 3"); one WebKit release timing swung the number ~200 MB.
+- Instead of: more settles, which lengthen the macOS run.
