@@ -1457,7 +1457,7 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3039,
    "base": "554d04fd2d77231ba0a68f091447f2fc29d843b5"

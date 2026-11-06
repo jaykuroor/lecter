@@ -241,6 +241,18 @@ Should the Linux desktop monitor restart (with backoff) when it exits by itself,
 - Recommended: yes, later: restart with exponential backoff (1 s → 60 s, capped), re-read once after each restart to close the gap, and switch to the portal if it appears. (applied as default: no)
 - Answer:
 
+## Q-037 · later · blocks: nothing
+Are `Name`, `Name-light` and `Name-dark` the right ui.theme values for bundled themes?
+- Context: F-044 (D-253) stores e.g. `Nord` (follows the OS mode), `Nord-light` or `Nord-dark` in config.jsonc. GTK themes use `Name` and `Name-dark` only.
+- Recommended: keep Name / Name-light / Name-dark. (applied as default: yes)
+- Answer:
+
+## Q-038 · later · blocks: nothing
+Do the bundled Yaru and Breeze colours look right?
+- Context: F-044 transcribed their hex values from the published palettes from memory (D-251 allows shipping them as values). Check them by eye with `:set ui.theme Yaru-light` / `Yaru-dark` / `Breeze-light` / `Breeze-dark` at the M1 gate.
+- Recommended: check at the M1 gate; fix any value in crates/core/src/theme/bundled_palettes.rs. (applied as default: values as shipped)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 

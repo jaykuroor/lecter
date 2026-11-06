@@ -1532,3 +1532,51 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the bundled Yaru (GPL-3.0/CC-BY-SA-4.0) and Breeze (LGPL/GPL) themes ship as transcribed hex colour values only, with no theme code, CSS or assets copied. Catppuccin, Gruvbox and Nord are MIT; Adwaita's values already ship in tokens.json.
 - Why: colour values are facts, not code, so the "never GPL" dependency rule isn't touched; the spec lists all six themes.
 - Instead of: dropping Yaru and Breeze, or renaming them to neutral names.
+
+## D-252 · Bundled themes are GTK named-colour palettes
+2026-11-06 · session F-044 · active
+- Decision: each bundled theme is @define-color text in crates/core/src/theme/bundled_palettes.rs, run through F-043's gtk.css parser and ThemeColors mapping; no file is read.
+- Why: one mapping from GTK colours to Lecter tokens, and the parser's limits already apply.
+- Instead of: separate CSS files in ui/src/theme/bundled (left empty).
+
+## D-253 · Bundled theme names: Name, Name-light, Name-dark
+2026-11-06 · session F-044 · active
+- Decision: `Nord` (etc.) follows the OS light/dark mode and the `-light`/`-dark` suffixes pin a variant, giving 18 theme_list entries with folder ""; an installed theme of the same name wins. The value is stored in config.jsonc as ui.theme (Q-037).
+- Why: a user who wants one variant always can pin it, and the plain name behaves like the Lecter theme.
+- Instead of: 6 names (no pinning) or 12 (no follow).
+
+## D-254 · The OS mode on macOS and Windows comes from the Tauri window
+2026-11-06 · session F-044 · active
+- Decision: window.theme() at start and WindowEvent::ThemeChanged feed Change::Scheme on macOS/Windows, so a bundled theme applies the right variant's tokens and data-theme is pinned from tao's reported mode.
+- Why: a bundled theme needs to know the scheme in the core; CSS media queries can't pick variant tokens.
+- Instead of: CSS-only prefers-color-scheme.
+
+## D-255 · The OS accent is read with defaults and reg, on focus and mode change
+2026-11-06 · session F-044 · active
+- Decision: macOS: `defaults read -g AppleAccentColor` (unset = Multicolour = Lecter's accent). Windows: `reg query` AccentColorMenu, else DWM AccentColor, decoded as 0xAABBGGRR. Re-read when the window gains focus or the mode changes, one read at a time (busy flag), never polled; a failed read keeps Lecter's accent.
+- Why: no new dependencies, same spawn helper as D-245 (fixed args, no shell, bounded output, timeout).
+- Instead of: objc2 / windows crates.
+
+## D-256 · Spawned tools on Windows get CREATE_NO_WINDOW
+2026-11-06 · session F-044 · active
+- Decision: gtk/monitor.rs `command` sets CREATE_NO_WINDOW on Windows.
+- Why: reg.exe would otherwise flash a console window on every focus.
+- Instead of: a visible console per read.
+
+## D-257 · ~/.themes on macOS and Windows: HOME, else USERPROFILE
+2026-11-06 · session F-044 · active
+- Decision: bundled::user_dirs looks in $HOME/.themes, falling back to %USERPROFILE%/.themes.
+- Why: Windows sets no HOME.
+- Instead of: HOME only.
+
+## D-258 · LECTER_TEST_BUNDLED offers the bundled themes on Linux test builds
+2026-11-06 · session F-044 · active
+- Decision: with LECTER_TEST_BUNDLED=1 (exactly), debug/test-hooks builds offer the bundled themes on Linux so the Linux e2e run can drive them; the hook is compiled out of release.
+- Why: the real-app flow needs to exercise the bundled list on every OS.
+- Instead of: a macOS/Windows-only flow.
+
+## D-259 · Real-app flows pin Lecter's accent on CI
+2026-11-06 · session F-044 · active
+- Decision: tests/e2e/flows/theme.ts sets the OS accent to Lecter's #3584e4 on CI (Windows AccentColorMenu 0xffe48435; macOS deletes AppleAccentColor) and restores it after, also on failure; every token is still compared exactly with tokens.json. Off CI it expects accent-bg = the user's OS accent. tests/e2e/support/accent.ts holds osAccent()/pinAccent() for theme.ts and bundled-theme.ts.
+- Why: the Windows runner's stock accent #0078D4 is now followed (D-255), which broke F-042's exact colour check; pinning keeps the check exact instead of re-deriving OKLCH in TypeScript.
+- Instead of: loosening the accent tokens in theme.ts.
