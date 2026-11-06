@@ -18,19 +18,18 @@ const applied = new WeakMap<HTMLElement, { names: string[]; scheme: boolean }>()
  * this one doesn't; sets `data-theme` to its scheme, or removes the one it set before.
  */
 export function applyTheme(update: ThemeUpdate, root: HTMLElement = document.documentElement): void {
-  const before = applied.get(root) ?? { names: [], scheme: false };
+  const before = applied.get(root);
   const style = root.style;
-  const names: string[] = [];
-  for (const { name, value } of update.tokens) {
-    if (!NAME.test(name) || !VALUE.test(value)) continue;
-    style.setProperty(`--${name}`, value);
-    names.push(name);
-  }
-  for (const name of before.names) {
-    if (!names.includes(name)) style.removeProperty(`--${name}`);
+  const valid = update.tokens.filter(({ name, value }) => NAME.test(name) && VALUE.test(value));
+  for (const { name, value } of valid) style.setProperty(`--${name}`, value);
+  const names = valid.map(({ name }) => name);
+  if (before) {
+    for (const name of before.names) {
+      if (!names.includes(name)) style.removeProperty(`--${name}`);
+    }
   }
   if (update.scheme) root.dataset.theme = update.scheme;
-  else if (before.scheme) delete root.dataset.theme;
+  else if (before?.scheme) delete root.dataset.theme;
   applied.set(root, { names, scheme: update.scheme !== null });
 }
 

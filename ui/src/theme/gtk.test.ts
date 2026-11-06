@@ -43,6 +43,9 @@ describe("applyTheme", () => {
     root.dataset.theme = "light";
     applyTheme({ theme: null, scheme: null, tokens: [] }, root);
     expect(root.dataset.theme).toBe("light");
+    // Still not its own after a second update without a scheme.
+    applyTheme({ theme: null, scheme: null, tokens: [] }, root);
+    expect(root.dataset.theme).toBe("light");
     applyTheme({ theme: "Variant", scheme: "dark", tokens: [] }, root);
     expect(root.dataset.theme).toBe("dark");
   });
@@ -59,6 +62,9 @@ describe("applyTheme", () => {
       { name: "-window", value: "#1e1e1e" },
       { name: "a".repeat(41), value: "#1e1e1e" },
       { name: "x;y", value: "#1e1e1e" },
+      { name: "window-bg", value: "url(x) #1e1e1e" },
+      { name: "window-bg", value: "red; rgba(0, 0, 0, 0.5)" },
+      { name: "y;window-bg", value: "#1e1e1e" },
     ];
     applyTheme({ theme: "Hostile", scheme: null, tokens: bad }, root);
     expect(root.style.length).toBe(0);
