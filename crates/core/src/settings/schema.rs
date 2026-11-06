@@ -241,8 +241,9 @@ pub enum Embeddings {
 pub struct Ui {
     /// The speed-or-looks preset.
     pub performance: Performance,
-    /// The theme to use instead of the desktop's: the name of an installed GTK theme. Unset
-    /// follows the desktop's theme.
+    /// The theme to use instead of the desktop's: the name of an installed GTK theme, or on
+    /// macOS and Windows a bundled one (`Nord`, or `Nord-light`/`Nord-dark` to pin a variant).
+    /// Unset follows the desktop's theme.
     pub theme: Option<String>,
 }
 

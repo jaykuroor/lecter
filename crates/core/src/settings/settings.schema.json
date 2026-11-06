@@ -462,7 +462,7 @@
           "default": "balanced"
         },
         "theme": {
-          "description": "The theme to use instead of the desktop's: the name of an installed GTK theme. Unset\nfollows the desktop's theme.",
+          "description": "The theme to use instead of the desktop's: the name of an installed GTK theme, or on\nmacOS and Windows a bundled one (`Nord`, or `Nord-light`/`Nord-dark` to pin a variant).\nUnset follows the desktop's theme.",
           "type": [
             "string",
             "null"
