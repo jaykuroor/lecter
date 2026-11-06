@@ -1427,9 +1427,10 @@
     "log:tests"
    ],
    "try": "Change your GTK theme or accent: Lecter follows within a second",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3038
+   "priority": 3038,
+   "base": "45cc07da57f0d1aa701a3d851916f8047b3f975d"
   },
   {
    "id": "F-044",
