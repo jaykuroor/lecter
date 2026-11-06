@@ -1,3 +1,6 @@
+// The fake gdbus and gsettings are `#!/bin/sh` scripts (and one test needs mkfifo), which
+// Windows can't run; the desktop is only read on Linux.
+#![cfg(unix)]
 #![allow(clippy::disallowed_methods, reason = "tests build fake tools on plain test threads")]
 
 use std::io::Write;

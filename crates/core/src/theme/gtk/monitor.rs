@@ -242,8 +242,6 @@ fn die_with_parent(cmd: &mut Command) {
     }
 }
 
-// The fake gdbus and gsettings are `#!/bin/sh` scripts (and one test needs mkfifo), which
-// Windows can't run; the desktop is only read on Linux.
-#[cfg(all(test, unix))]
+#[cfg(test)]
 #[path = "monitor_tests.rs"]
 mod tests;
