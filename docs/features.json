@@ -1360,9 +1360,10 @@
     "screenshot:palette"
    ],
    "try": "Press Ctrl-P and jump to a lecture by typing part of its name",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3036
+   "priority": 3036,
+   "base": "1d13f6f91f1622f3e4afbbee6bdb363c3055ab57"
   },
   {
    "id": "F-042",
