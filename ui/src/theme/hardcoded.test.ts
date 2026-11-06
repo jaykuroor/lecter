@@ -97,6 +97,79 @@ describe("hard-coded colours in TypeScript", () => {
   it("keeps line numbers after a template literal that spans lines", () => {
     expect(found("x.ts", "const a = `one\ntwo`;\nconst b = '#abcdef';")).toEqual(["3:#abcdef"]);
   });
+
+  it("reads strings with escaped quotes, and a lone quote in a regular expression ends nothing", () => {
+    expect(found("x.ts", 'const a = "say \\"hi\\" #abc";')).toEqual(["1:#abc"]);
+    expect(found("x.ts", "const b = 'it\\'s #def';")).toEqual(["1:#def"]);
+    expect(found("x.ts", 'const re = /"/;\nconst c = "#fff";')).toEqual(["2:#fff"]);
+    expect(found("x.ts", "const re = /'/;\nconst c = '#fff';")).toEqual(["2:#fff"]);
+    expect(found("x.ts", "const t = `a \\` b`;\nconst c = `#fff`;")).toEqual(["2:#fff"]);
+  });
+
+  it("finds a named colour under a quoted key or after an unrelated string, not handed to something else", () => {
+    expect(found("x.ts", 'const s = { "color": "red" };')).toEqual(["1:red"]);
+    expect(found("x.ts", 'const s = { color: " red " };')).toEqual(["1:red"]);
+    expect(found("x.ts", 'const s = { color: c, label: "red" };')).toEqual([]);
+    expect(found("x.ts", 'el.setAttribute("title", "red");')).toEqual([]);
+  });
+
+  it("checks only the colour declarations of an inline style", () => {
+    const tsx = [
+      '<p style="text-decoration-color: red" />',
+      '<p style="--k: teal" />',
+      '<p style="a--b: red; padding: tan" />',
+      '<p style="color :navy" />',
+    ].join("\n");
+    expect(found("x.tsx", tsx)).toEqual(["1:red", "2:teal", "4:navy"]);
+  });
+});
+
+describe("the colour words and hex forms", () => {
+  it("knows every group of CSS named and system colours", () => {
+    const names = [
+      "aliceblue",
+      "burlywood",
+      "darkgoldenrod",
+      "darksalmon",
+      "deepskyblue",
+      "goldenrod",
+      "lawngreen",
+      "lightpink",
+      "lime",
+      "mediumslateblue",
+      "navajowhite",
+      "palevioletred",
+      "saddlebrown",
+      "springgreen",
+      "yellowgreen",
+      "accentcolor",
+      "graytext",
+      "visitedtext",
+    ];
+    const css = `.a {\n${names.map((n) => `  color: ${n};`).join("\n")}\n}`;
+    expect(found("x.css", css)).toEqual(names.map((n, i) => `${i + 2}:${n}`));
+  });
+
+  it("takes hex colours of 3, 4, 6 or 8 digits that stand alone", () => {
+    const css = [
+      ".a {",
+      "  background: linear-gradient(#fff, #000 50%);",
+      "  --x: #12345 #1234567 #abcg url(a#fff) x-#fff;",
+      "  color: red-ish x-red 1red redx;",
+      "  color: myrgb(1) x-hsl(2) rgb (3);",
+      "  color: black",
+      "}",
+    ].join("\n");
+    expect(found("x.css", css)).toEqual(["2:#fff", "2:#000", "6:black"]);
+  });
+
+  it("lists colours in file order within one declaration", () => {
+    expect(found("x.css", ".a { box-shadow: 0 0 1px black, 0 0 2px #fff, 0 0 3px rgb(0 0 0); }")).toEqual([
+      "1:black",
+      "1:#fff",
+      "1:rgb(",
+    ]);
+  });
 });
 
 describe("which files the check covers", () => {
@@ -110,6 +183,10 @@ describe("which files the check covers", () => {
     expect(isLinted("keys/dispatch.test.ts")).toBe(false);
     expect(isLinted("features/buffer/__tests__/timeline.ts")).toBe(false);
     expect(isLinted("features/figures/fig.svg")).toBe(false);
+    expect(isLinted("features/figures/fig.css.map")).toBe(false);
+    expect(isLinted("features/figures/fig.ts.snap")).toBe(false);
+    expect(isLinted("features/a.test.tsx.ts")).toBe(true);
+    expect(isLinted("theme/tokens.css.ts")).toBe(true);
   });
 });
 

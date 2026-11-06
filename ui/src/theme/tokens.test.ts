@@ -190,8 +190,43 @@ describe("tokensCss", () => {
     expect(css).not.toContain("--motion-rule");
   });
 
-  it("refuses a file that isn't an object of groups", () => {
-    expect(() => tokensCss([])).toThrow("tokens.json");
-    expect(() => tokensCss({ color: "red" })).toThrow("color");
+  it("refuses a file that isn't an object, or a group that isn't one", () => {
+    expect(() => tokensCss("tokens")).toThrow("tokens.json is not an object of token groups");
+    expect(() => tokensCss(null)).toThrow("tokens.json is not an object of token groups");
+    expect(() => tokensCss({ color: "red" })).toThrow("tokens.json: color is not an object");
+    expect(() => tokensCss({ ...base, radius: 5 })).toThrow("tokens.json: radius is not an object");
+  });
+
+  it("refuses a colour that isn't a light and dark pair of plain values", () => {
+    expect(() => tokensCss({ color: { x: "#fff" } })).toThrow("color.x has no light value");
+    expect(() => tokensCss({ color: { x: null } })).toThrow("color.x has no light value");
+    expect(() => tokensCss({ color: { x: { light: 1, dark: "#000" } } })).toThrow("color.x is not a plain CSS value");
+    expect(() => tokensCss({ color: { x: { light: "#fff", dark: "  " } } })).toThrow(
+      "color.x is not a plain CSS value",
+    );
+    expect(() => tokensCss({ color: { x: { light: "#fff", dark: "#000 /* x" } } })).toThrow("color.x");
+  });
+
+  it("writes a value without the spaces around it", () => {
+    expect(tokensCss({ color: { x: { light: " #fff ", dark: "#000" } } })).toContain("\n  --x: #fff;\n");
+  });
+
+  it("keeps whole, non-negative steps of the spacing scale", () => {
+    const css = tokensCss({ space: { scale: [0, 2, -2, 1.5, "4"] } });
+    expect(css.match(/--space-[^:]*: [^;]*;/g)).toEqual(["--space-0: 0px;", "--space-2: 2px;"]);
+    expect(tokensCss({ space: { scale: { a: 2 } } })).not.toContain("--space");
+  });
+
+  it("takes a length or duration only from the start of a value, the lower end of a range", () => {
+    const css = tokensCss({
+      radius: { a: "6-12px (rows)", b: "about 6px", c: "3pxx", d: 5, e: "10px" },
+      motion: { f: "0.25-0.35s fade", g: "1.5s" },
+    });
+    expect(css.match(/--(?:radius|motion)-[^:]*: [^;]*;/g)).toEqual([
+      "--radius-a: 6px;",
+      "--radius-e: 10px;",
+      "--motion-f: 0.25s;",
+      "--motion-g: 1.5s;",
+    ]);
   });
 });

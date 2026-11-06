@@ -20,7 +20,7 @@ const LEADING = /^(\d+(?:\.\d+)?)(?:-\d+(?:\.\d+)?)?(px|s)\b/;
 
 function group(tokens: Group, key: string): Group {
   const g = tokens[key] ?? {};
-  if (typeof g !== "object" || g === null || Array.isArray(g)) throw new Error(`tokens.json: ${key} is not an object`);
+  if (typeof g !== "object") throw new Error(`tokens.json: ${key} is not an object`);
   return g as Group;
 }
 
@@ -50,7 +50,7 @@ function colours(tokens: Group): Colour[] {
   const out: Colour[] = [];
   for (const key of ["color", "gloss-kind"]) {
     for (const [name, pair] of entries(tokens, key)) {
-      const p = (typeof pair === "object" && pair !== null ? pair : {}) as Record<string, unknown>;
+      const p = Object(pair) as Record<string, unknown>;
       for (const scheme of ["light", "dark"]) {
         if (p[scheme] === undefined) throw new Error(`tokens.json: ${key}.${name} has no ${scheme} value`);
       }
@@ -66,14 +66,14 @@ function others(tokens: Group): string[] {
   for (const key of ["font", "shadow"]) {
     for (const [name, v] of entries(tokens, key)) out.push(`--${key}-${name}: ${value(v, `${key}.${name}`)};`);
   }
-  const scale = group(tokens, "space").scale ?? [];
-  if (!Array.isArray(scale) || !scale.every((n) => Number.isInteger(n) && n >= 0)) {
-    throw new Error("tokens.json: space.scale is not a list of whole pixels");
+  // Whole, non-negative pixels only: anything else isn't a step of the scale.
+  const scale = group(tokens, "space").scale;
+  for (const n of Array.isArray(scale) ? scale : []) {
+    if (Number.isInteger(n) && n >= 0) out.push(`--space-${n}: ${n}px;`);
   }
-  for (const n of scale) out.push(`--space-${n}: ${n}px;`);
   for (const key of ["radius", "layout", "motion"]) {
     for (const [name, v] of entries(tokens, key)) {
-      const m = LEADING.exec(typeof v === "string" ? v : "");
+      const m = LEADING.exec(String(v));
       if (m) out.push(`--${key}-${name}: ${m[1]}${m[2]};`);
     }
   }
@@ -82,9 +82,7 @@ function others(tokens: Group): string[] {
 
 /** tokens.css for a parsed tokens.json. Throws on a file it can't turn into safe CSS. */
 export function tokensCss(tokens: unknown): string {
-  if (typeof tokens !== "object" || tokens === null || Array.isArray(tokens)) {
-    throw new Error("tokens.json is not an object of token groups");
-  }
+  if (typeof tokens !== "object" || tokens === null) throw new Error("tokens.json is not an object of token groups");
   const t = tokens as Group;
   const cs = colours(t);
   const lines = (pad: string, decls: string[]) => decls.map((d) => `${pad}${d}\n`).join("");
