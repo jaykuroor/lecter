@@ -10,10 +10,10 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+pub use super::bundled_palettes::{PALETTES, Palette};
 use super::gtk::css::Defines;
 use super::gtk::folders::{InstalledTheme, MAX_THEMES, ThemeDirs};
 use super::gtk::tokens::{Scheme, ThemeColors};
-pub use super::bundled_palettes::{PALETTES, Palette};
 
 /// The name suffix that pins the light variant.
 pub const LIGHT_SUFFIX: &str = "-light";
@@ -61,7 +61,9 @@ impl Bundled {
 
 /// Every bundled name, in the order of [`PALETTES`]: each theme, then its light and dark variants.
 pub fn names() -> impl Iterator<Item = String> {
-    PALETTES.iter().flat_map(|p| [p.name.to_owned(), format!("{}{LIGHT_SUFFIX}", p.name), format!("{}{DARK_SUFFIX}", p.name)])
+    PALETTES
+        .iter()
+        .flat_map(|p| [p.name.to_owned(), format!("{}{LIGHT_SUFFIX}", p.name), format!("{}{DARK_SUFFIX}", p.name)])
 }
 
 /// The installed themes and the bundled ones, each name once (an installed theme wins), sorted

@@ -100,7 +100,8 @@ pub async fn read(os: Os, tools: &AccentTools) -> Option<Rgba> {
         Os::MacOs => macos(&output(&tools.defaults, &["read", "-g", "AppleAccentColor"]).await?),
         Os::Windows => {
             for (key, name) in WINDOWS_VALUES {
-                if let Some(accent) = output(&tools.reg, &["query", key, "/v", name]).await.and_then(|t| windows(&t, name))
+                if let Some(accent) =
+                    output(&tools.reg, &["query", key, "/v", name]).await.and_then(|t| windows(&t, name))
                 {
                     return Some(accent);
                 }

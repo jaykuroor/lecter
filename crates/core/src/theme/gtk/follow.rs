@@ -10,10 +10,10 @@ use std::time::SystemTime;
 use serde::Serialize;
 
 use super::css::{Defines, read_css};
-use crate::theme::bundled::Bundled;
 use super::desktop::{Change, Desktop};
 use super::folders::ThemeDirs;
 use super::tokens::{Scheme, ThemeColors, Token, to_css};
+use crate::theme::bundled::Bundled;
 
 /// Parsed themes kept.
 const CACHE: usize = 4;

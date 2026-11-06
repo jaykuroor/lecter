@@ -221,6 +221,10 @@ describe("bundled-theme", () => {
         const page = JSON.stringify(await painted(["accent-bg"]));
         throw new Error(`${e.message}; page ${page}; core ${JSON.stringify(await invoke("theme_get"))}`);
       });
+    const accent = await painted(["accent-bg", "window-bg"]);
+    expect(accent.tokens["accent-bg"]).toBe(rgb(want));
+    // Only the accent is the OS's: the surfaces stay the Lecter theme's.
+    expect(accent.tokens["window-bg"]).not.toBe(rgb(want));
     await shot("bundled-os-accent");
   });
 });
