@@ -1452,3 +1452,34 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: one more round for F-042's real-app `theme` flow on macOS. It switches dark mode through System Events (`osascript … appearance preferences … dark mode`), only under CI, restoring the previous value. If macOS dark still fails on CI, merge with the macOS dark case reporting instead of failing, marked UNVERIFIED-ON: macos, and check it on a real Mac at the M1 gate.
 - Why: the theme passes in the real app on Linux and Windows and in the mocked page. On GitHub's macOS runner, `defaults write -g AppleInterfaceStyle Dark` was set (logged) but a freshly launched WKWebView still matched light (run 42204353129), so the gap is the runner's appearance lever, not the app.
 - Instead of: blocking F-042 after two rounds (protocol default), or merging without trying the documented lever.
+
+## D-239 · Theme tokens are generated, committed static CSS
+2026-11-06 · session F-042 · active
+- Decision: ui/src/theme/generate.ts writes ui/src/theme/tokens.css from docs/design/tokens.json; a vitest file snapshot keeps it current (`vitest run src/theme -u`), and a separate parser checks every colour value against tokens.json.
+- Why: no JS at start and no flash of the wrong theme.
+- Instead of: a Vite plugin or runtime style injection.
+
+## D-240 · Pure-CSS theme switch; no page-wide base font
+2026-11-06 · session F-042 · active
+- Decision: light tokens on :root, dark under `@media (prefers-color-scheme: dark)` unless `data-theme="light"`; `data-theme="dark"` pins dark. No listener or timer. The page-wide `font: 14px/1.5 var(--font-ui)` rule (theme/base.css) was removed.
+- Why: D-237. Measured (Chromium, 200-slide lecture, 20 flips): flip → next paint median 2.0 ms, p95 2.1 ms, style recalc ~1 ms, layout 0; ui_main_chunk_kb_gz 178.22 → 178.19; first-paint CSS +0.92 KB gz. The base font rule added ~2 ms keystroke p99 (interleaved means: no theme ~5.1, tokens ~6.0, tokens + base ~7.2 ms) and pushed verify over 8 ms.
+- Instead of: a matchMedia JS listener; a page-wide font shorthand that reaches the editor.
+- Revisit if: type.base is applied; scope it to UI containers and measure.
+
+## D-241 · Non-colour tokens take the leading length
+2026-11-06 · session F-042 · active
+- Decision: --font-*, --shadow-*, --space-N, --radius-/--layout-/--motion-* take the value's leading length ("6-7px" → 6px); type, mix, keycap and mode-colour entries stay recipes.
+- Why: tokens.json gives ranges for some lengths; CSS needs one value.
+- Instead of: midpoints or dropping ranged tokens.
+
+## D-242 · The hard-coded-colour lint is a vitest test
+2026-11-06 · session F-042 · active
+- Decision: ui/src/theme/hardcoded.ts scans ui/src (tests, __tests__, generated files and tokens.css excluded) for hex, colour functions, named and system colours in CSS values and colour contexts in TS; it runs in ui-tests (~28 ms).
+- Why: scripts/check_*.py and verify.sh are guard-protected kit files.
+- Instead of: a new scripts/check_colours.py wired into verify.sh.
+
+## D-243 · Real-app theme flow switches the OS only on CI
+2026-11-06 · session F-042 · active
+- Decision: Linux sets GTK_THEME=Adwaita[:dark] in the relaunched app's environment (session bus pointed nowhere), anywhere. macOS switches through System Events `appearance preferences … dark mode` and reads it back; Windows sets HKCU AppsUseLightTheme. Both only when CI is set, restoring the previous value in `after` and on exit (nothing restored after a failed first read). Without CI the flow checks the app follows the OS's current scheme. Colours are compared as painted rgb() of a probe inside an rgb(1, 2, 3) parent.
+- Why: `-AppleInterfaceStyle` args and a bare `defaults write -g` didn't reach WKWebView on GitHub's runner; the production build minifies custom-property text (#ffffff → #fff); a developer's OS settings must never change.
+- Instead of: comparing custom-property text, or a test-only app hook that sets the window theme.

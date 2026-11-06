@@ -1395,7 +1395,7 @@
     "screenshot:theme-dark"
    ],
    "try": "Switch the system between light and dark: Lecter follows",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 3037,
    "base": "bda8d32f055a804af12a679363b0f4394060a502"
