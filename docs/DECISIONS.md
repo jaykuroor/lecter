@@ -1446,3 +1446,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Why: the maintainer wants latency as low as can be measured, not just under budget. Measured 2026-11-05 on the author's machine (node 24): F-041's fuzzyFilter takes 0.2/0.7 ms (median/p95) per keystroke at 200 entries, 2.1/6.5 ms at 2 000 and 10.3/31.7 ms at 10 000: it re-scores every entry with a Map-based DP, per-char Unicode regex and lower-casing on each keystroke, then sorts all matches.
 - Instead of: meeting the budget at today's data sizes only.
 - Revisit if: a measured design can't reach the target; report it with numbers.
+
+## D-238 · F-042 gets a third fix round for macOS dark on CI
+2026-11-06 · maintainer · active
+- Decision: one more round for F-042's real-app `theme` flow on macOS. It switches dark mode through System Events (`osascript … appearance preferences … dark mode`), only under CI, restoring the previous value. If macOS dark still fails on CI, merge with the macOS dark case reporting instead of failing, marked UNVERIFIED-ON: macos, and check it on a real Mac at the M1 gate.
+- Why: the theme passes in the real app on Linux and Windows and in the mocked page. On GitHub's macOS runner, `defaults write -g AppleInterfaceStyle Dark` was set (logged) but a freshly launched WKWebView still matched light (run 42204353129), so the gap is the runner's appearance lever, not the app.
+- Instead of: blocking F-042 after two rounds (protocol default), or merging without trying the documented lever.
