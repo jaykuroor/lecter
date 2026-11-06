@@ -6,7 +6,7 @@
 // - Linux: GTK_THEME=Adwaita[:dark], which WebKitGTK reads for prefers-color-scheme. The session
 //   bus points nowhere, so the desktop's own colour scheme (the settings portal, which tao applies
 //   at window creation) can't override the run's choice on a developer's desktop.
-// - macOS: the global AppleInterfaceStyle default (System Settings → Appearance).
+// - macOS: System Settings → Appearance, switched through System Events (osascript).
 // - Windows: HKCU …\Themes\Personalize AppsUseLightTheme (Settings → Colours).
 // These two are the user's own settings, so the flow changes them only on CI (`CI` set) and puts
 // them back in `after` (and on exit). Elsewhere it leaves them alone and checks that the app
@@ -16,7 +16,7 @@
 // The live switch (an OS change while the app runs) is the page's prefers-color-scheme media query;
 // ui/e2e/theme.spec.ts drives it in the mocked page.
 
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -80,42 +80,51 @@ function rgb(hex: string): string {
   return `rgb(${n(1)}, ${n(3)}, ${n(5)})`;
 }
 
+/** A setting's value (`null`: absent, which means light), or why it couldn't be read. */
+type Read = { ok: true; value: string | null } | { ok: false; error: string };
+
 /**
  * A per-user OS setting that holds the light/dark preference. The flow changes it only on CI
- * (`CI` set): never on a developer's machine. `null` means the setting is absent (light).
+ * (`CI` set): never on a developer's machine.
  */
 interface OsSetting {
   /** For the log: where the preference lives. */
   name: string;
-  read(): string | null;
-  write(value: string | null): void;
+  read(): Read;
+  /** Sets the value; returns why it failed, or null. */
+  write(value: string | null): string | null;
   valueFor(scheme: Scheme): string | null;
-  schemeOf(value: string | null): Scheme;
 }
 
-const run = (cmd: string, args: string[]): string =>
-  execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-const tryRun = (cmd: string, args: string[]): string | null => {
-  try {
-    return run(cmd, args);
-  } catch {
-    return null;
-  }
-};
+/** Runs a command; `status` is null when it couldn't start. */
+function sh(cmd: string, args: string[]): { status: number | null; out: string; err: string } {
+  // A bounded wait: an automation prompt nobody can answer must not hang the run.
+  const r = spawnSync(cmd, args, { encoding: "utf8", timeout: 20_000 });
+  return {
+    status: r.error ? null : r.status,
+    out: (r.stdout ?? "").trim(),
+    err: (r.error?.message ?? r.stderr ?? "").trim(),
+  };
+}
+const failure = (r: { status: number | null; err: string }) => r.err || `exit status ${r.status}`;
 
-// macOS: the global AppleInterfaceStyle default, which System Settings → Appearance writes ("Dark",
-// or absent for light). AppKit reads it when an app starts; tao leaves NSApp's appearance unset,
-// so the window and WKWebView follow it. (The per-process `-AppleInterfaceStyle` argument did not
-// reach WKWebView's prefers-color-scheme on CI.)
+// macOS: System Settings → Appearance through System Events, which updates the session and posts
+// the theme change, so a new app (tao leaves NSApp's appearance unset) and its WKWebView follow it.
+// A bare `defaults write -g AppleInterfaceStyle` did not reach WKWebView on CI. Needs the runner
+// to allow automation of System Events; when it doesn't, the dark case reports UNVERIFIED-ON.
+const APPEARANCE = 'tell application "System Events" to tell appearance preferences to';
 const MAC: OsSetting = {
-  name: "defaults -g AppleInterfaceStyle",
-  read: () => tryRun("defaults", ["read", "-g", "AppleInterfaceStyle"])?.trim() ?? null,
-  write: (v) => {
-    if (v === null) tryRun("defaults", ["delete", "-g", "AppleInterfaceStyle"]);
-    else run("defaults", ["write", "-g", "AppleInterfaceStyle", v]);
+  name: "System Events dark mode",
+  read: () => {
+    const r = sh("osascript", ["-e", `${APPEARANCE} get dark mode`]);
+    if (r.status === 0 && (r.out === "true" || r.out === "false")) return { ok: true, value: r.out };
+    return { ok: false, error: r.status === 0 ? `unexpected answer "${r.out}"` : failure(r) };
   },
-  valueFor: (s) => (s === "dark" ? "Dark" : null),
-  schemeOf: (v) => (v === "Dark" ? "dark" : "light"),
+  write: (v) => {
+    const r = sh("osascript", ["-e", `${APPEARANCE} set dark mode to ${v === "true"}`]);
+    return r.status === 0 ? null : failure(r);
+  },
+  valueFor: (s) => String(s === "dark"),
 };
 
 // Windows: HKCU …\Themes\Personalize AppsUseLightTheme (0 dark, 1 or absent light), which
@@ -124,17 +133,25 @@ const PERSONALIZE = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\
 const WINDOWS: OsSetting = {
   name: "HKCU Personalize AppsUseLightTheme",
   read: () => {
-    const hex = /AppsUseLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(
-      tryRun("reg", ["query", PERSONALIZE, "/v", "AppsUseLightTheme"]) ?? "",
-    )?.[1];
-    return hex === undefined ? null : String(Number.parseInt(hex, 16));
+    const r = sh("reg", ["query", PERSONALIZE, "/v", "AppsUseLightTheme"]);
+    if (r.status === 0) {
+      const hex = /AppsUseLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(r.out)?.[1];
+      if (hex === undefined) return { ok: false, error: `unreadable answer "${r.out}"` };
+      return { ok: true, value: String(Number.parseInt(hex, 16)) };
+    }
+    // Absent (the key or the value): reg says it can't find it. Anything else is a failed read.
+    if (r.status === 1 && /unable to find/i.test(r.err)) return { ok: true, value: null };
+    return { ok: false, error: failure(r) };
   },
   write: (v) => {
-    if (v === null) tryRun("reg", ["delete", PERSONALIZE, "/v", "AppsUseLightTheme", "/f"]);
-    else run("reg", ["add", PERSONALIZE, "/v", "AppsUseLightTheme", "/t", "REG_DWORD", "/d", v, "/f"]);
+    const args =
+      v === null
+        ? ["delete", PERSONALIZE, "/v", "AppsUseLightTheme", "/f"]
+        : ["add", PERSONALIZE, "/v", "AppsUseLightTheme", "/t", "REG_DWORD", "/d", v, "/f"];
+    const r = sh("reg", args);
+    return r.status === 0 ? null : failure(r);
   },
   valueFor: (s) => (s === "dark" ? "0" : "1"),
-  schemeOf: (v) => (v === "0" ? "dark" : "light"),
 };
 
 const setting: OsSetting | null = process.platform === "darwin" ? MAC : process.platform === "win32" ? WINDOWS : null;
@@ -142,12 +159,17 @@ const setting: OsSetting | null = process.platform === "darwin" ? MAC : process.
 const canSwitch = setting === null || Boolean(process.env.CI);
 const LINUX_NO_BUS = `unix:path=${join(tmpdir(), "lecter-e2e-no-session-bus")}`;
 
-/** The OS setting's value before the flow changed anything; `undefined` while untouched. */
-let saved: string | null | undefined;
+/** What the setting held before the flow changed it; `undefined` while untouched. */
+let saved: Read | undefined;
+/** The last switch: whether reading the setting back gave the value set, and what the log shows. */
+let switched = { confirmed: false, note: "" };
 
 function putBack(): void {
   if (setting === null || saved === undefined) return;
-  setting.write(saved);
+  // After a failed read there is nothing known to restore: leave the setting alone.
+  const error = saved.ok ? setting.write(saved.value) : null;
+  if (!saved.ok) console.log(`theme: ${setting.name} not restored, its first read failed: ${saved.error}`);
+  else if (error) console.log(`theme: restoring ${setting.name} failed: ${error}`);
   saved = undefined;
 }
 
@@ -165,7 +187,14 @@ function launchIn(scheme: Scheme | null): Relaunch {
     const os = setting;
     how.whileClosed = () => {
       if (saved === undefined) saved = os.read();
-      os.write(os.valueFor(scheme));
+      const want = os.valueFor(scheme);
+      const error = os.write(want);
+      const back = os.read();
+      const got = back.ok ? (back.value ?? "(unset)") : `read failed: ${back.error}`;
+      switched = {
+        confirmed: error === null && back.ok && back.value === want,
+        note: `${os.name} set to ${want ?? "(unset)"}: ${error === null ? "ok" : `failed: ${error}`}; read back ${got}`,
+      };
     };
   }
   return how;
@@ -174,11 +203,17 @@ function launchIn(scheme: Scheme | null): Relaunch {
 /** For the log (the CI evidence): the OS lever as the app saw it. */
 function lever(launch: Relaunch): string {
   if (setting === null) return `GTK_THEME=${launch.env?.GTK_THEME ?? "(unset)"}`;
-  const auto =
-    process.platform === "darwin"
-      ? tryRun("defaults", ["read", "-g", "AppleInterfaceStyleSwitchesAutomatically"])
-      : null;
-  return `${setting.name} = ${setting.read() ?? "(unset)"}${auto === null ? "" : `, switches automatically = ${auto.trim()}`}`;
+  return launch.whileClosed ? switched.note : `${setting.name} left as is`;
+}
+
+/** The scheme the OS holds now, read without changing or prompting for anything. */
+function currentScheme(): Scheme {
+  if (process.platform === "darwin") {
+    // `defaults` needs no automation permission, unlike System Events.
+    return sh("defaults", ["read", "-g", "AppleInterfaceStyle"]).out === "Dark" ? "dark" : "light";
+  }
+  const now = WINDOWS.read();
+  return now.ok && now.value === "0" ? "dark" : "light";
 }
 
 /**
@@ -231,7 +266,7 @@ function cases(): { scheme: Scheme; set: Scheme | null }[] {
       { scheme: "light", set: "light" },
       { scheme: "dark", set: "dark" },
     ];
-  const current = setting?.schemeOf(setting.read()) ?? "light";
+  const current = currentScheme();
   console.log(`theme: CI is not set, so ${setting?.name} is left as is; checking the current ${current} preference`);
   return [{ scheme: current, set: null }];
 }
@@ -258,6 +293,13 @@ describe("theme", () => {
       await expect($(".app-frame")).toBeDisplayed();
       const got = await resolved(COLOURS.map(([name]) => name));
       console.log(`theme: want ${scheme}; ${lever(launch)}; webview prefers-color-scheme: dark = ${got.dark}`);
+      // D-238: on macOS the dark switch needs System Events automation. When reading the setting
+      // back doesn't confirm it, the OS never turned dark, so there is nothing for the app to
+      // follow: report it and stop. A confirmed switch the webview ignores still fails below.
+      if (process.platform === "darwin" && scheme === "dark" && set !== null && !switched.confirmed) {
+        console.log(`UNVERIFIED-ON: macos theme dark (${switched.note})`);
+        return;
+      }
       expect(got.dark).toBe(scheme === "dark");
       expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
       expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
