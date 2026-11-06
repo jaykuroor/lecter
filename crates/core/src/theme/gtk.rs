@@ -13,6 +13,7 @@ pub mod color;
 pub mod css;
 pub mod desktop;
 pub mod folders;
+pub mod follow;
 pub mod gvariant;
 pub mod tokens;
 
