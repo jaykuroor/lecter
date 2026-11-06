@@ -166,3 +166,19 @@ fn set_desktop_reports_whether_it_changed() {
     assert!(!f.set_desktop(desktop(Some("Greyish"), None, None)));
     assert_eq!(f.dirs(), &ThemeDirs::new(vec![fixture("")], vec![]));
 }
+
+#[test]
+fn ui_theme_is_a_setting_that_defaults_to_following_the_desktop() {
+    use crate::settings::{Scope, SettingsStore, Source};
+    use serde_json::json;
+    let env = TestEnv::new().unwrap();
+    let store = SettingsStore::open(&env.dirs(), None);
+    assert_eq!(store.settings().ui.theme, None);
+    assert_eq!(store.get("ui.theme").map(|r| (r.value, r.source)), Some((json!(null), Source::Default)));
+    store.set(Scope::Global, "ui.theme", json!("Greyish")).unwrap();
+    assert_eq!(store.settings().ui.theme.as_deref(), Some("Greyish"));
+    assert!(store.set(Scope::Global, "ui.theme", json!(3)).is_err());
+    let mut f = fixtures();
+    f.choose(store.settings().ui.theme);
+    assert_eq!(f.update().theme.as_deref(), Some("Greyish"));
+}
