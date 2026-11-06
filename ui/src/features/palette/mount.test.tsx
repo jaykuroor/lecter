@@ -274,6 +274,22 @@ describe("the palette in the page", () => {
     fireEvent.keyDown(input(), { key: "Escape" });
     expect(document.activeElement).toBe(document.body);
   });
+
+  it("gives the focus back once per open: a second close has nothing left to give back", async () => {
+    const root = buffer();
+    root.focus();
+    handle = startPalette(context());
+    const h = await open("switch");
+    fireEvent.keyDown(input(), { key: "Escape" });
+    expect(document.activeElement).toBe(root);
+    // Opened on the palette itself, past the handle that notes the focus: nothing to restore.
+    h.palette.open("commands");
+    await Promise.resolve();
+    expect(document.activeElement).toBe(input());
+    h.palette.close();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(document.body);
+  });
 });
 
 describe("the keys and buttons that open it", () => {

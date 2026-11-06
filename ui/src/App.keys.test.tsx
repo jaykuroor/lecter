@@ -42,26 +42,11 @@ async function start(): Promise<void> {
     rail: [onRail(stat), onRail(calc)],
     switch: { [stat.path]: stat, [calc.path]: calc },
   });
-  const core = (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, ...a: unknown[]) => unknown } })
-    .__TAURI_INTERNALS__;
-  const invoke = core.invoke;
-  let keymaps: unknown;
-  core.invoke = (cmd, ...a) => {
-    const out = invoke(cmd, ...a);
-    if (cmd === "keymaps_read") keymaps = out;
-    return out;
-  };
   render(() => <App />);
   await waitFor(() => expect(rows()).toHaveLength(2));
   // The engine loads after the first paint; until then Ctrl-9 is held back for it, and from then
   // on it goes through (there is no ninth course).
   await waitFor(() => expect(press(document.body, { key: "9", code: "Digit9", ctrlKey: true })).toBe(true));
-  // keymaps.jsonc is read once the engine is in, and its keymap starts the engine afresh: a key
-  // pressed before it is in would be dropped (F-041 found the race: a DOM change at the engine's
-  // start let the Ctrl-9 wait end early).
-  await waitFor(() => expect(keymaps).toBeDefined());
-  await keymaps;
-  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("App keys", () => {
