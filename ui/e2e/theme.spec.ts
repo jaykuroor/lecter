@@ -26,22 +26,34 @@ const windowBg = tokens.color?.["window-bg"] as Pair;
 
 /** `#rrggbb` as getComputedStyle prints it. */
 function rgb(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`tokens.json colour "${hex}" is not #rrggbb`);
   const n = (i: number) => Number.parseInt(hex.slice(i, i + 2), 16);
   return `rgb(${n(1)}, ${n(3)}, ${n(5)})`;
 }
 
-/** Every colour token's value on <html>, as name → value. */
+/**
+ * Every colour token as the colour it paints (a probe's computed `color: var(--token)`), name →
+ * `rgb(…)`. Resolved colours, not the properties' text, which the dev server serves as written and
+ * a release build minifies (`#ffffff` → `#fff`).
+ */
 function tokenValues(page: Page): Promise<Record<string, string>> {
   return page.evaluate(
     (names) => {
-      const style = getComputedStyle(document.documentElement);
-      return Object.fromEntries(names.map((n) => [n, style.getPropertyValue(`--${n}`).trim()]));
+      const probe = document.body.appendChild(document.createElement("span"));
+      const out = Object.fromEntries(
+        names.map((n) => {
+          probe.style.color = `var(--${n})`;
+          return [n, getComputedStyle(probe).color];
+        }),
+      );
+      probe.remove();
+      return out;
     },
     colours.map(([name]) => name),
   );
 }
 
-const want = (scheme: "light" | "dark") => Object.fromEntries(colours.map(([name, v]) => [name, v[scheme]]));
+const want = (scheme: "light" | "dark") => Object.fromEntries(colours.map(([name, v]) => [name, rgb(v[scheme])]));
 const frameBackground = (page: Page) =>
   page.locator(".app-frame").evaluate((el) => getComputedStyle(el).backgroundColor);
 

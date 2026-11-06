@@ -111,20 +111,31 @@ function launchIn(scheme: Scheme): Relaunch {
 
 /** `#rrggbb` as getComputedStyle prints a colour. */
 function rgb(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`tokens.json colour "${hex}" is not #rrggbb`);
   const n = (i: number) => Number.parseInt(hex.slice(i, i + 2), 16);
   return `rgb(${n(1)}, ${n(3)}, ${n(5)})`;
 }
 
-/** What the webview resolved, in one call: its colour scheme, every token, two painted colours. */
+/**
+ * What the webview resolved, in one call: its colour scheme, every token as the colour it paints
+ * (a probe element's computed `color: var(--token)`), and the frame's two colours. Resolved
+ * colours, not the properties' text: the release CSS is minified (`#ffffff` → `#fff`).
+ */
 function resolved(
   names: string[],
 ): Promise<{ dark: boolean; tokens: Record<string, string>; frame: string; text: string }> {
   return browser.execute((list: string[]) => {
-    const style = getComputedStyle(document.documentElement);
+    const probe = document.body.appendChild(document.createElement("span"));
+    const paint = (n: string) => {
+      probe.style.color = `var(--${n})`;
+      return getComputedStyle(probe).color;
+    };
+    const tokens = Object.fromEntries(list.map((n) => [n, paint(n)]));
+    probe.remove();
     const frame = document.querySelector(".app-frame");
     return {
       dark: matchMedia("(prefers-color-scheme: dark)").matches,
-      tokens: Object.fromEntries(list.map((n) => [n, style.getPropertyValue(`--${n}`).trim()])),
+      tokens,
       frame: frame ? getComputedStyle(frame).backgroundColor : "",
       text: frame ? getComputedStyle(frame).color : "",
     };
@@ -156,7 +167,7 @@ describe("theme", () => {
       await expect($(".app-frame")).toBeDisplayed();
       const got = await resolved(COLOURS.map(([name]) => name));
       expect(got.dark).toBe(scheme === "dark");
-      expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, v[scheme]])));
+      expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
       expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
       expect(got.text).toBe(rgb(tokens.color?.["window-fg"]?.[scheme] ?? ""));
 
