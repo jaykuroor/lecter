@@ -1483,3 +1483,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Linux sets GTK_THEME=Adwaita[:dark] in the relaunched app's environment (session bus pointed nowhere), anywhere. macOS switches through System Events `appearance preferences … dark mode` and reads it back; Windows sets HKCU AppsUseLightTheme. Both only when CI is set, restoring the previous value in `after` and on exit (nothing restored after a failed first read). Without CI the flow checks the app follows the OS's current scheme. Colours are compared as painted rgb() of a probe inside an rgb(1, 2, 3) parent.
 - Why: `-AppleInterfaceStyle` args and a bare `defaults write -g` didn't reach WKWebView on GitHub's runner; the production build minifies custom-property text (#ffffff → #fff); a developer's OS settings must never change.
 - Instead of: comparing custom-property text, or a test-only app hook that sets the window theme.
+
+## D-244 · F-043 gets a third fix round for a test race
+2026-11-06 · maintainer · active
+- Decision: one more round for F-043 after two fix rounds: the real-app gtk-theme flow retries its non-blocking FIFO open on ENXIO until a deadline (a few seconds) instead of failing at once, plus the reviewer's minor (build the `announce` diagnostic line only in debug/test-hooks builds). Then re-check and branch CI before merging.
+- Why: the remaining major is a race in the test harness (the flow can write before the fake monitor opens the FIFO on a slow runner), not in the product; the product fixes (orphaned monitor, ETXTBSY root cause, Windows paths, macOS case-insensitive fixture) are in and the cold-open shard is already green in CI.
+- Instead of: blocking F-043 (protocol default), or merging with a known flaky test.
