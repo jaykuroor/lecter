@@ -274,12 +274,16 @@ fn formatted_colours_are_recognised() {
     }
 }
 
+/// Theme-like text: definitions, colour syntax, functions and punctuation in any order.
+const THEME_TEXT: &str =
+    "(@define-color [a-c@]{0,3} |[#(),;@/*'\"a-f0-9 .%]|shade\\(|mix\\(|alpha\\(|rgba\\(|white){0,60}";
+
 proptest! {
     /// Whatever a theme writes, a name resolves to nothing or to colour text this crate
     /// formatted: nothing from the file reaches the UI's CSS verbatim, and the caps hold.
     #[test]
     fn any_text_resolves_only_to_formatted_colours(
-        css in "(@define-color [a-c@]{0,3} |[#(),;@/*'\"a-f0-9 .%]|shade\\(|mix\\(|alpha\\(|rgba\\(|white){0,60}"
+        css in THEME_TEXT
     ) {
         let defines = Defines::parse(&css);
         prop_assert!(defines.len() <= MAX_DEFINES);
