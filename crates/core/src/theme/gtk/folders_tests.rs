@@ -185,6 +185,27 @@ fn xdg_variables_move_the_folders_and_usr_share_stays() {
     assert_eq!(with_usr.folders.iter().filter(|p| **p == Path::new("/usr/share/themes")).count(), 1);
 }
 
+/// XDG_DATA_DIRS splits on `:` (the XDG spec) on every OS, never on `;`; empty and relative
+/// entries drop out. Paths compare by component, so the platform's separator doesn't matter.
+#[test]
+fn xdg_data_dirs_split_on_colons_only() {
+    let dirs = |v: &str| xdg_dirs(std::ffi::OsStr::new(v));
+    assert_eq!(dirs("/a:/b/c"), [PathBuf::from("/a"), PathBuf::from("/b/c")]);
+    assert_eq!(dirs("/a;/b"), [PathBuf::from("/a;/b")]);
+    assert_eq!(dirs(":/a::relative:./b:/c:"), [PathBuf::from("/a"), PathBuf::from("/c")]);
+    assert!(dirs("").is_empty());
+}
+
+/// A folder name need not be UTF-8 on Linux: it is kept as it is.
+#[cfg(unix)]
+#[test]
+fn xdg_data_dirs_keep_non_utf8_folders() {
+    use std::os::unix::ffi::OsStrExt;
+    let value = std::ffi::OsStr::from_bytes(b"/da\xfft:/b");
+    let odd = PathBuf::from(std::ffi::OsStr::from_bytes(b"/da\xfft"));
+    assert_eq!(xdg_dirs(value), [odd, PathBuf::from("/b")]);
+}
+
 #[test]
 fn empty_or_missing_home_leaves_only_system_folders() {
     let dirs = ThemeDirs::standard(env_of(&[("HOME", ""), ("XDG_DATA_HOME", "")]));

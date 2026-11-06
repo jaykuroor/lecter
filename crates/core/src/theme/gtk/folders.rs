@@ -76,7 +76,7 @@ impl ThemeDirs {
         let data_home =
             set("XDG_DATA_HOME").map(PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(".local/share")));
         let data_dirs: Vec<PathBuf> = match set("XDG_DATA_DIRS") {
-            Some(dirs) => std::env::split_paths(&dirs).filter(|p| p.is_absolute()).collect(),
+            Some(dirs) => xdg_dirs(&dirs),
             None => vec![PathBuf::from("/usr/local/share"), PathBuf::from("/usr/share")],
         };
         let mut folders = Vec::new();
@@ -158,6 +158,22 @@ fn names(dir: &Path) -> Vec<String> {
         return Vec::new();
     };
     entries.take(MAX_ENTRIES).filter_map(|e| e.ok()?.file_name().into_string().ok()).filter(|n| valid_name(n)).collect()
+}
+
+/// The folders of an `XDG_DATA_DIRS` value: split on `:`, as the XDG Base Directory spec defines
+/// it, on every OS (not on the platform's `PATH` separator, `;` on Windows). Relative entries are
+/// ignored, as the spec says; an entry counts as absolute when it starts at a root (`/a` on
+/// Windows too).
+fn xdg_dirs(value: &std::ffi::OsStr) -> Vec<PathBuf> {
+    #[cfg(unix)]
+    let parts: Vec<PathBuf> = {
+        use std::os::unix::ffi::OsStrExt;
+        value.as_bytes().split(|b| *b == b':').map(|p| PathBuf::from(std::ffi::OsStr::from_bytes(p))).collect()
+    };
+    // Outside Unix the value only ever comes from a test or a user who set it by hand.
+    #[cfg(not(unix))]
+    let parts: Vec<PathBuf> = value.to_string_lossy().split(':').map(PathBuf::from).collect();
+    parts.into_iter().filter(|p| p.has_root()).collect()
 }
 
 /// `gtk-4.0/gtk.css`, else `gtk-3.0/gtk.css`, of a theme folder, with `gtk-dark.css` beside it.
