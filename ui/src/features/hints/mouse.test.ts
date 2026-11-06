@@ -60,6 +60,7 @@ describe("mouseAction", () => {
       "Previous pane: click a pane",
       "Command palette: click here",
       "Quick switcher: click here",
+      "Settings: click here",
       "Next pane: click a pane",
       "More: click here",
     ]);

@@ -75,6 +75,8 @@ describe("the command line in the app", () => {
     );
     expect(container.querySelector(".cmdline-message-note")?.textContent).toBe("Can add input lag on slower machines.");
     const w = window as unknown as { __mockSettings?: unknown[] };
-    expect(w.__mockSettings).toEqual([{ key: "ui.performance", value: '"quality"', course: "/c/STAT311", scope: "global" }]);
+    expect(w.__mockSettings).toEqual([
+      { key: "ui.performance", value: '"quality"', course: "/c/STAT311", scope: "global" },
+    ]);
   });
 });

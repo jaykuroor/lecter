@@ -20,6 +20,8 @@ const DEFAULT_KEYSTROKES = true;
 export interface OverlayHandle {
   /** Hands over a keydown the engine has seen (App calls it after the engine, for every key). */
   typed: (e: KeyboardEvent) => void;
+  /** Turns the overlay on or off from now on (`ui.keystrokes` read, or changed in Settings). */
+  setOn: (on: boolean) => void;
   stop: () => void;
 }
 
@@ -29,7 +31,8 @@ const unshown = (e: KeyboardEvent): boolean =>
 
 /**
  * Shows the overlay in `host` for `engine`. It starts at `on`, the value of `ui.keystrokes` (on
- * when there is none), and ␣uk turns it off and on; while `hidden` (read mode) it shows nothing.
+ * when there is none), and ␣uk turns it off and on and hands the new value to `onToggle`, which
+ * writes the setting; while `hidden` (read mode) it shows nothing.
  */
 export function startOverlay(opts: {
   engine: KeyEngine;
@@ -37,6 +40,7 @@ export function startOverlay(opts: {
   mac: boolean;
   hidden: () => boolean;
   on?: boolean;
+  onToggle?: (on: boolean) => void;
 }): OverlayHandle {
   const [on, setOn] = createSignal(opts.on ?? DEFAULT_KEYSTROKES);
   const [strip, setStrip] = createSignal<Strip>(EMPTY_STRIP);
@@ -126,11 +130,16 @@ export function startOverlay(opts: {
   const dropCommand = registerCommand("ui.keystrokes", () => {
     setOn(!on());
     schedule();
+    opts.onToggle?.(on());
   });
 
   return {
     typed: (e) => {
       queue.push(e);
+      schedule();
+    },
+    setOn: (value) => {
+      setOn(value);
       schedule();
     },
     stop: () => {
