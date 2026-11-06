@@ -195,4 +195,23 @@ describe("which-key", () => {
     expect(popover()).toBeNull();
     expect(host.children).toHaveLength(0);
   });
+
+  it("starts no timer for a leader the engine takes after it stopped", () => {
+    keys.stop();
+    keys.engine.feed("<Space>", "page", "normal");
+    expect(keys.engine.pending()).toEqual(["<Space>"]);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(300);
+    expect(host.children).toHaveLength(0);
+  });
+
+  it("stays shut when a listener that wrapped it still passes changes on after the stop", () => {
+    const own = keys.engine.onChange;
+    keys.engine.onChange = (pending) => own(pending);
+    keys.stop();
+    press(" ");
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(300);
+    expect(host.children).toHaveLength(0);
+  });
 });

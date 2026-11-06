@@ -113,6 +113,7 @@ export function App() {
   let dropFind: (() => void) | undefined;
   let dropRead: (() => void) | undefined;
   let stopCmdline: (() => void) | undefined;
+  let stopWarm: (() => void) | undefined;
   let cmdlineHost: HTMLDivElement | undefined;
   let stopKeys: (() => void) | undefined;
   let hints: { refresh: () => void; stop: () => void } | undefined;
@@ -124,6 +125,7 @@ export function App() {
     dropFind?.();
     dropRead?.();
     stopCmdline?.();
+    stopWarm?.();
     keys.stop();
     hints?.stop();
     overlay?.stop();
@@ -182,7 +184,7 @@ export function App() {
           course: () => course.course()?.path ?? null,
         }).stop;
         // Runs the editor's code once while nothing is open, so the first lecture opens faster.
-        if (!lecture.lecture()) warm.prewarmEditor();
+        if (!lecture.lecture()) stopWarm = warm.prewarmEditor();
       });
     });
   });

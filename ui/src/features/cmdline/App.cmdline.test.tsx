@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { defaultFixture, trustScreen } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
 import { App } from "../../App";
@@ -56,6 +56,12 @@ async function run(container: HTMLElement, cm: Cm, line: string): Promise<void> 
 
 describe("the command line in the app", () => {
   afterEach(cleanup);
+  // The app loads the hint bar's and the overlay's chunks after the key engine's; the test can end
+  // first. Their modules must run while the page is still here (Solid's event delegation reads
+  // `window` as a module loads), so the file waits for them before jsdom goes.
+  afterAll(async () => {
+    await Promise.all([import("../hints/mount"), import("../overlay/mount")]);
+  });
 
   it(":set writes for the open course and :set key? reads it back (F-040 criteria 3 and 4)", async () => {
     const { container, cm } = await start();

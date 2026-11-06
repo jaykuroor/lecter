@@ -108,9 +108,12 @@ export function createWhichKey(opts: {
     opts.run(c.binding, 1, false);
   };
 
-  opts.engine.onChange = () => {
+  let stopped = false;
+  const follow = () => {
     clearTimeout(timer);
     timer = undefined;
+    // A listener that wrapped this one (features/overlay) may still pass changes on after the stop.
+    if (stopped) return;
     if (opts.engine.sequence()[0] !== LEADER) {
       setShown(null);
       return;
@@ -118,11 +121,13 @@ export function createWhichKey(opts: {
     if (shown()) show();
     else timer = setTimeout(show, WHICH_KEY_DELAY_MS);
   };
+  opts.engine.onChange = follow;
 
   return {
     // The popover is all there is in `mount`.
     contains: (target) => target instanceof Node && mount?.contains(target) === true,
     dispose: () => {
+      stopped = true;
       clearTimeout(timer);
       unmount?.();
       mount?.remove();

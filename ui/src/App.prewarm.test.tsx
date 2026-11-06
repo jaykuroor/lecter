@@ -6,7 +6,10 @@ import { defaultFixture, trustScreen } from "../e2e/mock-core/fixture";
 import { installMockCore } from "../e2e/mock-core/install";
 import { App } from "./App";
 
-const warm = vi.hoisted(() => ({ prewarmEditor: vi.fn() }));
+const warm = vi.hoisted(() => {
+  const stop = vi.fn();
+  return { stop, prewarmEditor: vi.fn(() => stop) };
+});
 vi.mock("./features/buffer/prewarm", () => warm);
 
 const l07 = { path: "lectures/l07.md", name: "l07.md", text: "[First block]{#s1b1}\n" };
@@ -33,6 +36,7 @@ describe("editor pre-warm", () => {
     });
     (window as unknown as { __mockStartup?: unknown[] }).__mockStartup = [];
     warm.prewarmEditor.mockClear();
+    warm.stop.mockClear();
     frames = [];
     vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f));
   });
@@ -48,6 +52,16 @@ describe("editor pre-warm", () => {
     paint();
     await waitFor(() => expect(container.querySelector(".lecture-buffer")).not.toBeNull());
     await waitFor(() => expect(warm.prewarmEditor).toHaveBeenCalledTimes(1));
+  });
+
+  it("removes the warm-up with the app, so nothing of it runs after the page is gone", async () => {
+    const { container } = render(() => <App />);
+    paint();
+    await waitFor(() => expect(container.querySelector(".lecture-buffer")).not.toBeNull());
+    await waitFor(() => expect(warm.prewarmEditor).toHaveBeenCalledTimes(1));
+    expect(warm.stop).not.toHaveBeenCalled();
+    cleanup();
+    expect(warm.stop).toHaveBeenCalledTimes(1);
   });
 
   it("is skipped when a lecture opened before the editor loaded", async () => {

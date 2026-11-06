@@ -13,7 +13,7 @@ describe("prewarmEditor", () => {
     vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f));
     const destroy = vi.spyOn(EditorView.prototype, "destroy");
 
-    prewarmEditor();
+    const stop = prewarmEditor();
     const hosts = document.querySelectorAll<HTMLElement>(".buffer-prewarm");
     expect(hosts).toHaveLength(1);
     const host = hosts[0] as HTMLElement;
@@ -46,6 +46,30 @@ describe("prewarmEditor", () => {
     expect(host.isConnected).toBe(false);
     expect(document.querySelector(".cm-editor")).toBeNull();
     // Destroyed, not just detached: its listeners and observers are gone too.
+    expect(destroy).toHaveBeenCalledTimes(1);
+    // Stopping it later (the app going away) does nothing more.
+    stop();
+    expect(destroy).toHaveBeenCalledTimes(1);
+    destroy.mockRestore();
+  });
+
+  it("is removed at once when stopped before its frame, and its frame does nothing later", async () => {
+    vi.resetModules();
+    const { prewarmEditor: warmAgain } = await import("./prewarm");
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f));
+    const destroy = vi.spyOn(EditorView.prototype, "destroy");
+
+    const stop = warmAgain();
+    expect(document.querySelectorAll(".buffer-prewarm")).toHaveLength(1);
+    stop();
+    expect(document.querySelector(".buffer-prewarm")).toBeNull();
+    expect(document.querySelector(".cm-editor")).toBeNull();
+    expect(destroy).toHaveBeenCalledTimes(1);
+
+    // The frame and the task after it still come, and leave the destroyed buffer alone.
+    for (const f of frames.splice(0)) f(performance.now());
+    await new Promise((r) => setTimeout(r, 10));
     expect(destroy).toHaveBeenCalledTimes(1);
     destroy.mockRestore();
   });

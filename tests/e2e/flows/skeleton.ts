@@ -200,8 +200,8 @@ describe("the walking skeleton end to end", function () {
 
   it("finds the edited block with :find", async () => {
     await browser.keys(":");
-    await expect($(".cm-vim-panel input")).toBeExisting();
-    expect(await enter(".cm-vim-panel input", "find clausius")).toBe(true);
+    await expect($(".cmdline-input")).toBeExisting();
+    expect(await enter(".cmdline-input", "find clausius")).toBe(true);
     const hits = () =>
       browser.execute(() =>
         Array.from(document.querySelectorAll(".find-hit"), (e) => ({
