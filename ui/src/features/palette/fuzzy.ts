@@ -38,8 +38,8 @@ interface Cell {
   score: number;
   /** The bonus the run this letter ends carries on. */
   run: number;
-  /** Where the previous query letter went (-1 for the first). */
-  from: number;
+  /** Where the previous query letter went (none for the first). */
+  from?: number;
 }
 
 /**
@@ -64,7 +64,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
       if (t[i] !== q[j]) continue;
       const own = bonusAt(raw, i);
       if (!prev) {
-        row.set(i, { score: MATCH + own, run: own, from: -1 });
+        row.set(i, { score: MATCH + own, run: own });
         continue;
       }
       const before = prev.get(i - 1);
@@ -89,7 +89,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
   const hits: number[] = [];
   for (let j = rows.length - 1, i = end[0]; j >= 0; j--) {
     hits.unshift(i);
-    i = ((rows[j] as Map<number, Cell>).get(i) as Cell).from;
+    i = ((rows[j] as Map<number, Cell>).get(i) as Cell).from as number;
   }
   return { score: end[1].score, hits };
 }

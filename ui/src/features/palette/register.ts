@@ -24,7 +24,7 @@ export function registerPalette(
   const started: Promise<PaletteHandle | null> = load().then((m) => (gone ? null : m.startPalette(ctx)));
   const open = (mode: PaletteMode) => {
     void started.then((p) => {
-      if (!gone) p?.open(mode);
+      if (p && !gone) p.open(mode);
     });
   };
   const drops = [

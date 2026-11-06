@@ -67,21 +67,23 @@ const KIND: Readonly<Record<SwitchEntry["kind"], string>> = {
 };
 
 export function createPalette(opts: PaletteOptions): Palette {
-  const [mode, setMode] = createSignal<PaletteMode | null>(null);
+  // The list open now; the palette's commands and what can run, as they were when it opened.
+  const [opened, setOpened] = createSignal<
+    { mode: "switch" } | { mode: "commands"; commands: { entry: CommandEntry; runs: boolean }[] } | null
+  >(null);
+  const mode = createMemo(() => opened()?.mode ?? null);
   const [query, setQueryText] = createSignal("");
   const [picked, setPicked] = createSignal(0);
-  // The commands and what can run, as they were when the palette opened.
-  const [commands, setCommands] = createSignal<{ entry: CommandEntry; runs: boolean }[]>([]);
 
   type Item = { row: Omit<Row, "hits">; take: () => void };
   const items = createMemo<Item[]>(() => {
-    const m = mode();
-    if (m === "commands")
-      return commands().map(({ entry, runs }) => ({
+    const m = opened();
+    if (m?.mode === "commands")
+      return m.commands.map(({ entry, runs }) => ({
         row: { id: entry.id, label: entry.title, keys: entry.keys, kind: "", detail: entry.where, disabled: !runs },
         take: () => opts.onCommand(entry),
       }));
-    if (m === "switch")
+    if (m?.mode === "switch")
       return opts.places().map((entry) => ({
         row: {
           id: entry.id,
@@ -106,7 +108,7 @@ export function createPalette(opts: PaletteOptions): Palette {
 
   const close = (restore = true) => {
     if (mode() === null) return;
-    setMode(null);
+    setOpened(null);
     setQuery("");
     if (restore) opts.restore();
   };
@@ -130,9 +132,12 @@ export function createPalette(opts: PaletteOptions): Palette {
       item.take();
     },
     open: (next) => {
-      if (next === "commands") setCommands(opts.commands().map((entry) => ({ entry, runs: opts.canRun(entry) })));
       setQuery("");
-      setMode(next);
+      setOpened(
+        next === "commands"
+          ? { mode: next, commands: opts.commands().map((entry) => ({ entry, runs: opts.canRun(entry) })) }
+          : { mode: next },
+      );
     },
     close,
   };

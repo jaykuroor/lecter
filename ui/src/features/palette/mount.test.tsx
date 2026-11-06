@@ -329,6 +329,8 @@ describe("the keys and buttons that open it", () => {
       resolve = r;
     });
     const stop = registerPalette(context(), () => loading);
+    // A key while the chunk loads, then the stop: nothing opens once it is in.
+    runCommand({ binding: command("switcher.open"), count: 1, explicit: false });
     stop();
     resolve({ startPalette: () => calls.push("start") } as unknown as typeof import("./mount"));
     await flush();

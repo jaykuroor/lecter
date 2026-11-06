@@ -50,7 +50,8 @@ export function PaletteBox(props: { palette: Palette }): JSX.Element {
   createEffect(() => {
     const i = p.picked();
     if (p.mode() === null) return;
-    list?.querySelector(`#${optionId(i)}`)?.scrollIntoView?.({ block: "nearest" });
+    // The list is in the page whenever the box is; it has no row to show when nothing matches.
+    (list as HTMLDivElement).querySelector(`#${optionId(i)}`)?.scrollIntoView?.({ block: "nearest" });
   });
 
   const onKeyDown = (e: KeyboardEvent) => {

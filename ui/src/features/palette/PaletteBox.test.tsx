@@ -68,6 +68,7 @@ describe("the palette box", () => {
     const sidebar = options().find((o) => o.textContent?.includes("Toggle sidebar")) as HTMLElement;
     expect(sidebar.getAttribute("aria-disabled")).toBeNull();
     expect(sidebar.getAttribute("aria-keyshortcuts")).toBe("␣e");
+    expect(next.getAttribute("aria-keyshortcuts")).toBe("Ctrl-j ]]");
   });
 
   it("filters as you type and marks the matched letters", () => {
@@ -80,6 +81,13 @@ describe("the palette box", () => {
     expect(marks).toEqual(["l07"]);
     expect(options()[0]?.querySelector(".palette-label")?.textContent).toBe("2026-10-23-l07-covariance.md");
     expect(options()[0]?.querySelector(".palette-kind")?.textContent).toBe("Lecture");
+  });
+
+  it("opens on an empty list", () => {
+    const { palette } = setup([]);
+    palette.open("switch");
+    expect(options()).toHaveLength(0);
+    expect(screen.getByText("No matches")).toBeTruthy();
   });
 
   it("says when nothing matches", () => {

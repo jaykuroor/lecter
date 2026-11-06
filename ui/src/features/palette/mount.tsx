@@ -6,7 +6,7 @@
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import type { CourseOpened, KnownCourse } from "../../core/course";
-import { hasCommand } from "../../keys/commands";
+import { hasCommand, runCommand } from "../../keys/commands";
 import { runWithoutKey, vimTakes } from "../../keys/dispatch";
 import type { Binding } from "../../keys/keymap";
 import { locate } from "../../keys/locate";
@@ -50,7 +50,8 @@ export function startPalette(ctx: PaletteContext): PaletteHandle {
   const restore = () => {
     const el = before;
     before = null;
-    if (el?.isConnected) el.focus();
+    // Focusing an element that has gone does nothing.
+    el?.focus();
   };
 
   /** Whether a command can run from where the focus was: its handler, or Vim in the buffer. */
@@ -75,7 +76,7 @@ export function startPalette(ctx: PaletteContext): PaletteHandle {
     } else if (entry.kind === "list") {
       // The list's own view once a feature handles its `␣x` command; until then its sidebar row.
       const binding = ctx.bindings().find((b) => b.command === entry.target);
-      if (!binding || !runWithoutKey(binding, [], null)) reveal("list", entry.label);
+      if (!binding || !runCommand({ binding, count: 1, explicit: false })) reveal("list", entry.label);
     } else reveal("source", entry.target);
   };
 
@@ -101,10 +102,8 @@ export function startPalette(ctx: PaletteContext): PaletteHandle {
   return {
     palette,
     open: (mode) => {
-      if (palette.mode() === null) {
-        const active = document.activeElement;
-        before = active instanceof HTMLElement && !ctx.host.contains(active) ? active : null;
-      }
+      // Opening the other list over one keeps where the focus was before the first.
+      if (palette.mode() === null) before = document.activeElement as HTMLElement | null;
       palette.open(mode);
     },
     stop: () => {

@@ -67,6 +67,8 @@ describe("fuzzyMatch's score (16 a letter; +8 a word start, +7 a camel hump; a r
   it("prefers a later run to a gap from a word start when it scores more", () => {
     // c0 + e9 would be 24 + (16 - 10) = 30; c8 e9 is 16 + 20 = 36.
     expect(fuzzyMatch("ce", "covariance")).toEqual({ score: 36, hits: [8, 9] });
+    // …and a gap from a strong run to a weak one: c after a…b (48 - 4 + 16) beats c right after x…b (36 + 20).
+    expect(fuzzyMatch("abc", "abxbc")).toEqual({ score: 60, hits: [0, 1, 4] });
   });
 
   it("keeps letters together on a tie with a gap, and the earliest end on a tie of ends", () => {
