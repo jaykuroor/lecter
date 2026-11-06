@@ -13,6 +13,7 @@ use super::css::{Defines, read_css};
 use super::desktop::{Change, Desktop};
 use super::folders::ThemeDirs;
 use super::tokens::{Scheme, ThemeColors, Token, to_css};
+use crate::theme::bundled::Bundled;
 
 /// Parsed themes kept.
 const CACHE: usize = 4;
@@ -38,12 +39,38 @@ pub struct Follower {
     cache: Vec<(PathBuf, Option<SystemTime>, Arc<ThemeColors>)>,
     reads: usize,
     stylesheet: Option<PathBuf>,
+    bundled: bool,
+}
+
+/// The theme an update applies.
+enum Found {
+    Installed(String, super::folders::ThemeFiles),
+    Bundled(String, Bundled),
 }
 
 impl Follower {
     /// Looks themes up in `dirs`.
     pub fn new(dirs: ThemeDirs) -> Self {
-        Self { dirs, desktop: Desktop::default(), chosen: None, cache: Vec::new(), reads: 0, stylesheet: None }
+        Self {
+            dirs,
+            desktop: Desktop::default(),
+            chosen: None,
+            cache: Vec::new(),
+            reads: 0,
+            stylesheet: None,
+            bundled: false,
+        }
+    }
+
+    /// Also offers the bundled themes (macOS and Windows) for `ui.theme`; an installed theme of
+    /// the same name wins.
+    pub fn offer_bundled(&mut self) {
+        self.bundled = true;
+    }
+
+    /// Whether the bundled themes are offered.
+    pub fn offers_bundled(&self) -> bool {
+        self.bundled
     }
 
     /// The theme folders.
@@ -86,20 +113,27 @@ impl Follower {
         self.reads
     }
 
-    /// The update for the current state. The chosen theme wins when it is installed, then the
-    /// desktop's; the desktop's accent wins over the theme's. Blocking (it may read a
-    /// stylesheet): async callers run it in `spawn_blocking`.
+    /// The update for the current state. The chosen theme wins when it is installed (or
+    /// bundled, when offered), then the desktop's; the desktop's accent wins over the theme's.
+    /// Blocking (it may read a stylesheet): async callers run it in `spawn_blocking`.
     pub fn update(&mut self) -> ThemeUpdate {
         let preference = self.desktop.scheme;
-        let found = [self.chosen.as_deref(), self.desktop.theme.as_deref()]
-            .into_iter()
-            .flatten()
-            .find_map(|name| self.dirs.find(name).map(|files| (name.to_owned(), files)));
+        let installed = |name: &str| self.dirs.find(name).map(|files| Found::Installed(name.to_owned(), files));
+        let chosen = self.chosen.as_deref().and_then(|name| {
+            installed(name).or_else(|| {
+                self.bundled.then(|| Bundled::find(name)).flatten().map(|b| Found::Bundled(name.to_owned(), b))
+            })
+        });
+        let found = chosen.or_else(|| self.desktop.theme.as_deref().and_then(installed));
         let (theme, colors) = match found {
-            Some((name, files)) => {
+            Some(Found::Installed(name, files)) => {
                 let css = files.for_scheme(preference);
                 self.stylesheet = Some(css.to_path_buf());
                 (Some(name), Some(self.colors(css)))
+            }
+            Some(Found::Bundled(name, bundled)) => {
+                self.stylesheet = None;
+                (Some(name), Some(Arc::new(bundled.colors(bundled.scheme(preference)))))
             }
             None => {
                 self.stylesheet = None;

@@ -5,6 +5,8 @@
 //! current tokens, `theme_list` the installed GTK themes; choosing one is `settings_set ui.theme`.
 //! The UI applies an update as one batch of CSS custom properties on the root (D-240). The
 //! monitor child is stopped, killed and reaped when the app exits ([`Themes::shutdown`]).
+//! On macOS and Windows the shell follows the OS light/dark mode and accent colour instead
+//! ([`os`]), offers the bundled themes and looks for GTK theme folders in `~/.themes` (F-044).
 
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::Duration;
@@ -12,6 +14,8 @@ use std::time::Duration;
 use lecter_ai::CancellationToken;
 use lecter_core::paths::AppDirs;
 use lecter_core::settings::SettingsStore;
+use lecter_core::theme::accent::AccentTools;
+use lecter_core::theme::bundled;
 use lecter_core::theme::gtk::desktop::Change;
 use lecter_core::theme::gtk::folders::{InstalledTheme, ThemeDirs};
 use lecter_core::theme::gtk::follow::{Follower, ThemeUpdate};
@@ -35,6 +39,7 @@ pub struct ThemeChanged {
 pub struct Themes {
     shared: Arc<Mutex<Shared>>,
     tools: Tools,
+    accent_tools: AccentTools,
     monitor: Arc<Monitor>,
 }
 
@@ -57,16 +62,33 @@ impl Themes {
     /// Themes from `dirs`, with the desktop read through `tools`.
     pub fn new(dirs: ThemeDirs, tools: Tools) -> Self {
         let shared = Arc::new(Mutex::new(Shared { follower: Follower::new(dirs), last: None }));
-        Self { shared, tools, monitor: Arc::default() }
+        Self { shared, tools, accent_tools: AccentTools::default(), monitor: Arc::default() }
     }
 
-    /// The standard folders and tools; in debug builds a test hook can replace both.
+    /// Also offers the bundled themes for `ui.theme` and in [`theme_list`].
+    pub fn offer_bundled(self) -> Self {
+        self.with(|s| s.follower.offer_bundled());
+        self
+    }
+
+    /// The standard folders and tools: on Linux the GTK theme folders, elsewhere `~/.themes` and
+    /// the bundled themes. In debug builds a test hook can replace the folders and tools, and
+    /// another offer the bundled themes on Linux too.
     pub fn standard() -> Self {
+        let linux = cfg!(target_os = "linux");
+        #[cfg(any(debug_assertions, feature = "test-hooks"))]
+        let hooked_bundled = crate::test_hooks::bundled_offered();
         #[cfg(any(debug_assertions, feature = "test-hooks"))]
         if let Some((dirs, tools)) = crate::test_hooks::gtk_desktop() {
-            return Self::new(dirs, tools);
+            let themes = Self::new(dirs, tools);
+            return if !linux || hooked_bundled { themes.offer_bundled() } else { themes };
         }
-        Self::new(ThemeDirs::standard(|k| std::env::var_os(k)), Tools::default())
+        let env = |k: &str| std::env::var_os(k);
+        if linux {
+            Self::new(ThemeDirs::standard(env), Tools::default())
+        } else {
+            Self::new(bundled::user_dirs(env), Tools::default()).offer_bundled()
+        }
     }
 
     fn with<T>(&self, f: impl FnOnce(&mut Shared) -> T) -> T {
@@ -122,9 +144,11 @@ impl Themes {
         !*running
     }
 
-    /// The installed GTK themes. Blocking.
+    /// The installed GTK themes, and the bundled ones when offered. Blocking.
     fn list(&self) -> Vec<InstalledTheme> {
-        self.with(|s| s.follower.dirs().clone()).list()
+        let (dirs, offered) = self.with(|s| (s.follower.dirs().clone(), s.follower.offers_bundled()));
+        let installed = dirs.list();
+        if offered { bundled::offer(installed) } else { installed }
     }
 }
 
@@ -140,8 +164,9 @@ pub async fn theme_get(themes: State<'_, Themes>) -> Result<ThemeUpdate, IpcErro
     Ok(update)
 }
 
-/// The installed GTK themes (`/usr/share/themes`, `~/.themes`, `~/.local/share/themes`,
-/// Flatpak theme extensions), by name; `settings_set ui.theme` applies one.
+/// The installed GTK themes (Linux: `/usr/share/themes`, `~/.themes`, `~/.local/share/themes`,
+/// Flatpak theme extensions; macOS and Windows: `~/.themes`), plus on macOS and Windows the
+/// bundled themes (an empty `folder`), by name; `settings_set ui.theme` applies one.
 #[tauri::command]
 #[specta::specta]
 pub async fn theme_list(themes: State<'_, Themes>) -> Result<Vec<InstalledTheme>, IpcError> {
@@ -166,7 +191,7 @@ pub fn follow(app: &AppHandle, dirs: AppDirs) {
             follow_desktop(&app, &themes).await;
         } else {
             diag(format_args!("not Linux: the desktop's GTK settings aren't read"));
-            announce(&app, &themes).await;
+            os::follow(&app, &themes).await;
         }
     });
 }
@@ -263,5 +288,6 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) 
         .map_err(|_| IpcError::new(ErrorCode::Internal, "Lecter could not read the themes."))
 }
 
+mod os;
 #[cfg(test)]
 mod tests;

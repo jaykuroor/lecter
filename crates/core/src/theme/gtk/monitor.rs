@@ -185,7 +185,7 @@ async fn gsettings_get(tools: &Tools, key: &str) -> Option<Change> {
 
 /// A command's standard output when it succeeds within [`READ_TIMEOUT`] and prints at most
 /// [`MAX_TEXT_BYTES`].
-async fn output(program: &OsString, args: &[&str]) -> Option<String> {
+pub(crate) async fn output(program: &OsString, args: &[&str]) -> Option<String> {
     let run = async {
         let mut child = spawn(program, args).await.ok()?;
         let mut out = Vec::new();
@@ -217,6 +217,9 @@ fn command(program: &OsString, args: &[&str]) -> Command {
     cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
     #[cfg(target_os = "linux")]
     die_with_parent(&mut cmd);
+    // A console program started from a GUI app would open a console window: CREATE_NO_WINDOW.
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000);
     cmd
 }
 

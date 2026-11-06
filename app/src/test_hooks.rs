@@ -9,6 +9,8 @@
 //! - `LECTER_TEST_GTK=<dir>`: the desktop's theme settings come from `<dir>/gdbus` and
 //!   `<dir>/gsettings` (fakes) and GTK themes from `<dir>/themes` only; an empty folder means
 //!   no desktop settings and no themes (F-043).
+//! - `LECTER_TEST_BUNDLED=1`: the bundled themes are offered on Linux too, as on macOS and
+//!   Windows, so a Linux run can drive them (F-044).
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -19,6 +21,7 @@ use lecter_core::theme::gtk::monitor::Tools;
 const PICK_VAR: &str = "LECTER_TEST_PICK";
 const TRUST_VAR: &str = "LECTER_TEST_TRUST";
 const GTK_VAR: &str = "LECTER_TEST_GTK";
+const BUNDLED_VAR: &str = "LECTER_TEST_BUNDLED";
 
 /// The theme folders and desktop tools a run substitutes, if it set some.
 pub fn gtk_desktop() -> Option<(ThemeDirs, Tools)> {
@@ -29,6 +32,11 @@ fn gtk_from(value: Option<OsString>) -> Option<(ThemeDirs, Tools)> {
     let dir = pick_from(value)?;
     let tools = Tools { gdbus: dir.join("gdbus").into(), gsettings: dir.join("gsettings").into() };
     Some((ThemeDirs::new(vec![dir.join("themes")], vec![]), tools))
+}
+
+/// Whether the run offers the bundled themes on every OS.
+pub fn bundled_offered() -> bool {
+    trust_from(std::env::var_os(BUNDLED_VAR))
 }
 
 /// The path a dialog returns instead of opening, if the run set one.
@@ -46,7 +54,7 @@ fn pick_from(value: Option<OsString>) -> Option<PathBuf> {
     value.filter(|v| !v.is_empty()).map(PathBuf::from)
 }
 
-/// Only exactly `1` answers; anything else leaves the question to the user.
+/// Only exactly `1` answers (or turns a hook on); anything else leaves the question to the user.
 fn trust_from(value: Option<OsString>) -> bool {
     value.is_some_and(|v| v == "1")
 }

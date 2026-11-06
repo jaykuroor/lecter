@@ -21,6 +21,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { osAccent, pinAccent, pinned } from "../support/accent.ts";
 import { type Relaunch, relaunch, stopRelaunched } from "../support/relaunch.ts";
 import { shot } from "../support/shot.ts";
 
@@ -162,10 +163,14 @@ const NO_GTK = join(tmpdir(), "lecter-e2e-no-gtk-desktop");
 
 /** What the setting held before the flow changed it; `undefined` while untouched. */
 let saved: Read | undefined;
+/** Puts the OS accent back after CI pinned it (F-044); null when nothing was changed. */
+let restoreAccent: (() => void) | null = null;
 /** The last switch: whether reading the setting back gave the value set, and what the log shows. */
 let switched = { confirmed: false, note: "" };
 
 function putBack(): void {
+  restoreAccent?.();
+  restoreAccent = null;
   if (setting === null || saved === undefined) return;
   // After a failed read there is nothing known to restore: leave the setting alone.
   const error = saved.ok ? setting.write(saved.value) : null;
@@ -249,6 +254,26 @@ function resolved(
   }, names);
 }
 
+/**
+ * Since F-044 the app follows the OS accent on macOS and Windows. On CI the flow pins it to
+ * Lecter's own (#3584e4; tokens.json's accent derives from it), so every token stays exactly
+ * tokens.json's. Off CI the accent is the user's own and left alone: then accent-bg must be the
+ * OS accent, and accent the core's text form of it (its derivation is unit-tested in lecter-core).
+ */
+async function followOsAccent(want: Record<string, string>): Promise<void> {
+  const os = process.env.CI ? null : osAccent();
+  if (os === null || os === pinned("lecter")) return;
+  const core = await browser.execute(async () => {
+    type Internals = { invoke: (cmd: string, args?: unknown) => Promise<unknown> };
+    const internals = (window as unknown as { __TAURI_INTERNALS__: Internals }).__TAURI_INTERNALS__;
+    const update = (await internals.invoke("theme_get", {})) as { tokens: { name: string; value: string }[] };
+    return update.tokens.find((t) => t.name === "accent")?.value ?? "";
+  });
+  console.log(`theme: CI is not set; the OS accent ${os} applies (core accent ${core})`);
+  want["accent-bg"] = rgb(os);
+  want.accent = rgb(core);
+}
+
 /** Opens the course and the lecture by mouse, then a gloss prompt (`a`), whose card shows its kind's colour. */
 async function openGlossPrompt(): Promise<void> {
   // The folder dialog answers LECTER_TEST_PICK.
@@ -279,6 +304,8 @@ describe("theme", () => {
   before(() => {
     mkdirSync(join(course(), "lectures"), { recursive: true });
     writeFileSync(join(course(), "lectures", NAME), LECTURE);
+    // On CI, Lecter's own accent, so the OS's doesn't replace it (F-044).
+    if (process.env.CI) restoreAccent = pinAccent("lecter", "theme");
     // A crash between a test and `after` must not leave the OS switched either.
     process.once("exit", putBack);
   });
@@ -305,7 +332,9 @@ describe("theme", () => {
         return;
       }
       expect(got.dark).toBe(scheme === "dark");
-      expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
+      const want: Record<string, string> = Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])]));
+      await followOsAccent(want);
+      expect(got.tokens).toEqual(want);
       expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
       expect(got.text).toBe(rgb(tokens.color?.["window-fg"]?.[scheme] ?? ""));
       await openGlossPrompt();
