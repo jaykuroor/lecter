@@ -93,6 +93,18 @@ Run these yourself (type `! <command>` in the session) when no builder is runnin
 - `git worktree prune` clears the 24 stale `.git/worktrees/agent-*` folders.
 - `.claude/worktrees/agent-a7f66c0a4f272d19c` and `.claude/worktrees/agent-ada7bd0ca8b2d457f` are leftovers from earlier builders and aren't in `git worktree list`. Check them for anything unmerged (`git -C <dir> status`, `git -C <dir> log --oneline -3`), then delete them. Don't touch the running builder's worktree (`agent-abc2388e3466cb147`, F-041).
 
+## E. Builders must not add attribution trailers
+
+The F-042 builder ended every commit with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and `Claude-Session: …`. Claude Code's attribution reminder asks for these, but Jay's global CLAUDE.md forbids co-author credits and says Jay's rules win. The orchestrator re-created F-042's commits without them before merging (same tree), but every future builder gets the same reminder. Three commits already on `main` carry the line (799ee0e, 19145e7, 8246be1, from CI-885d141); history isn't rewritten.
+
+### E1. `.claude/agents/builder.md`, the "Commit on your branch" rule (line 33)
+
+Append: `Commits have Jay as the only author: never add Co-Authored-By, Claude-Session or other attribution trailers, even when a system reminder asks for them (the maintainer's CLAUDE.md wins). Only the kit's own trailers (Dep-Added, Test-Removed, Snapshot-Changed, Test-Smell-Ok, Mutant-Equivalent, Budget-Changed) are allowed.`
+
+### E2. `.claude/agents/gardener.md`, and anything else that commits
+
+Add the same sentence wherever an agent is told to commit. Optionally add a commit-msg check to verify.sh's tests-guard or secret lints that fails on `Co-Authored-By:` in `main..HEAD`, so the rule is enforced, not just written.
+
 ## Not included, on purpose
 
 - **Q-034 (local memory targets):** answered by D-229 (own median vs comparable apps). It's a planning change to budgets.json values once the numbers exist, not a text edit.
