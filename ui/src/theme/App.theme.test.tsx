@@ -44,4 +44,25 @@ describe("the app and the GTK theme", () => {
     send(greyish);
     expect(windowBg()).toBe("#1e1e1e");
   });
+
+  it("stops the follower that starts after the app is already gone", async () => {
+    document.documentElement.removeAttribute("style");
+    installMockCore({ ...defaultFixture, theme: { update: greyish, installed: [] } });
+    // Unmount while the follower waits for the core's first answer: it already listens, and the
+    // app is gone by the time it hands over its stopper.
+    type Internals = { invoke: (cmd: string, args: unknown) => unknown };
+    const internals = (window as unknown as { __TAURI_INTERNALS__: Internals }).__TAURI_INTERNALS__;
+    const invoke = internals.invoke.bind(internals);
+    let unmount: (() => void) | undefined;
+    internals.invoke = (cmd, args) => {
+      if (cmd === "theme_get") unmount?.();
+      return invoke(cmd, args);
+    };
+    ({ unmount } = render(() => <App />));
+    await waitFor(() => expect(windowBg()).toBe("#f7f7f7"));
+    // Let the start-up chain hand over its stopper and the unlisten run.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    send(night);
+    expect(windowBg()).toBe("#f7f7f7");
+  });
 });
