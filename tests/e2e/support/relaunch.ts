@@ -44,25 +44,44 @@ async function waitFor(done: () => Promise<boolean>, ms: number, what: string): 
 
 let relaunched: ChildProcess | null = null;
 
+/** How `relaunch` starts the app. */
+export interface Relaunch {
+  /** Its output goes to `<log>.log` in the run's output folder. */
+  log: string;
+  /** Variables added to the run's environment; an `undefined` one is removed. */
+  env?: Record<string, string | undefined>;
+  /** Command-line arguments (macOS reads `-Key value` pairs as user defaults). */
+  args?: string[];
+  /** Runs once the old app has quit and before the new one starts (e.g. to reset the app's state). */
+  whileClosed?: () => void;
+}
+
 /**
  * Quits the service's app (it has the hook) and starts one without it, its folder dialog
  * answering `course`; its output goes to `<log>.log` in the run's output folder. `whileClosed`
  * runs once the old app has quit and before the new one starts (e.g. to reset the app's state).
  */
-export async function relaunchWithoutTrustHook(course: string, log: string, whileClosed?: () => void): Promise<void> {
+export function relaunchWithoutTrustHook(course: string, log: string, whileClosed?: () => void): Promise<void> {
+  return relaunch({
+    log,
+    env: { LECTER_TEST_PICK: course, [HOOK]: undefined },
+    ...(whileClosed ? { whileClosed } : {}),
+  });
+}
+
+/** Quits the running app (the service's or an earlier relaunch) and starts it again as `how` says. */
+export async function relaunch(how: Relaunch): Promise<void> {
   await browser.closeWindow().catch(() => undefined);
   await waitFor(async () => !(await alive()), 30_000, "the app to quit");
-  whileClosed?.();
+  how.whileClosed?.();
   const out = process.env.LECTER_E2E_OUT;
-  const file = out ? openSync(join(out, `${log}.log`), "w") : "ignore";
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    LECTER_TEST_PICK: course,
-    TAURI_WEBDRIVER_PORT: String(port()),
-    WDIO_EMBEDDED_SERVER: "true",
-  };
-  delete env[HOOK];
-  relaunched = spawn(APP, [], { env, stdio: ["ignore", file, file] });
+  const file = out ? openSync(join(out, `${how.log}.log`), "w") : "ignore";
+  const env: NodeJS.ProcessEnv = { ...process.env, TAURI_WEBDRIVER_PORT: String(port()), WDIO_EMBEDDED_SERVER: "true" };
+  for (const [name, value] of Object.entries(how.env ?? {})) {
+    if (value === undefined) delete env[name];
+    else env[name] = value;
+  }
+  relaunched = spawn(APP, how.args ?? [], { env, stdio: ["ignore", file, file] });
   if (typeof file === "number") closeSync(file);
   await waitFor(alive, 60_000, "the relaunched app's WebDriver server");
   await browser.reloadSession();

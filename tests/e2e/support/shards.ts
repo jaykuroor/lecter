@@ -29,6 +29,8 @@ export const SECONDS: Record<string, Record<string, number>> = {
     "open-folder": 1,
     // Estimated from restart.ts (one relaunch) until a run measures it.
     trust: 6,
+    // Estimated from trust.ts (two relaunches and a lecture) until a run measures it.
+    theme: 12,
   },
   darwin: {
     idle: 801,
@@ -46,6 +48,8 @@ export const SECONDS: Record<string, Record<string, number>> = {
     "open-folder": 1,
     // Estimated from restart.ts (one relaunch) until a run measures it.
     trust: 6,
+    // Estimated from trust.ts (two relaunches and a lecture) until a run measures it.
+    theme: 12,
   },
   win32: {
     idle: 903,
@@ -62,6 +66,8 @@ export const SECONDS: Record<string, Record<string, number>> = {
     "open-folder": 3,
     // Estimated from restart.ts (one relaunch) until a run measures it.
     trust: 6,
+    // Estimated from trust.ts (two relaunches and a lecture) until a run measures it.
+    theme: 12,
     shell: 3,
   },
 };
