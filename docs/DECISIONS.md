@@ -1526,3 +1526,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: `theme:` lines (source read, monitor started, tokens sent, theme_get answers, monitor ended) go to stderr only under cfg(any(debug_assertions, feature = "test-hooks")), built lazily so release does no formatting; they carry theme names and paths, never user text. Release keeps tracing::warn! for a monitor that ends or can't run. The desktop-monitor tests run on Unix only (sh and mkfifo fakes; the desktop is read only on Linux).
 - Why: the app installs no tracing subscriber, so CI's app log is the only place a failure shows; release shouldn't pay for it.
 - Instead of: tracing::info lines nobody sees.
+
+## D-251 · Yaru and Breeze ship as colour values
+2026-11-06 · session F-044 · active · decider: maintainer
+- Decision: the bundled Yaru (GPL-3.0/CC-BY-SA-4.0) and Breeze (LGPL/GPL) themes ship as transcribed hex colour values only, with no theme code, CSS or assets copied. Catppuccin, Gruvbox and Nord are MIT; Adwaita's values already ship in tokens.json.
+- Why: colour values are facts, not code, so the "never GPL" dependency rule isn't touched; the spec lists all six themes.
+- Instead of: dropping Yaru and Breeze, or renaming them to neutral names.
