@@ -13,11 +13,11 @@
 // the old value back after; elsewhere it leaves the user's setting alone and expects what the OS
 // holds now. On Linux the accent comes from the desktop portal (F-043, gtk-theme.ts).
 
-import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { osAccent, pinAccent, pinned } from "../support/accent.ts";
 import { relaunch, stopRelaunched } from "../support/relaunch.ts";
 import { shot } from "../support/shot.ts";
 
@@ -26,80 +26,17 @@ const DIR = join(tmpdir(), `lecter-e2e-bundled-${process.pid}`);
 const THEMES = ["Adwaita", "Yaru", "Breeze", "Catppuccin", "Gruvbox", "Nord"];
 const ON_CI = Boolean(process.env.CI);
 /** Lecter's own accent (tokens.json accent-bg), when the OS sets none. */
-const LECTER_ACCENT = "#3584e4";
-/** The accent CI sets: macOS Green (AppleAccentColor 3), and the same colour on Windows. */
-const CI_ACCENT = "#62ba46";
-const MAC_ACCENTS: Record<string, string> = {
-  "-1": "#989898",
-  "0": "#e0383e",
-  "1": "#f7821b",
-  "2": "#ffc726",
-  "3": "#62ba46",
-  "4": "#007aff",
-  "5": "#953d96",
-  "6": "#f74f9e",
-};
-const WIN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent";
-const WIN_DWM = "HKCU\\Software\\Microsoft\\Windows\\DWM";
+const LECTER_ACCENT = pinned("lecter");
+/** The accent CI pins: macOS Green (AppleAccentColor 3), and the same colour on Windows. */
+const CI_ACCENT = pinned("green");
 
 function rgb(hex: string): string {
   const n = Number.parseInt(hex.slice(1), 16);
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
-function sh(cmd: string, args: string[]): { status: number | null; out: string } {
-  const r = spawnSync(cmd, args, { encoding: "utf8", timeout: 20_000 });
-  return { status: r.error ? null : r.status, out: (r.stdout ?? "").trim() };
-}
-
-/** A `reg query` answer's REG_DWORD, `0xAABBGGRR`, as `#rrggbb`; null when there is none. */
-function regAccent(key: string, name: string): string | null {
-  const r = sh("reg", ["query", key, "/v", name]);
-  const m = r.status === 0 ? /REG_DWORD\s+0x([0-9a-f]+)/i.exec(r.out) : null;
-  if (!m?.[1]) return null;
-  const v = Number.parseInt(m[1], 16);
-  const hex = (n: number) => n.toString(16).padStart(2, "0");
-  return `#${hex(v & 255)}${hex((v >> 8) & 255)}${hex((v >> 16) & 255)}`;
-}
-
-/** The accent the OS holds now, as the app should read it; null for none. */
-function osAccent(): string | null {
-  if (process.platform === "darwin") {
-    const r = sh("defaults", ["read", "-g", "AppleAccentColor"]);
-    return r.status === 0 ? (MAC_ACCENTS[r.out] ?? null) : null;
-  }
-  if (process.platform === "win32") return regAccent(WIN_KEY, "AccentColorMenu") ?? regAccent(WIN_DWM, "AccentColor");
-  return null;
-}
-
 /** Puts the OS accent back after a CI run; null when nothing was changed. */
 let restoreAccent: (() => void) | null = null;
-
-/** On CI, sets the OS accent to CI_ACCENT and remembers how to undo it. */
-function setCiAccent(): void {
-  if (!ON_CI) return;
-  if (process.platform === "darwin") {
-    const before = sh("defaults", ["read", "-g", "AppleAccentColor"]);
-    const r = sh("defaults", ["write", "-g", "AppleAccentColor", "-int", "3"]);
-    console.log(
-      `bundled-theme: macOS AppleAccentColor ${before.status === 0 ? before.out : "unset"} → 3 (${r.status})`,
-    );
-    restoreAccent = () => {
-      if (before.status === 0) sh("defaults", ["write", "-g", "AppleAccentColor", "-int", before.out]);
-      else sh("defaults", ["delete", "-g", "AppleAccentColor"]);
-    };
-  } else if (process.platform === "win32") {
-    const before = sh("reg", ["query", WIN_KEY, "/v", "AccentColorMenu"]);
-    const old = /REG_DWORD\s+(0x[0-9a-f]+)/i.exec(before.out)?.[1];
-    // #62ba46 as 0xAABBGGRR.
-    const r = sh("reg", ["add", WIN_KEY, "/v", "AccentColorMenu", "/t", "REG_DWORD", "/d", "0xff46ba62", "/f"]);
-    console.log(`bundled-theme: Windows AccentColorMenu ${old ?? "unset"} → 0xff46ba62 (${r.status})`);
-    restoreAccent = () => {
-      if (old) sh("reg", ["add", WIN_KEY, "/v", "AccentColorMenu", "/t", "REG_DWORD", "/d", old, "/f"]);
-      else sh("reg", ["delete", WIN_KEY, "/v", "AccentColorMenu", "/f"]);
-    };
-  }
-}
 
 /** Each token as the colour it paints: a probe's computed `color: var(--token)`, inside an rgb(1, 2, 3) parent. */
 function painted(names: string[]): Promise<{ scheme: string | null; tokens: Record<string, string> }> {
@@ -155,7 +92,7 @@ describe("bundled-theme", () => {
     cpSync(join(root, "tests", "fixtures", "gtk-themes", "Greyish"), join(DIR, "themes", "Greyish"), {
       recursive: true,
     });
-    setCiAccent();
+    if (ON_CI) restoreAccent = pinAccent("green", "bundled-theme");
   });
 
   after(async () => {
