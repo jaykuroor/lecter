@@ -233,6 +233,7 @@ Should Ctrl/Cmd-P list lectures from every course on the rail, not only the open
 - Context: F-041 (D-232) lists rail courses plus the open course's files, because the core sends files only for the open course; covering all courses needs a new core call (and per-course trust checks).
 - Recommended: yes, later: add a core listing for known courses' lectures when the dashboard/lists cards build cross-course views. (applied as default: no)
 - Answer: (maintainer 2026-11-05) yes; each lecture row in the switcher shows the course it comes from (D-236).
+- Planning input (D-237): the card must also make the switcher's matching scale: per-item precomputed lower-case text and word boundaries, a subsequence pre-reject, incremental narrowing while the query grows, top-k (200) selection instead of a full sort, no Map allocations in the scoring loop; criterion: p95 per-keystroke filter ≤ 2 ms at 10 000 entries (measured 31.7 ms today), with a perf test.
 
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

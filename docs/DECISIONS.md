@@ -1439,3 +1439,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: Ctrl/Cmd-P lists lectures from every course on the rail, not only the open one, and each lecture row shows its source course (name, with its icon/colour where the row has room). Picking a lecture from another course switches to that course first (same path and trust checks as `course_switch`). Needs a core listing of known courses' lectures; read-only courses still list, missing course folders don't. The planning session turns this into a card.
 - Why: the maintainer wants one jump list across courses, and same-named lectures (e.g. "Lecture 3") must be told apart.
 - Instead of: open-course-only lectures (D-232), or lectures without a course label.
+
+## D-237 · Interactive paths are built for measured low latency
+2026-11-05 · maintainer · active
+- Decision: every feature on an interactive path (keys, search and filtering, palette/switcher, theming, rendering, IPC round trips) uses work that is bounded per input instead of brute force: indexes, caches of per-item precomputation, incremental narrowing when a query only grows, top-k selection instead of sorting everything, cheap pre-rejects before expensive scoring, CSS-only theme switches (custom properties flipped by one attribute), no polling, no whole-tree re-renders per keystroke. Builders measure the latency before and after (median and p95 at a realistic large size, e.g. 10 000 switcher entries) and report the numbers with evidence; reviewers check the algorithm and the numbers. Per-keystroke work stays well inside the 8 ms keystroke budget at that size.
+- Why: the maintainer wants latency as low as can be measured, not just under budget. Measured 2026-11-05 on the author's machine (node 24): F-041's fuzzyFilter takes 0.2/0.7 ms (median/p95) per keystroke at 200 entries, 2.1/6.5 ms at 2 000 and 10.3/31.7 ms at 10 000: it re-scores every entry with a Map-based DP, per-char Unicode regex and lower-casing on each keystroke, then sorts all matches.
+- Instead of: meeting the budget at today's data sizes only.
+- Revisit if: a measured design can't reach the target; report it with numbers.
