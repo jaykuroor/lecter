@@ -1,7 +1,7 @@
 /* The lecture buffer (docs/design/components.md: Buffer, Slide heading, Block).
    Every row uses one grid: a 92px right-aligned gutter label, a 16px gap, then the content, in a
-   text column of at most 800px (tokens.json layout). Colours are theme tokens only (F-042 defines
-   the custom properties); mixes follow tokens.json "mix". */
+   text column of at most 800px (tokens.json layout). Colours are theme tokens only (src/theme/tokens.css);
+   mixes follow tokens.json "mix". */
 .lecture-buffer {
   position: relative;
   height: 100%;

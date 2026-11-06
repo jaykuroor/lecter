@@ -1,0 +1,139 @@
+/* The bundled Lecter theme (12-settings-theme-onboarding.md#theme), generated from
+   docs/design/tokens.json by src/theme/generate.ts. Don't edit: change tokens.json and run
+   `pnpm -C ui exec vitest run src/theme -u`. */
+/* biome-ignore format: generated; values exactly as tokens.json writes them */
+:root {
+  color-scheme: light dark;
+  --window-bg: #fafafb;
+  --window-fg: #2e2e32;
+  --view-bg: #ffffff;
+  --view-fg: #2e2e32;
+  --headerbar-bg: #ffffff;
+  --headerbar-border: #e3e3e6;
+  --sidebar-bg: #ebebed;
+  --card-bg: #ffffff;
+  --popover-bg: #ffffff;
+  --dim: #6e6e75;
+  --faint: #9a9aa1;
+  --borders: #dcdce0;
+  --line2: #ececef;
+  --accent-bg: #3584e4;
+  --accent-fg: #ffffff;
+  --accent: #0461be;
+  --osd-bg: #2e2e32;
+  --osd-fg: #ffffff;
+  --term-bg: #1d1d20;
+  --term-fg: #e8e8ec;
+  --k-derive: #0461be;
+  --k-ask: #15772e;
+  --k-doubt: #905300;
+  --k-source: #8939a4;
+  --k-prof: #c00023;
+  --k-write: #007184;
+  --k-later: #b62200;
+  --k-mine: #526678;
+  --k-flag: #a2326c;
+  --font-ui: "Inter", "Adwaita Sans", "Cantarell", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Adwaita Mono", "Source Code Pro", ui-monospace, Menlo, monospace;
+  --font-doc: "Literata", "Iowan Old Style", Georgia, serif;
+  --font-math: "Noto Sans Math", math, "Cambria Math", serif;
+  --shadow-app: 0 1px 3px rgba(0,0,0,.12), 0 18px 44px -26px rgba(0,0,0,.5);
+  --shadow-popover: 0 14px 34px -16px rgba(0,0,0,.55);
+  --shadow-toast: 0 8px 24px -10px rgba(0,0,0,.5);
+  --shadow-acts: 0 4px 14px -6px rgba(0,0,0,.35);
+  --shadow-nudge: 0 8px 24px -16px rgba(0,0,0,.5);
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --radius-kbd: 5px;
+  --radius-small: 6px;
+  --radius-acts: 8px;
+  --radius-gloss: 10px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
+  --layout-rail: 208px;
+  --layout-side-panel: 312px;
+  --layout-document-max: 800px;
+  --layout-gutter: 92px;
+  --layout-headerbar-min-height: 47px;
+  --layout-status-line-min-height: 27px;
+  --layout-headerbar-button: 34px;
+  --motion-gloss-enter: 0.35s;
+  --motion-keystroke-fade: 0.5s;
+  --motion-theme-switch: 0.25s;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --window-bg: #222226;
+    --window-fg: #ffffff;
+    --view-bg: #1d1d20;
+    --view-fg: #ffffff;
+    --headerbar-bg: #2e2e32;
+    --headerbar-border: #151517;
+    --sidebar-bg: #2e2e32;
+    --card-bg: #2a2a2e;
+    --popover-bg: #36363a;
+    --dim: #a8a8ae;
+    --faint: #77777e;
+    --borders: #3a3a3f;
+    --line2: #2c2c30;
+    --accent-bg: #3584e4;
+    --accent-fg: #ffffff;
+    --accent: #81d0ff;
+    --osd-bg: #0f0f11;
+    --osd-fg: #ffffff;
+    --term-bg: #141416;
+    --term-fg: #e8e8ec;
+    --k-derive: #81d0ff;
+    --k-ask: #8de698;
+    --k-doubt: #ffc057;
+    --k-source: #fba7ff;
+    --k-prof: #ff888c;
+    --k-write: #7bdff4;
+    --k-later: #ff9c5b;
+    --k-mine: #bbd1e5;
+    --k-flag: #ffa0d8;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --window-bg: #222226;
+  --window-fg: #ffffff;
+  --view-bg: #1d1d20;
+  --view-fg: #ffffff;
+  --headerbar-bg: #2e2e32;
+  --headerbar-border: #151517;
+  --sidebar-bg: #2e2e32;
+  --card-bg: #2a2a2e;
+  --popover-bg: #36363a;
+  --dim: #a8a8ae;
+  --faint: #77777e;
+  --borders: #3a3a3f;
+  --line2: #2c2c30;
+  --accent-bg: #3584e4;
+  --accent-fg: #ffffff;
+  --accent: #81d0ff;
+  --osd-bg: #0f0f11;
+  --osd-fg: #ffffff;
+  --term-bg: #141416;
+  --term-fg: #e8e8ec;
+  --k-derive: #81d0ff;
+  --k-ask: #8de698;
+  --k-doubt: #ffc057;
+  --k-source: #fba7ff;
+  --k-prof: #ff888c;
+  --k-write: #7bdff4;
+  --k-later: #ff9c5b;
+  --k-mine: #bbd1e5;
+  --k-flag: #ffa0d8;
+}

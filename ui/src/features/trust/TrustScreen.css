@@ -14,11 +14,10 @@
   padding: 14px 16px;
   box-sizing: border-box;
   overflow: auto;
-  border: 1px solid var(--borders, GrayText);
+  border: 1px solid var(--borders);
   border-radius: 12px;
-  /* Until the theme (F-042) defines the tokens, the system colours keep the popover opaque. */
-  background: var(--popover-bg, Canvas);
-  color: var(--view-fg, CanvasText);
+  background: var(--popover-bg);
+  color: var(--view-fg);
   box-shadow: var(--shadow-popover);
   font-size: 13px;
 }
@@ -134,8 +133,8 @@
   padding: 6px 12px;
   border: 0;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--view-fg, CanvasText) 8%, transparent);
-  color: var(--view-fg, CanvasText);
+  background: color-mix(in srgb, var(--view-fg) 8%, transparent);
+  color: var(--view-fg);
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
@@ -143,16 +142,16 @@
 }
 
 .trust .btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--view-fg, CanvasText) 14%, transparent);
+  background: color-mix(in srgb, var(--view-fg) 14%, transparent);
 }
 
 .trust .btn.sug {
-  background: var(--accent-bg, AccentColor);
-  color: var(--accent-fg, AccentColorText);
+  background: var(--accent-bg);
+  color: var(--accent-fg);
 }
 
 .trust .btn:focus-visible {
-  outline: 2px solid var(--accent, AccentColor);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

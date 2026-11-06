@@ -1,5 +1,5 @@
 /* App frame layout (docs/design/components.md#app-frame; sizes from tokens.json "layout").
-   Colours are theme tokens only; F-042 defines the custom properties. */
+   Colours are theme tokens only (src/theme/tokens.css). */
 html,
 body,
 #root {
