@@ -11,7 +11,9 @@
 
 pub mod color;
 pub mod css;
+pub mod desktop;
 pub mod folders;
+pub mod gvariant;
 pub mod tokens;
 
 /// A file or folder under `tests/fixtures/gtk-themes`.
