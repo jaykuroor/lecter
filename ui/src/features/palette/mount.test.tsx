@@ -187,14 +187,14 @@ describe("the palette in the page", () => {
     expect(log).toEqual([]);
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Flags");
     drops.push(
-      registerCommand("lists.doubts", () => {
-        log.push("doubts view");
+      registerCommand("lists.doubts", ({ count, explicit }) => {
+        log.push(`doubts view ${count} ${explicit}`);
       }),
     );
     await open("switch");
     type("doubts");
     enter();
-    expect(log).toEqual(["doubts view"]);
+    expect(log).toEqual(["doubts view 1 false"]);
   });
 
   it("keeps the first focus when the other list opens over it", async () => {

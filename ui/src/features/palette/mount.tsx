@@ -3,7 +3,6 @@
 // opened, gives it back when it closes, and runs a command from there as its key would
 // (keys/dispatch.ts); the switcher opens a course or a lecture, runs a list's command, and reveals
 // a list or a source in the sidebar while their views don't exist yet.
-import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import type { CourseOpened, KnownCourse } from "../../core/course";
 import { hasCommand, runCommand } from "../../keys/commands";
@@ -80,24 +79,21 @@ export function startPalette(ctx: PaletteContext): PaletteHandle {
     } else reveal("source", entry.target);
   };
 
-  // Its own root: the palette starts from a promise, outside any component, and is disposed on stop.
-  const [palette, disposeState] = createRoot(
-    (d) =>
-      [
-        createPalette({
-          commands: () => commandEntries(ctx.bindings(), ctx.mac),
-          canRun,
-          places: () => switcherEntries(ctx.courses(), ctx.course()),
-          restore,
-          onCommand: (entry) => {
-            runWithoutKey(entry.binding, entry.tokens, locate(document.activeElement).buffer);
-          },
-          onPlace,
-        }),
-        d,
-      ] as const,
-  );
-  const dispose = render(() => <PaletteBox palette={palette} />, ctx.host);
+  // The box's root owns the palette's state too: one dispose ends both.
+  let palette!: Palette;
+  const dispose = render(() => {
+    palette = createPalette({
+      commands: () => commandEntries(ctx.bindings(), ctx.mac),
+      canRun,
+      places: () => switcherEntries(ctx.courses(), ctx.course()),
+      restore,
+      onCommand: (entry) => {
+        runWithoutKey(entry.binding, entry.tokens, locate(document.activeElement).buffer);
+      },
+      onPlace,
+    });
+    return <PaletteBox palette={palette} />;
+  }, ctx.host);
 
   return {
     palette,
@@ -109,7 +105,6 @@ export function startPalette(ctx: PaletteContext): PaletteHandle {
     stop: () => {
       palette.close(false);
       dispose();
-      disposeState();
     },
   };
 }
