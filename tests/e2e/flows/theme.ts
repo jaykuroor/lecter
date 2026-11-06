@@ -35,7 +35,7 @@ const tokens = JSON.parse(readFileSync(join(root, "docs", "design", "tokens.json
 const COLOURS = Object.entries({ ...tokens.color, ...tokens["gloss-kind"] }).filter(([n]) => !n.startsWith("$"));
 
 const NAME = "2026-10-27-l09-theme.md";
-// A synthetic lecture as Lecter writes it (03-lecture-files.md), with a steps and a doubt gloss.
+// A synthetic lecture in Lecter's format (03-lecture-files.md), with a steps and a doubt gloss.
 const LECTURE = [
   "---",
   "lecter: 1",
@@ -142,7 +142,7 @@ const setting: OsSetting | null = process.platform === "darwin" ? MAC : process.
 const canSwitch = setting === null || Boolean(process.env.CI);
 const LINUX_NO_BUS = `unix:path=${join(tmpdir(), "lecter-e2e-no-session-bus")}`;
 
-/** The OS setting's value before the flow touched it (`undefined`: untouched). */
+/** The OS setting's value before the flow changed anything; `undefined` while untouched. */
 let saved: string | null | undefined;
 
 function putBack(): void {
@@ -210,26 +210,30 @@ function resolved(
   }, names);
 }
 
-/** Relaunches as `launch` says and checks the app shows the Lecter theme's `scheme`. */
-async function followsScheme(launch: Relaunch, scheme: Scheme): Promise<void> {
-  await relaunch(launch);
-  await expect($(".app-frame")).toBeDisplayed();
-  const got = await resolved(COLOURS.map(([name]) => name));
-  console.log(`theme: want ${scheme}; ${lever(launch)}; webview prefers-color-scheme: dark = ${got.dark}`);
-  expect(got.dark).toBe(scheme === "dark");
-  expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
-  expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
-  expect(got.text).toBe(rgb(tokens.color?.["window-fg"]?.[scheme] ?? ""));
-
-  // The course and the lecture, by mouse (the folder dialog answers LECTER_TEST_PICK).
+/** Opens the course and the lecture by mouse, then a gloss prompt (`a`), whose card shows its kind's colour. */
+async function openGlossPrompt(): Promise<void> {
+  // The folder dialog answers LECTER_TEST_PICK.
   await $("button.rail-add").click();
   await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
-  // A gloss card in its kind's colour: `a` opens the prompt under the first block.
   await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
   await browser.keys("a");
   await expect($(".gloss-prompt-input")).toBeExisting();
-  await shot(`theme-${scheme}`);
+}
+
+/**
+ * The schemes to check, each with the OS preference to set first: both on CI (and on Linux, where
+ * only the relaunched app sees the change); elsewhere only the one the OS holds now, unchanged.
+ */
+function cases(): { scheme: Scheme; set: Scheme | null }[] {
+  if (canSwitch)
+    return [
+      { scheme: "light", set: "light" },
+      { scheme: "dark", set: "dark" },
+    ];
+  const current = setting?.schemeOf(setting.read()) ?? "light";
+  console.log(`theme: CI is not set, so ${setting?.name} is left as is; checking the current ${current} preference`);
+  return [{ scheme: current, set: null }];
 }
 
 describe("theme", () => {
@@ -247,15 +251,19 @@ describe("theme", () => {
     rmSync(join(course(), "lectures", NAME), { force: true });
   });
 
-  if (canSwitch) {
-    for (const scheme of ["light", "dark"] as const) {
-      it(`follows the OS ${scheme} preference with the Lecter theme`, () => followsScheme(launchIn(scheme), scheme));
-    }
-  } else if (setting !== null) {
-    // Not on CI: the OS setting stays as the developer left it; check the app follows that one.
-    const current = setting.schemeOf(setting.read());
-    console.log(`theme: CI is not set, so ${setting.name} is left as is; checking the current ${current} preference`);
-    it(`follows the OS's current ${current} preference with the Lecter theme`, () =>
-      followsScheme(launchIn(null), current));
+  for (const { scheme, set } of cases()) {
+    it(`follows the OS ${scheme} preference with the Lecter theme`, async () => {
+      const launch = launchIn(set);
+      await relaunch(launch);
+      await expect($(".app-frame")).toBeDisplayed();
+      const got = await resolved(COLOURS.map(([name]) => name));
+      console.log(`theme: want ${scheme}; ${lever(launch)}; webview prefers-color-scheme: dark = ${got.dark}`);
+      expect(got.dark).toBe(scheme === "dark");
+      expect(got.tokens).toEqual(Object.fromEntries(COLOURS.map(([name, v]) => [name, rgb(v[scheme])])));
+      expect(got.frame).toBe(rgb(tokens.color?.["window-bg"]?.[scheme] ?? ""));
+      expect(got.text).toBe(rgb(tokens.color?.["window-fg"]?.[scheme] ?? ""));
+      await openGlossPrompt();
+      await shot(`theme-${scheme}`);
+    });
   }
 });
