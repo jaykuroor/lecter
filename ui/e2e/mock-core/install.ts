@@ -59,6 +59,7 @@ export function installMockCore(fixture: MockFixture): void {
   const settingsListeners = new Map<number, number>();
   const globalOnly = (key: string) => /^(privacy|log|limits)\./.test(key) || key === "feedback.endpoint";
   delete (window as unknown as { __mockSettings?: unknown }).__mockSettings;
+  delete (window as unknown as { __mockSettingsReads?: unknown }).__mockSettingsReads;
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
     // The layout the app starts with; each save is kept for the test to read back
@@ -167,7 +168,11 @@ export function installMockCore(fixture: MockFixture): void {
     settings_schema: () => fixture.settings.schema,
     theme_get: () => fixture.theme.update,
     theme_list: () => fixture.theme.installed,
+    // Records each key asked for (window.__mockSettingsReads).
     settings_get: ({ key }) => {
+      const w = window as unknown as { __mockSettingsReads?: string[] };
+      w.__mockSettingsReads ??= [];
+      w.__mockSettingsReads.push(key);
       const found = settings[key];
       if (!found) return fail("E_NOT_FOUND", `${key} is not a setting`);
       return { key, ...found };

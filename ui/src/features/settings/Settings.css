@@ -340,6 +340,20 @@
   outline-offset: 0;
 }
 
+/* The performance preset's choices are cards with words: they go under the setting's own text. */
+.settings-row-wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-row-wide .settings-control {
+  justify-content: flex-start;
+}
+
+.settings-row-wide .settings-note,
+.settings-row-wide .settings-error {
+  grid-column: 1;
+}
+
 @media (max-width: 640px) {
   .settings {
     grid-template-columns: minmax(0, 1fr);

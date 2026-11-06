@@ -81,7 +81,7 @@ export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): J
   );
 
   return (
-    <div class="settings-row" data-key={key()}>
+    <div class={key() === "ui.performance" ? "settings-row settings-row-wide" : "settings-row"} data-key={key()}>
       <div class="settings-row-text">
         <span class="settings-label" id={labelId()}>
           {props.entry.label}
