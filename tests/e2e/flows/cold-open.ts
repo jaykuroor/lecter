@@ -12,8 +12,9 @@
 //   counts from the OS's process start, its shell line agrees with the page's own clock;
 // - criterion 3: every resource other than index.html's own script and stylesheet starts loading
 //   after the shell's first paint (the UI's IPC order is covered by ui/src/App.startup.test.tsx).
-// Criterion 2: the median is gated at ×1 against its OS's target (cold-open/budget.ts), locally
-// and on CI; an OS without a target yet prints REPORT and passes. Only Linux builds and measures
+// Criterion 2: the median is gated at ×1 against its OS's target (cold-open/budget.ts) off CI; on
+// CI (a shared VM runner) the median of the 5 launches prints REPORT and never fails (D-225,
+// F-181); an OS without a target yet prints REPORT and passes. Only Linux builds and measures
 // (the criterion's ubuntu-24.04 runner); macOS and Windows targets come from F-025's perf run, so
 // there the flow builds nothing and says so.
 // The app's own buffer-first-paint line is checked for order only; the gated value is the page's.
@@ -24,7 +25,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shot } from "../support/shot.ts";
-import { LAUNCHES, TARGETS, verdict } from "./cold-open/budget.ts";
+import { LAUNCHES, onCi, TARGETS, verdict } from "./cold-open/budget.ts";
 import {
   APP,
   alive,
@@ -182,6 +183,8 @@ describe("cold open", function () {
     const v = verdict(
       runs.map((r) => r.coldOpenMs),
       process.platform,
+      TARGETS,
+      onCi(process.env),
     );
     for (const line of v.lines) report(line);
     report(`cold-open: ${APP}; targets ${JSON.stringify(TARGETS)}`);

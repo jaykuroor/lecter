@@ -4,7 +4,7 @@
 // the next 10 ms. The flow is tests/e2e/flows/cold-open.ts.
 
 import { describe, expect, it } from "vitest";
-import { LAUNCHES, median, TARGETS, targetFrom, verdict } from "../../tests/e2e/flows/cold-open/budget";
+import { LAUNCHES, median, onCi, TARGETS, targetFrom, verdict } from "../../tests/e2e/flows/cold-open/budget";
 
 describe("cold_open_ms gate (D-152)", () => {
   it("measures 5 launches and takes their median, in any order", () => {
@@ -59,5 +59,45 @@ describe("cold_open_ms gate (D-152)", () => {
     expect(targetFrom(320)).toBe(360); // 352
     expect(targetFrom(336.4)).toBe(380); // 370.04
     expect(targetFrom(500)).toBe(550);
+  });
+});
+
+describe("cold_open_ms on CI's shared VM runners (F-181, D-225)", () => {
+  it("reports the median of 5 with every launch and never fails, on every OS, even far over the target", () => {
+    for (const [os, target] of [
+      ["linux", 1080],
+      ["darwin", 2940],
+      ["win32", 580],
+    ] as const) {
+      const v = verdict([5000, 5100, 4900, 5000, 5200], os, TARGETS, true);
+      expect(v.outcome).toBe("report");
+      expect(v.lines).toEqual([
+        `cold_open_ms 5000 (median of 5: 5000 5100 4900 5000 5200; target ${target} for ${os})`,
+        `REPORT cold_open_ms 5000 / ${target} (CI VM runner: reported, never fails; it gates on the maintainer's machine, D-225)`,
+      ]);
+    }
+    // Under the target it still reports: CI says nothing about pass or fail.
+    expect(verdict([300, 310, 320, 330, 340], "linux", TARGETS, true).outcome).toBe("report");
+    // An OS without a target reports too.
+    expect(verdict([300, 310, 320, 330, 340], "win32", { linux: 1080 }, true).lines).toEqual([
+      "cold_open_ms 320 (median of 5: 300 310 320 330 340; target none for win32)",
+      "REPORT cold_open_ms 320 (CI VM runner: reported, never fails; it gates on the maintainer's machine, D-225)",
+    ]);
+  });
+
+  it("still gates off CI: the same launches fail without the CI flag", () => {
+    expect(verdict([5000, 5100, 4900, 5000, 5200], "linux", TARGETS, false).outcome).toBe("fail");
+    expect(verdict([5000, 5100, 4900, 5000, 5200], "linux").outcome).toBe("fail");
+    expect(verdict([1000, 1010, 990, 1000, 1020], "linux", TARGETS, false).outcome).toBe("pass");
+  });
+
+  it("the flow takes the CI flag from its environment, as budgets.sh does", () => {
+    expect(onCi({ CI: "true" })).toBe(true);
+    expect(onCi({ CI: "1" })).toBe(true);
+    expect(onCi({})).toBe(false);
+    expect(onCi({ CI: "" })).toBe(false);
+    expect(onCi({ CI: "false" })).toBe(false);
+    expect(onCi({ CI: "FALSE" })).toBe(false);
+    expect(onCi({ CI: "0" })).toBe(false);
   });
 });

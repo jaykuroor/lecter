@@ -1,7 +1,8 @@
 // The cold_open_ms gate (D-152): per-OS targets, a measurement is the median of 5 launches, and
-// the median is gated at ×1 against its OS's target, locally and on CI. There is no ×1.5 allowance
-// and no re-measure for this budget: the median and the 10 % margin in each target replace them.
-// Plain functions, so ui/test/cold-open-budget.test.ts can check them without the app.
+// the median is gated at ×1 against its OS's target off CI. There is no ×1.5 allowance and no
+// re-measure for this budget: the median and the 10 % margin in each target replace them. On CI
+// the median and every launch are reported and never fail: a shared VM runner swung ~100 ms on
+// unchanged code, so the gate is the maintainer's machine (D-225, F-181). Plain functions, so ui/test/cold-open-budget.test.ts can check them without the app.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -48,12 +49,30 @@ export interface Verdict {
   lines: string[];
 }
 
-/** Gates the launches' median against `os`'s target in `targets`. */
-export function verdict(values: number[], os: string, targets: Partial<Record<string, number>> = TARGETS): Verdict {
+/** Whether this runs on CI: `CI` set to anything but empty, 0 or false (as tests/perf/harness.py reads it). */
+export function onCi(env: Record<string, string | undefined>): boolean {
+  return !["", "0", "false"].includes((env.CI ?? "").toLowerCase());
+}
+
+/**
+ * Gates the launches' median against `os`'s target in `targets`; with `ci` (a shared VM runner,
+ * D-225) it reports the median against the target and never fails.
+ */
+export function verdict(
+  values: number[],
+  os: string,
+  targets: Partial<Record<string, number>> = TARGETS,
+  ci = false,
+): Verdict {
   const m = median(values).toFixed(0);
   const all = values.map((v) => v.toFixed(0)).join(" ");
   const target = targets[os];
   const summary = `cold_open_ms ${m} (median of ${values.length}: ${all}; target ${target ?? "none"} for ${os})`;
+  if (ci) {
+    const against = target === undefined ? "" : ` / ${target}`;
+    const why = "CI VM runner: reported, never fails; it gates on the maintainer's machine, D-225";
+    return { outcome: "report", lines: [summary, `REPORT cold_open_ms ${m}${against} (${why})`] };
+  }
   if (target === undefined) {
     return { outcome: "report", lines: [summary, `REPORT cold_open_ms ${m} (no ${os} target yet, D-152)`] };
   }
