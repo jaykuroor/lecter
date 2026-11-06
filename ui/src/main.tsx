@@ -2,6 +2,7 @@ import { render } from "solid-js/web";
 // The theme's tokens first: static CSS in the first-paint stylesheet, no JS to apply (D-237).
 import "./theme/tokens.css";
 import { App } from "./App";
+import { followTheme } from "./theme/gtk";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("index.html has no #root element");
@@ -16,5 +17,8 @@ if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) {
   ]);
   installMockCore(defaultFixture);
 }
+
+// The desktop's GTK theme, or `ui.theme` (F-043): applied when the core answers, then on each change.
+followTheme().catch(() => {});
 
 render(() => <App />, root);

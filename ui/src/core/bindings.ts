@@ -122,11 +122,23 @@ export const commands = {
 	 *  with the reason (for a fixed set of values, the list).
 	 */
 	settingsSet: (key: string, value: string, course: string | null) => typedError<Setting, IpcError_Serialize>(__TAURI_INVOKE("settings_set", { key, value, course })),
+	/**
+	 *  The tokens to set now: the GTK theme in use, light or dark, and its colours. Before the
+	 *  desktop has been read (just after start) it is the chosen theme's or nothing;
+	 *  `theme:changed` follows.
+	 */
+	themeGet: () => typedError<ThemeUpdate, IpcError_Serialize>(__TAURI_INVOKE("theme_get")),
+	/**
+	 *  The installed GTK themes (`/usr/share/themes`, `~/.themes`, `~/.local/share/themes`,
+	 *  Flatpak theme extensions), by name; `settings_set ui.theme` applies one.
+	 */
+	themeList: () => typedError<InstalledTheme[], IpcError_Serialize>(__TAURI_INVOKE("theme_list")),
 };
 
 /** Events */
 export const events = {
 	courseChanged: makeEvent<CourseChanged>("course:changed"),
+	themeChanged: makeEvent<ThemeChanged>("theme:changed"),
 };
 
 /* Types */
@@ -353,6 +365,14 @@ export type GlossStream_Serialize =
 	error: IpcError_Serialize,
 } };
 
+/**  An installed theme, as Settings lists it. */
+export type InstalledTheme = {
+	/**  The theme's name, as `gtk-theme` and `ui.theme` give it. */
+	name: string,
+	/**  The folder it was found in. */
+	folder: string,
+};
+
 export type IpcError = IpcError_Serialize | IpcError_Deserialize;
 
 export type IpcError_Deserialize = {
@@ -412,6 +432,13 @@ export type LectureFile = {
 	date?: string | null,
 };
 
+/**  Light or dark. */
+export type Scheme = 
+/**  Dark text on light surfaces. */
+"light" | 
+/**  Light text on dark surfaces. */
+"dark";
+
 /**  One setting as it is in force. */
 export type Setting = {
 	/**  The dotted key, e.g. `ui.performance`. */
@@ -441,6 +468,29 @@ export type StartupPaint =
 "shell_first_paint" | 
 /**  The first lecture opened this session is on screen in the buffer. */
 "buffer_first_paint";
+
+/**  `theme:changed`: the tokens to set now, after the desktop or `ui.theme` changed. */
+export type ThemeChanged = {
+	update: ThemeUpdate,
+};
+
+/**  What the UI applies. */
+export type ThemeUpdate = {
+	/**  The GTK theme in use, or `None` for the Lecter theme. */
+	theme: string | null,
+	/**  Light or dark; `None` leaves it to the OS preference the webview reports. */
+	scheme: Scheme | null,
+	/**  The tokens to set; every other token keeps the Lecter theme's value. */
+	tokens: Token[],
+};
+
+/**  One token as the UI sets it: `--<name>: <value>`. */
+export type Token = {
+	/**  The token's name without the leading `--`, e.g. `window-bg`. */
+	name: string,
+	/**  CSS colour text this crate formatted from numbers: `#rrggbb` or `rgba(r, g, b, a)`. */
+	value: string,
+};
 
 /**  The user's answer on the trust screen. */
 export type TrustChoice = 
@@ -615,6 +665,16 @@ export type Commands = {
     args: { key: Parameters<typeof commands.settingsSet>[0]; value: Parameters<typeof commands.settingsSet>[1]; course: Parameters<typeof commands.settingsSet>[2] };
     result: CommandOk<Awaited<ReturnType<typeof commands.settingsSet>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.settingsSet>>>;
+  };
+  theme_get: {
+    args: Record<string, never>;
+    result: CommandOk<Awaited<ReturnType<typeof commands.themeGet>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.themeGet>>>;
+  };
+  theme_list: {
+    args: Record<string, never>;
+    result: CommandOk<Awaited<ReturnType<typeof commands.themeList>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.themeList>>>;
   };
 };
 

@@ -47,6 +47,8 @@ const matching: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  theme_get: () => ({ theme: null, scheme: null, tokens: [] }),
+  theme_list: () => [],
 };
 
 // @ts-expect-error a mock without a handler for a contract command (course_open)
@@ -76,6 +78,8 @@ const wrongResult: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  theme_get: () => ({ theme: null, scheme: null, tokens: [] }),
+  theme_list: () => [],
 };
 
 const wrongEnum: MockHandlers = {
@@ -99,6 +103,8 @@ const wrongEnum: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  theme_get: () => ({ theme: null, scheme: null, tokens: [] }),
+  theme_list: () => [],
 };
 
 const extra: MockHandlers = {
@@ -148,6 +154,8 @@ const commandNames: CommandName[] = [
   "settings_schema",
   "settings_get",
   "settings_set",
+  "theme_get",
+  "theme_list",
 ];
 const noArgs: Commands["course_open"]["args"] = {};
 

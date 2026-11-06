@@ -41,6 +41,8 @@ export interface MockFixture {
    * mock trusts the UI's own check of the value against the schema.
    */
   settings: { schema: string; values: Record<string, Omit<Commands["settings_get"]["result"], "key">> };
+  /** What `theme_get` answers (the tokens in force) and `theme_list` lists (installed GTK themes). */
+  theme: { update: Commands["theme_get"]["result"]; installed: Commands["theme_list"]["result"] };
 }
 
 /** A trust screen for a small course with no AI files of its own (02-course-folder.md#trust). */
@@ -70,4 +72,5 @@ export const defaultFixture: MockFixture = {
   layout: { sidebar: true },
   keymaps: null,
   settings: { schema: '{"type":"object","properties":{}}', values: {} },
+  theme: { update: { theme: null, scheme: null, tokens: [] }, installed: [] },
 };

@@ -61,12 +61,16 @@ fn main() {
     let keymaps = lecter_core::keymaps::KeymapsFile::new(&dirs);
     // The global config.jsonc, which `:set` reads and writes (F-040).
     let settings = ipc::settings::SettingsFiles::new(&dirs);
+    // The desktop's GTK theme on Linux, or `ui.theme` (F-043); followed from setup on.
+    let themes = ipc::theme::Themes::standard();
+    let theme_dirs = dirs.clone();
     let built = builder
         .manage(ipc::session::OpenedCourses::new(trust))
         .manage(known)
         .manage(layout)
         .manage(keymaps)
         .manage(settings)
+        .manage(themes)
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())
@@ -84,6 +88,7 @@ fn main() {
             // Tauri builds the windows of tauri.conf.json before this hook runs.
             timing.mark_now(startup::Phase::WindowCreated);
             contract.mount_events(app);
+            ipc::theme::follow(app.handle(), theme_dirs);
             Ok(())
         })
         .build(tauri::generate_context!());

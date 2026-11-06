@@ -11,7 +11,7 @@ use lecter_core::paths::AppDirs;
 use lecter_core::settings::{Scope, SetError, SettingsStore, Source, schema_json};
 use serde::Serialize;
 use specta::Type;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use super::error::{ErrorCode, IpcError};
 use super::lecture::check_course;
@@ -99,13 +99,20 @@ pub async fn settings_get(
 #[tauri::command]
 #[specta::specta]
 pub async fn settings_set(
+    app: AppHandle,
     files: State<'_, SettingsFiles>,
     courses: State<'_, OpenedCourses>,
     key: String,
     value: String,
     course: Option<String>,
 ) -> Result<Setting, IpcError> {
-    set(&files, &courses, key, value, course).await
+    let setting = set(&files, &courses, key, value, course).await?;
+    // A new `ui.theme` applies at once (F-043).
+    if setting.key == "ui.theme" {
+        let theme = serde_json::from_str::<Option<String>>(&setting.value).ok().flatten();
+        super::theme::chosen(&app, theme).await;
+    }
+    Ok(setting)
 }
 
 /// `settings_get` without Tauri's state wrappers.

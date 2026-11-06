@@ -11,9 +11,9 @@ pub mod lecture;
 pub mod paths;
 pub mod save;
 pub mod settings;
-pub mod theme;
 #[cfg(any(debug_assertions, feature = "test-hooks"))]
 pub mod testenv;
+pub mod theme;
 pub mod worker;
 
 pub use error::{Error, Result};

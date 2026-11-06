@@ -110,7 +110,8 @@ impl Follower {
         }
         self.reads += 1;
         // An unreadable or oversized stylesheet applies nothing: the Lecter theme stays.
-        let colors = Arc::new(read_css(css).map(|text| ThemeColors::resolve(&Defines::parse(&text))).unwrap_or_default());
+        let colors =
+            Arc::new(read_css(css).map(|text| ThemeColors::resolve(&Defines::parse(&text))).unwrap_or_default());
         self.cache.retain(|(p, _, _)| p != css);
         if self.cache.len() >= CACHE {
             self.cache.remove(0);

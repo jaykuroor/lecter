@@ -6,11 +6,30 @@
 //! - `LECTER_TEST_PICK=<path>`: a native file or folder dialog returns this path instead of opening.
 //! - `LECTER_TEST_TRUST=1`: the folder-trust question is answered "Trust".
 
+//! - `LECTER_TEST_GTK=<dir>`: the desktop's theme settings come from `<dir>/gdbus` and
+//!   `<dir>/gsettings` (fakes) and GTK themes from `<dir>/themes` only; an empty folder means
+//!   no desktop settings and no themes (F-043).
+
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+use lecter_core::theme::gtk::folders::ThemeDirs;
+use lecter_core::theme::gtk::monitor::Tools;
+
 const PICK_VAR: &str = "LECTER_TEST_PICK";
 const TRUST_VAR: &str = "LECTER_TEST_TRUST";
+const GTK_VAR: &str = "LECTER_TEST_GTK";
+
+/// The theme folders and desktop tools a run substitutes, if it set some.
+pub fn gtk_desktop() -> Option<(ThemeDirs, Tools)> {
+    gtk_from(std::env::var_os(GTK_VAR))
+}
+
+fn gtk_from(value: Option<OsString>) -> Option<(ThemeDirs, Tools)> {
+    let dir = pick_from(value)?;
+    let tools = Tools { gdbus: dir.join("gdbus").into(), gsettings: dir.join("gsettings").into() };
+    Some((ThemeDirs::new(vec![dir.join("themes")], vec![]), tools))
+}
 
 /// The path a dialog returns instead of opening, if the run set one.
 pub fn picked_path() -> Option<PathBuf> {
@@ -45,6 +64,15 @@ mod tests {
     fn pick_unset_or_empty_lets_the_dialog_open() {
         assert_eq!(pick_from(None), None);
         assert_eq!(pick_from(Some(OsString::new())), None);
+    }
+
+    #[test]
+    fn gtk_points_tools_and_themes_into_the_folder() {
+        let (dirs, tools) = gtk_from(Some("/fake".into())).unwrap();
+        assert_eq!(dirs, ThemeDirs::new(vec![PathBuf::from("/fake/themes")], vec![]));
+        assert_eq!(tools, Tools { gdbus: "/fake/gdbus".into(), gsettings: "/fake/gsettings".into() });
+        assert_eq!(gtk_from(None), None);
+        assert_eq!(gtk_from(Some(OsString::new())), None);
     }
 
     #[test]

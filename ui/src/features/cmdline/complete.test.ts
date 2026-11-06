@@ -17,7 +17,7 @@ describe("complete", () => {
   });
 
   it("offers setting keys after `set `", () => {
-    expect(lines("set ui.")).toEqual(["set ui.performance"]);
+    expect(lines("set ui.")).toEqual(["set ui.performance", "set ui.theme"]);
     expect(lines("set ai.budget.")).toEqual([
       "set ai.budget.daily",
       "set ai.budget.monthly",
