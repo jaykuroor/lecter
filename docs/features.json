@@ -1457,9 +1457,10 @@
    "evidence": [
     "log:e2e-app"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3039
+   "priority": 3039,
+   "base": "554d04fd2d77231ba0a68f091447f2fc29d843b5"
   },
   {
    "id": "F-045",
