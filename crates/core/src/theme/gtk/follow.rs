@@ -64,9 +64,8 @@ impl Follower {
 
     /// Also offers the bundled themes (macOS and Windows) for `ui.theme`; an installed theme of
     /// the same name wins.
-    pub fn with_bundled(mut self) -> Self {
+    pub fn offer_bundled(&mut self) {
         self.bundled = true;
-        self
     }
 
     /// Whether the bundled themes are offered.

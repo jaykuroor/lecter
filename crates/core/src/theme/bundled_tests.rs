@@ -23,7 +23,9 @@ fn token<'a>(update: &'a ThemeUpdate, name: &str) -> Option<&'a str> {
 }
 
 fn bundled_follower(dirs: ThemeDirs) -> Follower {
-    Follower::new(dirs).with_bundled()
+    let mut f = Follower::new(dirs);
+    f.offer_bundled();
+    f
 }
 
 fn no_dirs() -> ThemeDirs {

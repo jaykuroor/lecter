@@ -99,3 +99,34 @@ fn after_shutdown_no_monitor_starts() {
     assert!(ended.is_none());
     assert!(!pid_file.exists());
 }
+
+#[test]
+fn with_the_bundled_themes_offered_the_list_adds_them_beside_the_installed_ones_by_name() {
+    assert_eq!(fixtures().list().len(), 6);
+    let list = fixtures().offer_bundled().list();
+    assert_eq!(list.len(), 6 + 18);
+    let greyish = list.iter().find(|t| t.name == "Greyish").unwrap();
+    assert!(greyish.folder.ends_with("gtk-themes"), "{}", greyish.folder);
+    let nord: Vec<&str> =
+        list.iter().filter(|t| t.name.starts_with("Nord") && t.folder.is_empty()).map(|t| t.name.as_str()).collect();
+    assert_eq!(nord, ["Nord", "Nord-dark", "Nord-light"]);
+    // Choosing one applies its colours.
+    let themes = fixtures().offer_bundled();
+    themes.with(|s| s.follower.choose(Some("Nord-dark".into())));
+    let update = themes.current();
+    assert_eq!((update.theme.as_deref(), update.scheme), (Some("Nord-dark"), Some(Scheme::Dark)));
+    assert!(update.tokens.iter().any(|t| t.name == "view-bg" && t.value == "#2e3440"));
+}
+
+#[test]
+fn the_os_mode_and_focus_events_ask_for_a_re_read() {
+    use lecter_core::theme::gtk::desktop::Change;
+    use tauri::{Theme, WindowEvent};
+    assert_eq!(os::scheme(Theme::Dark), Some(Scheme::Dark));
+    assert_eq!(os::scheme(Theme::Light), Some(Scheme::Light));
+    assert_eq!(os::wanted(&WindowEvent::Focused(true)), Some(None));
+    assert_eq!(os::wanted(&WindowEvent::ThemeChanged(Theme::Dark)), Some(Some(Change::Scheme(Some(Scheme::Dark)))));
+    assert_eq!(os::wanted(&WindowEvent::ThemeChanged(Theme::Light)), Some(Some(Change::Scheme(Some(Scheme::Light)))));
+    assert_eq!(os::wanted(&WindowEvent::Focused(false)), None);
+    assert_eq!(os::wanted(&WindowEvent::Destroyed), None);
+}

@@ -129,8 +129,9 @@ export const commands = {
 	 */
 	themeGet: () => typedError<ThemeUpdate, IpcError_Serialize>(__TAURI_INVOKE("theme_get")),
 	/**
-	 *  The installed GTK themes (`/usr/share/themes`, `~/.themes`, `~/.local/share/themes`,
-	 *  Flatpak theme extensions), by name; `settings_set ui.theme` applies one.
+	 *  The installed GTK themes (Linux: `/usr/share/themes`, `~/.themes`, `~/.local/share/themes`,
+	 *  Flatpak theme extensions; macOS and Windows: `~/.themes`), plus on macOS and Windows the
+	 *  bundled themes (an empty `folder`), by name; `settings_set ui.theme` applies one.
 	 */
 	themeList: () => typedError<InstalledTheme[], IpcError_Serialize>(__TAURI_INVOKE("theme_list")),
 };
