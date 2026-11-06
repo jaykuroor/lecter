@@ -222,11 +222,11 @@ Should CI's real-app budgets on shared VM runners (Linux cold_open_ms, macOS rss
 - Recommended: (1) apply Q-023 now: real-app cold_open_ms, rss_300_slides_mb and idle_rss_mb print REPORT under --ci on every OS and gate on the maintainer's machine at milestone gates (median of 5 + 10 %); (2) macOS keystroke: the mocked check REPORTs on macOS CI (Q-026), Linux keeps gating; (3) add a later card for a same-job A/B perf check (main vs branch, interleaved, fail only on > 10-15 % beyond the control's spread); (4) take rss after several settles (median) so one WebKit release timing doesn't decide it.
 - Answer: follow the recommendation (maintainer 2026-11-05): on CI, real-app cold_open_ms, rss_300_slides_mb, idle_rss_mb and the macOS mocked keystroke check print REPORT and don't fail; they gate on the maintainer's machine at each milestone gate (median of 5 + 10 %). Add a later card for a same-job main-vs-branch comparison in CI that fails only on changes over 10-15 % beyond a control's spread. Take macOS memory as the median of several settles.
 
-## Q-034 · later · blocks: nothing
+## Q-034 · answered · blocks: nothing (D-229)
 Which local (author's machine) targets should the memory budgets gate against off CI?
 - Context: after F-181 (D-225), rss_300_slides_mb and idle_rss_mb gate only without --ci, but budgets.json has no `local` targets for them, so they gate against `per_os`, which are partly CI-runner numbers. 14-quality says median of 5 + 10 % on the maintainer's machine.
 - Recommended: measure each on the author's machine at the M1 gate (median of 5), set local = that + 10 % in budgets.json through a planning change.
-- Answer:
+- Answer: (maintainer 2026-11-05) take the median of several runs on the author's PC, compare with well-known apps of the same kind, and pick a target in between (D-229).
 
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->

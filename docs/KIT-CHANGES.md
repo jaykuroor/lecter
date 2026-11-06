@@ -95,6 +95,6 @@ Run these yourself (type `! <command>` in the session) when no builder is runnin
 
 ## Not included, on purpose
 
-- **Q-034 (local memory targets):** needs measurements on Jay's machine first (median of 5 at the M1 gate). It's a planning change to budgets.json values, not text.
+- **Q-034 (local memory targets):** answered by D-229 (own median vs comparable apps). It's a planning change to budgets.json values once the numbers exist, not a text edit.
 - **Moving `VM_REPORT` into budgets.json as `on_ci: "report"`** (D-226's "revisit if"): `tests/perf/test_budgets_os.py:79` pins which entries carry `on_ci`, and harness.py would change with it, so it needs a card, not a kit edit.
 - **PROGRESS still says `cargo deny` fails and Dependabot `@types/node` past 24 fails:** both are already fixed (`deny.toml` ignores, D-169; `.github/dependabot.yml` ignores major updates of `@types/node`). The orchestrator will correct PROGRESS at the next handoff.

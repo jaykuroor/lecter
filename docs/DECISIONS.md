@@ -1390,3 +1390,10 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: on macOS, rss_300_slides_mb is the median of 3 settles of 5 s each (15 s in all), and the detail lists every sample; other OSes keep one settle.
 - Why: D-225 and F-181 criterion 4 ("at least 3"); one WebKit release timing swung the number ~200 MB.
 - Instead of: more settles, which lengthen the macOS run.
+
+## D-229 · Local memory targets: own median vs comparable apps (Q-034)
+2026-11-05 · maintainer · active
+- Decision: the local (author's machine) targets for rss_300_slides_mb and idle_rss_mb come from (1) the median of several runs of `tests/perf/budgets.sh` without --ci on the author's PC and (2) the memory of well-known comparable desktop apps (note and editor apps, webview and Electron based), measured the same way (all processes, by share) on the same machine where possible. The target is set between them: no looser than the comparable apps, with room above Lecter's own median. A planning session writes the numbers into budgets.json `local`.
+- Why: D-225 moved memory gating to the author's machine, but budgets.json has no `local` memory targets, so off CI they gate against per_os (partly CI-runner numbers).
+- Instead of: own median + 10 % alone (no outside reference), or keeping the CI-runner numbers.
+- Revisit if: the comparable apps differ so much that no single target makes sense.
