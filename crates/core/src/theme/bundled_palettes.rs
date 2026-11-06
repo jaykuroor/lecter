@@ -10,6 +10,7 @@
 //! Breeze, KDE's Breeze colour scheme (`kdeglobals`) and HIG palette; Catppuccin, Latte (light)
 //! and Mocha (dark), MIT; Gruvbox, morhetz/gruvbox's faded (light) and bright (dark) colours, MIT;
 //! Nord, Snow Storm (light) and Polar Night (dark) with Frost and Aurora, MIT.
+//! Yaru and Breeze ship as transcribed hex values only, no theme code, CSS or assets (D-251).
 
 /// One bundled theme's two variants, as `@define-color` text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
