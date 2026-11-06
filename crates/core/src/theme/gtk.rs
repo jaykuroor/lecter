@@ -11,4 +11,11 @@
 
 pub mod color;
 pub mod css;
+pub mod folders;
 pub mod tokens;
+
+/// A file or folder under `tests/fixtures/gtk-themes`.
+#[cfg(test)]
+pub(crate) fn fixture(rel: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/gtk-themes").join(rel)
+}

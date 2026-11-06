@@ -5,9 +5,7 @@ use std::path::PathBuf;
 use super::*;
 use crate::theme::gtk::css::{Defines, read_css};
 
-pub(crate) fn fixture(rel: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/gtk-themes").join(rel)
-}
+use crate::theme::gtk::fixture;
 
 fn colours(rel: &str) -> ThemeColors {
     ThemeColors::resolve(&Defines::parse(&read_css(&fixture(rel)).unwrap()))
