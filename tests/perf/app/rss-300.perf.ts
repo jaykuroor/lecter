@@ -1,18 +1,14 @@
 // rss_300_slides_mb on the real app (14-quality.md#performance-budgets): the 300-slide fixture
 // lecture open and scrolled end to end, then the memory of the app and its webview processes,
-// every one by its share (D-161; procs.ts). Read right after the scroll and again after the
-// settle, 5 s later. On macOS the sample after the settle counts (D-161): WebContent's
-// phys_footprint right after the scroll holds a transient (531 MB at the scroll, the total 398 MB
-// 5 s later in CI run 41708685261). Elsewhere the larger of the two counts.
+// every one by its share (D-161; procs.ts). Read right after the scroll and again after each
+// 5 s settle. On macOS WebContent's phys_footprint right after the scroll holds a transient (531 MB
+// at the scroll, the total 398 MB 5 s later in CI run 41708685261, D-161), and when WebKit lets go
+// of it varies (230-438 MB on the same code, D-225): the median of 3 settles counts. Elsewhere one
+// settle, and the larger of the two samples counts (settle.ts). The detail lists every sample.
 
-import { memoryMb, requireWebview, snapshot } from "./procs.ts";
+import { memoryMb, requireWebview, type Snapshot, snapshot } from "./procs.ts";
+import { counted, SETTLE_MS, settles } from "./settle.ts";
 import { idle, lecture, openLecture, record } from "./support.ts";
-
-/** The settle between the two samples. */
-const SETTLE_MS = 5_000;
-
-/** The OSes whose sample after the settle counts, not the larger of the two (D-161). */
-const afterSettle = (os: string) => os === "darwin";
 
 describe("memory with 300 slides", function () {
   this.timeout(300_000);
@@ -51,22 +47,25 @@ describe("memory with 300 slides", function () {
     expect(scrolled.atEnd).toBe(true);
     expect(scrolled.steps).toBeGreaterThan(1);
 
-    const then = snapshot();
-    requireWebview(then);
-    const first = memoryMb(then);
-    await idle(SETTLE_MS);
-    const now = snapshot();
-    requireWebview(now);
-    const second = memoryMb(now);
+    const sample = () => {
+      const s: Snapshot = snapshot();
+      requireWebview(s);
+      return { snap: s, memory: memoryMb(s) };
+    };
     const os = process.platform;
-    const counts = afterSettle(os) || second.total >= first.total ? second : first;
+    const samples = [sample()];
+    for (let n = 0; n < settles(os); n++) {
+      await idle(SETTLE_MS);
+      samples.push(sample());
+    }
+    const [atScroll, ...afterSettles] = samples.map((s) => s.memory.total);
+    const c = counted(os, atScroll as number, afterSettles);
+    const picked = samples[c.from] as (typeof samples)[number];
     record(
       "rss_300_slides_mb",
-      counts.total,
-      `${slides}-slide fixture scrolled end to end in ${scrolled.steps} pages (${scrolled.height} px); ` +
-        `${first.total.toFixed(1)} then ${second.total.toFixed(1)} MB ${SETTLE_MS / 1000} s later ` +
-        `(${afterSettle(os) ? `${os}: the sample after the settle counts` : "the larger counts"}); ` +
-        `${now.procs.length} processes: ${counts.parts}`,
+      c.value,
+      `${slides}-slide fixture scrolled end to end in ${scrolled.steps} pages (${scrolled.height} px); ${c.detail}; ` +
+        `${picked.snap.procs.length} processes: ${picked.memory.parts}`,
     );
   });
 });

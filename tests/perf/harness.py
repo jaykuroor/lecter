@@ -18,6 +18,10 @@ tests/perf/report.json and exits 1 on a breach (2 on a usage or budgets-file err
   prints REPORT) when the entry has one, else `per_os` or `budget`.
 - `median_of: N`: the script prints {"id", "samples": [N values]} and the median is gated at x1,
   with no CI allowance and no re-measure (cold_open_ms, D-152).
+- Shared VM runners (D-225): with --ci the real-app values of `VM_REPORT` print REPORT on every
+  OS and never fail, as `on_ci: "report"` does, and the quick check of a `QUICK_VM_REPORT` budget
+  prints REPORT on the OSes listed there (the macOS mocked-core keystroke check). Without --ci
+  they gate (the maintainer's machine).
 - A budget without a script prints PENDING, and fails once every feature of its `from` milestone
   is done (docs/features.json).
 - `--quick` runs each budget's `quick` script and skips the others; `job: nightly` budgets run
@@ -40,6 +44,14 @@ ROOT = Path(__file__).resolve().parents[2]
 CI_ALLOWANCE = 1.5
 KINDS = {"timing", "memory", "size", "tokens", "cpu"}
 OSES = {"linux", "darwin", "win32"}
+# D-225 (Q-033): on shared VM runners these real-app values swing more than a regression worth
+# catching (the same code: ~100 ms of Linux cold open, ~200 MB of macOS WebContent footprint), so
+# with --ci they print REPORT on every OS; they gate on the maintainer's machine, without --ci.
+# budgets.json is protected, so the rule lives here; `on_ci: "report"` on an entry does the same.
+VM_REPORT = frozenset({"cold_open_ms", "rss_300_slides_mb", "idle_rss_mb"})
+# The same for the mocked-core keystroke check on macOS runners (13-24 ms against 8 x1.5 on
+# unchanged code, Q-026); the other OSes keep gating it.
+QUICK_VM_REPORT = {"keystroke_p99_ms": frozenset({"darwin"})}
 
 
 class UsageError(Exception):
@@ -66,6 +78,7 @@ class Budget:
     on_ci: str | None = None
     median_of: int | None = None
     source: str = "script"  # "quick": the quick check that gates for an on_ci budget under --ci
+    by_quick: bool = False  # measured by its quick script (--quick, or the "quick" twin)
     values: list[float] = field(default_factory=list)
     samples: list[list[float]] = field(default_factory=list)
     details: list[str] = field(default_factory=list)
@@ -84,9 +97,17 @@ class Budget:
         t = self.target(ci, os_name)
         return None if t is None else t * CI_ALLOWANCE if self.allowance(ci) else t
 
+    def real_app_reports(self, ci: bool) -> bool:
+        """The real-app value under --ci of an on_ci or VM_REPORT budget (D-146, D-225)."""
+        return ci and not self.by_quick and (self.on_ci == "report" or self.id in VM_REPORT)
+
+    def quick_reports(self, ci: bool, os_name: str) -> bool:
+        """The quick check under --ci on an OS that QUICK_VM_REPORT lists for it (D-225)."""
+        return ci and self.by_quick and os_name in QUICK_VM_REPORT.get(self.id, ())
+
     def reports(self, ci: bool, os_name: str) -> bool:
-        """Measured but never failing: on_ci budgets under --ci, and an OS with no target."""
-        return (ci and self.on_ci == "report" and self.source == "script") or self.target(ci, os_name) is None
+        """Measured but never failing: the two above, and an OS with no target."""
+        return self.real_app_reports(ci) or self.quick_reports(ci, os_name) or self.target(ci, os_name) is None
 
     def within(self, value: float, ci: bool, os_name: str) -> bool:
         lim = self.limit(ci, os_name)
@@ -263,9 +284,10 @@ def evaluate(budgets: list[Budget], args: argparse.Namespace, done: set[str], lo
         elif args.quick and b.quick is None:
             b.status, b.note = "skip", "not in --quick"
         else:
+            b.by_quick = args.quick
             to_run.append(b)
             if ci and not args.quick and b.on_ci == "report" and b.quick:
-                twin = replace(b, source="quick", median_of=None, values=[], samples=[], details=[])
+                twin = replace(b, source="quick", by_quick=True, median_of=None, values=[], samples=[], details=[])
                 to_run.append(twin)
                 shown.append(twin)
     measure(to_run, args.quick, logs)
@@ -285,9 +307,13 @@ def evaluate(budgets: list[Budget], args: argparse.Namespace, done: set[str], lo
 
 
 def why_report(b: Budget, ci: bool, os_name: str) -> str:
-    if ci and b.on_ci == "report":
+    quiet_on = QUICK_VM_REPORT.get(b.id, frozenset())
+    if b.quick_reports(ci, os_name):
+        return (f"mocked-core quick check under --ci on {os_name}: reported, never fails; "
+                f"it gates on {' and '.join(sorted(OSES - quiet_on))}")
+    if b.real_app_reports(ci):
         return "real app under --ci: reported, never fails; " + (
-            "the quick check gates" if b.quick else "it gates locally")
+            "the quick check gates" if b.quick and os_name not in quiet_on else "it gates locally")
     table = "local" if b.local is not None and not ci else "per_os"
     return f"no {os_name} target in {table} yet"
 
