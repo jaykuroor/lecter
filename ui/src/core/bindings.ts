@@ -107,7 +107,7 @@ export const commands = {
 	searchFind: (course: string, query: string) => typedError<FindHit[], IpcError_Serialize>(__TAURI_INVOKE("search_find", { course, query })),
 	/**
 	 *  The settings schema (`settings.schema.json`, generated from the core's types) as JSON text:
-	 *  the command line completes keys and values and checks a value from it.
+	 *  the command line and the Settings window read keys, types and values from it.
 	 */
 	settingsSchema: () => typedError<string, IpcError_Serialize>(__TAURI_INVOKE("settings_schema")),
 	/**
@@ -116,12 +116,19 @@ export const commands = {
 	 */
 	settingsGet: (key: string, course: string | null) => typedError<Setting, IpcError_Serialize>(__TAURI_INVOKE("settings_get", { key, course })),
 	/**
-	 *  Writes `key = value` (`value` as JSON text) into the global `config.jsonc`, keeping its
-	 *  comments and other keys, and returns the value then in force (with `course`, as for
-	 *  `settings_get`). A value the setting's type refuses, or an unknown key, is E_INVALID_ARGUMENT
-	 *  with the reason (for a fixed set of values, the list).
+	 *  Writes `key = value` (`value` as JSON text) into the file of `scope`, keeping its comments and
+	 *  other keys, and returns the value then in force (with `course`, as for `settings_get`);
+	 *  `settings:changed` follows. `global` is `config.jsonc`; `course` is the trusted `course`'s
+	 *  `.lecter/course.jsonc` (an untrusted or read-only one is E_NOT_TRUSTED), which never takes a
+	 *  global-only key (SEC-25). A value the setting's type refuses, or an unknown key, is
+	 *  E_INVALID_ARGUMENT with the reason (for a fixed set of values, the list).
 	 */
-	settingsSet: (key: string, value: string, course: string | null) => typedError<Setting, IpcError_Serialize>(__TAURI_INVOKE("settings_set", { key, value, course })),
+	settingsSet: (key: string, value: string, course: string | null, scope: SettingScope) => typedError<Setting, IpcError_Serialize>(__TAURI_INVOKE("settings_set", { key, value, course, scope })),
+	/**
+	 *  Every setting in force, in key order, with its level and whether only the global settings may
+	 *  set it (with `course`, as for `settings_get`): the Settings window's values, in one read.
+	 */
+	settingsSource: (course: string | null) => typedError<SettingState[], IpcError_Serialize>(__TAURI_INVOKE("settings_source", { course })),
 	/**
 	 *  The tokens to set now: the GTK theme in use, light or dark, and its colours. Before the
 	 *  desktop has been read (just after start) it is the chosen theme's or nothing;
@@ -139,6 +146,7 @@ export const commands = {
 /** Events */
 export const events = {
 	courseChanged: makeEvent<CourseChanged>("course:changed"),
+	settingsChanged: makeEvent<SettingsChanged>("settings:changed"),
 	themeChanged: makeEvent<ThemeChanged>("theme:changed"),
 };
 
@@ -450,6 +458,13 @@ export type Setting = {
 	source: SettingSource,
 };
 
+/**  Which file a write goes to. */
+export type SettingScope = 
+/**  The global `config.jsonc`. */
+"global" | 
+/**  The course's `.lecter/course.jsonc` → `settings` (a trusted course only). */
+"course";
+
 /**  Where a setting's value comes from, most specific first. */
 export type SettingSource = 
 /**  This one prompt. */
@@ -462,6 +477,24 @@ export type SettingSource =
 "global" | 
 /**  Lecter's built-in default. */
 "default";
+
+/**  One setting in force, as the Settings window lists it. */
+export type SettingState = {
+	/**  The dotted key, e.g. `ui.performance`. */
+	key: string,
+	/**  The value as JSON text. */
+	value: string,
+	/**  The level it comes from. */
+	source: SettingSource,
+	/**  Only the global settings may set it (SEC-25): a course write is refused. */
+	globalOnly: boolean,
+};
+
+/**  `settings:changed`: a write changed a setting; `setting` is its value then in force. */
+export type SettingsChanged = {
+	/**  The setting written, as `settings_set` answered. */
+	setting: Setting,
+};
 
 /**  A startup paint the UI reports to `app_mark_startup`. */
 export type StartupPaint = 
@@ -663,9 +696,14 @@ export type Commands = {
     error: CommandError<Awaited<ReturnType<typeof commands.settingsGet>>>;
   };
   settings_set: {
-    args: { key: Parameters<typeof commands.settingsSet>[0]; value: Parameters<typeof commands.settingsSet>[1]; course: Parameters<typeof commands.settingsSet>[2] };
+    args: { key: Parameters<typeof commands.settingsSet>[0]; value: Parameters<typeof commands.settingsSet>[1]; course: Parameters<typeof commands.settingsSet>[2]; scope: Parameters<typeof commands.settingsSet>[3] };
     result: CommandOk<Awaited<ReturnType<typeof commands.settingsSet>>>;
     error: CommandError<Awaited<ReturnType<typeof commands.settingsSet>>>;
+  };
+  settings_source: {
+    args: { course: Parameters<typeof commands.settingsSource>[0] };
+    result: CommandOk<Awaited<ReturnType<typeof commands.settingsSource>>>;
+    error: CommandError<Awaited<ReturnType<typeof commands.settingsSource>>>;
   };
   theme_get: {
     args: Record<string, never>;

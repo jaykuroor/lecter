@@ -57,7 +57,9 @@ describe("CommandLine", () => {
     expect(labels(host)).toEqual(["find", "read", "set"]);
     expect(input.getAttribute("aria-expanded")).toBe("true");
     type(input, "set ui.");
-    expect(labels(host)).toEqual(["ui.performance", "ui.theme"]);
+    expect(labels(host)).toEqual(["ui.hintBar", "ui.keystrokes", "ui.performance", "ui.theme"]);
+    type(input, "set ui.p");
+    expect(labels(host)).toEqual(["ui.performance"]);
     expect(host.querySelector(".cmdline-completion-detail")?.textContent).toBe("The speed-or-looks preset.");
     expect(press("Tab").defaultPrevented).toBe(true);
     expect(input.value).toBe("set ui.performance");
