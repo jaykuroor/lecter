@@ -56,6 +56,21 @@ describe("hard-coded colours in CSS", () => {
 
   it("counts lines across multi-line comments and declarations", () => {
     expect(found("x.css", "/* a\n b\n */\n.a {\n  box-shadow:\n    0 0 1px black;\n}")).toEqual(["6:black"]);
+    const long = `/* ${"a long comment line ".repeat(4)}*/\n.a { color: red; }`;
+    expect(found("x.css", long)).toEqual(["2:red"]);
+  });
+
+  it("skips a commented-out declaration and colour words in quoted strings", () => {
+    const css = [
+      ".a {",
+      "  /* color: red; */",
+      "  content: 'red #fff';",
+      '  content: "it\\"s red";',
+      "  content: 'it\\'s red';",
+      "  color: var(--x);",
+      "}",
+    ].join("\n");
+    expect(found("x.css", css)).toEqual([]);
   });
 });
 
@@ -94,6 +109,10 @@ describe("hard-coded colours in TypeScript", () => {
     expect(found("x.ts", ts)).toEqual([]);
   });
 
+  it("skips a whole line comment, quotes and all", () => {
+    expect(found("x.ts", '// was "#fff" and \'rgb(0 0 0)\'\nconst c = "#000";')).toEqual(["2:#000"]);
+  });
+
   it("keeps line numbers after a template literal that spans lines", () => {
     expect(found("x.ts", "const a = `one\ntwo`;\nconst b = '#abcdef';")).toEqual(["3:#abcdef"]);
   });
@@ -108,6 +127,8 @@ describe("hard-coded colours in TypeScript", () => {
 
   it("finds a named colour under a quoted key or after an unrelated string, not handed to something else", () => {
     expect(found("x.ts", 'const s = { "color": "red" };')).toEqual(["1:red"]);
+    expect(found("x.ts", 'const s = { color  : "red" };')).toEqual(["1:red"]);
+    expect(found("x.ts", "const s = { color: `\n  red` };")).toEqual(["2:red"]);
     expect(found("x.ts", 'const s = { color: " red " };')).toEqual(["1:red"]);
     expect(found("x.ts", 'const s = { color: c, label: "red" };')).toEqual([]);
     expect(found("x.ts", 'el.setAttribute("title", "red");')).toEqual([]);

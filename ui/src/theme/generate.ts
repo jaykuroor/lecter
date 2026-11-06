@@ -68,8 +68,8 @@ function others(tokens: Group): string[] {
   }
   // Whole, non-negative pixels only: anything else isn't a step of the scale.
   const scale = group(tokens, "space").scale;
-  for (const n of Array.isArray(scale) ? scale : []) {
-    if (Number.isInteger(n) && n >= 0) out.push(`--space-${n}: ${n}px;`);
+  if (Array.isArray(scale)) {
+    for (const n of scale) if (Number.isInteger(n) && n >= 0) out.push(`--space-${n}: ${n}px;`);
   }
   for (const key of ["radius", "layout", "motion"]) {
     for (const [name, v] of entries(tokens, key)) {

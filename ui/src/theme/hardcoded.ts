@@ -109,6 +109,6 @@ function literalColours(text: string, at: number, body: string, found: Found): v
   cssColours(body, at, found, COLOUR_KEY);
   // A named colour on its own, handed to a colour.
   const word = body.trim();
-  const before = text.slice(text.lastIndexOf("\n", at) + 1, at - 1);
+  const before = text.slice(text.lastIndexOf("\n", at - 1) + 1, at - 1);
   if (NAMED.has(word.toLowerCase()) && COLOUR_CONTEXT.test(before)) found.set(at + body.indexOf(word), word);
 }
