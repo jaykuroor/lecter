@@ -24,3 +24,4 @@ Spec: `01-architecture.md#processes`, `#packaging`; `13-security.md`; `08-figure
 - The app installs no tracing subscriber, so `tracing::` events go nowhere; test-hooks diagnostics use `eprintln!` (the wdio app.log keeps the app's stderr) (F-028)
 - `cargo clippy --target x86_64-pc-windows-msvc|aarch64-apple-darwin -p lecter-app` fails in build scripts (blake3 asm, tauri-winres rc, objc2 helper); check cfg(windows/macos) modules in a scratch crate that symlinks them, with `CARGO_FEATURE_PURE=1` and stub `CC_<target>`/`AR_<target>` scripts (F-028)
 - A fresh target dir (e.g. `target/perf/`) builds C code (blake3) through ccache, whose cache is read-only in the Claude sandbox: set `CCACHE_DISABLE=1` (F-179)
+- app/tests/test_hooks.rs wants `#[cfg(any(debug_assertions, feature = "test-hooks"))]` on the line right above every line naming `test_hooks::`, so a second hook inside a gated block fails it: read it into a gated `let` first (ipc/theme.rs `standard`) (F-044)
