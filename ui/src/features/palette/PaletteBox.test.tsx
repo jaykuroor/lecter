@@ -155,6 +155,7 @@ describe("the palette box", () => {
     palette.open("switch");
     await Promise.resolve();
     (options()[0] as HTMLElement).focus();
-    expect(screen.queryByRole("dialog")).not.toBeNull();
+    expect(palette.mode()).toBe("switch");
+    expect(screen.getByRole("dialog").getAttribute("aria-label")).toBe("Quick switcher");
   });
 });
