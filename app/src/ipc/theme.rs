@@ -6,7 +6,6 @@
 //! The UI applies an update as one batch of CSS custom properties on the root (D-240). The
 //! monitor child is stopped, killed and reaped when the app exits ([`Themes::shutdown`]).
 
-use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -137,7 +136,7 @@ impl Themes {
 pub async fn theme_get(themes: State<'_, Themes>) -> Result<ThemeUpdate, IpcError> {
     let themes = themes.inner().clone();
     let update = blocking(move || themes.current()).await?;
-    diag(format_args!("theme_get answered: {}", summary(&update)));
+    diag(format_args!("theme_get answered: {}", Summary(&update)));
     Ok(update)
 }
 
@@ -217,20 +216,35 @@ pub async fn chosen(app: &AppHandle, theme: Option<String>) {
 /// Sends `theme:changed` when the update differs from the last one.
 async fn announce(app: &AppHandle, themes: &Themes) {
     let themes = themes.clone();
-    let work = move || themes.changed().map(|u| (u, themes.with(|s| s.follower.stylesheet().map(Path::to_path_buf))));
+    let work = move || {
+        let update = themes.changed()?;
+        // The stylesheet only for the diagnostic line: release builds don't look it up.
+        #[cfg(any(debug_assertions, feature = "test-hooks"))]
+        let stylesheet = themes.with(|s| s.follower.stylesheet().map(std::path::Path::to_path_buf));
+        #[cfg(not(any(debug_assertions, feature = "test-hooks")))]
+        let stylesheet: Option<std::path::PathBuf> = None;
+        Some((update, stylesheet))
+    };
     let Ok(Some((update, stylesheet))) = tauri::async_runtime::spawn_blocking(work).await else { return };
-    let line = format!("{} from {stylesheet:?}", summary(&update));
-    if let Err(e) = (ThemeChanged { update }).emit(app) {
-        diag(format_args!("theme:changed not sent ({line}): {e}"));
-        tracing::warn!(target: "ipc", event = "theme:changed", error = %e, "event not sent");
-    } else {
-        diag(format_args!("theme:changed sent: {line}"));
+    let event = ThemeChanged { update };
+    match event.emit(app) {
+        Ok(()) => diag(format_args!("theme:changed sent: {} from {stylesheet:?}", Summary(&event.update))),
+        Err(e) => {
+            diag(format_args!("theme:changed not sent ({} from {stylesheet:?}): {e}", Summary(&event.update)));
+            tracing::warn!(target: "ipc", event = "theme:changed", error = %e, "event not sent");
+        }
     }
 }
 
-/// An update in a few words: the theme, the scheme and how many tokens.
-fn summary(update: &ThemeUpdate) -> String {
-    format!("theme {:?}, scheme {:?}, {} tokens", update.theme, update.scheme, update.tokens.len())
+/// An update in a few words for [`diag`]: the theme, the scheme and how many tokens. Formats only
+/// when written, so a release build's discarded line costs nothing.
+struct Summary<'a>(&'a ThemeUpdate);
+
+impl std::fmt::Display for Summary<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let u = self.0;
+        write!(f, "theme {:?}, scheme {:?}, {} tokens", u.theme, u.scheme, u.tokens.len())
+    }
 }
 
 /// One `theme: …` line on stderr for the real-app e2e logs (the app installs no tracing

@@ -79,6 +79,29 @@ function painted(names: string[]): Promise<{ scheme: string | null; tokens: Reco
   }, names);
 }
 
+/**
+ * The FIFO opened for writing once the fake monitor (`exec cat FIFO`) has it open for reading.
+ * The app starts the monitor just after it paints the first theme, so it may not be there yet:
+ * a non-blocking open fails with ENXIO until it is. Retried for up to 10 s, never a blocking open
+ * (that would hang the worker if the monitor never starts).
+ */
+async function openFifoWriter(): Promise<number> {
+  const started = Date.now();
+  for (;;) {
+    try {
+      return openSync(FIFO, fsConstants.O_WRONLY | fsConstants.O_NONBLOCK);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENXIO") throw e;
+      if (Date.now() - started > 10_000) {
+        throw new Error(
+          `no fake monitor read ${FIFO} after ${Date.now() - started} ms; see the theme: lines in gtk-theme.log`,
+        );
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+}
+
 /** What the core answers `theme_get` with right now, for a failure message. */
 async function coreTheme(): Promise<string> {
   return await browser.execute(async () => {
@@ -155,8 +178,7 @@ describe("gtk-theme", () => {
         }
       }).observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-theme"] });
     });
-    // Non-blocking: with no monitor reading the FIFO this fails at once (ENXIO) instead of hanging.
-    const fifo = openSync(FIFO, fsConstants.O_WRONLY | fsConstants.O_NONBLOCK);
+    const fifo = await openFifoWriter();
     const sent = Date.now();
     writeSync(fifo, `${SIGNAL} ('org.gnome.desktop.interface', 'gtk-theme', <'Nightish'>)\n`);
     await browser.waitUntil(
