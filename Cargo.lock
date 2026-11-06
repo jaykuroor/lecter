@@ -2204,6 +2204,7 @@ dependencies = [
  "directories",
  "jsonc-parser",
  "lecter-parse",
+ "libc",
  "notify",
  "proptest",
  "ropey",

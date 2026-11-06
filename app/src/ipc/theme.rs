@@ -3,16 +3,19 @@
 //! (`gdbus monitor` on the settings portal, else `gsettings monitor`) pushes each change and the
 //! shell sends `theme:changed` with the tokens to set (D-237: no polling). `theme_get` gives the
 //! current tokens, `theme_list` the installed GTK themes; choosing one is `settings_set ui.theme`.
-//! The UI applies an update as one batch of CSS custom properties on the root (D-240).
+//! The UI applies an update as one batch of CSS custom properties on the root (D-240). The
+//! monitor child is stopped, killed and reaped when the app exits ([`Themes::shutdown`]).
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::time::Duration;
 
+use lecter_ai::CancellationToken;
 use lecter_core::paths::AppDirs;
 use lecter_core::settings::SettingsStore;
 use lecter_core::theme::gtk::desktop::Change;
 use lecter_core::theme::gtk::folders::{InstalledTheme, ThemeDirs};
 use lecter_core::theme::gtk::follow::{Follower, ThemeUpdate};
-use lecter_core::theme::gtk::monitor::Tools;
+use lecter_core::theme::gtk::monitor::{Ended, Source, Tools};
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Manager, State};
@@ -32,6 +35,15 @@ pub struct ThemeChanged {
 pub struct Themes {
     shared: Arc<Mutex<Shared>>,
     tools: Tools,
+    monitor: Arc<Monitor>,
+}
+
+/// Whether the desktop monitor runs, and the token that stops it at exit.
+#[derive(Debug, Default)]
+struct Monitor {
+    stop: CancellationToken,
+    running: Mutex<bool>,
+    ended: Condvar,
 }
 
 #[derive(Debug)]
@@ -44,7 +56,8 @@ struct Shared {
 impl Themes {
     /// Themes from `dirs`, with the desktop read through `tools`.
     pub fn new(dirs: ThemeDirs, tools: Tools) -> Self {
-        Self { shared: Arc::new(Mutex::new(Shared { follower: Follower::new(dirs), last: None })), tools }
+        let shared = Arc::new(Mutex::new(Shared { follower: Follower::new(dirs), last: None }));
+        Self { shared, tools, monitor: Arc::default() }
     }
 
     /// The standard folders and tools; in debug builds a test hook can replace both.
@@ -79,6 +92,34 @@ impl Themes {
                 update
             })
         })
+    }
+
+    /// Follows the desktop's changes from `source` until the monitor exits or [`Self::shutdown`]
+    /// stops it; `None` without starting one when shutdown came first.
+    async fn watch_desktop(&self, source: Source, on_change: impl FnMut(Change)) -> Option<std::io::Result<Ended>> {
+        {
+            let mut running = self.monitor.running.lock().unwrap_or_else(PoisonError::into_inner);
+            if self.monitor.stop.is_cancelled() {
+                return None;
+            }
+            *running = true;
+        }
+        let ended =
+            lecter_core::theme::gtk::monitor::watch(&self.tools, source, on_change, self.monitor.stop.cancelled())
+                .await;
+        *self.monitor.running.lock().unwrap_or_else(PoisonError::into_inner) = false;
+        self.monitor.ended.notify_all();
+        Some(ended)
+    }
+
+    /// At exit: stops following the desktop and waits up to `timeout` until the monitor child is
+    /// killed and reaped. Whether it is gone (or never ran). Blocking.
+    pub fn shutdown(&self, timeout: Duration) -> bool {
+        self.monitor.stop.cancel();
+        let running = self.monitor.running.lock().unwrap_or_else(PoisonError::into_inner);
+        let (running, _) =
+            self.monitor.ended.wait_timeout_while(running, timeout, |r| *r).unwrap_or_else(PoisonError::into_inner);
+        !*running
     }
 
     /// The installed GTK themes. Blocking.
@@ -127,7 +168,7 @@ pub fn follow(app: &AppHandle, dirs: AppDirs) {
 }
 
 async fn follow_desktop(app: &AppHandle, themes: &Themes) {
-    use lecter_core::theme::gtk::monitor::{read, watch};
+    use lecter_core::theme::gtk::monitor::read;
     let Some((desktop, source)) = read(&themes.tools).await else {
         tracing::info!(target: "theme", "no desktop settings; the Lecter theme applies");
         announce(app, themes).await;
@@ -136,15 +177,21 @@ async fn follow_desktop(app: &AppHandle, themes: &Themes) {
     themes.with(|s| s.follower.set_desktop(desktop));
     announce(app, themes).await;
     tracing::info!(target: "theme", source = ?source, "following the desktop's theme");
-    let result = watch(&themes.tools, source, |change: Change| {
-        if themes.with(|s| s.follower.change(change)) {
-            let (app, themes) = (app.clone(), themes.clone());
-            tauri::async_runtime::spawn(async move { announce(&app, &themes).await });
+    let result = themes
+        .watch_desktop(source, |change: Change| {
+            if themes.with(|s| s.follower.change(change)) {
+                let (app, themes) = (app.clone(), themes.clone());
+                tauri::async_runtime::spawn(async move { announce(&app, &themes).await });
+            }
+        })
+        .await;
+    match result {
+        None | Some(Ok(Ended::Stopped)) => {}
+        // Not restarted: the theme stays as it is until the next start.
+        Some(Ok(Ended::Exited)) => {
+            tracing::warn!(target: "theme", source = ?source, "the desktop's settings monitor ended; changes are no longer followed")
         }
-    })
-    .await;
-    if let Err(e) = result {
-        tracing::warn!(target: "theme", error = %e, "the desktop's settings can't be followed");
+        Some(Err(e)) => tracing::warn!(target: "theme", error = %e, "the desktop's settings can't be followed"),
     }
 }
 

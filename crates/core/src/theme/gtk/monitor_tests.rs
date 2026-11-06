@@ -137,7 +137,8 @@ fn watching_the_portal_reports_each_followed_setting() {
         gsettings: OsString::from("unused"),
     };
     let mut seen = Vec::new();
-    runtime().block_on(watch(&tools, Source::Portal, |c| seen.push(c))).unwrap();
+    let ended = runtime().block_on(watch(&tools, Source::Portal, |c| seen.push(c), std::future::pending())).unwrap();
+    assert_eq!(ended, Ended::Exited);
     assert_eq!(
         seen,
         [
@@ -161,14 +162,15 @@ fn watching_gsettings_reports_each_followed_key() {
         ),
     };
     let mut seen = Vec::new();
-    runtime().block_on(watch(&tools, Source::Gsettings, |c| seen.push(c))).unwrap();
+    let ended = runtime().block_on(watch(&tools, Source::Gsettings, |c| seen.push(c), std::future::pending()));
+    assert_eq!(ended.unwrap(), Ended::Exited);
     assert_eq!(seen, [Change::Theme(Some("Greyish".into())), Change::Scheme(Some(Scheme::Dark))]);
 }
 
 #[test]
 fn watching_a_missing_tool_is_an_error() {
     let tools = Tools { gdbus: OsString::from("/nonexistent/gdbus"), gsettings: OsString::from("unused") };
-    assert!(runtime().block_on(watch(&tools, Source::Portal, |_| {})).is_err());
+    assert!(runtime().block_on(watch(&tools, Source::Portal, |_| {}, std::future::pending())).is_err());
 }
 
 #[test]
@@ -235,15 +237,14 @@ fn a_portal_change_reaches_the_tokens_within_milliseconds() {
     });
     let mut follower = Follower::new(ThemeDirs::new(vec![fixture("")], vec![]));
     let mut applied = 0;
-    runtime()
-        .block_on(watch(&tools, Source::Portal, |change| {
-            follower.change(change);
-            let update = follower.update();
-            assert!(update.theme.is_some());
-            applied += 1;
-            ack.send(Instant::now()).unwrap();
-        }))
-        .unwrap();
+    let on_change = |change| {
+        follower.change(change);
+        let update = follower.update();
+        assert!(update.theme.is_some());
+        applied += 1;
+        ack.send(Instant::now()).unwrap();
+    };
+    runtime().block_on(watch(&tools, Source::Portal, on_change, std::future::pending())).unwrap();
     let mut latencies = writer.join().unwrap();
     assert_eq!(applied, rounds);
     latencies.sort();
@@ -253,4 +254,88 @@ fn a_portal_change_reaches_the_tokens_within_milliseconds() {
     // Three themes, each parsed once.
     assert_eq!(follower.reads(), 3);
     assert!(p95 < Duration::from_millis(50), "p95 {p95:?}");
+}
+
+/// A fake monitor that writes its pid to `pid_file`, then waits and prints nothing.
+#[cfg(target_os = "linux")]
+fn sleeper(dir: &Path, pid_file: &Path) -> OsString {
+    let file = pid_file.display();
+    tool(dir, "gdbus", &format!("echo $$ > '{file}.tmp' && mv '{file}.tmp' '{file}'\nexec sleep 600"))
+}
+
+/// The pid written to `file`, once it is there (deadline 10 s).
+#[cfg(target_os = "linux")]
+async fn pid_in(file: &Path) -> libc::pid_t {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(pid) = std::fs::read_to_string(file).ok().and_then(|t| t.trim().parse().ok()) {
+            return pid;
+        }
+        assert!(Instant::now() < deadline, "no pid in {}", file.display());
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+
+/// A process's state letter from `/proc` (`S` sleeping, `Z` zombie, …); `None` once it is reaped.
+#[cfg(target_os = "linux")]
+fn state(pid: libc::pid_t) -> Option<char> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    stat.rsplit_once(')')?.1.trim_start().chars().next()
+}
+
+/// Kills and reaps `pid` when the test ends, passed or failed.
+#[cfg(target_os = "linux")]
+struct Reap(libc::pid_t);
+
+#[cfg(target_os = "linux")]
+impl Drop for Reap {
+    fn drop(&mut self) {
+        // SAFETY: plain syscalls on a child of this process; a null status pointer is allowed.
+        unsafe {
+            libc::kill(self.0, libc::SIGKILL);
+            libc::waitpid(self.0, std::ptr::null_mut(), 0);
+        }
+    }
+}
+
+/// The app's exit stops the watch: the monitor is killed and reaped before `watch` returns, so
+/// no `gdbus monitor` outlives the app.
+#[cfg(target_os = "linux")]
+#[test]
+fn stopping_a_watch_kills_and_reaps_the_monitor() {
+    let env = TestEnv::new().unwrap();
+    let pid_file = env.home().join("monitor.pid");
+    let tools = Tools { gdbus: sleeper(env.home(), &pid_file), gsettings: OsString::from("unused") };
+    let mut pid = 0;
+    let stop = async { pid = pid_in(&pid_file).await };
+    let ended = runtime().block_on(watch(&tools, Source::Portal, |_| {}, stop)).unwrap();
+    assert_eq!(ended, Ended::Stopped);
+    assert!(pid > 0);
+    assert_eq!(state(pid), None, "monitor {pid} is still there");
+}
+
+/// The backstop for a crash or `kill -9`: when the thread that started a monitor goes without
+/// stopping it, the kernel ends the monitor (PR_SET_PDEATHSIG).
+#[cfg(target_os = "linux")]
+#[test]
+fn the_monitor_dies_with_the_thread_that_started_it() {
+    let env = TestEnv::new().unwrap();
+    let program = sleeper(env.home(), &env.home().join("orphan.pid"));
+    let pid = std::thread::spawn(move || {
+        runtime().block_on(async {
+            let child = spawn(&program, &[]).await.unwrap();
+            let pid = libc::pid_t::try_from(child.id().unwrap()).unwrap();
+            // As if the app died: nothing kills the child or drops its handle.
+            std::mem::forget(child);
+            pid
+        })
+    })
+    .join()
+    .unwrap();
+    let _reap = Reap(pid);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !matches!(state(pid), None | Some('Z')) {
+        assert!(Instant::now() < deadline, "monitor {pid} outlived its parent thread: {:?}", state(pid));
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }

@@ -16,6 +16,8 @@ directories = "6.0.0"
 jsonc-parser = { version = "0.34.0", default-features = false, features = ["cst", "serde"] }
 # The parse worker's message types and frame codec only (01-architecture.md#repository-layout).
 lecter-parse = { path = "../parse", default-features = false, features = ["proto"] }
+# prctl(PR_SET_PDEATHSIG) for the theme monitor child on Linux (theme/gtk/monitor.rs).
+libc = "0.2.191"
 notify = "8.2.1"
 ropey = "1.6.1"
 rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }

@@ -70,7 +70,7 @@ fn main() {
         .manage(layout)
         .manage(keymaps)
         .manage(settings)
-        .manage(themes)
+        .manage(themes.clone())
         .manage(lectures.clone())
         .manage(ipc::search::SearchIndexes::default())
         .manage(glosses.clone())
@@ -97,6 +97,9 @@ fn main() {
             if let tauri::RunEvent::Exit = event {
                 glosses.cancel_all();
                 ipc::lecture::close_all(&lectures);
+                // The desktop monitor child (gdbus/gsettings) goes with the app: `run` ends in
+                // process::exit, which drops no task, so it is killed and reaped here.
+                themes.shutdown(std::time::Duration::from_secs(1));
             }
         }),
         Err(e) => {

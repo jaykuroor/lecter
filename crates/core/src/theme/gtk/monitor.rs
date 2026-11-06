@@ -3,8 +3,13 @@
 //! pushed: one long-lived `gdbus monitor` (the portal's `SettingChanged` signal) or
 //! `gsettings monitor` child prints a line per change and this reads it as it arrives. Nothing
 //! polls (D-237). Both tools ship with GLib, which WebKitGTK already needs; no D-Bus crate.
+//!
+//! The monitor never outlives the app: [`watch`] kills and reaps it when its `stop` future
+//! completes (the app's exit), and on Linux the kernel sends it SIGTERM if the app dies first
+//! (`PR_SET_PDEATHSIG`, a backstop for a crash or `kill -9`).
 
 use std::ffi::OsString;
+use std::future::Future;
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -84,9 +89,25 @@ pub async fn read(tools: &Tools) -> Option<(Desktop, Source)> {
     Some((desktop, Source::Gsettings))
 }
 
+/// How a [`watch`] ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ended {
+    /// The monitor exited by itself (the portal or the session went away): changes are no
+    /// longer followed.
+    Exited,
+    /// `stop` completed: the monitor was killed and reaped.
+    Stopped,
+}
+
 /// Follows the desktop's changes from `source`, calling `on_change` for each as it arrives,
-/// until the monitor ends (or the future is dropped, which kills it).
-pub async fn watch(tools: &Tools, source: Source, mut on_change: impl FnMut(Change)) -> std::io::Result<()> {
+/// until the monitor exits or `stop` completes. Either way the monitor is gone and reaped when
+/// this returns.
+pub async fn watch(
+    tools: &Tools,
+    source: Source,
+    mut on_change: impl FnMut(Change),
+    stop: impl Future<Output = ()>,
+) -> std::io::Result<Ended> {
     type Parse = fn(&str) -> Option<Change>;
     let (program, args, parse): (&OsString, &[&str], Parse) = match source {
         Source::Portal => (
@@ -105,15 +126,27 @@ pub async fn watch(tools: &Tools, source: Source, mut on_change: impl FnMut(Chan
     };
     let mut child = spawn(program, args).await?;
     let stdout = child.stdout.take().ok_or_else(|| std::io::Error::other("no stdout"))?;
-    let mut lines = BufReader::new(stdout);
-    let mut line = Vec::new();
-    while read_line(&mut lines, &mut line).await? {
-        if let Some(change) = std::str::from_utf8(&line).ok().and_then(parse) {
-            on_change(change);
+    let follow = async {
+        let mut lines = BufReader::new(stdout);
+        let mut line = Vec::new();
+        while read_line(&mut lines, &mut line).await? {
+            if let Some(change) = std::str::from_utf8(&line).ok().and_then(parse) {
+                on_change(change);
+            }
         }
+        std::io::Result::Ok(())
+    };
+    let ended = tokio::select! {
+        read = follow => read.map(|()| Ended::Exited),
+        () = stop => Ok(Ended::Stopped),
+    };
+    if matches!(ended, Ok(Ended::Exited)) {
+        child.wait().await?;
+    } else {
+        // Stopped, or its output can't be read: it goes now, and is reaped (no zombie).
+        child.kill().await?;
     }
-    child.wait().await?;
-    Ok(())
+    ended
 }
 
 /// One line into `buf` (without the newline); `false` at the end. A line over
@@ -182,7 +215,31 @@ async fn spawn(program: &OsString, args: &[&str]) -> std::io::Result<tokio::proc
 fn command(program: &OsString, args: &[&str]) -> Command {
     let mut cmd = Command::new(program);
     cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
+    #[cfg(target_os = "linux")]
+    die_with_parent(&mut cmd);
     cmd
+}
+
+/// Has the kernel send the child SIGTERM when its parent goes, however it goes. Linux sends it
+/// when the thread that spawned the child exits: callers spawn from the async runtime's worker
+/// threads, which live as long as the app.
+#[cfg(target_os = "linux")]
+fn die_with_parent(cmd: &mut Command) {
+    let parent = std::process::id() as libc::pid_t;
+    // SAFETY: the closure runs in the child between fork and exec. It calls only prctl and
+    // getppid, both async-signal-safe, and allocates nothing (raw OS errors carry no heap data).
+    unsafe {
+        cmd.pre_exec(move || {
+            if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            // The parent died before prctl: nothing would send the signal any more.
+            if libc::getppid() != parent {
+                return Err(std::io::Error::from_raw_os_error(libc::ESRCH));
+            }
+            Ok(())
+        });
+    }
 }
 
 #[cfg(test)]
