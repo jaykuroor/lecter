@@ -42,6 +42,14 @@ export function installMockCore(fixture: MockFixture): void {
       callbacks.get(handler)?.({ event: "course:changed", id, payload: { courses: rail.map((c) => ({ ...c })) } });
     }
   };
+  // The `theme:changed` listeners: event id → callback id. A test sends an update through
+  // window.__mockThemeChanged(update), as the core does after a desktop change.
+  const themeListeners = new Map<number, number>();
+  (window as unknown as { __mockThemeChanged?: (update: unknown) => void }).__mockThemeChanged = (update) => {
+    for (const [id, handler] of themeListeners) {
+      callbacks.get(handler)?.({ event: "theme:changed", id, payload: { update } });
+    }
+  };
   const fail = (code: IpcError["code"], message: string): never => {
     const error: IpcError = { code, message, retryable: false };
     throw error;
@@ -155,6 +163,8 @@ export function installMockCore(fixture: MockFixture): void {
       return fixture.find[args.query] ?? [];
     },
     settings_schema: () => fixture.settings.schema,
+    theme_get: () => fixture.theme.update,
+    theme_list: () => fixture.theme.installed,
     settings_get: ({ key }) => {
       const found = settings[key];
       if (!found) return fail("E_NOT_FOUND", `${key} is not a setting`);
@@ -211,15 +221,17 @@ export function installMockCore(fixture: MockFixture): void {
   let nextId = 1;
   const internals: MockInternals = {
     invoke(cmd, args) {
-      // Tauri's event plugin, for `course:changed` (the only event the core sends).
+      // Tauri's event plugin, for the core's events `course:changed` and `theme:changed`.
       if (cmd === "plugin:event|listen") {
         const { event, handler } = args as { event: string; handler: number };
         const id = nextEventId++;
         if (event === "course:changed") listeners.set(id, handler);
+        if (event === "theme:changed") themeListeners.set(id, handler);
         return Promise.resolve(id);
       }
       if (cmd === "plugin:event|unlisten") {
         listeners.delete((args as { eventId: number }).eventId);
+        themeListeners.delete((args as { eventId: number }).eventId);
         return Promise.resolve(null);
       }
       if (!isCommand(cmd)) {

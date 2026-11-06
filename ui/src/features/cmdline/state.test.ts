@@ -34,7 +34,7 @@ describe("the command line", () => {
     expect(c.completions().map((x) => x.label)).toEqual(["find", "read", "set"]);
     await settle();
     c.setText("set ui.");
-    expect(c.completions().map((x) => x.label)).toEqual(["ui.performance"]);
+    expect(c.completions().map((x) => x.label)).toEqual(["ui.performance", "ui.theme"]);
     c.close();
     c.open(b.target);
     await settle();
@@ -53,7 +53,7 @@ describe("the command line", () => {
     c.open(buffer().target);
     await settle();
     c.setText("set ui.");
-    expect(c.completions().map((x) => x.label)).toEqual(["ui.performance"]);
+    expect(c.completions().map((x) => x.label)).toEqual(["ui.performance", "ui.theme"]);
     expect(core.calls).toEqual(["schema", "schema"]);
   });
 

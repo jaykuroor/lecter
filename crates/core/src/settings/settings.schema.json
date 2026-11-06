@@ -88,7 +88,8 @@
       "description": "The window and the editor.",
       "$ref": "#/$defs/Ui",
       "default": {
-        "performance": "balanced"
+        "performance": "balanced",
+        "theme": null
       }
     }
   },
@@ -459,6 +460,14 @@
           "description": "The speed-or-looks preset.",
           "$ref": "#/$defs/Performance",
           "default": "balanced"
+        },
+        "theme": {
+          "description": "The theme to use instead of the desktop's: the name of an installed GTK theme. Unset\nfollows the desktop's theme.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
         }
       }
     },

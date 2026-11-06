@@ -31,6 +31,8 @@ export const SECONDS: Record<string, Record<string, number>> = {
     trust: 6,
     // Estimated from trust.ts (two relaunches and a lecture) until a run measures it.
     theme: 12,
+    // Estimated from restart.ts (one relaunch) until a run measures it.
+    "gtk-theme": 6,
   },
   darwin: {
     idle: 801,

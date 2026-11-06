@@ -15,6 +15,7 @@ mod names;
 pub mod search;
 pub mod session;
 pub mod settings;
+pub mod theme;
 pub mod validate;
 
 use tauri::Wry;
@@ -43,9 +44,11 @@ pub fn contract() -> Builder<Wry> {
             search::search_find,
             settings::settings_schema,
             settings::settings_get,
-            settings::settings_set
+            settings::settings_set,
+            theme::theme_get,
+            theme::theme_list
         ])
-        .events(collect_events![course::rail::CourseChanged])
+        .events(collect_events![course::rail::CourseChanged, theme::ThemeChanged])
 }
 
 /// The invoke handler for `tauri::Builder::invoke_handler`: the contract's commands behind the
