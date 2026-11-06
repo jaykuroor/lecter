@@ -205,6 +205,8 @@ describe("App shell", () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
       ...defaultFixture,
+      // No deltas: the mocked stream ends at once, so no timer of it outlives this file's jsdom.
+      gloss: { deltas: [], deltaMs: 0 },
       courseOpen: {
         path: "/c/STAT311",
         name: "STAT311",
