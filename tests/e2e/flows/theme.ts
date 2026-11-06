@@ -158,6 +158,7 @@ const setting: OsSetting | null = process.platform === "darwin" ? MAC : process.
 // Linux sets the preference for the relaunched app alone (environment), so it runs anywhere.
 const canSwitch = setting === null || Boolean(process.env.CI);
 const LINUX_NO_BUS = `unix:path=${join(tmpdir(), "lecter-e2e-no-session-bus")}`;
+const NO_GTK = join(tmpdir(), "lecter-e2e-no-gtk-desktop");
 
 /** What the setting held before the flow changed it; `undefined` while untouched. */
 let saved: Read | undefined;
@@ -175,10 +176,13 @@ function putBack(): void {
 
 /** How to start the app so the OS hands it `scheme`; `null` leaves the OS as it is. */
 function launchIn(scheme: Scheme | null): Relaunch {
-  const how: Relaunch = { log: `theme-${scheme ?? "current"}` };
+  // No GTK theme applies (F-042 criterion 3): the app reads no desktop theme settings and finds
+  // no GTK themes (F-043's LECTER_TEST_GTK, pointed at a folder that doesn't exist).
+  const how: Relaunch = { log: `theme-${scheme ?? "current"}`, env: { LECTER_TEST_GTK: NO_GTK } };
   if (scheme === null) return how;
   if (setting === null) {
     how.env = {
+      ...how.env,
       GTK_THEME: scheme === "dark" ? "Adwaita:dark" : "Adwaita",
       DBUS_SESSION_BUS_ADDRESS: LINUX_NO_BUS,
       NO_AT_BRIDGE: "1",
