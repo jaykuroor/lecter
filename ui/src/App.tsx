@@ -199,7 +199,10 @@ export function App() {
       // The desktop's GTK theme, or `ui.theme` (F-043), after the first paint like every other
       // ask of the core: applied when the core answers, then on each change.
       void followTheme().then(
-        (stop) => (gone ? stop() : (stopTheme = stop)),
+        (stop) => {
+          if (gone) stop();
+          else stopTheme = stop;
+        },
         () => {},
       );
       void loadEditor().then(([, ex, warm, read, cmdline]) => {
