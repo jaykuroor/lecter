@@ -32,6 +32,9 @@ describe("the app and the GTK theme", () => {
     const { unmount } = render(() => <App />);
     await waitFor(() => expect(windowBg()).toBe("#f7f7f7"));
     expect(document.documentElement.dataset.theme).toBe("light");
+    // The app keeps the follower once it has started (it only stops it after an unmount): let
+    // the start-up chain and any unlisten it would do settle before the change arrives.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     send(night);
     expect(windowBg()).toBe("#1e1e1e");
     expect(document.documentElement.dataset.theme).toBe("dark");
