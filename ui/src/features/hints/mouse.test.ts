@@ -58,6 +58,8 @@ describe("mouseAction", () => {
     expect(actions("page")).toEqual([
       "Course: click the course",
       "Previous pane: click a pane",
+      "Command palette: click here",
+      "Quick switcher: click here",
       "Next pane: click a pane",
       "More: click here",
     ]);

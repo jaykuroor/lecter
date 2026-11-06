@@ -5,6 +5,8 @@ import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
 import { ReadModeToggle } from "./features/overlay/ReadModeToggle";
 import { createReadMode } from "./features/overlay/readMode";
+import { PaletteButtons } from "./features/palette/PaletteButtons";
+import { registerPalette } from "./features/palette/register";
 import { RailColumn } from "./features/rail/RailColumn";
 import { loadSidebar } from "./features/sidebar/load";
 import { SidebarToggle } from "./features/sidebar/SidebarToggle";
@@ -116,6 +118,8 @@ export function App() {
   let stopWarm: (() => void) | undefined;
   let cmdlineHost: HTMLDivElement | undefined;
   let stopKeys: (() => void) | undefined;
+  let stopPalette: (() => void) | undefined;
+  let paletteHost: HTMLDivElement | undefined;
   let hints: { refresh: () => void; stop: () => void } | undefined;
   let hintHost: HTMLDivElement | undefined;
   let overlay: { typed: (e: KeyboardEvent) => void; stop: () => void } | undefined;
@@ -130,6 +134,7 @@ export function App() {
     hints?.stop();
     overlay?.stop();
     stopKeys?.();
+    stopPalette?.();
     for (const drop of dropCommands) drop();
   });
   onMount(() => {
@@ -144,6 +149,19 @@ export function App() {
         keys.attach((e) => {
           started.handle(e);
           overlay?.typed(e);
+        });
+        // Ctrl/Cmd-Shift-P and Ctrl/Cmd-p (F-041): the palette's chunk starts loading now and lists
+        // the engine's keymap; the switcher, the rail's courses and the open course's files.
+        stopPalette = registerPalette({
+          host: paletteHost as HTMLDivElement,
+          mac,
+          bindings: () => started.engine.map.bindings,
+          courses: rail.courses,
+          course: course.course,
+          openCourse: (path) => void course.switchTo(path),
+          openLecture: (path, file) => void lecture.open(path, file),
+          sidebarShown: layout.sidebar,
+          showSidebar: layout.toggleSidebar,
         });
         // The hint bar (F-038) reads the engine's keymap; its chunk comes after the engine's.
         void import("./features/hints/mount").then(({ startHintBar }) => {
@@ -209,6 +227,7 @@ export function App() {
         </div>
         <h1 class="headerbar-title">{info()?.name ?? "Lecter"}</h1>
         <div class="headerbar-end">
+          <PaletteButtons mac={mac} />
           <ReadModeToggle on={readMode.on()} onToggle={readMode.toggle} />
         </div>
       </header>
@@ -235,6 +254,8 @@ export function App() {
           <div class="keystroke-overlay-host" ref={overlayHost} />
           {/* The command line `:` opens (F-040), over the document. */}
           <div class="cmdline-host" ref={cmdlineHost} />
+          {/* The command palette and quick switcher (F-041), over the window. */}
+          <div class="palette-host" ref={paletteHost} />
         </main>
         {/* The hint bar (F-038): the keys that work now, one line above the status line. */}
         <div class="hint-bar-host" ref={hintHost} />

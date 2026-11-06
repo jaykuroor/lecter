@@ -16,6 +16,8 @@ const TABLE = [
   "global | <Mod-9> | course.go | Course 9 | arg 8",
   "global | <F6> | focus.next | Next pane",
   "global | <S-F6> | focus.prev | Previous pane",
+  "global | <Mod-S-p> | palette.open | Command palette",
+  "global | <Mod-p> | switcher.open | Quick switcher",
   "app | <leader>a | +ai | AI",
   "app | <leader>ag | ai.gaps | Gap finder",
   "app | <leader>am | ai.pickModel | Pick model",

@@ -288,13 +288,29 @@ describe("the engine in the page", () => {
     withFile.stop();
   });
 
-  it("drops a pending key when keymaps.jsonc arrives", () => {
+  it("keeps a pending key when keymaps.jsonc arrives, and reads the next key on the new keymap", () => {
     const keys = start();
+    const seen: string[][] = [];
+    const whichKey = keys.engine.onChange;
+    keys.engine.onChange = (pending) => {
+      seen.push([...pending]);
+      whichKey(pending);
+    };
+    // ␣ pressed while keymaps.jsonc is still being read: the swap keeps it, and says so (which-key
+    // shows the new keymap's choices), so ␣e still toggles the sidebar (F-041, WebKit e2e).
     press(document.body, " ");
-    expect(keys.engine.pending()).toEqual(["<Space>"]);
     expect(keys.setUserKeymap(null)).toEqual([]);
-    expect(keys.engine.pending()).toEqual([]);
-    expect(press(document.body, "e")).toBe(true);
+    expect(keys.engine.pending()).toEqual(["<Space>"]);
+    expect(seen).toEqual([["<Space>"], ["<Space>"]]);
+    expect(press(document.body, "e")).toBe(false);
+    expect(toggles).toBe(1);
+    // The new keymap decides: ␣ then t, which only keymaps.jsonc binds.
+    press(document.body, " ");
+    keys.setUserKeymap(
+      '{ "version": 1, "bindings": [{ "keys": "<leader>t", "command": "sidebar.toggle", "context": "app" }] }',
+    );
+    expect(press(document.body, "t")).toBe(false);
+    expect(toggles).toBe(2);
   });
 
   it("uses keymaps.jsonc's bindings over the defaults", () => {

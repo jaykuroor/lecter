@@ -96,8 +96,11 @@ export function startKeys(opts: { mac: boolean; host: HTMLElement; userKeymap?: 
     warnings: first.warnings,
     setUserKeymap: (text) => {
       const next = build(text);
-      engine.reset();
+      // A key typed while the file was being read (a ␣ held back at boot) stays pending: the next
+      // key is read on the new keymap, which breaks the sequence off if it no longer goes on.
+      // Which-key hears of it, so what it shows is the new keymap's.
       engine.map = next.map;
+      engine.onChange(engine.pending());
       return next.warnings;
     },
     whichKey,

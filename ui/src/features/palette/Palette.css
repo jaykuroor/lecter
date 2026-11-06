@@ -1,0 +1,173 @@
+/* Command palette and quick switcher (09-ui.md#slack-and-discord-behaviours). No design entry of
+   its own: it is the command line's box (docs/design/components.md#cmdline) over the whole window,
+   at 12% from the top, width ≤ 560px, --popover-bg, 1.5px --accent border, radius 10px,
+   shadow.popover, with a title notch; rows as the cmdline's completions, picked in --accent-bg,
+   keycaps as tokens.keycap. Theme tokens only. */
+.palette {
+  position: fixed;
+  top: 12%;
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(560px, calc(100% - 32px));
+  max-height: 70%;
+  transform: translateX(-50%);
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  background: var(--popover-bg);
+  color: var(--window-fg);
+  box-shadow: var(--shadow-popover);
+  font-family: var(--font-ui, system-ui, sans-serif);
+  font-size: 13px;
+}
+
+.palette-notch {
+  position: absolute;
+  top: -0.75em;
+  left: 12px;
+  padding: 0 5px;
+  background: var(--popover-bg);
+  color: var(--accent);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.palette-input {
+  flex: none;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.palette-input::placeholder {
+  color: var(--faint);
+}
+
+.palette-list {
+  min-height: 0;
+  margin: 0;
+  padding: 0 4px 4px;
+  overflow-y: auto;
+  border-top: 1px solid var(--borders);
+}
+
+.palette-list:empty {
+  display: none;
+}
+
+.palette-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.palette-row:first-child {
+  margin-top: 4px;
+}
+
+.palette-label {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row:hover {
+  background: color-mix(in srgb, var(--window-fg) 7%, transparent);
+}
+
+.palette-row[aria-selected="true"] {
+  background: var(--accent-bg);
+  color: var(--accent-fg);
+}
+
+.palette-row[aria-disabled="true"] {
+  cursor: default;
+}
+
+.palette-row[aria-disabled="true"] .palette-label {
+  color: var(--faint);
+}
+
+.palette-row[aria-selected="true"][aria-disabled="true"] .palette-label {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.palette-hit {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.palette-row[aria-selected="true"] .palette-hit {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.palette-kind {
+  flex: none;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.palette-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row[aria-selected="true"] .palette-kind,
+.palette-row[aria-selected="true"] .palette-detail {
+  color: inherit;
+}
+
+.palette-keys {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+
+.palette-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75em;
+  min-height: 1.75em;
+  box-sizing: border-box;
+  padding: 0 0.4em;
+  border: 1px solid var(--borders);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--view-bg);
+  color: var(--window-fg);
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.palette-note {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--dim);
+  font-size: 12px;
+}

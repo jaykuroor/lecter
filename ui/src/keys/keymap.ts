@@ -151,10 +151,18 @@ const PANE_KEYS: Binding[] = [
   { keys: "<S-F6>", command: "focus.prev", scope: "global", desc: "Previous pane" },
 ];
 
+// Ctrl/Cmd-Shift-P the command palette, Ctrl/Cmd-p the quick switcher (10-keymap.md#global-os-conventions;
+// Ctrl/Cmd-K stays unbound off the buffer, where Ctrl-k is the previous slide). features/palette.
+const PALETTE_KEYS: Binding[] = [
+  { keys: "<Mod-S-p>", command: "palette.open", scope: "global", desc: "Command palette" },
+  { keys: "<Mod-p>", command: "switcher.open", scope: "global", desc: "Quick switcher" },
+];
+
 /** The built-in bindings, before keymaps.jsonc (user.ts). */
 export const DEFAULT_KEYMAP: readonly Binding[] = [
   ...COURSES,
   ...PANE_KEYS,
+  ...PALETTE_KEYS,
   ...rows("app", LEADER),
   ...rows("buffer", MOVE),
   // A selection asks too (`v…Enter`).
