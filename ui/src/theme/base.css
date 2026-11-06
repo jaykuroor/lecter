@@ -1,0 +1,7 @@
+/* The page's base type and colours from the theme's tokens (docs/design/tokens.json "type.base":
+   14px / 1.5 in the UI font). Components set their own sizes and families on top. */
+html {
+  background: var(--window-bg);
+  color: var(--window-fg);
+  font: 14px / 1.5 var(--font-ui);
+}

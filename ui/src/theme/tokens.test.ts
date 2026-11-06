@@ -141,6 +141,14 @@ describe("the bundled Lecter theme", () => {
     expect([...read].filter((name) => !defined.has(name)).sort()).toEqual([]);
   });
 
+  it("gives the page the base type of tokens.json (type.base: 14px / 1.5 ui) and the window colours", () => {
+    expect(tokens.type?.base).toBe("14px / 1.5 ui");
+    const html = declarations(readFileSync(join(uiSrc(), "theme", "base.css"), "utf8"));
+    expect(html.get("font")).toBe("14px / 1.5 var(--font-ui)");
+    expect(html.get("background")).toBe("var(--window-bg)");
+    expect(html.get("color")).toBe("var(--window-fg)");
+  });
+
   it("is the generator's output for the current tokens.json (rerun with -u after a token change)", async () => {
     await expect(tokensCss(designTokens())).toMatchFileSnapshot("./tokens.css");
   });

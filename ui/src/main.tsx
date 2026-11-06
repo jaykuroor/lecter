@@ -1,6 +1,7 @@
 import { render } from "solid-js/web";
 // The theme's tokens first: static CSS in the first-paint stylesheet, no JS to apply (D-237).
 import "./theme/tokens.css";
+import "./theme/base.css";
 import { App } from "./App";
 
 const root = document.getElementById("root");
