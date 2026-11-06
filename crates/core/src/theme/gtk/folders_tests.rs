@@ -65,7 +65,7 @@ fn names_that_could_leave_a_theme_folder_are_refused() {
     let env = TestEnv::new().unwrap();
     let root = env.home().join("themes");
     theme(&root, ".hidden", "gtk-3.0");
-    theme(&env.home().to_path_buf(), "outside", "gtk-3.0");
+    theme(env.home(), "outside", "gtk-3.0");
     theme(&root, "inner/nested", "gtk-3.0");
     let dirs = ThemeDirs::new(vec![root], vec![]);
     for bad in ["", ".hidden", "..", "../outside", "inner/nested", "a\\b", "a\0b", "Adwaita:dark", "tab\there"] {

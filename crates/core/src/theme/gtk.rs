@@ -15,6 +15,7 @@ pub mod desktop;
 pub mod folders;
 pub mod follow;
 pub mod gvariant;
+pub mod monitor;
 pub mod tokens;
 
 /// A file or folder under `tests/fixtures/gtk-themes`.
