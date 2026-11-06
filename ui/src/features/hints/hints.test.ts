@@ -32,7 +32,7 @@ function withUser(bindings: unknown[]) {
 // The keys every element shows at the right end, the ways on to every other key: F6 (D-200)
 // and the leader; and the other global keys, which end the element's list.
 const TAIL = ["F6 Next pane", "␣ More"];
-const GLOBAL = ["Ctrl-1…9 Course", "Shift-F6 Previous pane"];
+const GLOBAL = ["Ctrl-1…9 Course", "Shift-F6 Previous pane", "Ctrl-Shift-p Command palette", "Ctrl-p Quick switcher"];
 
 describe("hintsFor", () => {
   it("lists a slide line's keys (10-keymap.md#on-a-slide-line), then the moves, in the keymap's order", () => {
@@ -114,7 +114,7 @@ describe("hintsFor", () => {
     const hints = hintsFor(defaults, "slide-line", "normal");
     const steps = hints.main.find((h) => h.desc === "Steps");
     expect(steps?.binding).toMatchObject({ keys: "s", command: "ai.steps", scope: "line" });
-    const course = hints.main.at(-2);
+    const course = hints.main.at(-4);
     expect(course?.binding).toMatchObject({ command: "course.go", arg: 0 });
     expect(hints.tail[0]?.binding).toMatchObject({ keys: "<F6>", command: "focus.next" });
     const more = hints.tail[1];
@@ -125,7 +125,7 @@ describe("hintsFor", () => {
 
   it("names Cmd on macOS", () => {
     const main = hintsFor(mac, "slide-line", "normal").main.map(read);
-    expect(main.slice(-2)).toEqual(["⌘1…9 Course", "⇧F6 Previous pane"]);
+    expect(main.slice(-4)).toEqual(["⌘1…9 Course", "⇧F6 Previous pane", "⇧⌘p Command palette", "⌘p Quick switcher"]);
   });
 
   it("takes keymaps.jsonc's bindings: a rebound key, an unbound one and a new one", () => {
@@ -141,7 +141,7 @@ describe("hintsFor", () => {
     // A user binding reads as the default it replaces did, in the default's place.
     expect(main[1]).toBe("x Steps");
     expect(main).not.toContain("s Steps");
-    expect(main.slice(-2)).toEqual(["Ctrl-1…4 Ctrl-6…9 Course", "Shift-F6 Previous pane"]);
+    expect(main.slice(-4)).toEqual(["Ctrl-1…4 Ctrl-6…9 Course", "Shift-F6 Previous pane", ...GLOBAL.slice(2)]);
     expect(hints.tail.map(read)).toEqual(["F7 Next pane", "␣ More"]);
   });
 
