@@ -75,8 +75,16 @@ fn refuses_text_that_is_too_long_or_too_deep() {
 }
 
 proptest! {
+    /// Whitespace around a value never changes what it parses to, whatever the text.
     #[test]
-    fn any_text_parses_without_panicking(text in "[(){}<>\\[\\]',:@a-z0-9. \\\\\"]{0,80}") {
-        let _ = parse(&text);
+    fn surrounding_whitespace_never_matters(text in "[(){}<>\\[\\]',:@a-z0-9. \\\\\"]{0,80}") {
+        prop_assert_eq!(parse(&text), parse(&format!(" \n{text}\t ")));
+    }
+
+    /// Strings and numbers in a tuple come back as written.
+    #[test]
+    fn strings_and_numbers_round_trip(s in "[a-zA-Z0-9 .:-]{0,40}", n in -1.0e6f64..1.0e6) {
+        let text = format!("('{s}', <double {n}>, uint32 7)");
+        prop_assert_eq!(parse(&text), Some(Value::List(vec![Value::Str(s), Value::Num(n), Value::Num(7.0)])));
     }
 }

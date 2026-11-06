@@ -253,19 +253,56 @@ fn synthetic_theme(bytes: usize) -> String {
     css
 }
 
+/// Whether `text` is CSS colour text as `Rgba`'s Display writes it, and nothing else.
+fn is_formatted_colour(text: &str) -> bool {
+    if let Some(hex) = text.strip_prefix('#') {
+        return hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+    }
+    let Some(inner) = text.strip_prefix("rgba(").and_then(|t| t.strip_suffix(')')) else { return false };
+    let parts: Vec<&str> = inner.split(", ").collect();
+    parts.len() == 4
+        && parts[..3].iter().all(|p| p.parse::<u8>().is_ok())
+        && parts[3].parse::<f64>().is_ok_and(|a| (0.0..1.0).contains(&a))
+}
+
+#[test]
+fn formatted_colours_are_recognised() {
+    assert!(is_formatted_colour("#0a0b0c"));
+    assert!(is_formatted_colour("rgba(1, 2, 3, 0.5)"));
+    for bad in ["#0A0B0C", "#fff", "rgba(1, 2, 3, 1)", "rgba(1, 2, 256, 0.5)", "red", "rgba(1, 2, 3)", "#0a0b0c;x"] {
+        assert!(!is_formatted_colour(bad), "{bad}");
+    }
+}
+
 proptest! {
+    /// Whatever a theme writes, a name resolves to nothing or to colour text this crate
+    /// formatted: nothing from the file reaches the UI's CSS verbatim, and the caps hold.
     #[test]
-    fn any_text_parses_without_panicking(css in "(@define-color [a-z@]{0,4} |[#(),;@/*'\"a-f0-9 .%]){0,60}") {
+    fn any_text_resolves_only_to_formatted_colours(
+        css in "(@define-color [a-c@]{0,3} |[#(),;@/*'\"a-f0-9 .%]|shade\\(|mix\\(|alpha\\(|rgba\\(|white){0,60}"
+    ) {
         let defines = Defines::parse(&css);
+        prop_assert!(defines.len() <= MAX_DEFINES);
         let mut resolver = defines.resolver();
-        for name in ["a", "b", "ab", ""] {
-            let _ = resolver.get(name);
+        for name in ["a", "b", "c", "ab", "ac", "abc", ""] {
+            if let Some(c) = resolver.get(name) {
+                let text = c.to_string();
+                prop_assert!(is_formatted_colour(&text), "{} = {} from {:?}", name, text, css);
+            }
         }
     }
 
+    /// Arbitrary bytes resolve only to formatted colours, and can't change a definition before them.
     #[test]
-    fn any_bytes_parse_without_panicking(bytes in proptest::collection::vec(any::<u8>(), 0..300)) {
+    fn any_bytes_resolve_only_to_formatted_colours(bytes in proptest::collection::vec(any::<u8>(), 0..300)) {
         let css = String::from_utf8_lossy(&bytes);
-        let _ = Defines::parse(&css).resolver().get("a");
+        if let Some(c) = Defines::parse(&css).resolver().get("a") {
+            prop_assert!(is_formatted_colour(&c.to_string()));
+        }
+        let prefixed = format!("@define-color known #102030;\n{css}");
+        if !css.contains("known") {
+            let got = Defines::parse(&prefixed).resolver().get("known").map(|c| c.to_string());
+            prop_assert_eq!(got.as_deref(), Some("#102030"));
+        }
     }
 }

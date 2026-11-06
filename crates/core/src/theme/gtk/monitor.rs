@@ -103,7 +103,7 @@ pub async fn watch(tools: &Tools, source: Source, mut on_change: impl FnMut(Chan
         ),
         Source::Gsettings => (&tools.gsettings, &["monitor", INTERFACE], desktop::gsettings_line),
     };
-    let mut child = command(program, args).spawn()?;
+    let mut child = spawn(program, args).await?;
     let stdout = child.stdout.take().ok_or_else(|| std::io::Error::other("no stdout"))?;
     let mut lines = BufReader::new(stdout);
     let mut line = Vec::new();
@@ -154,13 +154,29 @@ async fn gsettings_get(tools: &Tools, key: &str) -> Option<Change> {
 /// [`MAX_TEXT_BYTES`].
 async fn output(program: &OsString, args: &[&str]) -> Option<String> {
     let run = async {
-        let mut child = command(program, args).spawn().ok()?;
+        let mut child = spawn(program, args).await.ok()?;
         let mut out = Vec::new();
         child.stdout.take()?.take(MAX_TEXT_BYTES as u64 + 1).read_to_end(&mut out).await.ok()?;
         let ok = child.wait().await.ok()?.success();
         (ok && out.len() <= MAX_TEXT_BYTES).then(|| String::from_utf8_lossy(&out).into_owned())
     };
     tokio::time::timeout(READ_TIMEOUT, run).await.ok().flatten()
+}
+
+/// Starts `program`. A program file still open for writing somewhere (a package update replacing
+/// it, or another thread's child that inherited the descriptor and hasn't exec'd yet) fails with
+/// "text file busy" for a moment: try again a few times, as cargo does.
+async fn spawn(program: &OsString, args: &[&str]) -> std::io::Result<tokio::process::Child> {
+    let mut tries = 0;
+    loop {
+        match command(program, args).spawn() {
+            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && tries < 5 => {
+                tries += 1;
+                tokio::time::sleep(Duration::from_millis(10 * tries)).await;
+            }
+            other => return other,
+        }
+    }
 }
 
 fn command(program: &OsString, args: &[&str]) -> Command {
