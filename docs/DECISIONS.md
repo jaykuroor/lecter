@@ -1433,3 +1433,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: when keymaps.jsonc arrives, setUserKeymap swaps the engine's map without reset(), keeps the pending sequence and calls engine.onChange(pending); the next key resolves on the new map and a sequence it no longer continues is broken off.
 - Why: the reset dropped a ␣ handed over by boot.ts, so ␣e right after start did nothing (WebKit CI, sidebar.spec.ts:129). Reverses F-037's tested "drops a pending key" behaviour.
 - Instead of: resetting the engine, or making the e2e wait longer.
+
+## D-236 · Switcher lists lectures from every rail course, labelled by course (Q-035)
+2026-11-05 · maintainer · active
+- Decision: Ctrl/Cmd-P lists lectures from every course on the rail, not only the open one, and each lecture row shows its source course (name, with its icon/colour where the row has room). Picking a lecture from another course switches to that course first (same path and trust checks as `course_switch`). Needs a core listing of known courses' lectures; read-only courses still list, missing course folders don't. The planning session turns this into a card.
+- Why: the maintainer wants one jump list across courses, and same-named lectures (e.g. "Lecture 3") must be told apart.
+- Instead of: open-course-only lectures (D-232), or lectures without a course label.
