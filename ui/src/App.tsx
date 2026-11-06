@@ -20,7 +20,6 @@ import { createFind } from "./state/find";
 import { createLayout } from "./state/layout";
 import { createLecture } from "./state/lecture";
 import { createRail } from "./state/rail";
-import { followTheme } from "./theme/gtk";
 import "./App.css";
 
 // The buffer (CodeMirror and Vim) is a chunk of its own: the shell paints without it, and it
@@ -197,14 +196,17 @@ export function App() {
       // The sidebar's chunk, so it is in by the time a course opens (features/sidebar/load.ts).
       void loadSidebar();
       // The desktop's GTK theme, or `ui.theme` (F-043), after the first paint like every other
-      // ask of the core: applied when the core answers, then on each change.
-      void followTheme().then(
-        (stop) => {
-          if (gone) stop();
-          else stopTheme = stop;
-        },
-        () => {},
-      );
+      // ask of the core: applied when the core answers, then on each change. A chunk of its own,
+      // so none of it is in the first-paint chunk.
+      void import("./theme/gtk")
+        .then(({ followTheme }) => followTheme())
+        .then(
+          (stop) => {
+            if (gone) stop();
+            else stopTheme = stop;
+          },
+          () => {},
+        );
       void loadEditor().then(([, ex, warm, read, cmdline]) => {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);
