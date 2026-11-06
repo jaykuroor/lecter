@@ -43,6 +43,44 @@ describe("fuzzyMatch", () => {
   });
 });
 
+describe("fuzzyMatch's score (16 a letter; +8 a word start, +7 a camel hump; a run keeps its first bonus, at least 4; a gap of g letters costs 3 + g - 1)", () => {
+  it("adds up a run at a word start", () => {
+    expect(fuzzyMatch("cov", "covariance")).toEqual({ score: 72, hits: [0, 1, 2] });
+    expect(fuzzyMatch("var", "covariance")).toEqual({ score: 56, hits: [2, 3, 4] });
+  });
+
+  it("charges for gaps by their length", () => {
+    expect(fuzzyMatch("cov", "c-o-v")).toEqual({ score: 66, hits: [0, 2, 4] });
+    expect(fuzzyMatch("ab", "a-b")?.score).toBe(45);
+    expect(fuzzyMatch("ab", "a---b")?.score).toBe(43);
+    expect(fuzzyMatch("ab", "axxb")?.score).toBe(36);
+  });
+
+  it("gives a capital after a small letter the camel bonus, and no other capital", () => {
+    expect(fuzzyMatch("s", "openSlides")?.score).toBe(23);
+    expect(fuzzyMatch("s", "OPENSLIDES")?.score).toBe(16);
+    expect(fuzzyMatch("s", "opens")?.score).toBe(16);
+    expect(fuzzyMatch("l", "openSlides")?.score).toBe(16);
+    expect(fuzzyMatch("7", "l07")?.score).toBe(16);
+  });
+
+  it("prefers a later run to a gap from a word start when it scores more", () => {
+    // c0 + e9 would be 24 + (16 - 10) = 30; c8 e9 is 16 + 20 = 36.
+    expect(fuzzyMatch("ce", "covariance")).toEqual({ score: 36, hits: [8, 9] });
+  });
+
+  it("keeps letters together on a tie with a gap, and the earliest end on a tie of ends", () => {
+    // a0…b3 (24 + 16 - 4) and a2 b3 (16 + 20) both score 36.
+    expect(fuzzyMatch("ab", "axab")).toEqual({ score: 36, hits: [2, 3] });
+    expect(fuzzyMatch("a", "a a")).toEqual({ score: 24, hits: [0] });
+  });
+
+  it("reads only the first 256 units of a text and a query", () => {
+    expect(fuzzyMatch("z", `${"a".repeat(300)}z`)).toBeNull();
+    expect(fuzzyMatch("a".repeat(300), "a".repeat(300))?.hits).toHaveLength(256);
+  });
+});
+
 describe("fuzzyFilter", () => {
   const items = ["Calculus II", "Covariance", "Physics", "Course details"];
 

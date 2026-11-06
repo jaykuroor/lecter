@@ -108,7 +108,6 @@ export function createPalette(opts: PaletteOptions): Palette {
     if (mode() === null) return;
     setMode(null);
     setQuery("");
-    setCommands([]);
     if (restore) opts.restore();
   };
 

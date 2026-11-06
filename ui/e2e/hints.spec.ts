@@ -66,7 +66,7 @@ test("the hint bar changes between a slide line and a gloss, and with the mode @
   await expect(words.nth(1)).toHaveText("Steps");
   await page.keyboard.press("i");
   await expect(page.locator(".lecture-buffer")).toHaveAttribute("data-vim-mode", "insert");
-  await expect(words).toHaveText(["Course", "Previous pane"]);
+  await expect(words).toHaveText(["Course", "Previous pane", "Command palette", "Quick switcher"]);
   await expect(bar.locator(".hint-tail .hint-desc")).toHaveText(["Next pane"]);
   await page.keyboard.press("Escape");
   await expect(words.nth(1)).toHaveText("Steps");

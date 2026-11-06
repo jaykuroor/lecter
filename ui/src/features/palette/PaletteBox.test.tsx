@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { createRoot } from "solid-js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_KEYMAP } from "../../keys/keymap";
 import { commandEntries, type SwitchEntry } from "./entries";
 import { PaletteBox } from "./PaletteBox";
-import { createPalette, type Palette } from "./state";
+import { createPalette, type Palette, SHOWN_MAX } from "./state";
 
 afterEach(cleanup);
 
@@ -21,14 +21,14 @@ const PLACES: SwitchEntry[] = [
   },
 ];
 
-function setup() {
+function setup(places: SwitchEntry[] = PLACES) {
   const log: string[] = [];
   let palette!: Palette;
   createRoot(() => {
     palette = createPalette({
       commands: () => commandEntries(DEFAULT_KEYMAP, false),
       canRun: (e) => e.binding.command === "sidebar.toggle",
-      places: () => PLACES,
+      places: () => places,
       restore: () => log.push("restore"),
       onCommand: (e) => log.push(`run ${e.id}`),
       onPlace: (e) => log.push(`go ${e.id}`),
@@ -102,7 +102,9 @@ describe("the palette box", () => {
     key("ArrowUp");
     expect(picked()?.textContent).toContain("Statistics");
     key("j", { ctrlKey: true });
+    expect(picked()?.textContent).toContain("Gone");
     key("j", { ctrlKey: true });
+    expect(picked()?.textContent).toContain("covariance");
     key("k", { ctrlKey: true });
     expect(picked()?.textContent).toContain("Gone");
     expect(input().getAttribute("aria-activedescendant")).toBe(picked()?.id);
@@ -110,6 +112,87 @@ describe("the palette box", () => {
     key("Enter");
     expect(log).toEqual(["restore", "go lecture:l07"]);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("leaves the arrows with Alt or Cmd, and other Ctrl keys, to the field", () => {
+    const { palette } = setup();
+    palette.open("switch");
+    for (const init of [
+      { key: "ArrowDown", altKey: true },
+      { key: "ArrowDown", metaKey: true },
+      { key: "a", ctrlKey: true },
+    ]) {
+      const e = new KeyboardEvent("keydown", { ...init, bubbles: true, cancelable: true });
+      input().dispatchEvent(e);
+      expect(e.defaultPrevented).toBe(false);
+      expect(picked()?.textContent).toContain("Statistics");
+    }
+  });
+
+  it("names its parts for each list, and ties the field to the list", () => {
+    const { palette } = setup();
+    palette.open("commands");
+    const listbox = screen.getByRole("listbox");
+    expect(listbox.getAttribute("aria-label")).toBe("Commands");
+    expect(input().getAttribute("aria-controls")).toBe(listbox.id);
+    expect(listbox.id).toBe("palette-options");
+    expect(input().getAttribute("placeholder")).toBe("Run a command");
+    expect(input().getAttribute("autocomplete")).toBe("off");
+    expect(input().getAttribute("spellcheck")).toBe("false");
+    expect(input().getAttribute("aria-expanded")).toBe("true");
+    expect(input().getAttribute("aria-activedescendant")).toBe("palette-option-0");
+    expect((options()[0] as HTMLElement).tabIndex).toBe(-1);
+    expect(screen.queryByText("No matches")).toBeNull();
+    palette.open("switch");
+    expect(listbox.getAttribute("aria-label")).toBe("Places");
+    expect(input().getAttribute("aria-label")).toBe("Go to");
+    expect(input().getAttribute("placeholder")).toBe("Go to a course, lecture, list or source");
+    expect(screen.getByRole("dialog").querySelector(".palette-notch")?.textContent).toBe("Go to");
+    expect(options()[0]?.hasAttribute("aria-keyshortcuts")).toBe(false);
+    fireEvent.input(input(), { target: { value: "zzz" } });
+    expect(input().getAttribute("aria-expanded")).toBe("false");
+    expect(input().hasAttribute("aria-activedescendant")).toBe(false);
+  });
+
+  it("marks only the matched letters, the rest as plain text", () => {
+    const { palette } = setup();
+    palette.open("switch");
+    fireEvent.input(input(), { target: { value: "l07" } });
+    const label = options()[0]?.querySelector(".palette-label") as HTMLElement;
+    expect([...label.childNodes].map((n) => [n.nodeName, n.textContent])).toEqual([
+      ["#text", "2026-10-23-"],
+      ["MARK", "l07"],
+      ["#text", "-covariance.md"],
+    ]);
+  });
+
+  it("keeps the picked row in view as it moves, and nothing once closed", () => {
+    const scroll = vi.fn();
+    const was = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      const { palette } = setup();
+      palette.open("switch");
+      scroll.mockClear();
+      key("ArrowDown");
+      expect(scroll.mock.contexts).toEqual([options()[1]]);
+      expect(scroll.mock.calls).toEqual([[{ block: "nearest" }]]);
+      scroll.mockClear();
+      key("Escape");
+      expect(scroll).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = was;
+    }
+  });
+
+  it("says how many more rows match than show", () => {
+    const many = Array.from({ length: SHOWN_MAX + 3 }, (_, i) => ({ ...(PLACES[0] as SwitchEntry), id: `c${i}` }));
+    const { palette } = setup(many);
+    palette.open("switch");
+    expect(options()).toHaveLength(SHOWN_MAX);
+    expect(screen.getByText("3 more: type to narrow")).toBeTruthy();
+    fireEvent.input(input(), { target: { value: "zzz" } });
+    expect(screen.queryByText(/more: type to narrow/)).toBeNull();
   });
 
   it("leaves other keys to the field: they type", () => {

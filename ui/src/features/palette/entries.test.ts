@@ -43,6 +43,7 @@ describe("commandEntries (Ctrl/Cmd-Shift-P lists every command with its key)", (
     expect(byTitle("Steps")?.where).toBe("on a line");
     expect(byTitle("Next slide")?.where).toBe("in the lecture");
     expect(byTitle("Toggle sidebar")?.where).toBe("");
+    expect(byTitle("Command palette")?.where).toBe("");
     expect(byTitle("Next slide")?.tokens).toEqual(["<C-j>"]);
   });
 
@@ -53,6 +54,19 @@ describe("commandEntries (Ctrl/Cmd-Shift-P lists every command with its key)", (
     expect(palette).toHaveLength(1);
     expect(palette[0]?.title).toBe("Command palette");
     expect(palette[0]?.keys).toEqual(["Ctrl-Shift-p", "F2"]);
+  });
+
+  it("takes a binding's own words over the default's, from whichever binding has them", () => {
+    const user = (keys: string, command: string, desc: string, arg?: number): Binding =>
+      arg === undefined ? { keys, command, scope: "global", desc } : { keys, command, scope: "global", desc, arg };
+    // keymaps.jsonc's binding first: the default after it still names the command.
+    const first = commandEntries([user("<F2>", "palette.open", "palette.open"), ...DEFAULT_KEYMAP], false);
+    expect(first.find((e) => e.binding.command === "palette.open")?.title).toBe("Command palette");
+    expect(commandEntries([user("z2", "ai.steps", "My steps")], false)[0]?.title).toBe("My steps");
+    const own = commandEntries([user("<F3>", "my.thing", "my.thing"), user("<F4>", "my.thing", "My thing")], false);
+    expect(own.map((e) => [e.title, e.keys])).toEqual([["My thing", ["F3", "F4"]]]);
+    // A numbered command keymaps.jsonc binds alone takes the default words for its argument.
+    expect(commandEntries([user("<F9>", "course.go", "course.go", 2)], false)[0]?.title).toBe("Course 3");
   });
 
   it("names a command only keymaps.jsonc has by its id, and leaves out keys that don't parse", () => {
@@ -156,6 +170,21 @@ describe("switcherEntries (Ctrl/Cmd-p: courses, lectures, lists and sources)", (
       ["course", "Here", "/here", false],
     ]);
     expect(entries[0]?.detail).toBe("missing: /gone");
+  });
+
+  it("names each entry by its kind and target", () => {
+    const entries = switcherEntries([course("/courses/STAT311", "Statistics")], opened);
+    expect(entries.map((e) => e.id)).toEqual([
+      "course:/courses/STAT311",
+      "lecture:lectures/2026-10-23-l07-covariance.md",
+      "list:lists.doubts",
+      "list:lists.flags",
+      "list:lists.officeHours",
+      "list:lists.later",
+      "list:lists.revise",
+      "source:slides/07-covariance.pdf",
+      "source:sources/textbook.pdf",
+    ]);
   });
 
   it("gives every entry its own id", () => {

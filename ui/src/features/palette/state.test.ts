@@ -48,6 +48,7 @@ describe("the command palette", () => {
   it("opens on every command with its keys, closed until then", () => {
     const { palette } = setup();
     expect(palette.mode()).toBeNull();
+    expect(palette.query()).toBe("");
     expect(palette.rows()).toEqual([]);
     palette.open("commands");
     expect(palette.mode()).toBe("commands");
@@ -55,6 +56,7 @@ describe("the command palette", () => {
     expect(palette.rows().map((r) => r.id)).toEqual(all.map((e) => e.id));
     expect(palette.rows().find((r) => r.label === "Next slide")).toMatchObject({
       keys: ["Ctrl-j", "]]"],
+      kind: "",
       detail: "in the lecture",
       disabled: true,
     });
@@ -91,6 +93,20 @@ describe("the command palette", () => {
     palette.pick();
     expect(log).toEqual([]);
     expect(palette.mode()).toBe("commands");
+  });
+
+  it("asks what can run only when the palette opens, not the switcher", () => {
+    let asked = 0;
+    const { palette } = setup({
+      canRun: () => {
+        asked++;
+        return true;
+      },
+    });
+    palette.open("switch");
+    expect(asked).toBe(0);
+    palette.open("commands");
+    expect(asked).toBe(commandEntries(DEFAULT_KEYMAP, false).length);
   });
 
   it("asks what can run each time it opens", () => {
@@ -146,6 +162,7 @@ describe("the quick switcher", () => {
   it("lists courses, lectures, lists and sources with what each is", () => {
     const { palette } = setup();
     palette.open("switch");
+    expect(palette.rows().every((r) => r.keys.length === 0)).toBe(true);
     expect(palette.rows().map((r) => [r.label, r.kind, r.detail, r.disabled])).toEqual([
       ["Statistics", "Course", "Statistics detail", false],
       ["Gone", "Course", "Gone detail", true],

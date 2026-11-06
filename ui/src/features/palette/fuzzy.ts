@@ -3,6 +3,12 @@
 // best one wins. Letters next to each other and letters at the start of a word count most, gaps
 // cost a little, so `cov` finds "covariance" before "c-o-v", and `l07` finds "…-l07-covariance.md".
 // One pass per query letter over the text (no backtracking), so a long list filters per keystroke.
+//
+// The score: each matched letter is worth MATCH plus a bonus: BOUNDARY at a word start, CAMEL at
+// a capital after a small letter, else 0; a letter right after the previous one gets the run's
+// bonus instead (the run's first letter's, at least CONSECUTIVE). A gap of g letters between two
+// matched letters costs GAP_OPEN + (g - 1). On a tie, letters together win over a gap, and the
+// earliest end wins.
 
 /** A match: how good it is (higher is better), and the text's indices the query's letters took. */
 export interface FuzzyMatch {
@@ -10,28 +16,30 @@ export interface FuzzyMatch {
   hits: number[];
 }
 
-/** Points for each matched letter. */
 const MATCH = 16;
-/** Bonus for a letter that starts a word (after a space, `-`, `_`, `/`, `.` or at the start). */
 const BOUNDARY = 8;
-/** Bonus for a capital after a small letter (`openSlides`). */
 const CAMEL = 7;
-/** The least bonus a letter gets for following the previous one; a run keeps its first letter's bonus. */
 const CONSECUTIVE = 4;
-/** What a gap between two matched letters costs to open, and per letter after the first. */
 const GAP_OPEN = 3;
-const GAP_EXTEND = 1;
-/** Texts and queries are cut to this many characters: a name never needs more. */
+/** Texts and queries are cut to this many UTF-16 units: a name never needs more. */
 const LIMIT = 256;
 
 /** The bonus for matching `text[i]`: a word start, a camel hump, or none. */
 function bonusAt(text: string, i: number): number {
-  if (i === 0) return BOUNDARY;
-  const prev = text[i - 1] as string;
+  const prev = text[i - 1];
+  if (prev === undefined || !/[\p{L}\p{N}]/u.test(prev)) return BOUNDARY;
   const cur = text[i] as string;
-  if (!/[\p{L}\p{N}]/u.test(prev)) return BOUNDARY;
   if (prev !== prev.toUpperCase() && cur !== cur.toLowerCase()) return CAMEL;
   return 0;
+}
+
+/** The best way to have matched a query letter on a text index. */
+interface Cell {
+  score: number;
+  /** The bonus the run this letter ends carries on. */
+  run: number;
+  /** Where the previous query letter went (-1 for the first). */
+  from: number;
 }
 
 /**
@@ -39,76 +47,51 @@ function bonusAt(text: string, i: number): number {
  * letters in order; an empty query matches with no hits and score 0.
  */
 export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
-  const q = [...query.replace(/\s+/g, "").toLowerCase()].slice(0, LIMIT);
-  if (q.length === 0) return { score: 0, hits: [] };
+  const q = query.replace(/\s/g, "").toLowerCase().slice(0, LIMIT);
+  if (q === "") return { score: 0, hits: [] };
   const raw = text.slice(0, LIMIT);
   const t = raw.toLowerCase();
-  const n = t.length;
-  if (q.length > n) return null;
-  const bonus = Array.from({ length: n }, (_, i) => bonusAt(raw, i));
-  const NONE = Number.NEGATIVE_INFINITY;
-  // score[j][i]: the best score with query letter j on text index i; run[j][i]: that run's bonus;
-  // from[j][i]: where letter j-1 went on that path.
-  const score: number[][] = [];
-  const run: number[][] = [];
-  const from: number[][] = [];
+  const rows: Map<number, Cell>[] = [];
+  let prev: Map<number, Cell> | null = null;
   for (let j = 0; j < q.length; j++) {
-    const row = new Array<number>(n).fill(NONE);
-    const runRow = new Array<number>(n).fill(0);
-    const fromRow = new Array<number>(n).fill(-1);
-    const prev = score[j - 1];
-    // The best of (prev[k] + k) over k ≤ i - 2, and its k: a gap of i - k - 1 letters costs
-    // GAP_OPEN + (i - k - 2) * GAP_EXTEND, which is (i - k + 1) at these constants.
-    let bestGap = NONE;
-    let bestGapAt = -1;
-    for (let i = 0; i < n; i++) {
-      if (prev && i >= 2) {
-        const k = i - 2;
-        const v = (prev[k] as number) + k * GAP_EXTEND;
-        if (v > bestGap) {
-          bestGap = v;
-          bestGapAt = k;
-        }
-      }
+    const row = new Map<number, Cell>();
+    // The best of (score + index) over the previous letter's cells at least 2 before `i`: a gap
+    // from k to i costs GAP_OPEN + (i - k - 2), so it scores best + 2 - GAP_OPEN - i.
+    let best: { value: number; at: number } | null = null;
+    for (let i = 0; i < t.length; i++) {
+      const behind = prev?.get(i - 2);
+      if (behind && (!best || behind.score + i - 2 > best.value)) best = { value: behind.score + i - 2, at: i - 2 };
       if (t[i] !== q[j]) continue;
-      const own = bonus[i] as number;
+      const own = bonusAt(raw, i);
       if (!prev) {
-        row[i] = MATCH + own;
-        runRow[i] = own;
+        row.set(i, { score: MATCH + own, run: own, from: -1 });
         continue;
       }
-      // Right after the previous letter: the run's bonus carries on.
-      const before = i >= 1 ? (prev[i - 1] as number) : NONE;
-      if (before > NONE) {
-        const carried = Math.max(CONSECUTIVE, own, run[j - 1]?.[i - 1] as number);
-        row[i] = before + MATCH + carried;
-        runRow[i] = carried;
-        fromRow[i] = i - 1;
+      const before = prev.get(i - 1);
+      let cell: Cell | null = null;
+      if (before) {
+        const run = Math.max(CONSECUTIVE, own, before.run);
+        cell = { score: before.score + MATCH + run, run, from: i - 1 };
       }
-      if (bestGap > NONE) {
-        const gapped = bestGap - i * GAP_EXTEND - (GAP_OPEN - 2 * GAP_EXTEND) + MATCH + own;
-        if (gapped > (row[i] as number)) {
-          row[i] = gapped;
-          runRow[i] = own;
-          fromRow[i] = bestGapAt;
-        }
+      if (best) {
+        const gapped = best.value + 2 - GAP_OPEN - i + MATCH + own;
+        if (!cell || gapped > cell.score) cell = { score: gapped, run: own, from: best.at };
       }
+      if (cell) row.set(i, cell);
     }
-    score.push(row);
-    run.push(runRow);
-    from.push(fromRow);
+    rows.push(row);
+    prev = row;
   }
-  const last = score[q.length - 1] as number[];
-  let end = -1;
-  for (let i = 0; i < n; i++)
-    if ((last[i] as number) > NONE && (end === -1 || (last[i] as number) > (last[end] as number))) end = i;
-  if (end === -1) return null;
+  let end: [number, Cell] | null = null;
+  for (const entry of rows[rows.length - 1] as Map<number, Cell>)
+    if (!end || entry[1].score > end[1].score) end = entry;
+  if (!end) return null;
   const hits: number[] = [];
-  for (let j = q.length - 1, i = end; j >= 0; j--) {
+  for (let j = rows.length - 1, i = end[0]; j >= 0; j--) {
     hits.unshift(i);
-    i = from[j]?.[i] as number;
+    i = ((rows[j] as Map<number, Cell>).get(i) as Cell).from;
   }
-  return { score: last[end] as number, hits };
+  return { score: end[1].score, hits };
 }
 
 /** One item that matched, with its match. */
@@ -116,13 +99,12 @@ export interface Filtered<T> extends FuzzyMatch {
   item: T;
 }
 
-/** The items whose `text` matches `query`, best first; equal scores keep the list's order. */
+/** The items whose `text` matches `query`, best first; equal scores keep the list's order (a stable sort). */
 export function fuzzyFilter<T>(items: readonly T[], query: string, text: (item: T) => string): Filtered<T>[] {
-  const out: (Filtered<T> & { at: number })[] = [];
-  items.forEach((item, at) => {
+  const out: Filtered<T>[] = [];
+  for (const item of items) {
     const m = fuzzyMatch(query, text(item));
-    if (m) out.push({ item, at, ...m });
-  });
-  out.sort((a, b) => b.score - a.score || a.at - b.at);
-  return out.map(({ item, score, hits }) => ({ item, score, hits }));
+    if (m) out.push({ item, ...m });
+  }
+  return out.sort((a, b) => b.score - a.score);
 }
