@@ -1,0 +1,304 @@
+# Progress archive
+
+Older log entries, newest first within each batch, moved unchanged.
+
+### 2026-11-05 · F-039 · done
+- Built: the keystroke overlay (typed and pending keys at the buffer's bottom right, fade after 1.5 s, last 8 keys, no IME/password keys, ␣uk) and read mode (␣ur, `:read`, headerbar button) hiding rail, sidebar, hint bar and overlay.
+- Code: ui/src/features/overlay/*, ui/src/App.tsx/.css · Tests: ui/src/features/overlay/*.test.ts(x), ui/e2e/overlay.spec.ts · Evidence: .evidence/F-039/
+- Decisions: D-212..D-217 · Questions: none
+- Review: PASS, no findings. The first builder stopped when the session ended; resumed from its clean branch. Mutants 143/143, 1 equivalent. Mocked keystroke 6.7 / 8.
+### 2026-11-05 · F-038 · done
+- Built: the hint bar: keys valid for the focused element and mode, updating once per frame after key, pointer and focus events; full/compact/off detail (D-206 default full, ␣uh for the session); every runnable hint is a button that does what its key does.
+- Code: ui/src/features/hints/*, ui/src/keys/{dispatch,commands,install}.ts, ui/src/App.tsx/.css · Tests: ui/src/features/hints/*.test.ts(x), ui/src/keys/{dispatch,commands}.test.ts, App.hints*.test.tsx, ui/e2e/hints.spec.ts · Evidence: .evidence/F-038/
+- Decisions: D-206 (maintainer), D-207..D-211 · Questions: Q-032
+- Review: FIX (clicks on most hints did nothing; ui.hintBar not followed), then PASS with one minor. The first reviewer run failed twice on API overload; re-run on Opus. Mutants 302/302, 2 equivalent. Mocked keystroke 4.7–5.7 / 8.
+### 2026-11-05 · F-037 · done
+- Built: the key engine: modes, counts, multi-key sequences and bindings by focused element; ␣ opens which-key after 300 ms; only the kept Vim subset stays bound; Ctrl/Cmd-1..9 and ␣e now run through it; F6/Shift-F6 cycle panes (D-200); keymaps.jsonc merges over the defaults (D-199) through the new `keymaps_read` IPC.
+- Code: ui/src/keys/*, ui/src/App.tsx, ui/src/core/keymaps.ts, crates/core/src/keymaps.rs, app/src/ipc/keymaps.rs · Tests: ui/src/keys/*.test.ts(x), App.keys.test.tsx, App.keymaps.test.tsx, ui/e2e/keys.spec.ts, crates/core/src/keymaps/tests.rs, app/src/ipc/keymaps/tests.rs · Evidence: .evidence/F-037/
+- Decisions: D-199, D-200 (maintainer), D-201..D-205 · Questions: Q-031
+- Review: PASS (SECURITY), three minors in Watch out. Resumed once after a usage limit (worktree was clean). Mutants 1953/1953, 2 equivalent.
+### 2026-11-05 · F-036 · done
+- Built: the course sidebar: Dashboard, Lectures with dates, Lists and Sources (Slides, Readings); j/k/arrows/gg/G and Enter; ␣e or the headerbar button hides it and the choice survives a restart. The core listing now carries lecture front-matter dates and sources/ files.
+- Code: ui/src/features/sidebar/, ui/src/state/layout.ts, ui/src/core/layout.ts, crates/core/src/course/front.rs, crates/core/src/layout.rs, app/src/ipc/app/layout.rs · Tests: sidebar/*.test.ts(x), App.test.tsx, App.sidebar-chunk.test.tsx, state/layout.test.ts, course/front/tests.rs, layout/tests.rs, ipc/app/layout/tests.rs, ui/e2e/sidebar.spec.ts · Evidence: .evidence/F-036/ (mocked-core screenshot; real-app flows by CI)
+- Decisions: D-194, D-195 (maintainer), D-196, D-197, D-198
+- Review: PASS (SECURITY), re-check PASS. Two CI fix rounds: the sidebar in the first-paint chunk cost Linux cold open (now a lazy chunk), and a stale-element race in buffer.ts on Windows; the macOS mocked keystroke check (Q-026) showed no branch cost in a local A/B. Branch CI green (run 42008665010).
+### 2026-11-05 · CI-d572d1f · done
+- Built: the settings-watch settle tests run on a fake clock and a fake event source, so a stalled macOS runner can't fail them; the cap check is stricter (MAX_DELAY ≤ waited < MAX_DELAY + 10 ms) and a new test checks the quiet wait after a burst.
+- Code: crates/core/src/settings/watch.rs (`settle_with`) · Tests: crates/core/src/settings/tests_watch.rs
+- Decisions: D-193
+- Review: PASS. Squash-merged so the builder commit's Co-Authored-By trailer stays off main. UNVERIFIED-ON: macos until the next main CI run.
+### 2026-11-05 · F-035 · done
+- Built: the course rail: one row per course with icon, colour and name; + adds a course; drag or Shift-J/K reorders and the order survives a restart; Ctrl/Cmd-1..9, click or Enter switches; missing folders are marked.
+- Code: crates/core/src/course/{known.rs,details/face.rs}, app/src/ipc/course/rail.rs, crates/harness/src/commands/course_rail.rs, ui/src/features/rail/, ui/src/state/{rail,course}.ts, ui/src/App.tsx, CoursePanel · Tests: known/tests.rs, rail/tests.rs, harness tests/rail.rs, rail/*.test.ts(x), ui/e2e/rail.spec.ts, tests/e2e/flows/rail.ts · Evidence: .evidence/F-035/ (real-app run by the author)
+- Decisions: D-188, D-189, D-190 (maintainer), D-191, D-192
+- Review: PASS (SECURITY) through two CI fix rounds: Playwright WebKit sent a Mac UA on Linux, flows shared the rail, macOS needs Cmd, Windows `\\?\` paths (a real bug: saved courses wouldn't reopen). Branch CI green (run 41976509006, macOS settings flake rerun).
+### 2026-11-04 · F-034 · done
+- Built: after Trust, a form collects name, code, term, professor, icon, colour and folders, pre-filled from folder names; Save writes .lecter/course.jsonc (version 1) without asking for trust again; read-only courses never get it.
+- Code: crates/core/src/course/details{.rs,/check.rs,/guess.rs}, crates/core/src/course/trust/survey.rs (empty settings = no overrides), app/src/ipc/course.rs + course/details.rs (`course_details_save`), ui/src/features/course/details/, ui/src/state/course.ts, ui/src/App.tsx, tests/e2e/support/relaunch.ts · Tests: details/tests.rs, tests_guess.rs, app/src/ipc/course/details/tests.rs, DetailsForm.test.tsx, ui/e2e/course-details.spec.ts, tests/e2e/flows/course-details.ts · Evidence: .evidence/F-034/ (real-app run by the author)
+- Decisions: D-185 (maintainer), D-186, D-187
+- Review: PASS with minors; the author's real-app run found the folder fields unlabelled (fixed); branch CI green (run 41958696738, macOS rerun for a flaky settings test).
+### 2026-11-04 · F-033 · done
+- Built: a first-time course folder shows a trust screen (counts, provider, web search, AGENTS.md/roles/skills/overrides); Trust or Open read-only is stored in trusted.jsonc; read-only courses show a chip and the core refuses AI and indexing (E_NOT_TRUSTED); a course too big to check opens read-only only.
+- Code: crates/core/src/course/trust{.rs,/store.rs,/survey.rs,/paths.rs}, app/src/ipc/{course,search,ai,lecture,session}.rs, crates/harness/src/commands/course_trust.rs, ui/src/features/trust/ · Tests: trust/tests{,_survey,_paths,_blocked}.rs, harness tests/{trust,search,prompt}.rs, app ipc tests, TrustScreen.test.tsx, tests/e2e/flows/trust.ts · Evidence: .evidence/F-033/ (real-app run by the author)
+- Decisions: D-181 (maintainer), D-182, D-183, D-184
+- Review: reviewer PASS, security-reviewer FIX (linked skill folders not hashed; fixed), then PASS; CI fix round for macOS/Windows test setup; branch CI green on all OSes (run 41948908363, rerun). Mutants OK (253/253).
+### 2026-11-04 · F-032 · done
+- Built: `identity::migrate()` moves what an old bundle id left behind into the "lecter" folders and keychain service, once per identity, recorded in `<data>/state.db`.
+- Code: crates/core/src/identity.rs, crates/core/src/identity/{migrate,legacy_dirs,record,keychain}.rs · Tests: identity/tests_migrate.rs, tests_keychain.rs, legacy_dirs.rs and record.rs unit tests · Evidence: .evidence/F-032/
+- Decisions: D-178 (maintainer), D-179, D-180 · Questions: Q-028 later
+- Review: PASS, 4 minors (in Watch out). Mutants OK (53/53).
+### 2026-11-04 · F-031 · done
+- Built: the core finds Lecter's config, data and cache folders on each OS from the stable name "lecter", holds the keychain service name, and detects a first run so onboarding can open.
+- Code: crates/core/src/identity.rs, crates/core/src/paths.rs, crates/core/src/paths/first_run.rs · Tests: crates/core/src/paths/tests_identity.rs (real resolve() in a child process with a temp HOME), first_run.rs and identity.rs tests · Evidence: .evidence/F-031/
+- Decisions: D-176, D-177 · Questions: none
+- Review: PASS, 2 minors (in Watch out). Mutants OK (6/6).
+### 2026-11-04 · F-030 · done
+- Built: settings core with a typed schema, global and course JSONC files, sourced precedence (prompt > role > course > global > default), SEC-25 enforcement with the hostile course fixture, and live reload without restart.
+- Code: crates/core/src/settings/ (+ `pub mod settings;` in crates/core/src/lib.rs, crates/core/Cargo.toml, Cargo.lock, crates/core/proptest-regressions/) · Tests: settings/{tests,tests_files,tests_sec25,tests_watch}.rs, tests/fixtures/courses/hostile/ · Evidence: .evidence/F-030/
+- Decisions: D-171 to D-175 · Questions: none
+- Review: PASS (SECURITY), 4 minors (in Watch out; the proptest trailer cites D-021 instead of D-028). Mutants OK (capped run 111/186; full run 173/173 earlier, its survivor fixed).
+### 2026-11-04 · plan · M0.5 gate notes, Q-012, Q-015, Q-018
+- plan: M0.5 gate keymap approved and applied. 10-keymap rewritten (Vim subset kept, given-up keys listed; Enter asks, s steps, q doubt, t define, ' example, = plot, Tab write, m/M flag, `.` repeats the last action; gloss keys Enter/r/-/=/</>; figure card 1/2/Esc/a; leader `␣a` keeps only g m f c; global shortcuts with Ctrl-p switcher, Alt-←/→ jump list); the same keys fixed in 05, 06, 09, 11, 12. Q-012 (D-167): 02#trust and SEC-35 let a trusted course open linked files; new F-047. Q-015 (D-168): 03#body gets `draft=1` (absent = kept), 10-keymap defines kept/unkept and the close prompt; new F-112 (M3). Q-018 (D-170): IME drop added to F-062. Also new F-048 (M1, ask moves from `a` to Enter, on own notes too) and F-075 (M2, global shortcuts). Edited todo cards F-037, F-041, F-062, F-066, F-067, F-095, F-101, F-102, F-103, F-143, F-162. 15-later notes the "scan someone else's course" idea. Next feature unchanged. Gate note not planned: `:find` skipping own notes stays with F-120 (M4). Watch out: lectures made before F-112 have no `draft`, so their glosses count as kept.
+### 2026-11-03 · garden · M0.5 gate
+- garden: shard timings refreshed from run 41767214228 (idle 751/801/903 s, figure-frame, skeleton measured); mutants.py skips the generated bindings.ts; prewarm.ts no longer touches a torn-down page; Watch out condensed. verify --full: 25 of 26 pass, `cargo deny` advisories fail on `paste` and `proc-macro-error` (unmaintained, transitive, deny.toml is protected). Perf not re-measured (no GUI in the sandbox). Log has 39 entries: no archive yet. Folder Learned lists are within limits.
+### 2026-11-03 · F-026 · done
+- Built: one WebdriverIO flow walks the whole skeleton in the real app (open course, parse a text PDF into a lecture via lecter-harness, edit, restart, :find, gloss with a plot; a screenshot per step), and a headless twin walks the same path through lecter-harness.
+- Code: tests/e2e/flows/skeleton.ts, tests/e2e/flows/skeleton/{lecture,relaunch}.ts, tests/e2e/support/shards.ts · Tests: crates/harness/tests/skeleton.rs · Evidence: .evidence/F-026/ (CI dispatch 41767214228 green; skeleton 6 passing on ubuntu, macOS, Windows; harness-failing.log)
+- Decisions: D-166 · Questions: Q-027 later
+- Review: PASS, 1 minor (shards.ts estimate; in Watch out). One WIP handoff (waiting on CI). Mutants OK (no mutable code).
+### 2026-11-03 · F-025 · done
+- Built: `tests/perf/budgets.sh` measures every 14-quality budget on the real app and fails on a breach (PENDING until a budget's milestone is done; --ci retries timings once at ×1.5 and reports real-app keystroke/cold open); memory counts every process by share (PSS / phys_footprint / private working set) with RSS as info; idle CPU uses F-180's sampler; per-OS memory and macOS ttft targets from CI dispatch (D-165). Required `perf` job in ci.yml.
+- Code: tests/perf/{budgets.json,budgets.sh,harness.py,app/,measure/}, .github/workflows/ci.yml · Tests: tests/perf/test_budgets.py, test_budgets_os.py, test_procs.py · Evidence: .evidence/F-025/ (CI dispatch 41762048574 green on three OSes, attempt 2; failing-*.txt)
+- Decisions: D-139, D-146, D-149, D-155, D-156, D-161 (maintainer), D-165 · Questions: Q-017, Q-024 answered; Q-025, Q-026 later
+- Review: PASS, 3 minors (D-entry written at merge; in Watch out). Blocked twice (D-139 budgets, IMPOSSIBLE memory/idle → D-161, F-180). Mutants OK.
+### 2026-11-03 · F-180 · done
+- Built: the idle redraw left after F-029 was the webview's own native caret, still blinking under CodeMirror's transparent caret colour. The editor now parks 9 s after the last input in normal or visual mode (not editable, keeps focus and the selection), and capture listeners wake it before CodeMirror and Vim see the key or click; insert mode never parks (IME). idle_cpu_pct over 300 s on a release build: Linux 4.37 → 0.03 %, macOS 2.88 → 0.16 %, Windows 0.28 → 0.07 %. The idle flow prints a per-process, per-thread `idle-attribution` with in-page frame, mutation and animation counters on all three OSes.
+- Code: ui/src/features/buffer/nativeCaret.ts, editorState.ts, tests/e2e/flows/idle.ts, tests/e2e/flows/idle-cpu/, idle-page/probe.ts, tests/perf/idle_threads.py
+- Tests: ui/src/features/buffer/nativeCaret.test.ts, ui/test/idle-cpu.test.ts · Evidence: .evidence/F-180/ (CI run 41737726541 green on three OSes; failing runs idle-attribution-af7ec61.log, failing-native-caret.log)
+- Decisions: D-161 (maintainer), D-162, D-163, D-164 · Review: PASS, 4 minors (in Watch out). Mutants 61/61, 4 equivalent. One WIP handoff between two builders.
+
+- plan: Q-024 applied (D-161). 14-quality#performance-budgets counts every process by proportional share (Linux 460/500 MB kept, macOS/Windows re-derived) and allows per-OS ttft_overhead_ms / idle_cpu_pct targets; new F-180 "Find and stop the remaining idle redraw" (M0.5; records idle-attribution first, then fixes); F-025 criterion 6 reworded, criterion 8 added, depends on F-180, unblocked (resume branch feat/F-025-perf-budgets at 5b4fef4). Note: D-161 had F-025 add the attribution; it now lives in F-180 to avoid a dependency cycle.
+### 2026-11-03 · F-028 · done
+- Built: figure frames get a native request filter (test-hooks only: a content rule list on WebKitGTK/WKWebView, WebResourceRequested on WebView2) that, with the scheme CSP, keeps a sandboxed frame off the network (16/16 vectors, prefetch included), away from the parent DOM, storage and IPC in all three webviews; a busy frame is detected within 2 s on all three.
+- Code: app/src/figure_filter{.rs,/}, spikes/figure-frame/, tests/e2e/flows/figure-frame.ts · Evidence: .evidence/F-028/ (CI run 41694556626 green on three OSes, 77/77 per webview; failing runs 1 and 2 kept)
+- Decisions: D-145 (maintainer: native filter), D-155, D-156 (maintainer: cold_open targets), D-157, D-158, D-159, D-160 (deps) · Questions: Q-023 answered
+- Review: spike, no reviewer (numbers checked against the log). Blocked once as IMPOSSIBLE (WebView2 prefetch, D-142); unblocked by D-145. Mutants 41/41 caught.
+
+- plan: Q-022 and Q-023 applied. 14-quality#performance-budgets now has the cold_open_ms median-of-5 rule, per-OS targets (D-152) and local-only gating with REPORT under --ci (D-155); 18-contracts#ipc lists `app_mark_startup` (D-151); F-025 criteria 1, 2 and 7 updated to match. Next feature unchanged.
+
+### 2026-11-03 · chore/ci-e2e-speed · done
+- Built: CI's real-app e2e-app job no longer waits 5 s before every WebDriver find and click, and runs its flows in 3 parallel shards per OS; `e2e-app (<os>)` stays the status check. Linux push-style run 5.2 min warm (11.3 cold), all-OS dispatch 8.9 min, against 25-29 min per OS before.
+- Code: tests/e2e/support/{window,timings,shards}.ts, tests/e2e/wdio.conf.ts, tests/e2e/flows/{restart,ime}.ts, scripts/e2e-app.sh, scripts/e2e_app_gate.py, .github/workflows/ci.yml, .github/actions/setup/action.yml, docs/spec/16-ci-cd.md
+- Tests: ui/test/e2e-app-{timings,shards}.test.ts, scripts/tests/test_e2e_app_gate.py, crates/harness/tests/ci.rs (e2e_app_runs_in_shards_and_keeps_its_status_check)
+- Decisions: D-154
+- Follow-ups: first main push after the merge is cold for Linux shard 1 (~11 min, once); cold_open_ms medians sit at the 1080 ms target on CI (Q-023)
+
+### 2026-11-03 · F-179 · done
+- Built: the app logs each startup phase (`startup <phase> <ms>` since process start), paints its shell before loading the editor (entry chunk 144 → 10.7 KB gz), and pre-warms the editor after the first paint. Cold open is timed as the median of 5 release launches against a per-OS target (Linux 1080 ms, D-152).
+- Code: app/src/startup.rs, app/src/ipc/app.rs, ui/src/App.tsx, ui/src/core/startup.ts, ui/src/features/buffer/prewarm.ts, tests/e2e/flows/cold-open.ts and cold-open/ · Evidence: .evidence/F-179/ (author's local median 442 ms; CI run 41588635437 green on three OSes, Linux median 973 ms)
+- Decisions: D-151 (maintainer: app_mark_startup IPC), D-152 (maintainer: per-OS cold_open_ms targets, median of 5), D-153 · Questions: Q-022
+- Review: reviewer PASS ×3 (security of the new IPC command; pre-warm honest and inert; D-152 gate can't pass silently). Author's single-launch runs measured 484 and 575 ms against 400; standalone launches showed ~300 ms of process and WebKit start before the page loads, leading to D-152. The builder hit the usage limit once and was resumed.
+
+### 2026-11-03 · F-029 · done
+- Built: the lecture caret blinks for 10 s after the last key or click, then stays solid (solid always under reduced motion); an idle window runs no animation, DOM change or frame. Slide-heading spacing moved into padding so clicks land on the clicked line.
+- Code: ui/src/features/buffer/{caret.ts,Buffer.css,editorState.ts}, tests/e2e/flows/idle.ts, tests/e2e/flows/idle-page/probe.ts · Evidence: .evidence/F-029/ (author's WebKitGTK run 3/3; CI run 41561874349 green on three OSes)
+- Decisions: D-149 (maintainer: idle CPU per process moves to F-025), D-150 · Questions: Q-021
+- Review: 5 rounds. Reviewer FIX once (idle window margin, stream samples, journal cleanup, focus check); then real-app and CI findings: WebDriver click without mousedown, pointer clicks read as triple clicks, a heading-margin click offset (product bug, fixed), no blink on macOS/Windows CI (reduced-motion branch with diagnosis). Measurement branch measure/F-029-idle was deleted unused (F-025's self-check stops before measuring).
+
+### 2026-11-02 · F-005 · done
+- Built: spikes/os-sandbox, a test crate whose sandboxed child can't open a socket, read any file but its input, or pass 1 GiB: Linux seccomp + Landlock, macOS sandbox profile, Windows LPAC AppContainer + job object (cfg(target_os)). The win.ini test became a user-profile denial test (D-144); a named setup mutex fixes a parallel-launch race on Windows.
+- Code: spikes/os-sandbox/ · Evidence: .evidence/F-005/ (Linux 21/21; CI run 41513695098 green on Linux, macOS, Windows)
+- Decisions: D-147 (maintainer: Windows/macOS-only mutants covered by the cross-OS test job), D-148 · Questions: Q-020
+- Review: spike (no reviewer). CI round 1 failed on Windows (run 41504019480, AppContainer setup race between parallel tests); fixed in round 2.
+
+### 2026-11-02 · plan · done
+- plan: Q-008 → SEC-01 accepts the Windows LPAC boundary (D-144); F-005 criteria updated, unblocked. Q-019 → 08-figures#sandbox-pages gets a native request filter, `script-src lecter-fig: lecter-lib:`, a core-side watchdog and a main-frame-only IPC guard (SEC-31) (D-145); F-028 criterion 1, F-141 and F-142 updated, F-028 unblocked. Q-017 → 14-quality budgets: per-OS memory by PSS (Linux 460/500 MB), real-app keystroke REPORT-only under --ci, nothing animates while idle (caret blink stops after 10 s, 09-ui#editing) (D-146); new F-029 "Nothing redraws while idle" and F-179 "Cold open under budget" (M0.5); F-025 criteria and dependencies updated, unblocked.
+- Not applied: Q-010 to Q-016 and Q-018 have no answer. No gate notes. No spec commits since the last plan.
+
+### 2026-11-02 · plan · done
+- plan: performance presets (Q-006/D-081 → D-143: `12-settings#performance-preset`, `09-ui#editing`; criteria in F-030, F-040, F-045; new F-074 "Performance preset in the lecture buffer", M2); spike-crate line in the 01-architecture crate table (Q-007/D-082); Q-009 marked answered (D-108, built in F-019), with the answer moved there from Q-010.
+- Not applied: Q-008, Q-010 to Q-019 have no maintainer answer; F-005, F-025, F-028 stay blocked. No gate notes. Spec commits since the kit were kit changes that already updated features.json.
+
+### 2026-11-01 · F-027 · done
+- Built: a real-app WebdriverIO flow drives Vim i/Esc/j/gg/u and a synthetic IME composition (UI Events order, played in-page) in WebKitGTK, WKWebView and WebView2, logging every check per webview, plus spikes/ime/fetch.sh and summary.py to tally a CI run. Criterion 1 holds on all three (composed text lands once; no Vim key fires while composing).
+- Code: tests/e2e/flows/ime.ts, spikes/ime/{README.md,fetch.sh,summary.py}, one line in tests/CLAUDE.md · Evidence: .evidence/F-027/ (CI run 41364496453; run 41369104620 all green on three OSes)
+- Decisions: D-140, D-141 · Questions: Q-018
+- Review: spike (no reviewer). Run 1: WebKitGTK 25/26 and WKWebView 25/26 checks ok, the one failure (`u` after normal-mode IME text) became an observation; WebView2 passed every asserted check twice but its detail lines weren't captured (Watch out).
+
+### 2026-11-01 · CI-f9e26bc · done
+- Fixed: main CI e2e-app (ubuntu) red in runs 41314176273 and 41319731813: both :find tests got no hits. CI runs every flow in one app; earlier flows opened the course's search index, find.ts deleted `.lecter/cache/index`, and the cached CourseIndex kept writing into the deleted folder. `SearchIndexes::get` now reopens an index whose meta.json is gone (02-course-folder: cache/ can be deleted). The author added `include-hidden-files: true` to the e2e-app upload (f9e26bc), which made the failure visible.
+- Code: app/src/ipc/search.rs, crates/index/src/bm25.rs · Tests: app/src/ipc/search/tests.rs (2 new), crates/index/src/bm25/tests.rs · Evidence: .evidence/CI-f9e26bc/
+- Review: reviewer PASS with 2 minors (Watch out). The author's full local `scripts/e2e-app.sh` (all 8 flows, shared app) passed.
+
+### 2026-11-01 · F-024 · done
+- Built: a ```fnplot code block inside a gloss is parsed (own recursive-descent grammar, capped) and drawn as an SVG plot under its fence, computed locally with no network, drawn only while in view (one shared IntersectionObserver, lazy 3.6 KB gz runtime chunk). The sample provider answers plot/graph/chart/draw questions with the spec's fnplot example.
+- Code: ui/src/features/figures/, crates/ai/src/figures/, one line each in ui/src/features/buffer/editorState.ts, crates/ai/src/lib.rs, app/src/ipc/ai.rs
+- Tests: ui/src/features/figures/*.test.ts, crates/ai/src/figures/sample/tests.rs, tests/e2e/flows/figure.ts (with a no-network recording) · Evidence: .evidence/F-024/
+- Decisions: D-135 to D-137 · Questions: Q-016
+- Review: reviewer PASS with 2 minors (parser, spec caps, network and fence handling checked; Watch out). The builder hit the weekly usage limit and was resumed. The author's first real-app run failed one check (the flow read the .md before the 1 s debounced save), fixed in the flow (da1584f); second run passed 3/3.
+
+### 2026-10-26 · F-023 · done
+- Built: a dyn-compatible Provider trait and an in-process ScriptedProvider in lecter-ai stream a gloss over a typed GlossStream channel (started/delta/done/stopped/failed). `a` on a slide line opens a prompt; the answer streams under the block, painted at most once per animation frame, and the finished fenced div is inserted by the UI through lecture_apply_edits (journal, undo). Esc cancels within 50 ms and keeps the partial answer. `lecter-harness prompt` prints the assembled request as JSON.
+- Code: crates/ai/src/ (provider, prompt, gloss), app/src/ipc/ai.rs, crates/harness/src/commands/prompt.rs, ui/src/features/gloss/, ui/src/core/gloss.ts, Buffer/editorState/App wiring, capabilities
+- Tests: crates/ai/tests/stream.rs, app/src/ipc/ai/tests.rs, crates/harness/tests/prompt.rs, ui/src/features/gloss/*.test.ts, tests/e2e/flows/gloss.ts · Evidence: .evidence/F-023/
+- Decisions: D-131 to D-134 · Questions: Q-015
+- Review: reviewer PASS with 3 minors (security of prompt assembly, answer escaping, textContent rendering and logs checked; D-131, Watch out). The builder hit the usage limit twice and was resumed; the author's switch to fnm Node (D-130) needed a setup-test fix (692ca50) and pnpm/corepack links in verify/init (e41111e). The author's real-app run passed first time.
+
+### 2026-10-26 · F-022 · done
+- Built: blocks of opened lectures are indexed into Tantivy 0.27 (`mmap,lz4-compression`, D-126) at `<course>/.lecter/cache/index`, one document per block with lecture, slide and block ids. `search_find` re-indexes open lectures (fingerprint skip), so unsaved edits are searchable, and returns ranked hits; `:find words` and the Find field list them; `lecter-harness search` prints them as JSON.
+- Code: crates/index/src/{blocks,bm25,error}.rs, app/src/ipc/search.rs, crates/core/src/course/ (ensure_dir, shared with the journal), crates/harness/src/commands/search.rs, ui/src/features/find/, ui/src/state/find.ts, ui/src/core/search.ts, capabilities/main.json
+- Tests: crates/index/src/{blocks,bm25}/tests.rs, crates/harness/tests/search.rs, app/src/ipc/search/tests.rs, ui find/App tests, ui/e2e/find.spec.ts, tests/e2e/flows/find.ts · Evidence: .evidence/F-022/
+- Decisions: D-126 (maintainer: tantivy), D-127 to D-129
+- Review: reviewer PASS with 3 minors (Watch out, D-127). The builder stopped at the dependency gate and asked first. The author's real-app run passed first time (2 tests, 2 m 26 s).
+
+### 2026-10-26 · F-021 · done
+- Built: every edit goes to the core (`lecture_apply_edits`, UTF-16 positions turned into UTF-8 bytes with ropey) and is appended to `.lecter/journal/<stem>.log` in the 18-contracts record format, fsync'd ≤ 250 ms after the first unsynced write; the .md is saved via temp file, fsync, checkpoint, atomic rename and dir fsync, 1 s after the last edit, and on quit. Reopening replays a matching journal; a mismatched one is set aside as `.log.kept-<ms>`. Real app: type, quit, relaunch keeps the text; kill -9 mid-typing lost nothing (40/40).
+- Code: crates/core/src/{journal,save}/, crates/core/src/{lib,error}.rs, crates/core/src/lecture/, app/src/ipc/{lecture,session}.rs, app/src/main.rs, capabilities/main.json, ui/src/features/buffer/edits.ts, ui/src/state/lecture.ts, ui/src/core/
+- Tests: core journal/save tests, crates/core/tests/journal_crash.rs (SIGKILL), app ipc/lecture tests, ui edits/lecture-edits/Buffer tests, ui/e2e/journal.spec.ts, tests/e2e/flows/restart.ts · Evidence: .evidence/F-021/
+- Decisions: D-121 (maintainer: blake3 crate), D-122 to D-125
+- Review: reviewer PASS (SECURITY) with 5 minors; the builder had hand-written BLAKE3 instead of asking (D-121 replaced it) and fixed replay past 16 MB and an untested fsync in the same round, re-check PASS. The author's real-app runs: 1st timed out at 120 s (focus-check waits), 2nd passed both tests but failed in teardown (DELETE to a killed app), 3rd passed.
+
+### 2026-10-25 · CI-fa53b65 + CI config · done
+- Fixed: the keystroke check measured p99 13.9/12.7 ms (fail) and 23.0/7.5 ms (pass) in the two Playwright projects of main run 40263523685 (p50 ~5 ms). It now leaves `test:e2e` and runs alone via `test:perf` for its own `perf` CI job (D-120). The author moved `e2e` into Playwright's image (~1 min instead of 20–30), excluded `pnpm-lock.yaml` from Biome, and gave Dependabot a 14-day cooldown and ignore rules for `@types/node` and `@wdio/*` majors (PR #4 closed; #5 has WebdriverIO 9.32 only).
+- Code: ui/package.json, ui/e2e/buffer-perf.spec.ts, ui/e2e/perf/exclusive.ts · Tests: ui/test/scaffold.test.ts · Evidence: .evidence/CI-fa53b65/
+- Decisions: D-120 (maintainer)
+
+### 2026-10-25 · CI-a0174c9 · done
+- Fixed: main CI red after F-020: Windows refused a folder named like a lecture with PermissionDenied (now a regular-file check before open, which also stops a FIFO hang), and the buffer perf check measured 26.7 ms p99 on CI (now follows the ×1.5 + re-measure CI rule, measures without the trace recorder and without its own parallel copy). Branch CI 40258103961 green on all three OSes (e2e needed a re-run after a 30-min timeout on slow apt).
+- Code: crates/core/src/lecture/mod.rs, ui/e2e/buffer-perf.spec.ts, ui/e2e/perf/{exclusive,timing-budget,probe}.ts
+- Tests: crates/core/src/lecture/tests.rs (FIFO), ui/test/timing-budget.test.ts · Evidence: .evidence/CI-a0174c9/
+- Decisions: D-118 (maintainer), D-119
+- Review: reviewer PASS with 2 minors (Watch out).
+
+### 2026-10-25 · F-020 · done
+- Built: open a lecture from the rail (click or Enter); the whole .md shows in one CodeMirror 6 buffer with front matter, fences and titles hidden, slide headings ("Slide 1 / 2", title, source) and blocks. j/k/gg/G move by element (counts work), i/Esc switch modes. `lecture_open(course, path)` is limited to a course opened this session and `lectures/<name>.md` (canonical, in the course, UTF-8, ≤ 16 MiB). Keystroke-to-paint p99 4.2 ms on the 200-slide fixture (Chromium, mocked core). The author's WebDriver run passed (4/4).
+- Code: crates/core/src/lecture/, app/src/ipc/{lecture,session}.rs, ui/src/features/buffer/, ui/src/state/lecture.ts, ui/src/core/lecture.ts, capabilities/main.json
+- Tests: ui/src/features/buffer/*.test.ts(x), ui/e2e/buffer.spec.ts, ui/e2e/buffer-perf.spec.ts, tests/e2e/flows/buffer.ts, core lecture tests · Evidence: .evidence/F-020/
+- Decisions: D-115, D-116, D-117 · Questions: Q-013
+- Review: reviewer PASS (SECURITY on lecture_open) with 3 minors (Watch out, Q-013); the author's first run failed one step (test reading CodeMirror widgets), 1 FIX round, second run passed.
+- Follow-ups: FIFO check in lecture_open; CRLF lectures before F-021.
+
+### 2026-10-25 · F-019 · done
+- Built: `lecter-parse` runs as a child process speaking the worker protocol (Hello version check, length-prefixed postcard frames); a synthetic text PDF becomes blocks with pages and reading order via PDFium. A crash, protocol mismatch, oversized frame or > 60 s gives E_PARSE_FAILED and the core stays responsive. `lecter-harness parse <pdf>` prints the blocks. CI and init.sh fetch the pinned PDFium once (actions/cache), so tests stay offline (D-108).
+- Code: crates/parse/src/{proto,layout,pdf,pdfium,worker,error}.rs, crates/core/src/worker/, crates/core/src/error.rs, crates/harness/src/commands/parse.rs, scripts/init.sh, .github/actions/setup/action.yml, root Cargo.toml (workspace tokio)
+- Tests: crates/parse/tests/{pdf_text,worker_process}.rs, crates/parse/src/{worker,layout}_tests.rs, crates/core/src/worker/tests.rs (Python fake workers), crates/harness/tests/{parse,init_install,ci}.rs, tests/fixtures/pdf/ · Evidence: .evidence/F-019/
+- Decisions: D-111, D-112, D-113, D-114
+- Review: reviewer (SECURITY) PASS with 3 minors (Watch out); branch CI first red on pre-existing main failures (fixed by CI-17ae5e6), then on the Windows abort exit code; 1 FIX round, re-check PASS; branch CI 40231663863 green on all three OSes.
+- Follow-ups: sandbox and limits listed in Watch out.
+
+### 2026-10-25 · CI-17ae5e6 · done
+- Fixed: main CI red on Windows (IPC guard tests used the non-Windows origin), macOS (non-UTF-8 name fixture), release-check (`lecter-harness` in a specta doc string) and Windows e2e-app (plugin/service 1.4.0 → 1.5.0, 8.3 short path in open-course). Branch CI run 40229046760 green on all three OSes.
+- Code: app/src/ipc/{guard,course}.rs, crates/core/src/course/tests.rs, tests/e2e/flows/open-course.ts, app/Cargo.toml, ui/package.json, lockfiles, bindings.ts
+- Decisions: D-109, D-110
+- Review: none (CI fix under 40 code lines); 2 CI rounds on the branch.
+
+### 2026-10-25 · F-018 · done
+- Built: "Open course folder" in the rail (mouse, Enter or Space) shows the course name, Lectures and Slides; every entry is canonicalised and a link out of the course fails the open with E_NOT_TRUSTED. `lecter-harness course open <dir> [--json]` prints the same listing. The author's WebDriver run passed (course-open.png).
+- Code: crates/core/src/course/{mod,listing}.rs, crates/core/src/error.rs, app/src/ipc/course.rs, crates/harness/src/commands/course.rs, ui/src/{core/course.ts,state/course.ts,features/course/}, ui/src/App.tsx, ui/src/core/bindings.ts
+- Tests: crates/core/src/course/tests.rs, crates/harness/tests/course.rs, ui/src/features/course/CoursePanel.test.tsx, ui/src/state/course.test.ts, tests/e2e/flows/open-course.ts · Evidence: .evidence/F-018/
+- Decisions: D-105, D-106, D-107 · Questions: Q-012
+- Review: reviewer (SECURITY) PASS; the author's first e2e run failed (Enter on the button: synthetic WebDriver keys don't activate buttons), 1 FIX round (app-level Enter/Space handler), re-check PASS, second e2e run passed.
+- Follow-ups: the ~10 s per WebDriver command slowdown (Watch out); Q-012.
+
+### 2026-10-25 · F-017 · done
+- Built: the IPC contract is declared once in Rust and `ui/src/core/bindings.ts` is generated from it with tauri-specta; verify fails on stale bindings. One error-code list (`lecter_core::ErrorCode`) serves the app and the harness. Every call passes global argument limits (1 MB payload, string/prompt caps) in Rust before dispatch. Spike: Tauri's isolation pattern costs 0.1 ms p99 per keystroke call but 6–23 ms at 16–64 KB, so it stays off (SEC-36).
+- Code: app/src/ipc/{mod,export,validate,guard,error}.rs, app/src/bin/export-bindings.rs, crates/core/src/error_code.rs, crates/harness/src/error.rs, ui/src/core/{bindings,app}.ts (commands.ts removed), ui/e2e/mock-core/*, spikes/isolation/
+- Tests: app/tests/export_bindings.rs, ui/src/core/contract.test.ts, unit tests in validate.rs (incl. exact 1 MB boundary), guard.rs, error_code.rs · Evidence: .evidence/F-017/
+- Decisions: D-102, D-103, D-104 · Mutation trial: see Watch out.
+- Review: reviewer + security-reviewer, PASS.
+- Follow-ups: WebKitGTK isolation cost unmeasured (D-104 revisit).
+
+### 2026-10-25 · F-016 · done
+- Built: test builds (`--features test-hooks`) embed a WebDriver server, so WebdriverIO drives the real app; LECTER_TEST_PICK/TRUST answer the folder dialog and trust question; `course_open` IPC command; CI jobs `e2e-app` (3 OSes) and `release-check`. The author ran both flows (shell, open-folder) outside the sandbox: pass.
+- Code: app/src/{main,dialog,test_hooks}.rs, app/src/ipc/{course,error,names,mod}.rs, tests/e2e/**, scripts/e2e-app.sh, tests/e2e/release-check.sh, .github/workflows/ci.yml, ui/{package.json,pnpm-workspace.yaml}.
+- Tests: app/tests/test_hooks.rs, ui/test/e2e-app-config.test.ts, unit tests in course.rs (incl. symlinks), test_hooks.rs, error.rs · Evidence: .evidence/F-016/
+- Decisions: D-094 (partly supersedes D-049), D-095, D-096, D-097 · Questions: Q-010 (D-080 trace needs a card), Q-011 (card verify line)
+- Review: reviewer PASS (once its auto-mode run was restarted); security 1 FIX round (symlink tests), then PASS.
+- Follow-ups: Q-010, Q-011.
+
+### 2026-10-24 · F-015 · done
+- Built: `lecter-harness` (debug-only CLI, never bundled): `version [--json]`, one JSON result per call, typed `{"error":{"code",…}}` errors with exit codes. LECTER_TEST_HOME moves every config/data/cache folder under one directory (debug or `test-hooks` only); `TestEnv` gives tests a throwaway home.
+- Code: crates/harness/src/{lib,main,error}.rs, commands/{mod,version}.rs; crates/core/src/{paths,testenv,error}.rs, identity.rs (APP_DIR_NAME); root Cargo.toml (workspace serde_json).
+- Tests: crates/harness/tests/{cli,never_shipped}.rs; unit tests in core paths.rs and harness error.rs · Evidence: .evidence/F-015/
+- Decisions: D-088, D-089, D-090, D-091, D-092, D-093
+- Review: 1 FIX round (untested env read in `AppDirs::resolve`, shared serde_json, crate Error type), then PASS. Commit b6aab39 carries a Co-Authored-By line (no history rewrite).
+- Follow-ups: init.sh XDG_RUNTIME_DIR unset case (Watch out).
+
+### 2026-10-24 · F-006 · done
+- Built: PDFium spike (`spikes/pdfium`). A script downloads the pinned bblanchon build for 5 targets, checks SHA-256 from memory before extracting, and a test loads it through pdfium-render and reads page-1 text from a generated PDF. Green on all three CI OSes (run 40161530691).
+- Code: spikes/pdfium/ · Tests: spikes/pdfium/tests/{checksum,load}.rs · Evidence: .evidence/F-006/
+- Decisions: D-084 (source), D-085 (pdfium-render), D-086 (network exception in this crate's tests), D-087 (result). Q-009 (CI cache) for planning.
+- Review: 1 FIX round (reviewer: verification proof, Windows replace race, licence, Python stubs; security: same-buffer hash+extract, 2 packaging requirements), then PASS.
+
+### 2026-10-24 · F-005 · blocked (IMPOSSIBLE on Windows)
+- Built: OS sandbox spike crate (`spikes/os-sandbox`, branch `feat/F-005-os-sandbox` at the builder's last commit), with 11 tests per OS. Linux and macOS GO. Windows meets everything except "no file other than its input" (OS files granted to ALL RESTRICTED APPLICATION PACKAGES stay readable). Lockdown token attempt failed at start-up.
+- Review: reviewer FIX (go/no-go line) → fixed; security review: 7 findings (input ACE, fork, inherited fds, LPAC, Landlock bits, thread sync, handle list) → fixed with tests, plus 2 carry-forward requirements. Reviewer agreed with IMPOSSIBLE.
+- CI on the branch: runs 40119212625, 40119881557, 40120703752, 40153640323 and 40154388308 (spike bugs on macOS/Windows fixed along the way).
+- Decisions: D-082 (spike crates in check_arch; the author applied the kit change), D-083 (per-OS result). Q-008 for planning.
+
+### 2026-10-24 · F-001 · done
+- Built: throwaway CodeMirror 6 + Vim + KaTeX + gloss lecture-surface spike (200-slide synthetic fixture) and a Playwright measurement and profiling script. Chromium GO (novsync p99 4.8–5.2 ms). Headless WebKit is NO-GO end to end (work p99 11–12 ms; sync p99 7 ms with the Markdown parse off). Lazy KaTeX/markdown took the main chunk from 289 to 140 KB gz.
+- Code: spikes/editor/ · Tests: spikes/editor/measure.mjs, profile.mjs · Evidence: .evidence/F-001/
+- Decisions: D-079 (spike's own packages), D-080 (keep CM6 with conditions; F-016 decides), D-081 (Performance/Balanced/Quality presets, Balanced default). Q-006 for the planning session.
+- Review: 1 FIX round (evidence log regenerated, WebKit heap stated as unmeasurable), then PASS.
+
+### 2026-10-24 · CI-4ec6f29 + M0 gate · done
+- Fixed: under CI, init.sh installs only from the lockfiles (M0 security review, Q-005, D-078); harness lint tests run Python in UTF-8 (Windows console failure on check_arch's "→").
+- Code: scripts/init.sh · Tests: crates/harness/tests/init_install.rs, lint_gates.rs, common/mod.rs
+- M0 gate passed: the author tried `pnpm -C ui run dev` and `scripts/dev.sh` (blank page titled "Lecter"; colour tokens arrive with F-042). No gate notes. Milestone security review: one finding, fixed above.
+- Follow-ups for the author (kit): `sys.stdout.reconfigure(encoding="utf-8")` in scripts/check_*.py.
+
+### 2026-10-24 · F-014 · done
+- Built: the lint stage enforces unwrap/expect outside tests, blocking std::fs/std::net and thread::sleep bans in async crates, the Tauri identifier-path ban, jscpd (30+ line copies in ui/src, crates, app/src), knip (unused exports), check_arch and check_size. Each gate has fixture evidence of failing, then passing.
+- Code: clippy.toml, crates/{parse,models,harness}/clippy.toml, ui/.jscpd.json, ui/knip.json, tests/fixtures/lint/clippy/
+- Tests: crates/harness/tests/lint_gates.rs, ui/test/lint-gates.test.ts
+- Decisions: D-075 to D-077 (D-075 supersedes D-059)
+- Follow-ups: knip.json `classMembers` key (author); guard now protects crates/*/clippy.toml (author's commit c53127d)
+
+### 2026-10-24 · CI-c1493e7 · done
+- Fixed: Vitest crashed on windows-2025 (`file:///@solid-refresh` is an invalid file URL) because vite-plugin-solid injected HMR in test mode. ui/vite.config.ts sets `solid({ hot: mode !== "test" })`; dev and e2e keep HMR. UNVERIFIED-ON: windows until the next CI run.
+- Code: ui/vite.config.ts · Tests: ui/test/solid-refresh.test.ts
+
+### 2026-10-24 · CI-5e897b2 · done
+- Fixed: windows-2025 CI failed installing gitleaks because Git Bash's sha256sum prefixed the hash with `\`. install-gitleaks.sh now hashes via stdin; a test rejects passing a path. UNVERIFIED-ON: windows until the next CI run.
+- Code: .github/scripts/install-gitleaks.sh, crates/harness/tests/ci.rs
+- Watch out: any other script that runs `sha256sum <path>` on Windows paths hits the same prefix. F-005: 91 Windows/macOS-only mutants in spikes/os-sandbox are excused by D-147 trailers; mutants.py matches excuses by mutation text, not line, so the Unix spawn_alloc trailers also cover the Windows line 183 (the Unix mutants are killed today). In a worktree, `git merge main` fails when main changed .claude files (read-only mounts); builders fall back to merge-tree/commit-tree. F-029: `.gloss` (Gloss.css:7) and `.figure` (Figure.css:8) block widgets still have vertical margins, so clicks below them land up to ~12 px low (ui/CLAUDE.md Learned; for the cards that own them). The embedded WebDriver's `$(…).click()` sends no mousedown and its pointer actions send detail 0 (a triple click to CodeMirror); click CodeMirror with an in-page detail-1 click (tests/e2e/flows/idle-page/probe.ts). idle.ts skips the blink half when the webview reports reduced motion: the macos-15 and windows-2025 runners do (3/3 checks in run 41674973425), so the blink is checked on Linux only; if Linux CI ever reported reduced motion it would go unchecked there too. idle.ts takes ~130 s (its three 40 s windows) and has a shard to itself. F-025: macOS ttft_overhead_ms (target 42) was 47 in run 41762048574 and passes only via the --ci ×1.5 allowance (Q-025); the macOS mocked keystroke check fails often (Q-026). Dispatch run 41742947222 (source of the macOS/Windows per_os targets) has no saved report in .evidence/F-025/. prewarm.ts's setTimeout can race jsdom teardown in App.test.tsx (vitest unhandled error, flaky); macOS figure-frame "harness page did not load" is flaky. budgets.sh's idle_cpu_pct uses F-180's sampler (tests/e2e/flows/idle-cpu/) and tests/perf/idle_threads.py groups processes for both memory and idle CPU: change one, both gates move. tests/e2e/support/shards.ts SECONDS is stale: idle takes 751/801/903 s (it says 129), figure-frame has no entry, skeleton is an estimate (90; measured 49/52/76 s), so Linux shard 3 runs ~16 min; refresh from run 41767214228's timings.json. Saved glosses render the answer as raw Markdown (`**Sample answer.**` and the ```fnplot fence show above the plot, skeleton-figure.png). The real app can't start in the Claude sandbox even under xvfb-run ("Failed to initialize GTK"). The app can't import a PDF itself until F-061 (skeleton parses via the harness, D-166).
+
+### 2026-10-24 · F-013 · done
+- Built: CI pipeline (`lint`, `test` on ubuntu-24.04/macos-15/windows-2025, `e2e`) calling `verify.sh --stage`, a shared setup action, a checksum-verified gitleaks, and weekly grouped Dependabot. `init.sh --check` lists missing tools with install hints. init and verify work on system Node 22 and in worktrees.
+- Code: .github/workflows/ci.yml, .github/actions/setup/action.yml, .github/scripts/install-gitleaks.sh, .github/dependabot.yml, scripts/init.sh, scripts/verify.sh
+- Tests: crates/harness/tests/ci.rs (14 tests)
+- Decisions: D-072 to D-074
+- Follow-ups: first push confirms CI (UNVERIFIED-ON macos, windows)
+
+### 2026-10-24 · F-012 · done
+- Built: `app/` Tauri 2 shell (crate lecter-app) with identifier, version and the SEC-30 CSP; one capability granting only `allow-app-info`; devtools off in release; release builds can't compile without the embedded UI. `lecter_core::identity::APP_ID` is read from tauri.conf.json at build time. `scripts/dev.sh` runs Vite and the app with hot reload.
+- Code: app/, crates/core/build.rs, crates/core/src/identity.rs, scripts/dev.sh, deny.toml (licence line by the maintainer), root Cargo.toml members
+- Tests: app/tests/config.rs, app/tests/capabilities.rs, app/src/ipc unit tests, crates/core identity tests, crates/harness/tests/workspace.rs (licence list)
+- Decisions: D-067 to D-071
+- Follow-ups: kit fixes in "Watch out"; SEC-36 isolation pattern is measured by its own feature
+
+### 2026-10-24 · F-011 · done
+- Built: `ui/` with Vite + SolidJS + strict TypeScript, Biome, Vitest (jsdom) and Playwright. A mocked core replaces Tauri IPC (`ui/e2e/mock-core/`); one `@smoke` test loads the app shell in Chromium. Node 24.18.0 and pnpm 12.15.0 pinned in package.json.
+- Code: ui/src, ui/e2e/mock-core, ui/package.json, ui/vite.config.ts, ui/playwright.config.ts, ui/biome.json
+- Tests: ui/test/scaffold.test.ts, ui/src/**/*.test.ts(x), ui/e2e/shell.spec.ts, ui/e2e/dev-mock.spec.ts
+- Decisions: D-061 to D-066
+- Follow-ups: kit fixes in "Watch out" (Node 24 on PATH, pnpm store, worktree lints, Playwright download host, WebKit)
+
+### 2026-10-23 · F-010 · done
+- Built: Cargo workspace with all nine crates (`lecter-core`, `-parse`, `-models`, `-index`, `-ai`, `-cas`, `-harness`, `-cli`, `-fake-provider`), each with a smoke test. The `lecter` binary prints its version. Toolchain pinned. Also deny.toml, clippy.toml, rustfmt.toml and .gitattributes.
+- Code: Cargo.toml, Cargo.lock, rust-toolchain.toml, deny.toml, clippy.toml, rustfmt.toml, .gitattributes, crates/*/, tests/fake-provider/
+- Tests: crates/harness/tests/workspace.rs (6 repo-shape tests), crates/cli/tests/version.rs, one smoke test in each crate's src
+- Decisions: D-058, D-059, D-060
+- Follow-ups: none
+
+### 2026-10-24 · kit · done (rebuild after review)
+- Built: walking skeleton milestone M0.5 and milestone gates; 141 features with owned paths, evidence, protected checks and security reviews; real-app driving (embedded WebDriver, lecter-harness, drive-app skill, evidence); IPC contract spec (tauri-specta), robustness and security specs; Claude Code sandbox with a narrow allowlist; lints for test weakening, dependencies, architecture, file size, secrets and copied private text; live keys only through scripts/live.sh; security reviewer; docs/design from the concept demo; two-account orchestration with resume points.
+- Decisions: D-035 to D-057; D-021, D-026, D-027, D-031 updated; D-028 and D-034 superseded.
+- Tested: a dry run in sandboxed Claude Code sessions on a scratch copy (session start, next feature, guard blocks, test-weakening lint, private-corpus symlink and copy checks, init and verify). It found three kit bugs, fixed under D-057.
+- Follow-ups: the maintainer runs the first session.
+
+### 2026-10-24 · kit · done
+- Built: v0 spec (docs/spec 00–16), 76 features with EARS criteria (docs/features.json), build kit (AGENTS.md, PROMPT*.md, folder CLAUDE.md files, skills, reviewer/builder/gardener agents, hooks, scripts), CI/CD spec and docs/TESTING.md, public README, LICENSE, CHANGELOG.
+- Decisions: D-001 to D-034.
+- Follow-ups: none
