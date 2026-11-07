@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { osAccent, pinAccent, pinned } from "../support/accent.ts";
+import { invoke } from "../support/invoke.ts";
 import { relaunch, stopRelaunched } from "../support/relaunch.ts";
 import { shot } from "../support/shot.ts";
 
@@ -54,33 +55,17 @@ function painted(names: string[]): Promise<{ scheme: string | null; tokens: Reco
   }, names);
 }
 
-/** Calls a core command as the UI does; resolves to its answer, or `{ error }`. */
-function invoke(cmd: string, args: Record<string, unknown> = {}): Promise<unknown> {
-  return browser.execute(
-    async (c: string, a: Record<string, unknown>) => {
-      type Internals = { invoke: (cmd: string, args?: unknown) => Promise<unknown> };
-      const internals = (window as unknown as { __TAURI_INTERNALS__: Internals }).__TAURI_INTERNALS__;
-      try {
-        return await internals.invoke(c, a);
-      } catch (e) {
-        return { error: String(JSON.stringify(e)) };
-      }
-    },
-    cmd,
-    args,
-  );
-}
-
 /** `:set ui.theme <name>` (null: unset), then waits until window-bg paints `windowBg`. */
 async function choose(name: string | null, windowBg: string): Promise<void> {
-  const set = await invoke("settings_set", { key: "ui.theme", value: JSON.stringify(name), course: null });
+  const value = JSON.stringify(name);
+  const set = await invoke("settings_set", { key: "ui.theme", value, course: null, scope: "global" });
   await browser
     .waitUntil(async () => (await painted(["window-bg"])).tokens["window-bg"] === rgb(windowBg), {
       timeout: 5000,
       timeoutMsg: `${name}'s window colour ${windowBg} never painted`,
     })
     .catch(async (e: Error) => {
-      const core = JSON.stringify(await invoke("theme_get"));
+      const core = JSON.stringify(await invoke("theme_get", {}));
       throw new Error(`${e.message}; settings_set ${JSON.stringify(set)}; core ${core}; see bundled-theme.log`);
     });
 }
@@ -97,7 +82,7 @@ describe("bundled-theme", () => {
 
   after(async () => {
     // The flows share one home: leave ui.theme unset for the next flow.
-    await invoke("settings_set", { key: "ui.theme", value: "null", course: null }).catch(() => {});
+    await invoke("settings_set", { key: "ui.theme", value: "null", course: null, scope: "global" }).catch(() => {});
     await stopRelaunched();
     restoreAccent?.();
     rmSync(DIR, { recursive: true, force: true });
@@ -107,7 +92,7 @@ describe("bundled-theme", () => {
     await relaunch({ log: "bundled-theme", env: { LECTER_TEST_GTK: DIR, LECTER_TEST_BUNDLED: "1" } });
     await expect($(".app-frame")).toBeDisplayed();
 
-    const list = (await invoke("theme_list")) as { name: string; folder: string }[];
+    const list = (await invoke("theme_list", {})) as { name: string; folder: string }[];
     const bundled = list.filter((t) => t.folder === "").map((t) => t.name);
     const expected = THEMES.flatMap((t) => [t, `${t}-light`, `${t}-dark`]);
     expect([...bundled].sort()).toEqual([...expected].sort());
@@ -146,7 +131,7 @@ describe("bundled-theme", () => {
       return;
     }
     // Back to the Lecter theme, whose accent the OS's replaces.
-    await invoke("settings_set", { key: "ui.theme", value: "null", course: null });
+    await invoke("settings_set", { key: "ui.theme", value: "null", course: null, scope: "global" });
     const want = ON_CI ? CI_ACCENT : (osAccent() ?? LECTER_ACCENT);
     console.log(`bundled-theme: ${process.platform} accent expected ${want} (OS reports ${osAccent() ?? "none"})`);
     await browser
@@ -156,7 +141,7 @@ describe("bundled-theme", () => {
       })
       .catch(async (e: Error) => {
         const page = JSON.stringify(await painted(["accent-bg"]));
-        throw new Error(`${e.message}; page ${page}; core ${JSON.stringify(await invoke("theme_get"))}`);
+        throw new Error(`${e.message}; page ${page}; core ${JSON.stringify(await invoke("theme_get", {}))}`);
       });
     const accent = await painted(["accent-bg", "window-bg"]);
     expect(accent.tokens["accent-bg"]).toBe(rgb(want));
