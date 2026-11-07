@@ -1522,7 +1522,7 @@
    "evidence": [
     "screenshot:status-line"
    ],
-   "status": "in_progress",
+   "status": "done",
    "notes": "D-270: lecture cost moved to F-090 (segment built, hidden until spend is tracked).",
    "priority": 3041,
    "base": "b5ee8c0d5cd04ff9138fdd342f70a0f64fcf645d"

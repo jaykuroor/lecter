@@ -1652,3 +1652,27 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: when a builder branch has a commit with a Co-Authored-By trailer (forbidden by the author's git preferences; the guard blocks amending), the orchestrator merges it with `git merge --squash` as one `F-0NN: <title>` commit, so the line never reaches main. Other branches keep `--no-ff`. Already-merged commits (F-044's 4943e23) stay.
 - Why: commits on main carry only the author.
 - Instead of: keeping the line in history.
+
+## D-272 · Status-line mode comes from the buffer
+2026-11-07 · session F-046 · active
+- Decision: the buffer's `vim-mode-change` reaches the status line through a `status` prop on Buffer; COMMAND shows while Lecter's `:` box is open (`cmdline.isOpen`) or focus is in Vim's `.cm-vim-panel` prompt; Vim's replace mode shows as INSERT.
+- Why: reuses the existing mode state, no second copy.
+- Instead of: the key engine's mode, which counts a pending operator as insert.
+
+## D-273 · Status-line course/lecture and slide labels
+2026-11-07 · session F-046 · active
+- Decision: course/lecture is the folder name + "/" + the lecture's short id (drop `.md` and a leading date, then the first word before a dash: `STAT311/l07`). The slide shows `n/N` (title "Slide n of N"), read from the slide-heading widget, hidden above the first slide.
+- Why: matches 09-ui#layout and the reference crop; the slide always agrees with the heading on screen.
+- Instead of: the full file name; a separate slide count.
+
+## D-274 · Status-line model is the last streamed answer's
+2026-11-07 · session F-046 · active
+- Decision: the model shown is the `model` of the last GlossStream `started` event this session, hidden until an answer has streamed.
+- Why: it is the only model the core reports; ai.defaultFast is null by default.
+- Instead of: showing the ai.defaultFast setting.
+
+## D-275 · Status-line spinner and left-out segments
+2026-11-07 · session F-046 · active
+- Decision: the job spinner is a CSS ring mounted only between a request's ask and its done/stopped/failed event or refusal, static under reduced motion. The version and keymaps notice stay in the middle. components.md's current-line text and the `D n` / `⚑ n` counts are left out until doubts and flags exist (and the current-line text would change on every insert key). Segment labels use `title`.
+- Why: idle pages animate nothing (idle budget); 09-ui's list doesn't include those segments.
+- Instead of: an always-mounted spinner; placeholder counts.
