@@ -1,7 +1,7 @@
 //! `lecter-ai`: Provider adapters, agent loop, roles, tools, prompt caching and figures.
 //!
 //! v0 skeleton (F-023): the [`provider::Provider`] trait with the in-process scripted provider
-//! (the tests' fake and the app's offline sample), the `a` request ([`prompt::ask_request`]), the
+//! (the tests' fake and the app's offline sample), the ask (`Enter`) request ([`prompt::ask_request`]), the
 //! answer loop ([`ask::stream_answer`]) and the gloss as the lecture file stores it ([`gloss`]);
 //! F-024 adds the sample plot ([`figures`]).
 

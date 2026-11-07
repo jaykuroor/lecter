@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 use crate::provider::{ChatRequest, Provider, StreamEvent};
 use crate::{Error, Result};
 
-/// The time budget of `a` (`06-ai-harness.md#loop` step 4).
+/// The time budget of ask, `Enter` (`06-ai-harness.md#loop` step 4).
 pub const ASK_TIME_BUDGET: Duration = Duration::from_secs(30);
 
 /// How an answer's stream ended.

@@ -5,7 +5,7 @@
 import type { Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
-import { blockSpan, parseAttrs } from "../features/buffer/syntax";
+import { type Attrs, blockSpan, parseAttrs } from "../features/buffer/syntax";
 import type { BufferTarget } from "./locate";
 
 /**
@@ -146,6 +146,14 @@ const MAX_SCAN = 5000;
  */
 export function lineElement(doc: Text, n: number): "slide-line" | "note-line" | "gloss" {
   if (blockSpan(doc.line(n).text)) return "slide-line";
+  return enclosingDiv(doc, n)?.classes.includes("gloss") ? "gloss" : "note-line";
+}
+
+/**
+ * The attributes of the innermost `:::` div line `n` is in (its own fences count as in it), or
+ * `null` when it is in none within `MAX_SCAN` lines up.
+ */
+export function enclosingDiv(doc: Text, n: number): Attrs | null {
   let depth = 0;
   for (let i = n; i >= 1 && i > n - MAX_SCAN; i--) {
     const text = doc.line(i).text;
@@ -161,9 +169,9 @@ export function lineElement(doc: Text, n: number): "slide-line" | "note-line" | 
       depth--;
       continue;
     }
-    return parseAttrs(open[1] as string).classes.includes("gloss") ? "gloss" : "note-line";
+    return parseAttrs(open[1] as string);
   }
-  return "note-line";
+  return null;
 }
 
 interface VimState {

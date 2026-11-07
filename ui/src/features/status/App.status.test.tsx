@@ -86,9 +86,15 @@ describe("the status line in the app", () => {
   });
 
   it("turns the spinner while an answer streams, then names the model it came from", async () => {
-    const { container, cm } = await start();
+    const { container } = await start();
     expect(seg("model")).toBeNull();
-    Vim.handleKey(cm, "a", "user");
+    // Enter asks (F-048) through the key engine, whose chunk comes after the editor's: press it
+    // until the prompt opens.
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    await waitFor(() => {
+      if (!container.querySelector(".gloss-prompt-input")) fireEvent.keyDown(content, { key: "Enter" });
+      expect(container.querySelector(".gloss-prompt-input")).not.toBeNull();
+    });
     const input = container.querySelector(".gloss-prompt-input") as HTMLTextAreaElement;
     input.value = "why?";
     fireEvent.keyDown(input, { key: "Enter" });

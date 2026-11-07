@@ -251,9 +251,9 @@ describe("an idle lecture", function () {
   });
 
   it("paints a streaming gloss, and is idle again 10 s after the stream ends", async () => {
-    // `a` asks on a slide line in normal mode (10-keymap.md#on-a-slide-line).
+    // Enter asks on a slide line in normal mode (10-keymap.md#on-a-slide-line).
     await toFirstSlideLine();
-    await browser.keys("a");
+    await browser.keys("Enter");
     await expect($(".gloss-prompt-input")).toBeExisting();
     const sent = await browser.execute((q: string) => {
       const input = document.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");

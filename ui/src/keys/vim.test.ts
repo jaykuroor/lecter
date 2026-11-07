@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { sampleLecture } from "../../e2e/mock-core/lectures";
 import { lectureState } from "../features/buffer/editorState";
 import { registerElementMotions } from "../features/buffer/vim";
-import { registerAskKey } from "../features/gloss/askKey";
+import { registerAppendKey } from "./append";
 import { bootKeys } from "./boot";
 import { type Invocation, registerCommand } from "./commands";
 import { type Keys, startKeys } from "./install";
@@ -74,7 +74,7 @@ describe("lineElement", () => {
 /** A lecture buffer in the page, with Lecter's Vim keys. */
 function open(): EditorView {
   registerElementMotions();
-  registerAskKey();
+  registerAppendKey();
   trimVimKeys();
   const parent = document.createElement("div");
   parent.className = "lecture-buffer";

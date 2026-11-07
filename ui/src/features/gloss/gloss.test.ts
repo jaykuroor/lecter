@@ -1,22 +1,25 @@
-// F-023 criteria 2-4 in the buffer: `a` on a block opens the prompt, Enter streams the answer under
-// the block (drawn once per animation frame), the finished gloss is inserted into the lecture as
-// its fenced div (an edit like any other), and Esc stops the stream at once.
-import { getCM, Vim } from "@replit/codemirror-vim";
+// F-023 criteria 2-4 in the buffer, with F-048's key: Enter on a block opens the prompt, Enter
+// there streams the answer under the block (drawn once per animation frame), the finished gloss is
+// inserted into the lecture as its fenced div (an edit like any other), and Esc stops the stream
+// at once. F-048 criterion 3: `a` no longer asks (nothing on a slide line, append elsewhere).
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { getCM, Vim, vim as vimKeys } from "@replit/codemirror-vim";
 import { describe, expect, it, vi } from "vitest";
 import { defaultFixture } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
 import { glossBackend } from "../../core/gloss";
 import type { Edit } from "../../core/lecture";
-import { card, DIV, esc, fakeBackend, frame, keys, mount, prompt, shown, TEXT, useBuffer } from "./__tests__/kit";
-import { type AskVimApi, registerAskKey } from "./askKey";
+import { type AppendVimApi, registerAppendKey } from "../../keys/append";
+import { ask, card, DIV, esc, fakeBackend, frame, keys, mount, prompt, shown, TEXT, useBuffer } from "./__tests__/kit";
 import { cardsField } from "./field";
 
 useBuffer();
 
 describe("asking about a block", () => {
-  it("a on a block opens the prompt under it, focused", () => {
+  it("Enter on a block opens the prompt under it, focused", () => {
     const view = mount(fakeBackend().backend);
-    keys(view, "a");
+    ask(view);
     expect(card(view)?.dataset.state).toBe("prompt");
     expect(card(view)?.dataset.anchor).toBe("s1b1");
     expect(document.activeElement?.className).toBe("gloss-prompt-input");
@@ -28,7 +31,7 @@ describe("asking about a block", () => {
     const view = mount(f.backend);
     // To the second block (`j` needs layout, which jsdom lacks).
     view.dispatch({ selection: { anchor: view.state.doc.line(6).from + 1 } });
-    keys(view, "a");
+    ask(view);
     prompt(view, "  why is it zero?");
     expect(f.asks.map((a) => [a.block, a.question])).toEqual([["s1b2", "  why is it zero?"]]);
     expect(card(view)?.dataset.state).toBe("streaming");
@@ -56,7 +59,7 @@ describe("asking about a block", () => {
     const f = fakeBackend();
     const edits: Edit[][] = [];
     const view = mount(f.backend, edits);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     const emit = f.asks[0]?.emit ?? (() => undefined);
     emit({ event: "delta", data: { text: "Because." } });
@@ -73,7 +76,7 @@ describe("asking about a block", () => {
   it("Shift-Enter doesn't send, an empty question doesn't send, and Esc closes the prompt", () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     const input = view.dom.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");
     input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true }));
     prompt(view, "   ");
@@ -88,7 +91,7 @@ describe("Esc while an answer streams", () => {
   it("stops drawing at once, tells the core, and saves what arrived", async () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await f.named();
     const emit = f.asks[0]?.emit ?? (() => undefined);
@@ -110,7 +113,7 @@ describe("Esc while an answer streams", () => {
   it("before the core has named the gloss, cancels it as soon as it does", async () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     esc(view);
     expect(f.cancels).toEqual([]);
@@ -121,7 +124,7 @@ describe("Esc while an answer streams", () => {
   it("a stream stopped before any text leaves the lecture as it was", async () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await f.named();
     esc(view);
@@ -133,7 +136,7 @@ describe("Esc while an answer streams", () => {
   it("a failed answer shows why, saves nothing, and Esc dismisses it", () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     const error = { code: "E_PROVIDER" as const, message: "The AI provider failed.", retryable: false, detail: null };
     f.asks[0]?.emit({ event: "failed", data: { error } });
@@ -145,8 +148,9 @@ describe("Esc while an answer streams", () => {
   });
 });
 
-describe("a elsewhere is Vim's append", () => {
-  it("on an own line, enters insert mode after the cursor's character", () => {
+// F-048 criterion 3.
+describe("a no longer asks", () => {
+  it("on an own line, is Vim's append: insert mode after the cursor's character", () => {
     const view = mount(fakeBackend().backend);
     const from = view.state.doc.line(8).from;
     view.dispatch({ selection: { anchor: from } });
@@ -156,13 +160,27 @@ describe("a elsewhere is Vim's append", () => {
     expect(view.state.selection.main.head).toBe(from + 1);
   });
 
-  it("on a block of a buffer that can't ask", () => {
-    const view = mount(null);
-    const head = view.state.selection.main.head;
+  it("on a slide line, does nothing, whether the buffer can ask or not", () => {
+    for (const backend of [fakeBackend().backend, null]) {
+      const view = mount(backend);
+      view.dispatch({ selection: { anchor: view.state.doc.line(6).from + 3 } });
+      keys(view, "a");
+      expect(card(view)).toBeNull();
+      expect(getCM(view)?.state.vim?.insertMode).toBe(false);
+      expect(view.state.selection.main.head).toBe(view.state.doc.line(6).from + 3);
+      expect(view.state.doc.toString()).toBe(TEXT);
+    }
+  });
+
+  it("in an editor that isn't a lecture buffer, appends even on a line that looks like a block", () => {
+    const view = new EditorView({
+      state: EditorState.create({ doc: "[A block.]{#s1b1}\n", extensions: [vimKeys()] }),
+      parent: document.body,
+    });
     keys(view, "a");
-    expect(card(view)).toBeNull();
     expect(getCM(view)?.state.vim?.insertMode).toBe(true);
-    expect(view.state.selection.main.head).toBe(head + 1);
+    expect(view.state.selection.main.head).toBe(1);
+    view.destroy();
   });
 });
 
@@ -171,7 +189,7 @@ describe("through the core's channel", () => {
     installMockCore({ ...defaultFixture, gloss: { deltas: ["Be", "cause."], deltaMs: 0 } });
     vi.unstubAllGlobals();
     const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await vi.waitFor(() => expect(card(view)).toBeNull());
     expect(view.state.doc.toString()).toContain(`{#s1b1}\n\n${DIV}\n`);
@@ -179,12 +197,12 @@ describe("through the core's channel", () => {
 });
 
 describe("cards in the buffer", () => {
-  it("a again replaces an open prompt with a fresh one", () => {
+  it("Enter again replaces an open prompt with a fresh one", () => {
     const view = mount(fakeBackend().backend);
-    keys(view, "a");
+    ask(view);
     const first = view.dom.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");
     if (first) first.value = "old";
-    keys(view, "a");
+    ask(view);
     const inputs = view.dom.querySelectorAll<HTMLTextAreaElement>(".gloss-prompt-input");
     expect(inputs).toHaveLength(1);
     expect(inputs[0]?.value).toBe("");
@@ -195,10 +213,10 @@ describe("cards in the buffer", () => {
     const f = fakeBackend();
     const view = mount(f.backend);
     view.dispatch({ selection: { anchor: view.state.doc.line(6).from + 1 } });
-    keys(view, "a");
+    ask(view);
     prompt(view, "first?");
     view.dispatch({ selection: { anchor: view.state.doc.line(4).from + 1 } });
-    keys(view, "a");
+    ask(view);
     const anchors = () =>
       Array.from(view.dom.querySelectorAll<HTMLElement>(".gloss"), (c) => `${c.dataset.anchor}:${c.dataset.state}`);
     expect(anchors()).toEqual(["s1b1:prompt", "s1b2:streaming"]);
@@ -210,7 +228,7 @@ describe("cards in the buffer", () => {
   it("the Stop keycap stops the stream and tells the core", async () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await f.named("g-0042");
     view.dom.querySelector<HTMLButtonElement>(".gloss-stop")?.click();
@@ -224,7 +242,7 @@ describe("cards in the buffer", () => {
     view.dispatch({ changes: { from: 0, insert: "% a comment\n" } });
     expect(view.state.field(cardsField)).toBe(empty);
     view.dispatch({ selection: { anchor: view.state.doc.line(7).from + 1 } });
-    keys(view, "a");
+    ask(view);
     expect(card(view)?.parentElement).toBe(view.contentDOM);
     view.dispatch({ changes: { from: 0, insert: "% another\n" } });
     expect(view.state.field(cardsField).map((p) => p.pos)).toEqual([view.state.doc.line(8).to]);
@@ -232,7 +250,7 @@ describe("cards in the buffer", () => {
 
   it("keys typed on the card's buttons never reach Vim", () => {
     const view = mount(fakeBackend().backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     const stop = view.dom.querySelector<HTMLButtonElement>(".gloss-stop");
     stop?.dispatchEvent(new KeyboardEvent("keydown", { key: "x", bubbles: true, cancelable: true }));
@@ -244,7 +262,7 @@ describe("cards in the buffer", () => {
   it("an answer whose block was deleted meanwhile isn't saved, and says so", () => {
     const f = fakeBackend();
     const view = mount(f.backend);
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     const line = view.state.doc.line(4);
     view.dispatch({ changes: { from: line.from, to: line.to + 1 } });
@@ -260,7 +278,7 @@ describe("cards in the buffer", () => {
   it("sending hands the keys back to the buffer, where Vim still gets every key", () => {
     const view = mount(fakeBackend().backend);
     const start = view.state.selection.main.head;
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     expect(document.activeElement).toBe(view.contentDOM);
     const key = (k: string) =>
@@ -276,14 +294,14 @@ describe("cards in the buffer", () => {
 
   it("Esc in the buffer closes an open prompt", () => {
     const view = mount(fakeBackend().backend);
-    keys(view, "a");
+    ask(view);
     esc(view);
     expect(card(view)).toBeNull();
   });
 
   it("an edit elsewhere leaves the open prompt as it is, focused", () => {
     const view = mount(fakeBackend().backend);
-    keys(view, "a");
+    ask(view);
     const before = card(view);
     const input = view.dom.querySelector<HTMLTextAreaElement>(".gloss-prompt-input");
     view.dispatch({ changes: { from: 0, insert: "% a comment\n" } });
@@ -343,16 +361,16 @@ describe("a in Vim's other modes and with a count", () => {
 
   it("is registered once per Vim, as a normal-mode action", () => {
     const calls: unknown[][] = [];
-    const api: AskVimApi = {
+    const api: AppendVimApi = {
       defineAction: (name) => void calls.push(["defineAction", name]),
       mapCommand: (...args) => void calls.push(["mapCommand", ...args]),
       handleKey: () => undefined,
     };
-    registerAskKey(api);
-    registerAskKey(api);
+    registerAppendKey(api);
+    registerAppendKey(api);
     expect(calls).toEqual([
-      ["defineAction", "lecterAsk"],
-      ["mapCommand", "a", "action", "lecterAsk", {}, { context: "normal" }],
+      ["defineAction", "lecterAppend"],
+      ["mapCommand", "a", "action", "lecterAppend", {}, { context: "normal" }],
     ]);
   });
 });
@@ -371,7 +389,7 @@ describe("the core's answers to gloss_request", () => {
   it("an error from the core shows its message", async () => {
     failWith({ code: "E_NOT_FOUND", message: "That line is no longer in the lecture.", retryable: false });
     const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await vi.waitFor(() => expect(card(view)?.dataset.state).toBe("failed"));
     expect(card(view)?.querySelector("[role=alert]")?.textContent).toBe("That line is no longer in the lecture.");
@@ -380,7 +398,7 @@ describe("the core's answers to gloss_request", () => {
   it("a core that can't be reached says so", async () => {
     failWith(new Error("gone"));
     const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await vi.waitFor(() => expect(card(view)?.dataset.state).toBe("failed"));
     expect(card(view)?.querySelector("[role=alert]")?.textContent).toBe("Lecter could not reach the core to ask.");
@@ -391,7 +409,7 @@ describe("the core's answers to gloss_request", () => {
     installMockCore({ ...defaultFixture, gloss: { deltas: ["Be", " never sent."], deltaMs: 60_000 } });
     vi.unstubAllGlobals();
     const view = mount(glossBackend("/courses/STAT311", "lectures/l07.md"));
-    keys(view, "a");
+    ask(view);
     prompt(view, "why?");
     await vi.waitFor(() => expect(card(view)?.querySelector(".gloss-body")?.textContent).toBe("Be"));
     esc(view);

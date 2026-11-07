@@ -1,54 +1,34 @@
-// `a` (10-keymap.md#on-a-slide-line: "Ask about this line"). Slide lines are read-only in normal
-// mode, so there `a` opens the prompt row; on any other line (own notes, gloss text) and in other
-// editors it stays Vim's append. Vim's key table is global (ui/CLAUDE.md), so the action checks
-// the editor and the line itself.
-import type { EditorView } from "@codemirror/view";
-import { Vim } from "@replit/codemirror-vim";
-import { lectureBuffer } from "../buffer/vim";
-import { openPrompt } from "./controller";
+// Enter asks (10-keymap.md#on-a-slide-line: "Ask about this line"; 06-ai-harness.md#roles-built-in-defaults,
+// F-048). The key engine binds Enter to `ai.ask` on slide lines and own-note lines alike
+// (keys/keymap.ts); while a lecture buffer that can ask is on screen, this runs it: the prompt row
+// opens under the cursor's line, anchored to its slide block or its own note. Anywhere else (a
+// line in no note, a buffer that can't ask) the command declines, and Enter does nothing there.
+// `a` no longer asks (keys/append.ts).
+import type { Extension } from "@codemirror/state";
+import { type EditorView, ViewPlugin } from "@codemirror/view";
+import { getCM } from "@replit/codemirror-vim";
+import { registerCommand } from "../../keys/commands";
 
-type ActionFn = Parameters<typeof Vim.defineAction>[1];
-type Cm = Parameters<ActionFn>[0];
+/** The key engine's command for ask (keys/keymap.ts). */
+export const ASK_COMMAND = "ai.ask";
 
-/** The parts of Vim's API registration uses: the real `Vim`, or a recording fake in tests. */
-export interface AskVimApi {
-  defineAction(name: string, fn: ActionFn): void;
-  mapCommand(keys: string, type: string, name: string, args: unknown, extra: Record<string, unknown>): void;
-  handleKey(cm: Cm, key: string, origin: string): unknown;
-}
+/** Opens the prompt row for line `n` of `view`; whether it did (controller.ts `openPrompt`). */
+export type OpenPrompt = (view: EditorView, n: number) => boolean;
 
 /**
- * Vim's `a`: insert mode just after the cursor's character (at the line's end on an empty line).
- * Entered as `i` at the cursor, then moved one character on (insert mode may sit at the line's
- * end; normal mode may not). A count is passed on to `i`.
+ * Asks on the cursor's line of `view`; whether a prompt opened. A selection (visual mode) is
+ * declined: asking about a selection (`v…Enter`) is F-103's.
  */
-function append(api: AskVimApi, cm: Cm, view: EditorView, repeat: number): void {
-  if (repeat > 1) for (const digit of String(repeat)) api.handleKey(cm, digit, "mapping");
-  api.handleKey(cm, "i", "mapping");
-  const head = view.state.selection.main.head;
-  const line = view.state.doc.lineAt(head);
-  const code = view.state.doc.sliceString(head, head + 1).charCodeAt(0);
-  const step = code >= 0xd800 && code <= 0xdbff ? 2 : 1;
-  view.dispatch({ selection: { anchor: Math.min(head + step, line.to) } });
+export function askAtCursor(view: EditorView, open: OpenPrompt): boolean {
+  const vim = getCM(view)?.state.vim as { visualMode?: boolean } | undefined;
+  if (vim?.visualMode) return false;
+  return open(view, view.state.doc.lineAt(view.state.selection.main.head).number);
 }
 
-/** The `a` action: ask on a slide block of a lecture buffer, append anywhere else. */
-function askAction(api: AskVimApi): ActionFn {
-  return (cm, args) => {
-    const view = (cm as unknown as { cm6: EditorView }).cm6;
-    const state = view.state;
-    const line = state.doc.lineAt(state.selection.main.head);
-    if (state.facet(lectureBuffer) && openPrompt(view, line.number)) return;
-    append(api, cm, view, args.repeat ?? 1);
-  };
-}
-
-const registered = new WeakSet<AskVimApi>();
-
-/** Maps `a` in normal mode to the ask action, once per Vim API (once per page for the real one). */
-export function registerAskKey(api: AskVimApi = Vim as unknown as AskVimApi): void {
-  if (registered.has(api)) return;
-  registered.add(api);
-  api.defineAction("lecterAsk", askAction(api));
-  api.mapCommand("a", "action", "lecterAsk", {}, { context: "normal" });
+/** Runs `ai.ask` on this buffer for as long as it is on screen (one buffer at a time). */
+export function askCommand(open: OpenPrompt): Extension {
+  return ViewPlugin.define((view) => {
+    const drop = registerCommand(ASK_COMMAND, () => askAtCursor(view, open));
+    return { destroy: drop };
+  });
 }

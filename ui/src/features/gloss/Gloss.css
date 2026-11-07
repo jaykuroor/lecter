@@ -1,5 +1,5 @@
 /* A gloss being asked or answered (docs/design/components.md: Gloss, Prompt row, Keycap).
-   --k is the kind's colour (tokens.json gloss-kind; `a` makes an ask gloss, --k-ask). Mixes follow
+   --k is the kind's colour (tokens.json gloss-kind; Enter makes an ask gloss, --k-ask). Mixes follow
    tokens.json "mix". The card sits in the buffer's content column, after the 108px gutter. */
 .gloss {
   --k: var(--k-ask);

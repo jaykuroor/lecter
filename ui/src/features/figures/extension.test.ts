@@ -67,7 +67,7 @@ describe("when figures are found again", () => {
 const GLOSS = [
   "[A block.]{#s1b1}",
   "",
-  '::: {.gloss #g-0001 kind=ask key=a anchor=s1b1 model="sample" by=ai}',
+  '::: {.gloss #g-0001 kind=ask key=Enter anchor=s1b1 model="sample" by=ai}',
   "```fnplot",
   "{}",
   "```",

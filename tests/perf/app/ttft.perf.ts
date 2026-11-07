@@ -58,7 +58,7 @@ describe("time to first token", function () {
     const totals: number[] = [];
     const parts: Part[] = [];
     for (let i = 0; i < ASKS; i++) {
-      await pressKeys(["a"]);
+      await pressKeys(["Enter"]);
       const total = await browser.execute(async (q: string) => {
         function until<T>(get: () => T | null | undefined, what: string, ms = 20_000): Promise<T> {
           return new Promise((resolve, reject) => {
