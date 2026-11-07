@@ -201,7 +201,7 @@ describe("App shell", () => {
     expect(w.__mockFinds?.at(-1)).toEqual({ course: "/c/STAT311", query: "variables" });
   });
 
-  it("a on a block of the open lecture asks the core about it, for that course and lecture (F-023)", async () => {
+  it("Enter on a block of the open lecture asks the core about it, for that course and lecture (F-023, F-048)", async () => {
     const lecture = { path: "lectures/l07.md", name: "l07.md", text: "[Only block]{#s1b1}\n" };
     installMockCore({
       ...defaultFixture,
@@ -229,12 +229,13 @@ describe("App shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     fireEvent.click(await screen.findByRole("button", { name: "l07.md" }));
     await waitFor(() => expect(container.querySelector(".cm-block")).not.toBeNull());
-    const editor = container.querySelector(".cm-editor") as HTMLElement;
-    Vim.handleKey(
-      getCM(EditorView.findFromDOM(editor) as EditorView) as Parameters<typeof Vim.handleKey>[0],
-      "a",
-      "user",
-    );
+    // Enter asks (F-048) through the key engine, whose chunk comes after the editor's: press it
+    // until the prompt opens.
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    await waitFor(() => {
+      if (!container.querySelector(".gloss-prompt-input")) fireEvent.keyDown(content, { key: "Enter" });
+      expect(container.querySelector(".gloss-prompt-input")).not.toBeNull();
+    });
     const input = container.querySelector(".gloss-prompt-input") as HTMLTextAreaElement;
     input.value = "why?";
     fireEvent.keyDown(input, { key: "Enter" });

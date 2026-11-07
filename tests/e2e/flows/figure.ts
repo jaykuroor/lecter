@@ -1,4 +1,4 @@
-// F-024: one described figure in the real app. `a` on a slide block, a question that asks for a
+// F-024: one described figure in the real app. Enter on a slide block, a question that asks for a
 // plot, Enter: the offline sample provider answers with a function plot spec (08-figures.md#tiers),
 // the gloss is saved with it, and the gloss shows the plot, computed in the app (criterion 1).
 // From before the question until the end, every request the page makes is recorded (resource
@@ -6,9 +6,10 @@
 // origin and IPC (criterion 2). Scrolled out of view the plot's drawing goes; back in view it is
 // drawn again (criterion 3).
 //
-// The embedded WebDriver sends keys as synthetic KeyboardEvents: Vim reads `a` from them, but they
-// can't type text, so the question goes into the prompt's textarea through the DOM (as in
-// gloss.ts). CodeMirror re-renders widgets, so the figure is read in one browser.execute each time.
+// The embedded WebDriver sends keys as synthetic KeyboardEvents: the key engine reads Enter from
+// them, but they can't type text, so the question goes into the prompt's textarea through the DOM
+// (as in gloss.ts). CodeMirror re-renders widgets, so the figure is read in one browser.execute
+// each time.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -210,7 +211,7 @@ describe("a described figure", function () {
     expect(await figure()).toBe(null);
 
     await recordRequests();
-    await browser.keys("a");
+    await browser.keys("Enter");
     await expect($(".gloss-prompt-input")).toBeExisting();
     expect(await send(QUESTION)).toBe(true);
 

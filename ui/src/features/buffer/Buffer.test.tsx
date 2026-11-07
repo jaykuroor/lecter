@@ -6,6 +6,8 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sampleLecture } from "../../../e2e/mock-core/lectures";
 import type { Edit, Lecture } from "../../core/lecture";
+import { runCommand } from "../../keys/commands";
+import { DEFAULT_KEYMAP } from "../../keys/keymap";
 import { locate } from "../../keys/locate";
 import { Buffer } from "./Buffer";
 import { registerElementMotions } from "./vim";
@@ -188,20 +190,29 @@ describe("the element motions outside a lecture", () => {
     logged.mockRestore();
   });
 
-  /** F-023: with its course, `a` on a block opens the ask prompt; without one, `a` stays Vim's append. */
+  /**
+   * F-023, F-048: with its course, the buffer runs ask (Enter, or its hint clicked) on a block; without
+   * one there is no ask. `a` on a block does nothing either way.
+   */
   it("asks with a on a block of a lecture whose course is known", () => {
+    const binding = DEFAULT_KEYMAP.find((b) => b.command === "ai.ask");
+    if (!binding) throw new Error("no ask binding");
+    const run = () => runCommand({ binding, count: 1, explicit: false });
     const { container } = render(() => <Buffer lecture={lecture} course="/c/STAT311" error={null} />);
     const v = EditorView.findFromDOM(container.querySelector(".cm-content") as HTMLElement);
     if (!v) throw new Error("no editor");
     keys(v, "a");
+    expect(container.querySelector(".gloss")).toBeNull();
+    expect(run()).toBe(true);
     expect(container.querySelector(".gloss")?.getAttribute("data-state")).toBe("prompt");
     cleanup();
     const plain = render(() => <Buffer lecture={lecture} error={null} />);
     const w = EditorView.findFromDOM(plain.container.querySelector(".cm-content") as HTMLElement);
     if (!w) throw new Error("no editor");
+    expect(run()).toBe(false);
     keys(w, "a");
     expect(plain.container.querySelector(".gloss")).toBeNull();
-    expect(plain.container.querySelector(".lecture-buffer")?.getAttribute("data-vim-mode")).toBe("insert");
+    expect(plain.container.querySelector(".lecture-buffer")?.getAttribute("data-vim-mode")).toBe("normal");
   });
 
   /** F-021: what is typed in insert mode reaches `onEdits`, in the buffer's positions. */

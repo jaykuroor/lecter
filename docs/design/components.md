@@ -37,7 +37,7 @@ One parsed line or paragraph. Content `type.doc-block`, padding 2px 8px, radius 
 - **Reading mode:** no focus background, no cursor, no keycaps.
 
 ## Block actions (`block-actions.png`)
-Floating row at the focused block's bottom-right: `--popover-bg`, border `--borders`, radius 8px, padding 2px, `shadow.acts`. Buttons 11.5px `--dim`, radius 5px, padding 3px 7px; each starts with its key in mono 600 `--accent` (`s` steps, `a` ask, `D` doubt, `>` write, `mm` flag). Hover: `mix.hover`, text `--view-fg`.
+Floating row at the focused block's bottom-right: `--popover-bg`, border `--borders`, radius 8px, padding 2px, `shadow.acts`. Buttons 11.5px `--dim`, radius 5px, padding 3px 7px; each starts with its key in mono 600 `--accent` (`s` steps, `↵` ask, `D` doubt, `>` write, `mm` flag). Hover: `mix.hover`, text `--view-fg`.
 
 ## Gloss (`gloss.png`, `gloss-steps.png`, `gloss-focused.png`, `gloss-draft.png`)
 An AI answer or note under the line it explains. CSS `--k` is the kind's colour (`gloss-kind`).

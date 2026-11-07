@@ -78,7 +78,7 @@ test("the status line shows mode, course/lecture, slide, model and the job spinn
 
   // Ask about the line: the spinner turns while the answer streams, and the model the core named
   // shows; when the answer is in, the spinner goes and the model stays.
-  await page.keyboard.press("a");
+  await page.keyboard.press("Enter");
   await page.keyboard.type("why two dice?");
   await page.keyboard.press("Enter");
   await expect(line.getByRole("img", { name: "1 AI job running" })).toBeVisible();

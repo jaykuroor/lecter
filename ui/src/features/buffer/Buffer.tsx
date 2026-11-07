@@ -3,9 +3,9 @@ import { getCM } from "@replit/codemirror-vim";
 import { createEffect, createSignal, type JSX, onCleanup, Show } from "solid-js";
 import { glossBackend } from "../../core/gloss";
 import type { Edit, Lecture } from "../../core/lecture";
+import { registerAppendKey } from "../../keys/append";
 import { setBufferTarget } from "../../keys/locate";
 import { bufferTarget, trimVimKeys } from "../../keys/vim";
-import { registerAskKey } from "../gloss/askKey";
 import { trackJobs } from "../status/jobs";
 import { slideAt, slideReport } from "../status/slide";
 import type { BufferStatus } from "../status/state";
@@ -25,7 +25,7 @@ type Mode = "normal" | "insert" | "visual" | "replace";
  */
 export function Buffer(props: {
   lecture: Lecture | null;
-  /** The course the lecture belongs to; with it, `a` on a slide line asks about it (F-023). */
+  /** The course the lecture belongs to; with it, Enter on a slide or own-note line asks about it (F-023, F-048). */
   course?: string | null;
   error: string | null;
   /** Receives every edit, in order (F-021: the core journals and saves them). */
@@ -34,7 +34,7 @@ export function Buffer(props: {
   status?: BufferStatus;
 }): JSX.Element {
   registerElementMotions();
-  registerAskKey();
+  registerAppendKey();
   // Only the Vim keys 10-keymap.md keeps; the key engine (src/keys) does the Lecter ones.
   trimVimKeys();
   const [mode, setMode] = createSignal<Mode>("normal");

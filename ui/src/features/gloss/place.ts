@@ -1,19 +1,37 @@
 // Where a gloss goes in the lecture file (03-lecture-files.md#body): a fenced div right under the
-// block it explains, after the glosses and notes already anchored there, so a block's glosses read
-// oldest first. Pure functions over a CodeMirror `Text`.
+// block or own note it explains, after the glosses and notes already anchored there, so its
+// glosses read oldest first. Pure functions over a CodeMirror `Text`.
 import type { Text } from "@codemirror/state";
+import { enclosingDiv } from "../../keys/vim";
 import { blockSpan, parseAttrs } from "../buffer/syntax";
 
-/** The number of the line holding block `id` (`s3b2`), or `null` when the lecture has none. */
-export function blockLine(doc: Text, id: string): number | null {
+const OPEN = /^:::+\s*\{([^}]*)\}\s*$/;
+/** An own note's id as the core takes it (app/src/ipc/validate.rs: `n-[0-9a-f]{4,8}`). */
+const NOTE_ID = /^n-[0-9a-f]{4,8}$/;
+
+/** The id of the own note (`::: {.note #n-91c0}`) line `n` is in, or `null` when it is in none. */
+export function noteAt(doc: Text, n: number): string | null {
+  const div = enclosingDiv(doc, n);
+  return div?.classes.includes("note") && NOTE_ID.test(div.id) ? div.id : null;
+}
+
+/**
+ * The number of the line a gloss on `anchor` goes after: the line of block `anchor` (`s3b2`), or
+ * the closing fence of own note `anchor` (`n-91c0`); `null` when the lecture has neither.
+ */
+export function anchorLine(doc: Text, anchor: string): number | null {
+  const note = NOTE_ID.test(anchor);
   for (let n = 1; n <= doc.lines; n++) {
     const text = doc.line(n).text;
-    if (blockSpan(text)?.id === id) return n;
+    if (!note && blockSpan(text)?.id === anchor) return n;
+    if (note && text.startsWith(":::")) {
+      const m = OPEN.exec(text);
+      const attrs = m?.[1] ? parseAttrs(m[1]) : null;
+      if (attrs?.id === anchor && attrs.classes.includes("note")) return closingLine(doc, n);
+    }
   }
   return null;
 }
-
-const OPEN = /^:::+\s*\{([^}]*)\}\s*$/;
 
 /** Whether line `text` opens a gloss or note div anchored to block `anchor`. */
 function anchoredOpen(text: string, anchor: string): boolean {

@@ -22,9 +22,14 @@ const CANCEL_LIMIT: Duration = Duration::from_millis(50);
 
 /// A course with one lecture, remembered as opened, and that lecture's session open.
 fn course(env: &TestEnv) -> (String, OpenedCourses, OpenLectures) {
+    course_with(env, SEVEN)
+}
+
+/// [`course`] with the lecture's text `text`.
+fn course_with(env: &TestEnv, text: &str) -> (String, OpenedCourses, OpenLectures) {
     let dir = env.home().join("STAT311");
     std::fs::create_dir_all(dir.join("lectures")).unwrap();
-    std::fs::write(dir.join(L07), SEVEN).unwrap();
+    std::fs::write(dir.join(L07), text).unwrap();
     let listing = lecter_core::course::open(&std::fs::canonicalize(&dir).unwrap()).unwrap();
     let courses = super::super::course::opened_for_test(env, &listing, Some(TrustChoice::Trusted));
     let lectures = OpenLectures::default();
@@ -85,7 +90,7 @@ fn a_request_streams_started_deltas_and_the_gloss_div() {
     let id = id.unwrap_or_else(|e| panic!("{e:?}"));
     assert!(id.starts_with("g-") && id.len() == 6 && id != "g-0001", "{id}");
     let div = format!(
-        "::: {{.gloss #{id} kind=ask key=a anchor=s3b2 model=\"sample\" by=ai}}\n**you asked:** where does 2Cov come from?\n\nExpand the square.\n:::"
+        "::: {{.gloss #{id} kind=ask key=Enter anchor=s3b2 model=\"sample\" by=ai}}\n**you asked:** where does 2Cov come from?\n\nExpand the square.\n:::"
     );
     assert_eq!(
         all(&rx),
@@ -96,6 +101,30 @@ fn a_request_streams_started_deltas_and_the_gloss_div() {
             GlossStream::Done { markdown: div },
         ]
     );
+}
+
+/// F-048 criterion 2: asking about an own note (`n-91c0`) streams a gloss anchored to that note.
+#[test]
+fn a_request_on_a_note_streams_a_gloss_anchored_to_it() {
+    let env = TestEnv::new().unwrap();
+    let note = "\n:::\n\n::: {.note #n-91c0 anchor=s3b2}\nTry numbers.\n:::\n:::\n";
+    let (path, courses, lectures) = course_with(&env, &SEVEN.replace("\n:::\n:::\n", note));
+    let g = glosses(vec![step(0, "Pick X=1.")]);
+    let (id, rx) = start(&courses, &lectures, &g, ask(&path, "n-91c0", "how?"));
+    let id = id.unwrap_or_else(|e| panic!("{e:?}"));
+    let div = format!(
+        "::: {{.gloss #{id} kind=ask key=Enter anchor=n-91c0 model=\"sample\" by=ai}}\n**you asked:** how?\n\nPick X=1.\n:::"
+    );
+    assert_eq!(all(&rx).last(), Some(&GlossStream::Done { markdown: div }));
+    // A note the lecture doesn't have is not found; a malformed note id is refused.
+    let missing = refused(&courses, &lectures, ask(&path, "n-0bad", "how?"));
+    assert_eq!(
+        (missing.code, missing.message.as_str()),
+        (ErrorCode::NotFound, "That line is no longer in the lecture.")
+    );
+    for bad in ["n-91c", "n-91C0", "n-91c0 ", "g-0001", "n-"] {
+        assert_eq!(refused(&courses, &lectures, ask(&path, bad, "how?")).code, ErrorCode::InvalidArgument, "{bad}");
+    }
 }
 
 /// F-023 criterion 4: `gloss_cancel` stops a slow stream within 50 ms; the answer so far comes back
@@ -115,7 +144,7 @@ fn cancel_stops_a_slow_stream_within_50_ms() {
     let took = t.elapsed();
     assert!(took < CANCEL_LIMIT, "Esc took {took:?}");
     let div = format!(
-        "::: {{.gloss #{id} kind=ask key=a anchor=s3b1 model=\"sample\" by=ai}}\n**you asked:** why?\n\nfirst\n:::"
+        "::: {{.gloss #{id} kind=ask key=Enter anchor=s3b1 model=\"sample\" by=ai}}\n**you asked:** why?\n\nfirst\n:::"
     );
     assert_eq!(last, GlossStream::Stopped { markdown: Some(div) });
     // The stream is gone, so cancelling again is a no-op.

@@ -1,4 +1,5 @@
-//! The `ai` area (18-contracts.md#ipc): asking about a block of the open lecture and stopping the
+//! The `ai` area (18-contracts.md#ipc): asking about a slide block or own note of the open
+//! lecture (`Enter`, 10-keymap.md#on-a-slide-line) and stopping the
 //! answer. `gloss_request` assembles the request in `lecter_ai`, starts the stream and returns the
 //! new gloss's id at once; the answer then arrives on the `GlossStream` channel, one delta per
 //! event, and ends with the gloss's fenced div (03-lecture-files.md#body). The UI inserts that div
@@ -82,11 +83,11 @@ impl Glosses {
     }
 }
 
-/// Asks `question` about block `block` (`s3b2`) of the open lecture `path` of `course` and returns
-/// the new gloss's id; the answer streams on `on_event`. A course not opened this session, a
-/// lecture not open, a malformed block id, an empty question or one over 16 KB is
-/// E_INVALID_ARGUMENT; a course that is read-only or not trusted is E_NOT_TRUSTED; a block the
-/// lecture doesn't have is E_NOT_FOUND.
+/// Asks `question` about `block` of the open lecture `path` of `course`, a slide block (`s3b2`) or
+/// an own note (`n-91c0`), and returns the new gloss's id; the answer streams on `on_event`. A
+/// course not opened this session, a lecture not open, a malformed block or note id, an empty
+/// question or one over 16 KB is E_INVALID_ARGUMENT; a course that is read-only or not trusted is
+/// E_NOT_TRUSTED; a block or note the lecture doesn't have is E_NOT_FOUND.
 #[tauri::command]
 #[specta::specta]
 #[allow(clippy::too_many_arguments, reason = "Tauri injects three states besides the contract's five arguments")]
@@ -131,7 +132,9 @@ async fn request(
     ask: Ask,
     send: impl Fn(GlossStream) -> bool + Send + Sync + 'static,
 ) -> Result<String, IpcError> {
-    validate::id(REQUEST, "block", &ask.block, IdKind::Block)?;
+    // A slide block (`s3b2`) or an own note (`n-91c0`, F-048).
+    let kind = if ask.block.starts_with("n-") { IdKind::Note } else { IdKind::Block };
+    validate::id(REQUEST, "block", &ask.block, kind)?;
     validate::string(REQUEST, "question", &ask.question, IpcLimits::default().prompt_bytes)?;
     check_course(courses, REQUEST, &ask.course)?;
     // SEC-27: no AI on a course that is read-only or not trusted as it is now.
@@ -193,7 +196,8 @@ impl Meta {
         fenced_div(&GlossDiv {
             id: &self.id,
             kind: "ask",
-            key: "a",
+            // The ask key (10-keymap.md#on-a-slide-line), by its name there.
+            key: "Enter",
             anchor: &self.anchor,
             model: &self.model,
             question: &self.question,

@@ -1,12 +1,12 @@
-// F-023: one gloss from the provider in the real app. `a` on a slide block opens the prompt row,
+// F-023: one gloss from the provider in the real app. Enter on a slide block opens the prompt row,
 // Enter streams the answer of the offline sample provider under the block, and the finished gloss
 // is saved in the lecture file as a fenced div (03-lecture-files.md#body). A second ask is stopped
 // with Esc while it streams: the card stops at once, the core's `stopped` comes back within 50 ms,
 // and the answer so far is saved.
 //
-// The embedded WebDriver sends keys as synthetic KeyboardEvents: Vim reads `a` from them, but they
-// can't type text. So the question goes into the prompt's textarea through the DOM, and Enter and
-// Esc are dispatched in the page (Esc together with the timing, in one call).
+// The embedded WebDriver sends keys as synthetic KeyboardEvents: the key engine reads Enter from
+// them, but they can't type text. So the question goes into the prompt's textarea through the DOM,
+// and Enter and Esc are dispatched in the page (Esc together with the timing, in one call).
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -102,13 +102,13 @@ describe("a gloss from the provider", function () {
     }
   });
 
-  it("streams an answer under the block after a, a question and Enter, and saves it", async () => {
+  it("streams an answer under the block after Enter, a question and Enter, and saves it", async () => {
     await $("button.rail-add").click();
     await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
     await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
     await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
 
-    await browser.keys("a");
+    await browser.keys("Enter");
     await expect($(".gloss-prompt-input")).toBeExisting();
     expect(await card()).toEqual({ state: "prompt", anchor: "s1b1", text: "" });
     await shot("gloss-prompt");
@@ -127,14 +127,14 @@ describe("a gloss from the provider", function () {
     expect(buffer).toContain(`**you asked:** ${QUESTION}`);
     await until(async () => savedGlosses("s1b1").length === 1, 15_000, "the gloss to be saved");
     const [div] = savedGlosses("s1b1");
-    expect(div).toMatch(/^::: \{\.gloss #g-[0-9a-f]{4} kind=ask key=a anchor=s1b1 model="sample" by=ai\}\n/);
+    expect(div).toMatch(/^::: \{\.gloss #g-[0-9a-f]{4} kind=ask key=Enter anchor=s1b1 model="sample" by=ai\}\n/);
     expect(div).toContain(`\n**you asked:** ${QUESTION}\n\n**Sample answer.** No AI provider is connected yet`);
     expect(div?.endsWith("Press Esc while an answer streams to stop it.\n:::")).toBe(true);
     await shot("gloss-done");
   });
 
   it("stops a streaming answer on Esc within 50 ms and keeps what arrived", async () => {
-    await browser.keys("a");
+    await browser.keys("Enter");
     await expect($(".gloss-prompt-input")).toBeExisting();
     expect(await send(SECOND)).toBe(true);
     await until(async () => ((await card())?.text.length ?? 0) > 20, 20_000, "the first words");

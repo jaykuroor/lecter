@@ -2,7 +2,7 @@
 //! line is the prompt, e.g.
 //!
 //! ```markdown
-//! ::: {.gloss #g-7f3a kind=ask key=a anchor=s3b2 model="sample" by=ai}
+//! ::: {.gloss #g-7f3a kind=ask key=Enter anchor=s3b2 model="sample" by=ai}
 //! **you asked:** how do we get the 2Cov term?
 //!
 //! Expand the square …
@@ -19,9 +19,9 @@ pub struct GlossDiv<'a> {
     pub id: &'a str,
     /// The gloss kind (`ask`, `steps`, …).
     pub kind: &'a str,
-    /// The key that made it (`a`).
+    /// The key that made it, by its 10-keymap.md name (`Enter` for ask).
     pub key: &'a str,
-    /// The block it explains (`s3b2`).
+    /// The slide block (`s3b2`) or own note (`n-91c0`) it explains.
     pub anchor: &'a str,
     /// The model that answered.
     pub model: &'a str,

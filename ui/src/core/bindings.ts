@@ -8,11 +8,11 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 /** Commands */
 export const commands = {
 	/**
-	 *  Asks `question` about block `block` (`s3b2`) of the open lecture `path` of `course` and returns
-	 *  the new gloss's id; the answer streams on `on_event`. A course not opened this session, a
-	 *  lecture not open, a malformed block id, an empty question or one over 16 KB is
-	 *  E_INVALID_ARGUMENT; a course that is read-only or not trusted is E_NOT_TRUSTED; a block the
-	 *  lecture doesn't have is E_NOT_FOUND.
+	 *  Asks `question` about `block` of the open lecture `path` of `course`, a slide block (`s3b2`) or
+	 *  an own note (`n-91c0`), and returns the new gloss's id; the answer streams on `on_event`. A
+	 *  course not opened this session, a lecture not open, a malformed block or note id, an empty
+	 *  question or one over 16 KB is E_INVALID_ARGUMENT; a course that is read-only or not trusted is
+	 *  E_NOT_TRUSTED; a block or note the lecture doesn't have is E_NOT_FOUND.
 	 */
 	glossRequest: (course: string, path: string, block: string, question: string, onEvent: Channel<GlossStream_Deserialize>) => typedError<string, IpcError_Serialize>(__TAURI_INVOKE("gloss_request", { course, path, block, question, onEvent })),
 	/**

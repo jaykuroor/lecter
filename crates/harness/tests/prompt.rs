@@ -24,7 +24,7 @@ fn harness(env: &TestEnv, cwd: &Path, args: &[&str]) -> Output {
 fn lecture(env: &TestEnv) -> PathBuf {
     let dir = env.home().join("Sample Course").join("lectures");
     std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("{e}"));
-    let text = "---\ntitle: Covariance\n---\n\n::: {.slide #s3 n=3 src=\"A3\" title=\"Properties\"}\n## Properties\n\n[Covariance is bilinear.]{#s3b1}\n\n[Variance of a sum adds <twice> the covariance.]{#s3b2 .flag}\n:::\n";
+    let text = "---\ntitle: Covariance\n---\n\n::: {.slide #s3 n=3 src=\"A3\" title=\"Properties\"}\n## Properties\n\n[Covariance is bilinear.]{#s3b1}\n\n[Variance of a sum adds <twice> the covariance.]{#s3b2 .flag}\n\n::: {.note #n-91c0 anchor=s3b2}\nTry it with numbers.\n:::\n:::\n";
     let path = dir.join("l07.md");
     std::fs::write(&path, text).unwrap_or_else(|e| panic!("{e}"));
     // F-033: a prompt goes to the AI, so its course must be trusted.
@@ -101,6 +101,27 @@ fn prompt_without_json_prints_the_same_request_indented() {
     let v: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("not JSON ({e}): {text}"));
     assert_eq!(v["messages"][0]["content"].as_str().map(|c| c.ends_with("</untrusted_source>\n\nwhy?")), Some(true));
     assert!(text.lines().count() > 1, "{text}");
+}
+
+/// F-048 criteria 2 and 4: the prompt command takes an own note's id as Enter does in the app, and
+/// prints the request with the note wrapped as course text.
+#[test]
+fn prompt_on_an_own_note_prints_the_request_about_the_note() {
+    let env = env();
+    let path = lecture(&env);
+    let path = path.to_str().unwrap_or_else(|| panic!("path"));
+    let out = harness(&env, env.home(), &["prompt", path, "n-91c0", "which", "numbers?", "--json"]);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let text = String::from_utf8(out.stdout).unwrap_or_else(|e| panic!("{e}"));
+    let v: Value = serde_json::from_str(text.trim_end()).unwrap_or_else(|e| panic!("not JSON ({e}): {text}"));
+    assert_eq!(
+        v["messages"][0]["content"],
+        "<untrusted_source note=\"n-91c0\">\nCovariance › Properties\nTry it with numbers.\n</untrusted_source>\n\nwhich numbers?"
+    );
+    let missing = harness(&env, env.home(), &["prompt", path, "n-0bad", "why?", "--json"]);
+    assert_eq!(missing.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&missing.stdout);
+    assert!(err.contains("E_NOT_FOUND") && err.contains("n-0bad"), "{err}");
 }
 
 #[test]

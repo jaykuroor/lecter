@@ -5,8 +5,11 @@ import { getCM, Vim } from "@replit/codemirror-vim";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { GlossBackend, GlossEvent } from "../../../core/gloss";
 import type { Edit } from "../../../core/lecture";
+import { registerAppendKey } from "../../../keys/append";
+import { type Keys, startKeys } from "../../../keys/install";
+import { setBufferTarget } from "../../../keys/locate";
+import { bufferTarget } from "../../../keys/vim";
 import { lectureState } from "../../buffer/editorState";
-import { registerAskKey } from "../askKey";
 
 export const TEXT = [
   '::: {.slide #s1 n=1 title="Covariance"}',
@@ -23,7 +26,7 @@ export const TEXT = [
 ].join("\n");
 
 export const DIV =
-  '::: {.gloss #g-0001 kind=ask key=a anchor=s1b1 model="sample" by=ai}\n**you asked:** why?\n\nBecause.\n:::';
+  '::: {.gloss #g-0001 kind=ask key=Enter anchor=s1b1 model="sample" by=ai}\n**you asked:** why?\n\nBecause.\n:::';
 
 /** A fake core edge: records asks and cancels; the test emits the stream's events. */
 export function fakeBackend() {
@@ -65,30 +68,56 @@ if (!("getClientRects" in Range.prototype)) {
 }
 
 let views: EditorView[] = [];
+let drops: (() => void)[] = [];
+let engine: Keys | null = null;
 
-/** Installs the fake frame clock and the `a` key before each test, and cleans up after it. */
+/**
+ * Installs the fake frame clock, the `a` key and the key engine on `window` (as App does) before
+ * each test, and cleans up after it.
+ */
 export function useBuffer(): void {
   beforeEach(() => {
     frames = [];
     vi.stubGlobal("requestAnimationFrame", (cb: () => void) => frames.push(cb));
-    registerAskKey();
+    registerAppendKey();
+    const keys = startKeys({ mac: false, host: document.body });
+    engine = keys;
+    window.addEventListener("keydown", keys.handle, { capture: true });
   });
   afterEach(() => {
     for (const v of views) v.destroy();
     views = [];
+    for (const drop of drops) drop();
+    drops = [];
+    if (engine) {
+      window.removeEventListener("keydown", engine.handle, { capture: true });
+      engine.stop();
+      engine = null;
+    }
     vi.unstubAllGlobals();
   });
 }
 
-/** A lecture buffer on `text` whose asks go to `backend` and edits to `edits`. */
+/** A lecture buffer on `text` whose asks go to `backend` and edits to `edits`; the keys' buffer. */
 export function mount(backend: GlossBackend | null, edits: Edit[][] = [], text = TEXT) {
   const view = new EditorView({
     state: lectureState(text, "Lecture", (e) => edits.push(e), backend),
     parent: document.body,
   });
   views.push(view);
+  drops.push(setBufferTarget(bufferTarget(view, view.dom)));
   return view;
 }
+
+/** Presses `key` (a `KeyboardEvent.key`) in the buffer, through the key engine as a user would. */
+export function press(view: EditorView, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  const e = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+  view.contentDOM.dispatchEvent(e);
+  return e;
+}
+
+/** Enter in the buffer: asks about the cursor's line (F-048). */
+export const ask = (view: EditorView) => press(view, "Enter");
 
 /** Presses Vim keys one by one, as the user would. */
 export function keys(view: EditorView, ...pressed: string[]) {

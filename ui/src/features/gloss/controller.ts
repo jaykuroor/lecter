@@ -1,5 +1,5 @@
-// Asking about a block (10-keymap.md: `a` on a slide line; 09-ui.md#prompt-row) and streaming the
-// answer under it (06-ai-harness.md#loop). The answer arrives on the GlossStream channel and is
+// Asking about a block or own note (10-keymap.md: Enter on a slide or own-note line; 09-ui.md#prompt-row)
+// and streaming the answer under it (06-ai-harness.md#loop). The answer arrives on the GlossStream channel and is
 // drawn once per animation frame; when it ends, its fenced div (03-lecture-files.md#body) is
 // inserted into the buffer under the block, so it goes to the core like every other edit (journal,
 // save) and `u` undoes it. `Esc` stops a streaming answer and keeps what arrived.
@@ -7,9 +7,10 @@ import { type Extension, Prec } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { GlossBackend, GlossEvent } from "../../core/gloss";
 import { blockSpan } from "../buffer/syntax";
+import { askCommand } from "./askKey";
 import { GlossCard } from "./card";
 import { addCard, cardsField, glossBackendFacet, removeCard } from "./field";
-import { blockLine, glossInsertPos } from "./place";
+import { anchorLine, glossInsertPos, noteAt } from "./place";
 
 /** The cards in `view`. */
 function cards(view: EditorView): GlossCard[] {
@@ -21,15 +22,16 @@ function remove(view: EditorView, card: GlossCard): void {
 }
 
 /**
- * Opens the prompt row under line `n` if it is a slide block of a lecture that can ask; returns
- * whether it did. An open prompt elsewhere closes first.
+ * Opens the prompt row under line `n` if it is a slide block, or a line of an own note, of a
+ * lecture that can ask; returns whether it did. The answer is anchored to the block or the note
+ * (F-048). An open prompt elsewhere closes first.
  */
-export function openPrompt(view: EditorView, n: number): boolean {
+function openPrompt(view: EditorView, n: number): boolean {
   const backend = view.state.facet(glossBackendFacet);
   const line = view.state.doc.line(n);
-  const span = blockSpan(line.text);
-  if (!backend || !span) return false;
-  const card: GlossCard = new GlossCard(span.id, {
+  const anchor = blockSpan(line.text)?.id ?? noteAt(view.state.doc, n);
+  if (!backend || !anchor) return false;
+  const card: GlossCard = new GlossCard(anchor, {
     send: (question) => send(view, backend, card, question),
     escape: () => escapeCard(view, backend, card),
   });
@@ -83,10 +85,13 @@ function receive(view: EditorView, card: GlossCard, event: GlossEvent): void {
   }
 }
 
-/** Inserts the gloss's fenced div under its block (after the block's earlier glosses); the card goes. */
+/**
+ * Inserts the gloss's fenced div under its block or note (after the earlier glosses there); the
+ * card goes.
+ */
 function save(view: EditorView, card: GlossCard, markdown: string): void {
   const doc = view.state.doc;
-  const n = blockLine(doc, card.anchor);
+  const n = anchorLine(doc, card.anchor);
   if (n === null) {
     card.fail("The line was deleted, so the answer was not saved.");
     return;
@@ -123,7 +128,7 @@ function escapeKey(backend: GlossBackend): Extension {
   );
 }
 
-/** The gloss feature of a lecture buffer whose asks go to `backend` (none: `a` stays Vim's). */
+/** The gloss feature of a lecture buffer whose asks go to `backend` (none: Enter asks nothing). */
 export function glossExtension(backend: GlossBackend | null): Extension {
-  return backend ? [glossBackendFacet.of(backend), cardsField, escapeKey(backend)] : [];
+  return backend ? [glossBackendFacet.of(backend), cardsField, escapeKey(backend), askCommand(openPrompt)] : [];
 }

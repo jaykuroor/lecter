@@ -4,7 +4,7 @@ import { findFigures, isFigureFence } from "./find";
 
 const doc = (lines: string[]) => Text.of(lines);
 
-const GLOSS = '::: {.gloss #g-0001 kind=ask key=a anchor=s1b1 model="sample" by=ai}';
+const GLOSS = '::: {.gloss #g-0001 kind=ask key=Enter anchor=s1b1 model="sample" by=ai}';
 
 describe("finding figures", () => {
   it("finds an fnplot block inside a gloss, with its spec and where it ends", () => {

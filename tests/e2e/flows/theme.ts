@@ -274,14 +274,14 @@ async function followOsAccent(want: Record<string, string>): Promise<void> {
   want.accent = rgb(core);
 }
 
-/** Opens the course and the lecture by mouse, then a gloss prompt (`a`), whose card shows its kind's colour. */
+/** Opens the course and the lecture by mouse, then a gloss prompt (Enter), whose card shows its kind's colour. */
 async function openGlossPrompt(): Promise<void> {
   // The folder dialog answers LECTER_TEST_PICK.
   await $("button.rail-add").click();
   await $(`button.course-file-open[data-path="lectures/${NAME}"]`).click();
   await expect($(".lecture-buffer")).toHaveAttribute("data-lecture", `lectures/${NAME}`);
   await expect($(".lecture-buffer")).toHaveAttribute("data-vim-mode", "normal");
-  await browser.keys("a");
+  await browser.keys("Enter");
   await expect($(".gloss-prompt-input")).toBeExisting();
 }
 

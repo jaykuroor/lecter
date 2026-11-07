@@ -3,7 +3,7 @@
 // only when it is in view, and again each time it comes back into view.
 import type { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
-import { fakeBackend, keys, mount, prompt, TEXT, useBuffer } from "../gloss/__tests__/kit";
+import { ask, fakeBackend, mount, prompt, TEXT, useBuffer } from "../gloss/__tests__/kit";
 
 useBuffer();
 
@@ -13,7 +13,7 @@ const SAMPLE_PLOT =
   '{"type": "fnplot", "exprs": ["x^2"], "x": [-1, 1], "params": {"n": {"min": 10, "max": 1000, "value": 100}}, "scatter": {"sample": "x ~ U(-1,1); y = x^2", "n": "n"}}\n```';
 
 /** The gloss the core sends in `done` for it (lecter_ai::gloss::fenced_div). */
-const PLOT_DIV = `::: {.gloss #g-0001 kind=ask key=a anchor=s1b1 model="sample" by=ai}\n**you asked:** can you plot it?\n\n${SAMPLE_PLOT}\n:::`;
+const PLOT_DIV = `::: {.gloss #g-0001 kind=ask key=Enter anchor=s1b1 model="sample" by=ai}\n**you asked:** can you plot it?\n\n${SAMPLE_PLOT}\n:::`;
 
 // The browser's IntersectionObserver, faked at the edge: the test says what is in view.
 // CodeMirror makes observers of its own, so each fake keeps its own callback and targets.
@@ -50,7 +50,7 @@ const figure = (view: EditorView) => view.dom.querySelector<HTMLElement>("figure
 
 /** Asks about the first block and answers with `div`, as the core would. */
 function answer(view: EditorView, f: ReturnType<typeof fakeBackend>, div = PLOT_DIV) {
-  keys(view, "a");
+  ask(view);
   prompt(view, "can you plot it?");
   const emit = f.asks[0]?.emit ?? (() => undefined);
   emit({ event: "started", data: { gloss: "g-0001", model: "sample" } });

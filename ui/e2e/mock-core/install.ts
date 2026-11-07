@@ -217,7 +217,7 @@ export function installMockCore(fixture: MockFixture): void {
       let index = 0;
       const send = (message: unknown) => callbacks.get(onEvent.id)?.({ index: index++, message });
       const div = (answer: string) =>
-        `::: {.gloss #${gloss} kind=ask key=a anchor=${block} model="sample" by=ai}\n**you asked:** ${question.trim()}\n${answer ? `\n${answer.trimEnd()}\n` : ""}:::`;
+        `::: {.gloss #${gloss} kind=ask key=Enter anchor=${block} model="sample" by=ai}\n**you asked:** ${question.trim()}\n${answer ? `\n${answer.trimEnd()}\n` : ""}:::`;
       let text = "";
       let next = 0;
       let timer: ReturnType<typeof setTimeout> | undefined;

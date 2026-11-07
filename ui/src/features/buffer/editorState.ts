@@ -19,7 +19,7 @@ import { lectureBuffer } from "./vim";
 
 /**
  * The editor extensions of a lecture buffer labelled `label` for assistive tools; its edits go to
- * `onEdits` and its asks (`a`) to `gloss` (F-023); function plots in glosses are drawn (F-024).
+ * `onEdits` and its asks (Enter) to `gloss` (F-023, F-048); function plots in glosses are drawn (F-024).
  */
 function extensions(
   label: string,

@@ -219,8 +219,10 @@ describe("the walking skeleton end to end", function () {
     // Back to the buffer: the cursor is still on the edited block.
     await browser.execute(() => (document.querySelector(".cm-content") as HTMLElement | null)?.focus());
     await expect($(".cm-focused-line")).toHaveText(`${TYPED}${FIRST}`, { containing: true });
-    await browser.keys("a");
+    // Enter asks (10-keymap.md#on-a-slide-line, F-048).
+    await browser.keys("Enter");
     await expect($(".gloss-prompt-input")).toBeExisting();
+    await shot("ask-enter");
     expect(await enter(".gloss-prompt-input", QUESTION)).toBe(true);
     await until(
       async () => browser.execute(() => (document.querySelector(".gloss .gloss-body")?.textContent ?? "").length > 20),
@@ -242,7 +244,7 @@ describe("the walking skeleton end to end", function () {
       "the gloss to be saved",
     );
     const text = readFileSync(file(), "utf8");
-    expect(text).toMatch(/\n::: \{\.gloss #g-[0-9a-f]{4} kind=ask key=a anchor=s1b2 model="sample" by=ai\}\n/);
+    expect(text).toMatch(/\n::: \{\.gloss #g-[0-9a-f]{4} kind=ask key=Enter anchor=s1b2 model="sample" by=ai\}\n/);
     expect(text).toMatch(/\n```fnplot\n\{"type": "fnplot", "exprs": \["x\^2"\][^\n]*\}\n```\n:::\n/);
   });
 });

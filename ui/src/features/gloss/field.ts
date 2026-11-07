@@ -6,7 +6,7 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { GlossBackend } from "../../core/gloss";
 import type { GlossCard } from "./card";
 
-/** Where the buffer's asks go: the open lecture's backend, or none (no `a` then). */
+/** Where the buffer's asks go: the open lecture's backend, or none (Enter asks nothing then). */
 export const glossBackendFacet = Facet.define<GlossBackend, GlossBackend | null>({
   combine: (values) => values[0] ?? null,
 });
