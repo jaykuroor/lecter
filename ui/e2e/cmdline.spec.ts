@@ -108,7 +108,7 @@ test(":set completes, checks, shows and applies settings from the command line @
   await expect(status.locator(".cmdline-message-note")).toHaveText("Can add input lag on slower machines.");
   await evidence(page, "cmdline-quality");
   expect(await page.evaluate(() => (window as unknown as { __mockSettings?: unknown[] }).__mockSettings)).toEqual([
-    { key: "ui.performance", value: '"quality"', course: "/courses/STAT311" },
+    { key: "ui.performance", value: '"quality"', course: "/courses/STAT311", scope: "global" },
   ]);
   await page.keyboard.press(":");
   await page.keyboard.type("set ui.performance?");

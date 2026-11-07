@@ -88,6 +88,8 @@
       "description": "The window and the editor.",
       "$ref": "#/$defs/Ui",
       "default": {
+        "hintBar": "full",
+        "keystrokes": true,
         "performance": "balanced",
         "theme": null
       }
@@ -287,6 +289,26 @@
         }
       }
     },
+    "HintBar": {
+      "description": "`ui.hintBar`.",
+      "oneOf": [
+        {
+          "description": "Each key with its words and its mouse action.",
+          "type": "string",
+          "const": "full"
+        },
+        {
+          "description": "The keys and their words.",
+          "type": "string",
+          "const": "compact"
+        },
+        {
+          "description": "No hint bar.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    },
     "Index": {
       "description": "`index.*`.",
       "type": "object",
@@ -456,6 +478,16 @@
       "description": "`ui.*`.",
       "type": "object",
       "properties": {
+        "hintBar": {
+          "description": "How much the hint bar shows.",
+          "$ref": "#/$defs/HintBar",
+          "default": "full"
+        },
+        "keystrokes": {
+          "description": "Show the keys typed, bottom right of the lecture.",
+          "type": "boolean",
+          "default": true
+        },
         "performance": {
           "description": "The speed-or-looks preset.",
           "$ref": "#/$defs/Performance",

@@ -16,6 +16,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
@@ -51,10 +52,12 @@ struct TrustFile {
     courses: BTreeMap<String, serde_json::Value>,
 }
 
-/// The trust answers in one config folder.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The trust answers in one config folder. Clones share one lock, held by every change from
+/// reading the file to writing it back, so two changes never lose one another.
+#[derive(Debug, Clone)]
 pub struct TrustStore {
     config: PathBuf,
+    changing: Arc<Mutex<()>>,
 }
 
 impl TrustStore {
@@ -65,7 +68,7 @@ impl TrustStore {
 
     /// The answers in the config folder `config`.
     pub fn in_folder(config: PathBuf) -> Self {
-        Self { config }
+        Self { config, changing: Arc::default() }
     }
 
     /// The config folder, where the global settings also live.
@@ -86,13 +89,22 @@ impl TrustStore {
     /// Stores `entry` for `course`, keeping every other course's entry, and writes the file
     /// atomically (creating the config folder if needed).
     pub fn set(&self, course: &str, entry: TrustEntry) -> Result<()> {
+        self.update(course, |_| Some(entry)).map(drop)
+    }
+
+    /// Reads `course`'s stored answer and, when `change` returns a new one, stores it, all under
+    /// the store's lock (compare-and-set). Returns whether it stored one.
+    pub fn update(&self, course: &str, change: impl FnOnce(Option<TrustEntry>) -> Option<TrustEntry>) -> Result<bool> {
+        let _one = self.changing.lock().unwrap_or_else(PoisonError::into_inner);
         let mut file = self.read()?;
+        let current = file.courses.get(course).and_then(|v| serde_json::from_value(v.clone()).ok());
+        let Some(entry) = change(current) else { return Ok(false) };
         file.version = VERSION;
         let value = serde_json::to_value(&entry).map_err(|_| Error::TrustFileWrite(std::io::ErrorKind::InvalidData))?;
         file.courses.insert(course.to_owned(), value);
         let body =
             serde_json::to_string_pretty(&file).map_err(|_| Error::TrustFileWrite(std::io::ErrorKind::InvalidData))?;
-        write(&self.file(), &format!("{HEADER}{body}\n"))
+        write(&self.file(), &format!("{HEADER}{body}\n")).map(|()| true)
     }
 
     /// The file's answers; anything unusable reads as none (the user is asked again).

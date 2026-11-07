@@ -47,6 +47,7 @@ const matching: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  settings_source: () => [],
   theme_get: () => ({ theme: null, scheme: null, tokens: [] }),
   theme_list: () => [],
 };
@@ -78,6 +79,7 @@ const wrongResult: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  settings_source: () => [],
   theme_get: () => ({ theme: null, scheme: null, tokens: [] }),
   theme_list: () => [],
 };
@@ -103,6 +105,7 @@ const wrongEnum: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  settings_source: () => [],
   theme_get: () => ({ theme: null, scheme: null, tokens: [] }),
   theme_list: () => [],
 };
@@ -127,6 +130,7 @@ const extra: MockHandlers = {
   settings_schema: () => "{}",
   settings_get: ({ key }) => ({ key, value: "true", source: "default" }),
   settings_set: ({ key, value }) => ({ key, value, source: "global" }),
+  settings_source: () => [],
   // @ts-expect-error a command the contract doesn't have
   course_delete: () => null,
 };
@@ -154,6 +158,7 @@ const commandNames: CommandName[] = [
   "settings_schema",
   "settings_get",
   "settings_set",
+  "settings_source",
   "theme_get",
   "theme_list",
 ];

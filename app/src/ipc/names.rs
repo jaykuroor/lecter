@@ -22,6 +22,7 @@ pub const COMMANDS: &[&str] = &[
     "settings_schema",
     "settings_get",
     "settings_set",
+    "settings_source",
     "theme_get",
     "theme_list",
 ];

@@ -17,6 +17,8 @@ import { type Hint, hintsFor } from "./hints";
 export interface HintBarHandle {
   /** Reads the engine's keymap again (keymaps.jsonc was laid over the defaults). */
   refresh: () => void;
+  /** Shows `detail` from now on (`ui.hintBar` read, or changed in Settings or by `:set`). */
+  setDetail: (detail: HintDetail) => void;
   stop: () => void;
 }
 
@@ -51,9 +53,15 @@ function place(): Place {
 
 /**
  * Shows the hint bar in `host` for `engine`'s keymap. It starts at `detail`, the value of
- * `ui.hintBar` (full when there is none, D-206), and ␣uh steps it on.
+ * `ui.hintBar` (full when there is none, D-206), and ␣uh steps it on and hands the new one to
+ * `onDetail`, which writes the setting.
  */
-export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detail?: HintDetail }): HintBarHandle {
+export function startHintBar(opts: {
+  engine: KeyEngine;
+  host: HTMLElement;
+  detail?: HintDetail;
+  onDetail?: (detail: HintDetail) => void;
+}): HintBarHandle {
   const [where, setWhere] = createSignal<Place>(place(), {
     equals: (a, b) => a.key === b.key,
   });
@@ -104,12 +112,15 @@ export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detai
   }, opts.host);
   for (const type of EVENTS) window.addEventListener(type, schedule, { capture: true });
   const dropDetail = registerCommand("ui.hintDetail", () => {
-    setDetail(nextDetail(detail()));
+    const next = nextDetail(detail());
+    setDetail(next);
+    opts.onDetail?.(next);
   });
   const unwatch = watchCommands(() => commandsChanged());
 
   return {
     refresh: () => keymapChanged(),
+    setDetail: (d) => setDetail(d),
     stop: () => {
       for (const type of EVENTS) window.removeEventListener(type, schedule, { capture: true });
       // Cancelling 0 (nothing waiting) does nothing.
@@ -120,3 +131,4 @@ export function startHintBar(opts: { engine: KeyEngine; host: HTMLElement; detai
     },
   };
 }
+export { detailOf } from "./detail";

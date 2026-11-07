@@ -44,6 +44,12 @@ pub(super) struct Found {
     pub overrides: Vec<String>,
     /// blake3 of all of the above, in hex.
     pub fingerprint: String,
+    /// blake3 of all of it but course.jsonc's `settings`, in hex: what Lecter's own settings
+    /// write must leave as it was.
+    pub rest: String,
+    /// course.jsonc's `settings` object (an empty one when there is no file or no `settings`);
+    /// `None` when the file can't be used.
+    pub settings: Option<serde_json::Value>,
 }
 
 /// Everything the screen shows about the folder `root` (any path to it).
@@ -103,21 +109,28 @@ fn ai_files(root: &Path) -> Result<Found> {
         agents.push("AGENTS.md".to_owned());
         file(&mut print, root, OsStr::new("AGENTS.md"))?;
     }
-    let (mut roles, mut skills, mut overrides) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut roles, mut skills) = (Vec::new(), Vec::new());
+    let mut seen = Seen { overrides: Vec::new(), part: None, object: Some(empty()) };
     match inside(root, OsStr::new(".lecter"))? {
         Place::Missing => {}
         Place::Outside => print.part("outside", b".lecter"),
         Place::Inside(_) => {
             roles = role_files(&mut print, root)?;
             skills = skill_folders(&mut print, root)?;
-            overrides = settings_overrides(&mut print, root);
+            seen = settings_overrides(root);
         }
     }
+    // The settings part goes in last, so the hash before it is everything else.
+    let rest = print.0.clone().finalize().to_hex().to_string();
+    if let Some((tag, bytes)) = &seen.part {
+        print.part(tag, bytes);
+    }
     let fingerprint = print.0.finalize().to_hex().to_string();
+    let mut overrides = seen.overrides;
     for list in [&mut roles, &mut skills, &mut overrides] {
         cap(list);
     }
-    Ok(Found { sources: 0, agents, roles, skills, overrides, fingerprint })
+    Ok(Found { sources: 0, agents, roles, skills, overrides, fingerprint, rest, settings: seen.object })
 }
 
 /// Keeps a screen list short: past [`MAX_LISTED`] names, one line says how many more.
@@ -286,32 +299,45 @@ fn walk_skills(print: &mut Print, root: &Path, dir: PathBuf) -> Result<()> {
     Ok(())
 }
 
+/// What [`settings_overrides`] saw in course.jsonc.
+struct Seen {
+    /// The dotted keys it sets under `settings`.
+    overrides: Vec<String>,
+    /// The fingerprint's part for it, if any: the object, or why the file can't be used.
+    part: Option<(&'static str, Vec<u8>)>,
+    /// The `settings` object; `None` when the file can't be used.
+    object: Option<serde_json::Value>,
+}
+
+/// An empty JSON object.
+fn empty() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
 /// The dotted keys `.lecter/course.jsonc` sets under `settings`; the object itself (or why it
 /// can't be read) goes into the fingerprint. Course details outside `settings` don't count.
-fn settings_overrides(print: &mut Print, root: &Path) -> Vec<String> {
+fn settings_overrides(root: &Path) -> Seen {
     let path = root.join(".lecter").join(COURSE_FILE);
     let read = jsonc::check_within(&path, Some(root)).and_then(|()| jsonc::read_text(&path));
     let text = match read {
         Ok(Some(text)) => text,
-        Ok(None) => return Vec::new(),
+        Ok(None) => return Seen { overrides: Vec::new(), part: None, object: Some(empty()) },
         Err(e) => {
-            print.part("course.jsonc-unusable", e.to_string().as_bytes());
-            return Vec::new();
+            let part = Some(("course.jsonc-unusable", e.to_string().into_bytes()));
+            return Seen { overrides: Vec::new(), part, object: None };
         }
     };
     let object = match jsonc::parse(&text).and_then(|v| jsonc::settings_object(v, Some("settings"))) {
         Ok(object) => object,
         Err(_) => {
             // Broken now, so nothing applies; fixing it changes the text and asks again.
-            print.part("course.jsonc-broken", text.as_bytes());
-            return Vec::new();
+            let part = Some(("course.jsonc-broken", text.into_bytes()));
+            return Seen { overrides: Vec::new(), part, object: None };
         }
     };
     // No overrides read the same as no file, so writing the course details into a new
     // `course.jsonc` (F-034) doesn't ask the trust question again.
-    if object.as_object().is_some_and(|o| !o.is_empty()) {
-        print.part("settings", object.to_string().as_bytes());
-    }
+    let part = object.as_object().is_some_and(|o| !o.is_empty()).then(|| ("settings", object.to_string().into_bytes()));
     let layer = Layer::from_value(Source::Course, &object);
     let mut keys: Vec<String> = layer.keys().map(str::to_owned).collect();
     keys.extend(layer.ignored.iter().cloned());
@@ -319,7 +345,13 @@ fn settings_overrides(print: &mut Print, root: &Path) -> Vec<String> {
     keys.extend(layer.invalid.iter().map(|(k, _)| k.clone()));
     keys.sort();
     keys.dedup();
-    keys
+    Seen { overrides: keys, part, object: Some(object) }
+}
+
+/// The AI files of the folder `root` (any path to it), with what Lecter's own settings write
+/// compares: the fingerprint without `settings`, and the `settings` object.
+pub(super) fn ai(root: &Path) -> Result<Found> {
+    ai_files(&canonical(root)?)
 }
 
 /// The files in `sources/` and its subfolders at any depth, hidden ones left out. Links are

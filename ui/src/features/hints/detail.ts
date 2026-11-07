@@ -9,6 +9,12 @@ const HINT_DETAILS: readonly HintDetail[] = ["full", "compact", "off"];
 /** The detail before anything sets `ui.hintBar` (onboarding's Vim step, Settings, `:set`): full (D-206). */
 export const DEFAULT_HINT_DETAIL: HintDetail = "full";
 
+/** The detail a `ui.hintBar` value (JSON text, as the core sends it) names; full for anything else. */
+export function detailOf(json: string): HintDetail {
+  const found = HINT_DETAILS.find((d) => JSON.stringify(d) === json);
+  return found ?? DEFAULT_HINT_DETAIL;
+}
+
 /** The detail after `detail` (␣uh): full → compact → off → full. */
 export function nextDetail(detail: HintDetail): HintDetail {
   return HINT_DETAILS[(HINT_DETAILS.indexOf(detail) + 1) % HINT_DETAILS.length] as HintDetail;

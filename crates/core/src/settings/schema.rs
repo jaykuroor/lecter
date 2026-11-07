@@ -236,7 +236,7 @@ pub enum Embeddings {
 }
 
 /// `ui.*`.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Ui {
     /// The speed-or-looks preset.
@@ -245,6 +245,29 @@ pub struct Ui {
     /// macOS and Windows a bundled one (`Nord`, or `Nord-light`/`Nord-dark` to pin a variant).
     /// Unset follows the desktop's theme.
     pub theme: Option<String>,
+    /// How much the hint bar shows.
+    pub hint_bar: HintBar,
+    /// Show the keys typed, bottom right of the lecture.
+    pub keystrokes: bool,
+}
+
+impl Default for Ui {
+    fn default() -> Self {
+        Self { performance: Performance::default(), theme: None, hint_bar: HintBar::default(), keystrokes: true }
+    }
+}
+
+/// `ui.hintBar`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum HintBar {
+    /// Each key with its words and its mouse action.
+    #[default]
+    Full,
+    /// The keys and their words.
+    Compact,
+    /// No hint bar.
+    Off,
 }
 
 /// `ui.performance`.

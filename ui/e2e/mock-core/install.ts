@@ -54,9 +54,15 @@ export function installMockCore(fixture: MockFixture): void {
     const error: IpcError = { code, message, retryable: false };
     throw error;
   };
-  // The settings in force, which `settings_set` changes.
+  // The settings in force, which `settings_set` changes, and the `settings:changed` listeners.
   const settings = { ...fixture.settings.values };
+  const settingsListeners = new Map<number, number>();
+  // How many `settings:changed` listeners are on now, for a test to see they all stop.
+  (window as unknown as { __mockSettingsListeners?: () => number }).__mockSettingsListeners = () =>
+    settingsListeners.size;
+  const globalOnly = (key: string) => /^(privacy|log|limits)\./.test(key) || key === "feedback.endpoint";
   delete (window as unknown as { __mockSettings?: unknown }).__mockSettings;
+  delete (window as unknown as { __mockSettingsReads?: unknown }).__mockSettingsReads;
   const handlers: MockHandlers = {
     app_info: () => fixture.appInfo,
     // The layout the app starts with; each save is kept for the test to read back
@@ -165,18 +171,42 @@ export function installMockCore(fixture: MockFixture): void {
     settings_schema: () => fixture.settings.schema,
     theme_get: () => fixture.theme.update,
     theme_list: () => fixture.theme.installed,
-    settings_get: ({ key }) => {
+    // Records each key asked for, with its course (window.__mockSettingsReads: "key course").
+    settings_get: ({ key, course }) => {
+      const w = window as unknown as { __mockSettingsReads?: string[] };
+      w.__mockSettingsReads ??= [];
+      w.__mockSettingsReads.push(`${key} ${course}`);
       const found = settings[key];
       if (!found) return fail("E_NOT_FOUND", `${key} is not a setting`);
       return { key, ...found };
     },
+    // Every value in force, in key order; the global-only keys as SEC-25 groups them.
+    settings_source: () =>
+      Object.keys(settings)
+        .sort()
+        .flatMap((key) => {
+          const found = settings[key];
+          return found ? [{ key, ...found, globalOnly: globalOnly(key) }] : [];
+        }),
+    // Keeps the value at the scope's level and sends `settings:changed`. A course write needs a
+    // course and refuses a global-only key, as the core does.
     settings_set: (args) => {
       const w = window as unknown as { __mockSettings?: (typeof args)[] };
       w.__mockSettings ??= [];
       w.__mockSettings.push(args);
       if (!settings[args.key]) return fail("E_INVALID_ARGUMENT", `${args.key} is not a setting`);
-      settings[args.key] = { value: args.value, source: "global" };
-      return { key: args.key, value: args.value, source: "global" };
+      if (args.scope === "course" && args.course === null)
+        return fail("E_INVALID_ARGUMENT", "Open a course to change its settings.");
+      if (args.scope === "course" && globalOnly(args.key))
+        return fail("E_INVALID_ARGUMENT", `${args.key} can only be set in the global settings`);
+      const setting = { key: args.key, value: args.value, source: args.scope };
+      settings[args.key] = { value: args.value, source: args.scope };
+      setTimeout(() => {
+        for (const [id, handler] of settingsListeners) {
+          callbacks.get(handler)?.({ event: "settings:changed", id, payload: { setting } });
+        }
+      }, 0);
+      return setting;
     },
     // Plays fixture.gloss on the channel as the core would (03-lecture-files.md#body for the div).
     gloss_request: ({ block, question, onEvent }) => {
@@ -227,11 +257,13 @@ export function installMockCore(fixture: MockFixture): void {
         const id = nextEventId++;
         if (event === "course:changed") listeners.set(id, handler);
         if (event === "theme:changed") themeListeners.set(id, handler);
+        if (event === "settings:changed") settingsListeners.set(id, handler);
         return Promise.resolve(id);
       }
       if (cmd === "plugin:event|unlisten") {
         listeners.delete((args as { eventId: number }).eventId);
         themeListeners.delete((args as { eventId: number }).eventId);
+        settingsListeners.delete((args as { eventId: number }).eventId);
         return Promise.resolve(null);
       }
       if (!isCommand(cmd)) {

@@ -158,11 +158,15 @@ const PALETTE_KEYS: Binding[] = [
   { keys: "<Mod-p>", command: "switcher.open", scope: "global", desc: "Quick switcher" },
 ];
 
+// Ctrl/Cmd-, Settings (10-keymap.md#global-os-conventions). features/settings.
+const SETTINGS_KEYS: Binding[] = [{ keys: "<Mod-,>", command: "settings.open", scope: "global", desc: "Settings" }];
+
 /** The built-in bindings, before keymaps.jsonc (user.ts). */
 export const DEFAULT_KEYMAP: readonly Binding[] = [
   ...COURSES,
   ...PANE_KEYS,
   ...PALETTE_KEYS,
+  ...SETTINGS_KEYS,
   ...rows("app", LEADER),
   ...rows("buffer", MOVE),
   // A selection asks too (`v…Enter`).

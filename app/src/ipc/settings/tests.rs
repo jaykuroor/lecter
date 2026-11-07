@@ -41,7 +41,8 @@ fn the_commands_take_the_key_value_and_course() {
     let args = |name| crate::export::command_args(&contract, name);
     assert_eq!(args("settings_schema"), Some(vec![]));
     assert_eq!(args("settings_get"), Some(vec!["key".into(), "course".into()]));
-    assert_eq!(args("settings_set"), Some(vec!["key".into(), "value".into(), "course".into()]));
+    assert_eq!(args("settings_set"), Some(vec!["key".into(), "value".into(), "course".into(), "scope".into()]));
+    assert_eq!(args("settings_source"), Some(vec!["course".into()]));
 }
 
 #[test]
@@ -64,13 +65,15 @@ fn an_unset_key_is_its_default() {
 fn a_write_goes_to_the_global_file_and_is_in_force_at_once() {
     let env = TestEnv::new().unwrap();
     let (files, courses) = (SettingsFiles::new(&env.dirs()), no_courses(&env));
-    let set_to = run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), None)).unwrap();
+    let set_to =
+        run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), None, SettingScope::Global)).unwrap();
     assert_eq!(set_to, setting("ui.performance", "\"quality\"", SettingSource::Global));
     let got = run(get(&files, &courses, "ui.performance".into(), None)).unwrap();
     assert_eq!(got, setting("ui.performance", "\"quality\"", SettingSource::Global));
     let text = std::fs::read_to_string(env.dirs().config().join("config.jsonc")).unwrap();
     assert!(text.contains("\"quality\""), "{text}");
-    let flag = run(set(&files, &courses, "index.contextLines".into(), "true".into(), None)).unwrap();
+    let flag =
+        run(set(&files, &courses, "index.contextLines".into(), "true".into(), None, SettingScope::Global)).unwrap();
     assert_eq!(flag, setting("index.contextLines", "true", SettingSource::Global));
 }
 
@@ -79,15 +82,17 @@ fn a_write_goes_to_the_global_file_and_is_in_force_at_once() {
 fn a_value_the_schema_refuses_is_rejected_with_the_reason() {
     let env = TestEnv::new().unwrap();
     let (files, courses) = (SettingsFiles::new(&env.dirs()), no_courses(&env));
-    let e = run(set(&files, &courses, "ui.performance".into(), "\"fast\"".into(), None)).unwrap_err();
+    let e =
+        run(set(&files, &courses, "ui.performance".into(), "\"fast\"".into(), None, SettingScope::Global)).unwrap_err();
     assert_eq!(
         (e.code, e.message.as_str()),
         (ErrorCode::InvalidArgument, "ui.performance must be one of performance, balanced, quality")
     );
     assert!(!env.dirs().config().join("config.jsonc").exists(), "a refused value was written");
-    let e = run(set(&files, &courses, "ui.speed".into(), "1".into(), None)).unwrap_err();
+    let e = run(set(&files, &courses, "ui.speed".into(), "1".into(), None, SettingScope::Global)).unwrap_err();
     assert_eq!((e.code, e.message.as_str()), (ErrorCode::InvalidArgument, "ui.speed is not a setting"));
-    let e = run(set(&files, &courses, "ui.performance".into(), "quality".into(), None)).unwrap_err();
+    let e =
+        run(set(&files, &courses, "ui.performance".into(), "quality".into(), None, SettingScope::Global)).unwrap_err();
     assert_eq!((e.code, e.message.as_str()), (ErrorCode::InvalidArgument, "The value for ui.performance is not JSON."));
     let e = run(get(&files, &courses, "ui.speed".into(), None)).unwrap_err();
     assert_eq!((e.code, e.message.as_str()), (ErrorCode::NotFound, "ui.speed is not a setting"));
@@ -100,7 +105,10 @@ fn an_oversize_key_is_an_invalid_argument() {
     let (files, courses) = (SettingsFiles::new(&env.dirs()), no_courses(&env));
     let long = "a".repeat(MAX_KEY_BYTES + 1);
     assert_eq!(run(get(&files, &courses, long.clone(), None)).unwrap_err().code, ErrorCode::InvalidArgument);
-    assert_eq!(run(set(&files, &courses, long, "1".into(), None)).unwrap_err().code, ErrorCode::InvalidArgument);
+    assert_eq!(
+        run(set(&files, &courses, long, "1".into(), None, SettingScope::Global)).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
     let at_limit = "a".repeat(MAX_KEY_BYTES);
     assert_eq!(run(get(&files, &courses, at_limit, None)).unwrap_err().code, ErrorCode::NotFound);
 }
@@ -111,11 +119,13 @@ fn a_trusted_course_value_wins_and_says_so() {
     let env = TestEnv::new().unwrap();
     let (path, courses) = course(&env, Some(TrustChoice::Trusted));
     let files = SettingsFiles::new(&env.dirs());
-    run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), None)).unwrap();
+    run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), None, SettingScope::Global)).unwrap();
     let got = run(get(&files, &courses, "ui.performance".into(), Some(path.clone()))).unwrap();
     assert_eq!(got, setting("ui.performance", "\"performance\"", SettingSource::Course));
     // A write is global; the course's value stays in force there, and the answer says so.
-    let after = run(set(&files, &courses, "ui.performance".into(), "\"balanced\"".into(), Some(path))).unwrap();
+    let after =
+        run(set(&files, &courses, "ui.performance".into(), "\"balanced\"".into(), Some(path), SettingScope::Global))
+            .unwrap();
     assert_eq!(after, setting("ui.performance", "\"performance\"", SettingSource::Course));
 }
 
@@ -138,8 +148,15 @@ fn a_course_not_opened_this_session_is_refused() {
     let (files, courses) = (SettingsFiles::new(&env.dirs()), no_courses(&env));
     let e = run(get(&files, &courses, "ui.performance".into(), Some("/elsewhere".into()))).unwrap_err();
     assert_eq!(e.code, ErrorCode::InvalidArgument);
-    let e = run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), Some("/elsewhere".into())))
-        .unwrap_err();
+    let e = run(set(
+        &files,
+        &courses,
+        "ui.performance".into(),
+        "\"quality\"".into(),
+        Some("/elsewhere".into()),
+        SettingScope::Global,
+    ))
+    .unwrap_err();
     assert_eq!(e.code, ErrorCode::InvalidArgument);
     assert!(!env.dirs().config().join("config.jsonc").exists(), "written for a course not opened");
 }
@@ -149,6 +166,7 @@ fn a_file_that_cannot_be_written_is_an_io_error() {
     let env = TestEnv::new().unwrap();
     let (files, courses) = (SettingsFiles::new(&env.dirs()), no_courses(&env));
     std::fs::create_dir_all(env.dirs().config().join("config.jsonc")).unwrap();
-    let e = run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), None)).unwrap_err();
+    let e = run(set(&files, &courses, "ui.performance".into(), "\"quality\"".into(), None, SettingScope::Global))
+        .unwrap_err();
     assert_eq!(e.code, ErrorCode::Io, "{e:?}");
 }

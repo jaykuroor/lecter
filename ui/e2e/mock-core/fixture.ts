@@ -37,7 +37,8 @@ export interface MockFixture {
   /**
    * The settings: the schema text `settings_schema` serves, and each key's value in force (JSON
    * text) with its level. `settings_get` answers from `values` (another key is E_NOT_FOUND);
-   * `settings_set` keeps the value as global and records the call (window.__mockSettings). The
+   * `settings_set` keeps the value at its scope's level, records the call (window.__mockSettings)
+   * and sends `settings:changed`; `settings_source` lists every value. The
    * mock trusts the UI's own check of the value against the schema.
    */
   settings: { schema: string; values: Record<string, Omit<Commands["settings_get"]["result"], "key">> };

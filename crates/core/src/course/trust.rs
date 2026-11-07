@@ -14,6 +14,7 @@
 //!
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
+mod own_write;
 mod paths;
 mod store;
 mod survey;
@@ -22,6 +23,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+pub use own_write::{OwnSettingsWrite, begin_own_settings_write, finish_own_settings_write};
 pub use paths::course_file;
 pub use store::{TRUST_FILE, TrustEntry, TrustStore};
 
@@ -195,6 +197,8 @@ fn count(n: usize) -> u32 {
 mod tests;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_blocked;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_own_write;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_paths;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]

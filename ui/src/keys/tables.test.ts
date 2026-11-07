@@ -18,6 +18,7 @@ const TABLE = [
   "global | <S-F6> | focus.prev | Previous pane",
   "global | <Mod-S-p> | palette.open | Command palette",
   "global | <Mod-p> | switcher.open | Quick switcher",
+  "global | <Mod-,> | settings.open | Settings",
   "app | <leader>a | +ai | AI",
   "app | <leader>ag | ai.gaps | Gap finder",
   "app | <leader>am | ai.pickModel | Pick model",

@@ -36,6 +36,11 @@ pub fn known_keys() -> impl Iterator<Item = &'static str> {
     keys::defaults().keys().map(String::as_str)
 }
 
+/// Whether only the global config.jsonc may set `key` (SEC-25): a course write of it is refused.
+pub fn is_global_only(key: &str) -> bool {
+    global_only::is_global_only(key)
+}
+
 /// The values a key is limited to (`ui.performance` → performance, balanced, quality); `None`
 /// for a key that takes free values or doesn't exist.
 pub fn allowed_values(key: &str) -> Option<Vec<String>> {

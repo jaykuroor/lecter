@@ -1,5 +1,6 @@
 import { createEffect, createSignal, lazy, onCleanup, onMount, Show } from "solid-js";
 import { readKeymaps } from "./core/keymaps";
+import { getSetting, onSettingsChanged, setSetting } from "./core/settings";
 import { markStartup } from "./core/startup";
 import { DetailsForm } from "./features/course/details/DetailsForm";
 import { FindPanel } from "./features/find/FindPanel";
@@ -8,6 +9,9 @@ import { createReadMode } from "./features/overlay/readMode";
 import { PaletteButtons } from "./features/palette/PaletteButtons";
 import { registerPalette } from "./features/palette/register";
 import { RailColumn } from "./features/rail/RailColumn";
+import { type Follower, followSetting } from "./features/settings/follow";
+import { registerSettings } from "./features/settings/register";
+import { SettingsButton } from "./features/settings/SettingsButton";
 import { loadSidebar } from "./features/sidebar/load";
 import { SidebarToggle } from "./features/sidebar/SidebarToggle";
 import { TrustScreen } from "./features/trust/TrustScreen";
@@ -120,6 +124,12 @@ export function App() {
   let stopKeys: (() => void) | undefined;
   let stopPalette: (() => void) | undefined;
   let paletteHost: HTMLDivElement | undefined;
+  let stopSettings: (() => void) | undefined;
+  let settingsHost: HTMLDivElement | undefined;
+  // `ui.hintBar` and `ui.keystrokes` as they change (F-045).
+  const follows: Follower[] = [];
+  const coursePath = () => course.course()?.path ?? null;
+  const settingsCore = { get: getSetting, listen: onSettingsChanged, set: setSetting };
   let hints: { refresh: () => void; stop: () => void } | undefined;
   let hintHost: HTMLDivElement | undefined;
   let overlay: { typed: (e: KeyboardEvent) => void; stop: () => void } | undefined;
@@ -137,6 +147,8 @@ export function App() {
     overlay?.stop();
     stopKeys?.();
     stopPalette?.();
+    stopSettings?.();
+    for (const follow of follows) follow.stop();
     for (const drop of dropCommands) drop();
   });
   onMount(() => {
@@ -165,20 +177,42 @@ export function App() {
           sidebarShown: layout.sidebar,
           showSidebar: layout.toggleSidebar,
         });
-        // The hint bar (F-038) reads the engine's keymap; its chunk comes after the engine's.
-        void import("./features/hints/mount").then(({ startHintBar }) => {
+        // Ctrl/Cmd-, and the headerbar's button (F-045): Settings, a chunk that loads on first open.
+        stopSettings = registerSettings({
+          host: settingsHost as HTMLDivElement,
+          mac,
+          bindings: () => started.engine.map.bindings,
+          course: course.course,
+        });
+        // The hint bar (F-038) reads the engine's keymap; its chunk comes after the engine's. It
+        // follows `ui.hintBar`, and ␣uh writes it (F-045).
+        void import("./features/hints/mount").then(({ startHintBar, detailOf }) => {
           if (gone) return;
-          hints = startHintBar({ engine: started.engine, host: hintHost as HTMLDivElement });
+          const bar = startHintBar({
+            engine: started.engine,
+            host: hintHost as HTMLDivElement,
+            onDetail: (d) => follow.write(JSON.stringify(d)),
+          });
+          const follow = followSetting(settingsCore, "ui.hintBar", coursePath, (json) => bar.setDetail(detailOf(json)));
+          hints = bar;
+          follows.push(follow);
         });
         // The keystroke overlay (F-039) shows the keys the engine sees; its chunk comes after too.
+        // It follows `ui.keystrokes`, and ␣uk writes it (F-045).
         void import("./features/overlay/mount").then(({ startOverlay }) => {
           if (gone) return;
-          overlay = startOverlay({
+          const shown = startOverlay({
             engine: started.engine,
             host: overlayHost as HTMLDivElement,
             mac,
             hidden: readMode.on,
+            onToggle: (on) => follow.write(String(on)),
           });
+          const follow = followSetting(settingsCore, "ui.keystrokes", coursePath, (json) =>
+            shown.setOn(json !== "false"),
+          );
+          overlay = shown;
+          follows.push(follow);
         });
         // keymaps.jsonc comes after: the default keys work until it is in, and stay when it
         // can't be used. Nothing on the key path waits for it.
@@ -243,6 +277,7 @@ export function App() {
         <div class="headerbar-end">
           <PaletteButtons mac={mac} />
           <ReadModeToggle on={readMode.on()} onToggle={readMode.toggle} />
+          <SettingsButton mac={mac} />
         </div>
       </header>
       <nav class="rail" aria-label="Course rail">
@@ -270,6 +305,8 @@ export function App() {
           <div class="cmdline-host" ref={cmdlineHost} />
           {/* The command palette and quick switcher (F-041), over the window. */}
           <div class="palette-host" ref={paletteHost} />
+          {/* The Settings window (F-045), over the window. */}
+          <div class="settings-host" ref={settingsHost} />
         </main>
         {/* The hint bar (F-038): the keys that work now, one line above the status line. */}
         <div class="hint-bar-host" ref={hintHost} />

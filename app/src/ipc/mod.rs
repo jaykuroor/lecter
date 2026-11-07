@@ -45,10 +45,11 @@ pub fn contract() -> Builder<Wry> {
             settings::settings_schema,
             settings::settings_get,
             settings::settings_set,
+            settings::settings_source,
             theme::theme_get,
             theme::theme_list
         ])
-        .events(collect_events![course::rail::CourseChanged, theme::ThemeChanged])
+        .events(collect_events![course::rail::CourseChanged, settings::SettingsChanged, theme::ThemeChanged])
 }
 
 /// The invoke handler for `tauri::Builder::invoke_handler`: the contract's commands behind the

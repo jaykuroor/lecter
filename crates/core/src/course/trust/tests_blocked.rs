@@ -136,3 +136,21 @@ fn an_unreadable_lecter_folder_blocks_trust_instead_of_looking_empty() {
     assert_eq!(r.screen.blocked.as_deref(), Some("Lecter could not read that folder."));
     assert_eq!(read_only, Ok(Ok(TrustState::ReadOnly)));
 }
+
+/// F-045: a course that can no longer be surveyed after Lecter's own settings write isn't trusted
+/// again by it, nothing is stored, and one blocked before it can't begin one.
+#[test]
+fn a_blocked_course_is_not_renewed() {
+    let env = env();
+    let c = full_skills(&env);
+    let st = store(&env);
+    trust(&st, &c, TrustChoice::Trusted);
+    let ticket = begin_own_settings_write(&st, &c).unwrap_or_else(|e| panic!("{e:?}"));
+    write(&c, ".lecter/course.jsonc", "{ \"settings\": { \"ui\": { \"hintBar\": \"off\" } } }");
+    write(&c, ".lecter/skills/s/one-more", "");
+    let before = std::fs::read_to_string(st.file()).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(finish_own_settings_write(&st, ticket, "ui.hintBar", &serde_json::json!("off")), Ok(false));
+    assert_eq!(std::fs::read_to_string(st.file()).unwrap_or_else(|e| panic!("{e}")), before);
+    assert_eq!(refused(&st, &c), (Error::CourseNotTrusted, ErrorCode::NotTrusted));
+    assert_eq!(begin_own_settings_write(&st, &c).err(), Some(Error::CourseNotTrusted));
+}

@@ -187,3 +187,23 @@ fn settings_precedence_one_key_set_at_every_level_takes_the_prompt_value() {
     assert_eq!(stack.get("ui.performance"), Some(Resolved { value: json!("quality"), source: Source::Course }));
     assert_eq!(stack.settings().ui.performance, schema::Performance::Quality);
 }
+
+/// F-045: `ui.hintBar` is full, compact or off, full by default (D-206); `ui.keystrokes` is on by
+/// default (09-ui.md: the keystroke overlay is on for new users, D-212).
+#[test]
+fn settings_ui_hint_bar_and_keystrokes_have_their_spec_defaults() {
+    let stack = SettingsStack::new(Layer::default(), None, None, None);
+    assert_eq!(stack.get("ui.hintBar"), Some(Resolved { value: json!("full"), source: Source::Default }));
+    assert_eq!(stack.get("ui.keystrokes"), Some(Resolved { value: json!(true), source: Source::Default }));
+    assert_eq!(allowed_values("ui.hintBar"), Some(vec!["full".to_owned(), "compact".to_owned(), "off".to_owned()]));
+    let layer = Layer::from_value(Source::Global, &json!({ "ui": { "hintBar": "compact", "keystrokes": false } }));
+    assert!(layer.invalid.is_empty(), "{:?}", layer.invalid);
+    let stack = SettingsStack::new(layer, None, None, None);
+    assert_eq!(stack.settings().ui.hint_bar, schema::HintBar::Compact);
+    assert!(!stack.settings().ui.keystrokes);
+    // The Settings window greys these out for a course (SEC-25).
+    assert!(is_global_only("privacy.shareFeedback") && is_global_only("feedback.endpoint"));
+    assert!(!is_global_only("ui.hintBar") && !is_global_only("ai.webSearch"));
+    let bad = Layer::from_value(Source::Global, &json!({ "ui": { "hintBar": "tiny", "keystrokes": "yes" } }));
+    assert_eq!(bad.invalid.len(), 2, "{:?}", bad.invalid);
+}

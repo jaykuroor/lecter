@@ -1,4 +1,4 @@
-import { commands, events, type IpcError, type ThemeUpdate } from "./bindings";
+import { commands, events, type InstalledTheme, type IpcError, type ThemeUpdate } from "./bindings";
 
 export type { ThemeUpdate };
 
@@ -8,10 +8,15 @@ export type ThemeResult<T> = { status: "ok"; data: T } | { status: "error"; erro
 /**
  * The tokens to set now (`theme_get`): the desktop's GTK theme on Linux, or the one `ui.theme`
  * chose, with light or dark; nothing set means the Lecter theme. (`theme_list`, the installed
- * GTK themes, is for Settings → Appearance, F-045.)
+ * GTK themes, is Settings → Appearance's list: `listThemes`.)
  */
 export function getTheme(): Promise<ThemeResult<ThemeUpdate>> {
   return commands.themeGet();
+}
+
+/** The themes `ui.theme` can pick (`theme_list`): installed GTK themes, and bundled ones off Linux. */
+export function listThemes(): Promise<ThemeResult<InstalledTheme[]>> {
+  return commands.themeList();
 }
 
 /**

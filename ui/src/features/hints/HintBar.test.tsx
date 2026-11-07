@@ -102,11 +102,12 @@ describe("the hint bar", () => {
     expect(shown("main")).toContain("hint-key=i hint-desc=Edit / fix the line hint-mouse=double-click");
     expect(shown("main")).toContain("hint-key=Ctrl-j hint-key=]] hint-desc=Next slide hint-mouse=scroll");
     expect(shown("main")).toContain("hint-key=]d hint-desc=Next doubt hint-mouse=Doubts tab");
-    expect(shown("main").slice(-4)).toEqual([
+    expect(shown("main").slice(-5)).toEqual([
       "hint-key=Ctrl-1…9 hint-desc=Course hint-mouse=click the course",
       "hint-key=Shift-F6 hint-desc=Previous pane hint-mouse=click a pane",
       "hint-key=Ctrl-Shift-p hint-desc=Command palette hint-mouse=click here",
       "hint-key=Ctrl-p hint-desc=Quick switcher hint-mouse=click here",
+      "hint-key=Ctrl-, hint-desc=Settings hint-mouse=click here",
     ]);
     expect(shown("tail")).toEqual([
       "hint-key=F6 hint-desc=Next pane hint-mouse=click a pane",
@@ -134,23 +135,30 @@ describe("the hint bar", () => {
     cursor.mode = "insert";
     press("i");
     frame();
-    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher", "Settings"]);
     expect(words("tail")).toEqual(["Next pane"]);
     cursor.mode = "visual";
     buffer.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
     frame();
-    expect(words()).toEqual(["Ask about this line", "Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual([
+      "Ask about this line",
+      "Course",
+      "Previous pane",
+      "Command palette",
+      "Quick switcher",
+      "Settings",
+    ]);
     expect(words("tail")).toEqual(["Next pane", "More"]);
   });
 
   it("follows the focus out of the buffer into a field and onto the page", () => {
     field.focus();
     frame();
-    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher", "Settings"]);
     expect(words("tail")).toEqual(["Next pane"]);
     field.blur();
     frame();
-    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher", "Settings"]);
     expect(words("tail")).toEqual(["Next pane", "More"]);
     buffer.focus();
     frame();
@@ -238,7 +246,7 @@ describe("the hint bar", () => {
     cursor.mode = "insert";
     press("i");
     frame();
-    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher", "Settings"]);
     cursor.mode = "normal";
     press("Escape");
     frame();
@@ -305,7 +313,7 @@ describe("the hint bar", () => {
     expect(replayed).toEqual([["i"]]);
     expect(document.activeElement).toBe(buffer);
     frame();
-    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher", "Settings"]);
     cursor.mode = "normal";
     press("Escape");
     frame();
@@ -364,11 +372,18 @@ describe("the hint bar", () => {
     press("f");
     frame();
     // In visual mode Vim waiting on `"` or `f` keeps the selection's keys.
-    expect(words()).toEqual(["Ask about this line", "Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual([
+      "Ask about this line",
+      "Course",
+      "Previous pane",
+      "Command palette",
+      "Quick switcher",
+      "Settings",
+    ]);
     buffer.setAttribute("data-vim-mode", "insert");
     press("i");
     frame();
-    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher"]);
+    expect(words()).toEqual(["Course", "Previous pane", "Command palette", "Quick switcher", "Settings"]);
   });
 
   it("starts at the detail it is given (ui.hintBar), and ␣uh steps on from there", () => {
