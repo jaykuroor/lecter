@@ -1712,3 +1712,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: a gloss made by the ask prompt is saved with `key=Enter`, naming the key pressed as 03-lecture-files.md's `key=s` does. Files written earlier with `key=a` stay readable.
 - Why: Enter is now the ask key (F-048); the attribute names the key, as in the spec's example.
 - Instead of: keeping `key=a`; recording the action (`key=ask`).
+
+## D-282 · Asking in an own note needs a note div (F-048)
+2026-11-07 · session F-048 · active
+- Decision: Enter asks on a slide line or on a line inside a `.note #n-…` div; on a loose own line (in no note) it does nothing. `gloss_request`'s `block` argument also takes a note id (`n-[0-9a-f]{4,8}`, IdKind::Note); the IPC name is unchanged. The note prompt wraps the note's own lines (nested divs left out) in `<untrusted_source note=…>`, with the breadcrumb from its anchor block; the finished gloss is saved after the note's div.
+- Why: criterion 2 anchors the gloss to a note id, and F-064 creates notes; the contract stays stable; same injection safety as slides.
+- Instead of: wrapping loose lines into new notes; a new IPC argument; adding the anchor block's text to the prompt.
+
+## D-283 · Enter is the ai.ask command; a is append (F-048)
+2026-11-07 · session F-048 · active
+- Decision: Enter is registered as `ai.ask` per view (a ViewPlugin in glossExtension), bound in normal and visual mode and declining in visual mode (selection ask is F-103) and in buffers that can't ask. `a` lives in ui/src/keys/append.ts: nothing on a slide line, Vim append elsewhere.
+- Why: one command reachable by key and by the hint (mouse).
+- Instead of: a Vim mapping; keeping askKey.ts for a.

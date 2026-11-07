@@ -271,6 +271,12 @@ Should a `lectures/` link out of the course, or a `slides/` folder that is itsel
 - Recommended: keep them refused until a student asks; slides are the case the spec names. (applied as default: refused)
 - Answer:
 
+## Q-042 · later · blocks: nothing
+Should Enter on a loose own line (in no .note div) ask, for example by wrapping the line in a new note first?
+- Context: F-048 asks only inside a note div (D-282); F-064 creates notes and may make loose lines rare.
+- Recommended: decide with F-064. (applied as default: Enter does nothing there)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 

@@ -5,6 +5,7 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Changed
+- Ask with Enter (not `a`) on a slide line or inside your own note; the answer streams in and is saved under that block or note (F-048)
 - CI's speed and memory checks on shared runners now report their numbers instead of failing; they still gate on the maintainer's machine (F-181)
 
 ### Added

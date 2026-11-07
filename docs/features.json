@@ -5021,7 +5021,7 @@
     "screenshot:ask-enter"
    ],
    "try": "On a slide line or in your own note press Enter, type a question, press Enter again",
-   "status": "in_progress",
+   "status": "done",
    "notes": "",
    "priority": 8142,
    "base": "21ce8f41c751ae32ec83a8094b60491936ac05c9"

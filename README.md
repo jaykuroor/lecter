@@ -31,7 +31,7 @@ Everything is a plain Markdown file in a folder you own. Lecter adds no account,
 
   | Key | Gloss |
   |---|---|
-  | `a` | Ask about this line |
+  | `Enter` | Ask about this line |
   | `s` | Step-by-step derivation, with numeric checks |
   | `K` | Define terms |
   | `x` | Worked example |
@@ -112,7 +112,7 @@ Settings live in `~/.config/lecter/` on Linux and macOS, and `%APPDATA%\lecter\`
 |---|---|---|
 | M0 | Foundations: workspace, UI and app shells, CI, risk spikes | Planned |
 | M0.5 | Walking skeleton: open, parse, edit, save, search, one gloss and one figure, on all three OSes | Done |
-| M1 | App shell, settings, courses, keys, hint bar, theming | Planned |
+| M1 | App shell, settings, courses, keys, hint bar, theming | Done |
 | M2 | Lecture files, slide parsing, editing, flags | Planned |
 | M3 | Providers and sign-in, agent harness, glosses, keycaps, web search | Planned |
 | M4 | Course retrieval, course card and digest, vision, figure cards | Planned |
