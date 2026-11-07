@@ -1,6 +1,7 @@
-//! `lecter-harness prompt <lecture> <block> <question…>`: prints the request that asking
-//! `question` about `block` of the lecture file `lecture` sends to the provider, as JSON: the same
-//! `ChatRequest` the app's `gloss_request` assembles, for the sample provider's model (F-023).
+//! `lecter-harness prompt <lecture> <block|note> <question…>`: prints the request that asking
+//! `question` with Enter on a slide block (`s3b2`) or own note (`n-91c0`) of the lecture file
+//! `lecture` sends to the provider, as JSON: the same `ChatRequest` the app's `gloss_request`
+//! assembles, for the sample provider's model (F-023, F-048).
 //! The lecture's course must be trusted (`course trust <dir> trusted`); a read-only or unanswered
 //! course is `E_NOT_TRUSTED`, as in the app (F-033, SEC-27).
 
@@ -15,11 +16,11 @@ use crate::error::{ErrorCode, HarnessError};
 /// The `prompt` command.
 pub const COMMAND: Command = Command {
     name: "prompt",
-    summary: "prompt <lecture> <block> <question…>: print the request a gloss on that block sends",
+    summary: "prompt <lecture> <block|note> <question…>: print the request Enter (ask) on that line sends",
     run,
 };
 
-const USAGE: &str = "usage: prompt <lecture> <block> <question…>";
+const USAGE: &str = "usage: prompt <lecture> <block|note> <question…>";
 
 fn run(args: &[String]) -> Result<Reply, HarnessError> {
     let [lecture, block, words @ ..] = args else {
@@ -31,7 +32,8 @@ fn run(args: &[String]) -> Result<Reply, HarnessError> {
     let text = read_lecture(Path::new(lecture))?;
     let req = lecter_ai::prompt::ask_request(&text, block, &words.join(" "), SAMPLE_ID).map_err(|e| match e {
         lecter_ai::Error::BlockNotFound => {
-            HarnessError::new(ErrorCode::NotFound, format!("no block {block} in {lecture}"))
+            let what = if block.starts_with("n-") { "note" } else { "block" };
+            HarnessError::new(ErrorCode::NotFound, format!("no {what} {block} in {lecture}"))
         }
         e => HarnessError::invalid_argument(e.to_string()),
     })?;

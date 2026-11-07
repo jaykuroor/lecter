@@ -48,7 +48,6 @@ pub enum IdKind {
     /// `g-[0-9a-f]{4,8}`.
     Gloss,
     /// `n-[0-9a-f]{4,8}`.
-    #[cfg_attr(not(test), expect(dead_code, reason = "no v0 command takes a note id yet"))]
     Note,
 }
 
