@@ -1676,3 +1676,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: the job spinner is a CSS ring mounted only between a request's ask and its done/stopped/failed event or refusal, static under reduced motion. The version and keymaps notice stay in the middle. components.md's current-line text and the `D n` / `⚑ n` counts are left out until doubts and flags exist (and the current-line text would change on every insert key). Segment labels use `title`.
 - Why: idle pages animate nothing (idle budget); 09-ui's list doesn't include those segments.
 - Instead of: an always-mounted spinner; placeholder counts.
+
+## D-276 · Trust screen shows where each link out points (F-047)
+2026-11-07 · maintainer · active
+- Decision: each `slides/` link that leaves the course is listed on the trust screen as `slides/<name> → <resolved target>`, with ` (hidden, never read)` after a target that is ignored. The target path is resolved, never read. F-047 criterion 4's "only its name SHALL be shown" means the file's contents and a linked folder's entries stay unread before trust.
+- Why: a harmless name such as `w3.pdf` can hide a link to `~/Documents/tax.pdf`; the user needs the target to judge the link.
+- Instead of: the link's name only.
+
+## D-277 · A linked folder is capped, not a reason to refuse the course (F-047)
+2026-11-07 · maintainer · active
+- Decision: a trusted course lists at most a fixed number of files from each `slides/` link to an outside folder; past the cap the listing is cut short with a visible note, and the course opens normally. A linked folder never makes `course_open` fail with E_TOO_MANY_ENTRIES.
+- Why: F-047 criterion 1 says a trusted course's links SHALL NOT fail; one link to a huge folder (all of ~/Downloads) must not block the whole course.
+- Instead of: counting the linked folder toward the 10,000-entry limit and refusing to open.
