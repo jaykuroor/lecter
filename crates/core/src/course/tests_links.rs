@@ -7,6 +7,7 @@
 use std::path::Path;
 
 use super::tests::{env, file, link, mkdir, open_err, open_ok, touch};
+use super::listing::LinkOut;
 use super::*;
 
 /// Criterion 1: a file and a folder linked from slides/ to outside the course are listed, and the

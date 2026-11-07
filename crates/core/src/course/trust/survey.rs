@@ -2,8 +2,10 @@
 //!
 //! The fingerprint covers the course's `AGENTS.md`, its role files (`.lecter/agents/*.md`),
 //! everything under `.lecter/skills/` (and inside the folders its links lead to in the course),
-//! and the `settings` object of `.lecter/course.jsonc` (course details such as its name or colour
-//! don't count). Links are never followed out of the course: an entry that resolves outside the
+//! the `settings` object of `.lecter/course.jsonc` (course details such as its name or colour
+//! don't count), and each link in `slides/` that leaves the course with where it leads (D-167), so
+//! adding or re-pointing one asks again and the AI reaches only links the screen listed. A link's
+//! target is resolved, never read. Links are never followed out of the course: an entry that resolves outside the
 //! root counts by its name only, so pointing it somewhere else changes nothing, but adding,
 //! removing or re-pointing it inside does. Names are hashed by their bytes, Unicode or not.
 //!
@@ -16,7 +18,7 @@ use std::ffi::{OsStr, OsString};
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
-use crate::course::{MAX_ENTRIES, within};
+use crate::course::{MAX_ENTRIES, hidden, links_out, plain, within};
 use crate::error::{Error, Result};
 use crate::settings::{COURSE_FILE, Layer, Source, jsonc};
 
@@ -42,6 +44,8 @@ pub(super) struct Found {
     pub skills: Vec<String>,
     /// Dotted settings keys of `course.jsonc`.
     pub overrides: Vec<String>,
+    /// The links in `slides/` that leave the course, each as `slides/<name> → <target>`.
+    pub links: Vec<String>,
     /// blake3 of all of the above, in hex.
     pub fingerprint: String,
     /// blake3 of all of it but course.jsonc's `settings`, in hex: what Lecter's own settings
@@ -120,6 +124,7 @@ fn ai_files(root: &Path) -> Result<Found> {
             seen = settings_overrides(root);
         }
     }
+    let mut links = slide_links(&mut print, root)?;
     // The settings part goes in last, so the hash before it is everything else.
     let rest = print.0.clone().finalize().to_hex().to_string();
     if let Some((tag, bytes)) = &seen.part {
@@ -127,10 +132,26 @@ fn ai_files(root: &Path) -> Result<Found> {
     }
     let fingerprint = print.0.finalize().to_hex().to_string();
     let mut overrides = seen.overrides;
-    for list in [&mut roles, &mut skills, &mut overrides] {
+    for list in [&mut roles, &mut skills, &mut overrides, &mut links] {
         cap(list);
     }
-    Ok(Found { sources: 0, agents, roles, skills, overrides, fingerprint, rest, settings: seen.object })
+    Ok(Found { sources: 0, agents, roles, skills, overrides, links, fingerprint, rest, settings: seen.object })
+}
+
+/// The links in `slides/` that leave the course, as the screen shows them: `slides/<name> →
+/// <target>`, and ` (hidden, never read)` after one that leads to something hidden. Each is added
+/// to the fingerprint with its target; a course without any adds nothing, so its fingerprint is
+/// the one it had before links out were allowed.
+fn slide_links(print: &mut Print, root: &Path) -> Result<Vec<String>> {
+    let mut shown = Vec::new();
+    for link in links_out(root)? {
+        let target = plain(&link.target.to_string_lossy());
+        print.part("slide-link", link.path.as_bytes());
+        print.path("to", link.target.as_os_str());
+        let note = if link.listed { "" } else { " (hidden, never read)" };
+        shown.push(format!("{} → {target}{note}", link.path));
+    }
+    Ok(shown)
 }
 
 /// Keeps a screen list short: past [`MAX_LISTED`] names, one line says how many more.
@@ -355,8 +376,8 @@ pub(super) fn ai(root: &Path) -> Result<Found> {
 }
 
 /// The files in `sources/` and its subfolders at any depth, hidden ones left out. Links are
-/// counted only when they lead to a file inside the course (links out are F-047's), and never
-/// walked into. The count stops at [`MAX_ENTRIES`] entries looked at.
+/// counted only when they lead to a file inside the course that isn't hidden (only `slides/` links
+/// may leave it, D-167), and never walked into. The count stops at [`MAX_ENTRIES`] entries looked at.
 #[allow(clippy::disallowed_methods, reason = "a blocking function; async callers run it in spawn_blocking")]
 fn count_sources(root: &Path) -> Result<u32> {
     let Place::Inside(dir) = inside(root, OsStr::new("sources"))? else { return Ok(0) };
@@ -380,7 +401,8 @@ fn count_sources(root: &Path) -> Result<u32> {
                 stack.push(entry.path());
             } else if kind.is_file()
                 || (kind.is_symlink()
-                    && std::fs::canonicalize(entry.path()).is_ok_and(|t| within(root, &t) && t.is_file()))
+                    && std::fs::canonicalize(entry.path())
+                        .is_ok_and(|t| within(root, &t) && !hidden(root, &t) && t.is_file()))
             {
                 count += 1;
             }

@@ -110,6 +110,7 @@ mod tests {
             roles: vec![".lecter/agents/tutor.md".into(), ".lecter/agents/quiz.md".into()],
             skills: vec![],
             overrides: vec!["ui.performance".into()],
+            links: vec![],
             changed: true,
             blocked: None,
         };

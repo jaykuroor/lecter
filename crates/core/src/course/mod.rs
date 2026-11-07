@@ -26,7 +26,7 @@ use serde::Serialize;
 use crate::error::{Error, Result};
 
 pub use listing::within;
-pub(crate) use listing::{LinkOut, hidden, links_out};
+pub(crate) use listing::{hidden, links_out};
 
 /// The most entries one subfolder listing reads: the contract's list limit (`limits.ipc.list`,
 /// 18-contracts.md#validation), so a listing always fits in one IPC answer.

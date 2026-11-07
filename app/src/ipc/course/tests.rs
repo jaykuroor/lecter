@@ -68,6 +68,7 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
         roles: vec![],
         skills: vec![],
         overrides: vec![],
+        links: vec!["slides/03.pdf → /home/u/Downloads/03.pdf".into()],
         changed: false,
         blocked: None,
     };
@@ -83,7 +84,8 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
             "trust": "read_only",
             "screen": {
                 "lectures": 1, "slides": 1, "sources": 0, "provider": "sample", "webSearch": true,
-                "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [], "changed": false,
+                "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [],
+                "links": ["slides/03.pdf → /home/u/Downloads/03.pdf"], "changed": false,
                 "blocked": null
             },
         })

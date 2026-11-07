@@ -10,7 +10,8 @@
 //! The core enforces the answer (SEC-27): AI, indexing and scripted-figure commands call
 //! [`require_trusted`] first and get [`Error::CourseNotTrusted`] or [`Error::CourseReadOnly`]
 //! (`E_NOT_TRUSTED`) for any course not trusted as it is now. The AI's file reads go through
-//! [`course_file`], which refuses every path outside the course root.
+//! [`course_file`], which refuses every path outside the course root except a slide reached through
+//! a `slides/` link the screen listed, in a course trusted as it is now (D-167).
 //!
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
@@ -88,6 +89,10 @@ pub struct TrustScreen {
     pub skills: Vec<String>,
     /// The settings `.lecter/course.jsonc` overrides, as dotted keys.
     pub overrides: Vec<String>,
+    /// The links in `slides/` that leave the course folder, each as `slides/<name> → <target>`
+    /// (` (hidden, never read)` after one Lecter ignores). They are listed as slides; nothing they
+    /// lead to is read before the course is trusted, nor ever in a read-only one (D-167).
+    pub links: Vec<String>,
     /// The question is asked again because the files above changed since the last answer.
     pub changed: bool,
     /// Why Lecter can't check this course's AI files (too many skill entries, a file too large to
@@ -131,6 +136,7 @@ pub fn review(store: &TrustStore, listing: &CourseListing, provider: &str) -> Re
         roles: found.roles,
         skills: found.skills,
         overrides: found.overrides,
+        links: found.links,
         changed,
         blocked,
     };
@@ -197,6 +203,8 @@ fn count(n: usize) -> u32 {
 mod tests;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_blocked;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_links;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_own_write;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
