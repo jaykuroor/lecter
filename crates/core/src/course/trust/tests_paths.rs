@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use proptest::prelude::*;
 use proptest::test_runner::{Config, TestCaseError, TestRunner};
 
-use super::tests::link;
+use super::tests::{link, store};
 use super::*;
 use crate::ErrorCode;
 use crate::course::within;
@@ -69,7 +69,7 @@ fn paths_inside_the_course_resolve_to_the_real_file() {
         ("a/b", "a/b"),
     ];
     for (requested, want) in cases {
-        let got = course_file(&c, requested).unwrap_or_else(|e| panic!("{requested}: {e:?}"));
+        let got = course_file(&store(&env), &c, requested).unwrap_or_else(|e| panic!("{requested}: {e:?}"));
         assert_eq!(got, std::fs::canonicalize(c.join(want)).unwrap_or_else(|e| panic!("{e}")), "{requested}");
     }
 }
@@ -105,10 +105,10 @@ fn each_way_out_is_not_trusted() {
         "./",
         "a/\0/f.txt",
     ] {
-        let e = course_file(&c, requested).err().unwrap_or_else(|| panic!("{requested:?} was accepted"));
+        let e = course_file(&store(&env), &c, requested).err().unwrap_or_else(|| panic!("{requested:?} was accepted"));
         assert_eq!(e.code(), ErrorCode::NotTrusted, "{requested:?}: {e:?}");
     }
-    let e = course_file(&c, "out/secret.txt").err().unwrap_or_else(|| panic!("accepted"));
+    let e = course_file(&store(&env), &c, "out/secret.txt").err().unwrap_or_else(|| panic!("accepted"));
     assert_eq!(e, Error::OutsideCourse("out/secret.txt".into()));
 }
 
@@ -118,10 +118,10 @@ fn each_way_out_is_not_trusted() {
 fn missing_and_overlong_paths() {
     let env = env();
     let (c, _) = fixture(&env);
-    let e = course_file(&c, "a/missing.txt").err().unwrap_or_else(|| panic!("accepted"));
+    let e = course_file(&store(&env), &c, "a/missing.txt").err().unwrap_or_else(|| panic!("accepted"));
     assert_eq!(e, Error::ReadFailed { path: "a/missing.txt".into(), kind: std::io::ErrorKind::NotFound });
     let long = "a/".repeat(2048) + "f.txt";
-    assert_eq!(course_file(&c, &long).map_err(|e| e.code()), Err(ErrorCode::NotTrusted));
+    assert_eq!(course_file(&store(&env), &c, &long).map_err(|e| e.code()), Err(ErrorCode::NotTrusted));
 }
 
 /// The length limit is 4096 bytes: a path of exactly that is looked up (here: not found), one
@@ -132,10 +132,10 @@ fn a_path_of_exactly_the_limit_is_looked_up() {
     let (c, _) = fixture(&env);
     let at_limit = "a/".repeat(2045) + "ff.txt";
     assert_eq!(at_limit.len(), 4096);
-    let e = course_file(&c, &at_limit).err().unwrap_or_else(|| panic!("accepted"));
+    let e = course_file(&store(&env), &c, &at_limit).err().unwrap_or_else(|| panic!("accepted"));
     assert!(matches!(e, Error::ReadFailed { .. }), "{e:?}");
     let over = at_limit + "x";
-    assert_eq!(course_file(&c, &over).err().map(|e| e.code()), Some(ErrorCode::NotTrusted));
+    assert_eq!(course_file(&store(&env), &c, &over).err().map(|e| e.code()), Some(ErrorCode::NotTrusted));
 }
 
 /// A link to nowhere names a place, maybe outside the course: refused as escaping, not reported
@@ -145,7 +145,7 @@ fn a_dangling_link_is_refused_as_escaping() {
     let env = env();
     let (c, outside) = fixture(&env);
     link(&outside.join("gone.txt"), &c.join("a/gone.txt"));
-    let e = course_file(&c, "a/gone.txt").err().unwrap_or_else(|| panic!("accepted"));
+    let e = course_file(&store(&env), &c, "a/gone.txt").err().unwrap_or_else(|| panic!("accepted"));
     assert_eq!(e, Error::OutsideCourse("a/gone.txt".into()));
 }
 
@@ -209,7 +209,7 @@ fn no_generated_path_escapes_the_course() {
             }
             requested.push_str(p);
         }
-        let got = course_file(&c, &requested);
+        let got = course_file(&store(&env), &c, &requested);
         let names: Vec<&str> = parts.iter().map(|(p, _)| *p).collect();
         if let Ok(real) = &got {
             prop_assert!(within(&c, real), "{requested:?} → {}", real.display());

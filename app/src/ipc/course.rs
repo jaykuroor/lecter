@@ -6,10 +6,10 @@
 
 use std::path::{Path, PathBuf};
 
+use lecter_core::course::CourseListing;
 use lecter_core::course::details::{self as course_details, CourseDetails};
 use lecter_core::course::known::KnownCourses;
 use lecter_core::course::trust::{self, TrustChoice, TrustScreen, TrustState, TrustStore};
-use lecter_core::course::{self, CourseListing};
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, State};
@@ -31,12 +31,16 @@ pub struct CourseOpened {
     pub screen: TrustScreen,
 }
 
-/// `course_trust`'s result: where the course's trust stands after the answer, and its screen as
-/// it is now (asked again, with `changed`, when its AI files changed while the screen was open).
+/// `course_trust`'s result: the course listed anew as its trust now allows (a slides/ link to a
+/// folder outside lists its files only once trusted, F-047), where its trust stands after the
+/// answer, and its screen as it is now (asked again, with `changed`, when its AI files changed
+/// while the screen was open).
 /// A course now trusted whose details were never saved comes with the details form's first
 /// values (02-course-folder.md#course-details-coursejsonc); otherwise `details` is `null`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct CourseTrusted {
+    #[serde(flatten)]
+    pub course: CourseListing,
     pub trust: TrustState,
     pub screen: TrustScreen,
     pub details: Option<CourseDetails>,
@@ -44,8 +48,9 @@ pub struct CourseTrusted {
 
 /// Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 /// listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
-/// comes from the dialog, never from the UI (SEC-32, SEC-35). A file linked out of the course
-/// fails with E_NOT_TRUSTED. The course is remembered for this session, so its lectures can be
+/// comes from the dialog, never from the UI (SEC-32, SEC-35). A lecture linked out of the course
+/// fails with E_NOT_TRUSTED; a link in slides/ that leaves it is listed, and named on the trust
+/// screen (D-167). The course is remembered for this session, so its lectures can be
 /// opened and its trust question answered, and it joins the course rail (`course:changed`).
 #[tauri::command]
 #[specta::specta]
@@ -89,11 +94,14 @@ async fn open(
 ) -> Result<CourseOpened, IpcError> {
     let store = courses.trust().clone();
     let (course, review) = blocking("Lecter could not check that folder.", move || {
-        let course = course::open(&picked)?;
+        // Listed as its trust allows: a slides/ link to a folder outside is read only once the
+        // course is trusted as it is now (F-047, D-277).
+        let mut course = trust::open(&store, &picked)?;
         let mut review = trust::review(&store, &course, &provider)?;
         if answered && review.state == TrustState::Ask && review.screen.blocked.is_none() {
             review.state = trust::decide(&store, &course.path, TrustChoice::Trusted, &review.fingerprint)?;
             review.screen.changed = false;
+            course = trust::open(&store, Path::new(&course.path))?;
         }
         Ok((course, review))
     })
@@ -113,17 +121,17 @@ async fn answer(
     let shown = courses.shown(&course).unwrap_or_default();
     let store = courses.trust().clone();
     let path = course.clone();
-    let (review, details) = blocking("Lecter could not save your answer.", move || {
+    let (listing, review, details) = blocking("Lecter could not save your answer.", move || {
         trust::decide(&store, &path, choice, &shown)?;
-        let listing = course::open(Path::new(&path))?;
+        let listing = trust::open(&store, Path::new(&path))?;
         let review = trust::review(&store, &listing, &provider)?;
         let details = form_after(review.state, || course_details::pending(Path::new(&path)));
-        Ok((review, details))
+        Ok((listing, review, details))
     })
     .await?;
     tracing::info!(target: "ipc", command = "course_trust", ?choice, state = ?review.state, "trust answered");
     courses.remember(&course, &review.fingerprint);
-    Ok(CourseTrusted { trust: review.state, screen: review.screen, details })
+    Ok(CourseTrusted { course: listing, trust: review.state, screen: review.screen, details })
 }
 
 /// The course details form's first values after an answer that left the course in `state`. Only

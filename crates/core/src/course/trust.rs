@@ -10,7 +10,8 @@
 //! The core enforces the answer (SEC-27): AI, indexing and scripted-figure commands call
 //! [`require_trusted`] first and get [`Error::CourseNotTrusted`] or [`Error::CourseReadOnly`]
 //! (`E_NOT_TRUSTED`) for any course not trusted as it is now. The AI's file reads go through
-//! [`course_file`], which refuses every path outside the course root.
+//! [`course_file`], which refuses every path outside the course root except a slide reached through
+//! a `slides/` link the screen listed, in a course trusted as it is now (D-167).
 //!
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
@@ -27,7 +28,7 @@ pub use own_write::{OwnSettingsWrite, begin_own_settings_write, finish_own_setti
 pub use paths::course_file;
 pub use store::{TRUST_FILE, TrustEntry, TrustStore};
 
-use super::{CourseListing, canonical_folder, plain};
+use super::{CourseListing, LINKED_FOLDER_FILES, LinkedFolders, canonical_folder, open_with, plain};
 use crate::error::{Error, Result};
 use crate::settings::schema::WebSearch;
 use crate::settings::{COURSE_FILE, GLOBAL_FILE, SettingsStore};
@@ -88,6 +89,10 @@ pub struct TrustScreen {
     pub skills: Vec<String>,
     /// The settings `.lecter/course.jsonc` overrides, as dotted keys.
     pub overrides: Vec<String>,
+    /// The links in `slides/` that leave the course folder, each as `slides/<name> → <target>`
+    /// (` (hidden, never read)` after one Lecter ignores). They are listed as slides; nothing they
+    /// lead to is read before the course is trusted, nor ever in a read-only one (D-167).
+    pub links: Vec<String>,
     /// The question is asked again because the files above changed since the last answer.
     pub changed: bool,
     /// Why Lecter can't check this course's AI files (too many skill entries, a file too large to
@@ -131,6 +136,7 @@ pub fn review(store: &TrustStore, listing: &CourseListing, provider: &str) -> Re
         roles: found.roles,
         skills: found.skills,
         overrides: found.overrides,
+        links: capped(found.links, &listing.capped),
         changed,
         blocked,
     };
@@ -177,6 +183,17 @@ fn standing(entry: Option<TrustEntry>, now: &str) -> (TrustState, bool) {
     }
 }
 
+/// Opens and lists the course at `picked` as its trust allows: a `slides/` link to a folder
+/// outside the course lists the files in it only when the course is trusted as it is now, and
+/// lists as itself otherwise, its folder unread (F-047 criterion 4, D-277).
+pub fn open(store: &TrustStore, picked: &Path) -> Result<CourseListing> {
+    let linked = match state(store, picked)? {
+        TrustState::Trusted => LinkedFolders::Files,
+        TrustState::Ask | TrustState::ReadOnly => LinkedFolders::Names,
+    };
+    open_with(picked, linked)
+}
+
 /// SEC-27: succeeds only for a course trusted as it is now. AI, indexing and scripted-figure
 /// commands call this before anything else; a read-only course is [`Error::CourseReadOnly`], an
 /// unanswered or changed one [`Error::CourseNotTrusted`] (both `E_NOT_TRUSTED`).
@@ -188,6 +205,18 @@ pub fn require_trusted(store: &TrustStore, course: &Path) -> Result<()> {
     }
 }
 
+/// The screen's link lines, each one whose folder `listing` lists only in part (`capped`, D-277)
+/// saying so.
+fn capped(links: Vec<String>, capped: &[String]) -> Vec<String> {
+    links
+        .into_iter()
+        .map(|line| match capped.iter().find(|c| line.starts_with(&format!("{c} → "))) {
+            Some(_) => format!("{line} (only the first {LINKED_FOLDER_FILES} files listed)"),
+            None => line,
+        })
+        .collect()
+}
+
 /// A list length as the screen's count; a listing never holds more than `MAX_ENTRIES`.
 fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
@@ -197,6 +226,8 @@ fn count(n: usize) -> u32 {
 mod tests;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_blocked;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_links;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_own_write;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]

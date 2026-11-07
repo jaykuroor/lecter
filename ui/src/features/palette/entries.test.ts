@@ -124,6 +124,7 @@ const opened: CourseOpened = {
     roles: [],
     skills: [],
     overrides: [],
+    links: [],
     changed: false,
     blocked: null,
   },

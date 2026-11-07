@@ -261,6 +261,17 @@ describe("Sidebar", () => {
     expect(rowNames()).toEqual(["Dashboard", "Doubts", "Flags", "Office hours", "Later", "Revise"]);
   });
 
+  // D-277 (F-047): a folder linked from slides/ that holds too many files is listed in part, with a
+  // note under Slides naming it; none without one.
+  it("notes a linked folder listed only in part under Slides", () => {
+    mount({ course: { ...stat311, capped: ["slides/week4"] } });
+    const notes = [...course().querySelectorAll(".sidebar-capped")].map((n) => n.textContent);
+    expect(notes).toEqual(["slides/week4 holds too many files; only the first are listed."]);
+    cleanup();
+    mount();
+    expect(course().querySelectorAll(".sidebar-capped")).toHaveLength(0);
+  });
+
   it("marks a read-only course beside its name", () => {
     mount({ course: { ...stat311, trust: "read_only" } });
     expect(within(course()).getByRole("heading", { level: 2 }).textContent).toBe("STAT311 Read-only");

@@ -15,9 +15,22 @@ const screen: TrustScreen = {
   roles: [],
   skills: [],
   overrides: [],
+  links: [],
   changed: false,
   blocked: null,
 };
+
+/** `course_trust`'s answer: the course listed anew, with the trust chosen. */
+const answered: MockHandlers["course_trust"] = ({ choice }) => ({
+  path: "/c",
+  name: "c",
+  lectures: [],
+  slides: [],
+  sources: [],
+  trust: choice,
+  screen,
+  details: null,
+});
 
 const matching: MockHandlers = {
   app_info: () => ({ name: "Lecter", version: "0.0.1" }),
@@ -38,7 +51,7 @@ const matching: MockHandlers = {
   app_mark_startup: () => undefined,
   app_layout_get: () => ({ sidebar: true }),
   app_layout_save: () => null,
-  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_trust: answered,
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
@@ -70,7 +83,7 @@ const wrongResult: MockHandlers = {
   app_mark_startup: () => undefined,
   app_layout_get: () => ({ sidebar: true }),
   app_layout_save: () => null,
-  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_trust: answered,
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
@@ -96,7 +109,7 @@ const wrongEnum: MockHandlers = {
   app_mark_startup: () => undefined,
   app_layout_get: () => ({ sidebar: true }),
   app_layout_save: () => null,
-  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_trust: answered,
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],
@@ -121,7 +134,7 @@ const extra: MockHandlers = {
   app_mark_startup: () => undefined,
   app_layout_get: () => ({ sidebar: true }),
   app_layout_save: () => null,
-  course_trust: ({ choice }) => ({ trust: choice, screen, details: null }),
+  course_trust: answered,
   course_details_save: ({ details }) => details,
   course_list: () => [],
   course_reorder: () => [],

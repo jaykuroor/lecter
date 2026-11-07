@@ -2,9 +2,14 @@
 //! `sources/`.
 //!
 //! [`open`] canonicalises the chosen folder and lists the subfolders. Every listed entry is
-//! canonicalised too (symlinks resolved) and must stay under the course root (SEC-35); one in
-//! `lectures/` or `slides/` that escapes fails the open with [`Error::OutsideCourse`]
-//! (`E_NOT_TRUSTED`), one in `sources/` is left out. Each lecture comes with its front-matter
+//! canonicalised too (symlinks resolved) and checked against the course root (SEC-35): one in
+//! `lectures/` that escapes fails the open with [`Error::OutsideCourse`] (`E_NOT_TRUSTED`), one in
+//! `sources/` is left out, and a link in `slides/` to a file or folder outside is listed, since it
+//! belongs to the course once the user trusts it (D-167; the trust screen names it, and the AI
+//! reaches it only through [`trust::course_file`] of a trusted course). A linked folder outside is
+//! read only for a trusted course ([`open_with`] and [`LinkedFolders`], [`trust::open`]); [`open`]
+//! lists it by name. Hidden files and `.lecter/`
+//! internals are never listed, wherever a link points. Each lecture comes with its front-matter
 //! date, read from the file's first 4 KB (`front.rs`, D-194). The app's `course_open` and
 //! `lecter-harness course open` both return this listing, so they print the same JSON.
 //!
@@ -22,7 +27,8 @@ use serde::Serialize;
 
 use crate::error::{Error, Result};
 
-pub use listing::within;
+pub use listing::{LINKED_FOLDER_FILES, LinkedFolders, within};
+pub(crate) use listing::{hidden, links_out};
 
 /// The most entries one subfolder listing reads: the contract's list limit (`limits.ipc.list`,
 /// 18-contracts.md#validation), so a listing always fits in one IPC answer.
@@ -38,10 +44,17 @@ pub struct CourseListing {
     pub name: String,
     /// The lecture files (`lectures/*.md`), by name.
     pub lectures: Vec<LectureFile>,
-    /// The slide files (`slides/*`), by name.
+    /// The slide files (`slides/*`), by name. A folder linked from `slides/` lists the files
+    /// directly in it as `<link>/<file>` (D-167); one outside the course does so only once the
+    /// course is trusted, and lists as itself before.
     pub slides: Vec<CourseFile>,
     /// The source files directly in `sources/` (textbooks, papers, past exams), by name.
     pub sources: Vec<CourseFile>,
+    /// The `slides/` links to folders listed only in part, e.g. `slides/week4`: each lists at most
+    /// 500 files, the first by name (D-277). Left out when there are none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub capped: Vec<String>,
 }
 
 /// One lecture file in `lectures/`, with its front-matter date when it has one.
@@ -69,20 +82,31 @@ pub struct CourseFile {
 }
 
 /// Opens the course folder at `picked` (an absolute path, as a folder dialog returns it) and lists
-/// it. A missing `lectures/`, `slides/` or `sources/` lists as empty, and so does a `sources/` that
-/// can't be read: it is only shown.
+/// it, a `slides/` link to a folder outside the course by its name only: what the course may show
+/// before it is trusted. A missing `lectures/`, `slides/` or `sources/` lists as empty, and so
+/// does a `sources/` that can't be read: it is only shown.
 pub fn open(picked: &Path) -> Result<CourseListing> {
+    open_with(picked, LinkedFolders::Names)
+}
+
+/// [`open`], with `linked` saying whether a `slides/` link to a folder outside the course lists
+/// the files in it. [`LinkedFolders::Files`] is for a course trusted as it is now:
+/// [`trust::open`] picks it.
+pub fn open_with(picked: &Path, linked: LinkedFolders) -> Result<CourseListing> {
     let root = canonical_folder(picked)?;
     let path = plain(root.to_str().ok_or(Error::NotUnicode)?);
     let name = root.file_name().map_or(Some(""), |n| n.to_str()).ok_or(Error::NotUnicode)?.to_owned();
-    let lectures = listing::files(&root, listing::Folder::Lectures)?
+    let lectures = listing::files(&root, listing::Folder::Lectures, linked)?
+        .files
         .into_iter()
         .map(|(CourseFile { name, path }, real)| LectureFile { name, path, date: front::lecture_date(&real) })
         .collect();
-    let files = |folder| listing::files(&root, folder).map(|f| f.into_iter().map(|(file, _)| file).collect());
-    let slides = files(listing::Folder::Slides)?;
-    let sources = files(listing::Folder::Sources).unwrap_or_default();
-    Ok(CourseListing { path, name, lectures, slides, sources })
+    let names = |files: Vec<(CourseFile, PathBuf)>| files.into_iter().map(|(file, _)| file).collect();
+    let slides = listing::files(&root, listing::Folder::Slides, linked)?;
+    let capped = slides.capped;
+    let slides = names(slides.files);
+    let sources = listing::files(&root, listing::Folder::Sources, linked).map(|l| names(l.files)).unwrap_or_default();
+    Ok(CourseListing { path, name, lectures, slides, sources, capped })
 }
 
 /// A canonical path as the user knows it. Windows canonicalisation returns verbatim paths
@@ -145,3 +169,5 @@ pub fn ensure_dir(course: &Path, rel: &str) -> Result<PathBuf> {
 // The fixtures live in a TestEnv home, which exists in debug and test-hooks builds only.
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_links;

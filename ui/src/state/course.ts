@@ -96,10 +96,12 @@ export function createCourse(): CourseState {
       if (result.status === "error") {
         setError(result.error.message);
       } else {
-        // `open` waits while busy, so the course is still `current`.
-        setCourse({ ...current, trust: result.data.trust, screen: result.data.screen });
+        // `open` waits while busy, so the course is still `current`. The core lists it anew: a
+        // slides/ link to a folder outside lists its files only once trusted (F-047).
+        const { details: form, ...answered } = result.data;
+        setCourse({ ...current, ...answered });
         // The core sends the form only for a course it now trusts.
-        setDetails(result.data.trust === "trusted" ? (result.data.details ?? null) : null);
+        setDetails(answered.trust === "trusted" ? (form ?? null) : null);
         setError(null);
       }
     } catch {

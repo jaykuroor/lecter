@@ -86,6 +86,7 @@ fn a_first_open_asks_and_shows_what_is_inside() {
             roles: vec![".lecter/agents/tutor.md".into()],
             skills: vec![".lecter/skills/flashcards".into()],
             overrides: vec!["ai.hedgeAfterMs".into(), "ui.performance".into()],
+            links: vec![],
             changed: false,
             blocked: None,
         }

@@ -56,6 +56,7 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
         }],
         slides: vec![CourseFile { name: "01.pdf".into(), path: "slides/01.pdf".into() }],
         sources: vec![],
+        capped: vec![],
     };
     let listing = serde_json::to_value(&course).unwrap();
     let screen = TrustScreen {
@@ -68,6 +69,7 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
         roles: vec![],
         skills: vec![],
         overrides: vec![],
+        links: vec!["slides/03.pdf → /home/u/Downloads/03.pdf".into()],
         changed: false,
         blocked: None,
     };
@@ -83,7 +85,8 @@ fn result_is_the_listing_with_trust_and_screen_beside_it() {
             "trust": "read_only",
             "screen": {
                 "lectures": 1, "slides": 1, "sources": 0, "provider": "sample", "webSearch": true,
-                "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [], "changed": false,
+                "agents": ["AGENTS.md"], "roles": [], "skills": [], "overrides": [],
+                "links": ["slides/03.pdf → /home/u/Downloads/03.pdf"], "changed": false,
                 "blocked": null
             },
         })
@@ -175,4 +178,33 @@ fn a_link_out_of_the_course_is_not_trusted_over_ipc() {
     assert!(e.message.starts_with("slides/07.pdf points outside the course folder"), "{}", e.message);
     let e = ipc_error(lecter_core::Error::FolderNotFound);
     assert_eq!((e.code, e.message.as_str()), (ErrorCode::NotFound, "That folder no longer exists."));
+}
+
+/// F-047 criteria 1 and 4 over IPC: before the answer, `course_open` lists a slides/ link to a
+/// folder outside by its name and never reads that folder; Trust's answer lists the folder's files;
+/// the debug hook's Trust does too.
+#[cfg(unix)]
+#[test]
+fn a_linked_folder_is_read_only_after_trust_over_ipc() {
+    let env = TestEnv::new().unwrap();
+    let dir = course(&env);
+    let week4 = env.home().join("Downloads/week4");
+    std::fs::create_dir_all(&week4).unwrap();
+    std::fs::write(week4.join("a.pdf"), "x").unwrap();
+    std::os::unix::fs::symlink(&week4, dir.join("slides/week4")).unwrap();
+    let paths = |slides: &[CourseFile]| slides.iter().map(|f| f.path.clone()).collect::<Vec<_>>();
+
+    let courses = opened(&env);
+    let first = open_course(&courses, &dir, false).unwrap();
+    assert_eq!(first.trust, TrustState::Ask);
+    assert_eq!(paths(&first.course.slides), ["slides/01.pdf", "slides/week4"]);
+    let trusted = answer_course(&courses, &first.course.path, TrustChoice::Trusted).unwrap();
+    assert_eq!(trusted.trust, TrustState::Trusted);
+    assert_eq!(paths(&trusted.course.slides), ["slides/01.pdf", "slides/week4/a.pdf"]);
+
+    let other = TestEnv::new().unwrap();
+    let dir = course(&other);
+    std::os::unix::fs::symlink(&week4, dir.join("slides/week4")).unwrap();
+    let hooked = open_course(&opened(&other), &dir, true).unwrap();
+    assert_eq!(paths(&hooked.course.slides), ["slides/01.pdf", "slides/week4/a.pdf"]);
 }

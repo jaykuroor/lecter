@@ -56,7 +56,7 @@ fn a_first_open_shows_the_trust_screen() {
             "screen": {
                 "lectures": 1, "slides": 2, "sources": 1, "provider": "sample", "webSearch": true,
                 "agents": ["AGENTS.md"], "roles": [".lecter/agents/tutor.md"], "skills": [], "overrides": [],
-                "changed": false, "blocked": null
+                "links": [], "changed": false, "blocked": null
             }
         })
     );
