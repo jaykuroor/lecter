@@ -1522,9 +1522,10 @@
    "evidence": [
     "screenshot:status-line"
    ],
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 3041
+   "priority": 3041,
+   "base": "b5ee8c0d5cd04ff9138fdd342f70a0f64fcf645d"
   },
   {
    "id": "F-050",
