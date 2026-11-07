@@ -76,6 +76,9 @@ describe("a setting's row", () => {
     const nord = screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement;
     expect([...nord.options].map((o) => o.value)).toEqual(["", "Adwaita", "Nord"]);
     expect(nord.value).toBe("Nord");
+    cleanup();
+    await opened(fakeSettingsCore({ ...DEFAULTS, "ui.theme": { value: '"Adwaita"', source: "global" } }));
+    expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("Adwaita");
   });
 
   it("gives fields a hint of what they take, and Enter commits without doing anything else", async () => {
@@ -108,10 +111,12 @@ describe("a setting's row", () => {
   });
 
   it("can't be changed for a course when only the global settings may set it (SEC-25)", async () => {
-    const core = fakeSettingsCore(DEFAULTS);
+    const core = fakeSettingsCore({ ...DEFAULTS, "ui.hintBar": { value: '"off"', source: "course" } });
     core.open = { path: "/c/STAT311", name: "STAT311", trusted: true };
     await opened(core);
     fireEvent.click(screen.getByRole("radio", { name: "This course (STAT311)" }));
+    // Changes go to the course now: its own value needs no note.
+    expect(row("ui.hintBar").querySelector(".settings-note")).toBeNull();
     // A setting a course may set stays open to change.
     expect((screen.getByRole("checkbox", { name: "Keystrokes" }) as HTMLInputElement).disabled).toBe(false);
     expect(screen.getByRole("radio", { name: "Compact" }).hasAttribute("disabled")).toBe(false);

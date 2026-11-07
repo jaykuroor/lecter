@@ -5,11 +5,12 @@ import { expect } from "vitest";
 import type { SettingSource } from "../../../core/bindings";
 import { DEFAULT_KEYMAP } from "../../../keys/keymap";
 import { SettingsWindow } from "../SettingsWindow";
-import { createSettings } from "../state";
+import { createSettings, type SettingsWindow as SettingsWindowState } from "../state";
 import { type FakeSettingsCore, fakeSettingsCore } from "./fakeCore";
 
 export interface Opened {
   core: FakeSettingsCore;
+  settings: SettingsWindowState;
   closed: () => number;
   dialog: HTMLElement;
 }
@@ -40,7 +41,7 @@ export async function opened(core: FakeSettingsCore = fakeSettingsCore(DEFAULTS)
   ));
   await settings.open();
   await waitFor(() => expect(document.querySelector(".settings-row")).not.toBeNull());
-  return { core, closed: () => closes, dialog: screen.getByRole("dialog", { name: "Settings" }) };
+  return { core, settings, closed: () => closes, dialog: screen.getByRole("dialog", { name: "Settings" }) };
 }
 
 /** A keydown on `target`, as dispatched (its `defaultPrevented` says whether the window took it). */

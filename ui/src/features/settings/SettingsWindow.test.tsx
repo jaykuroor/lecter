@@ -327,6 +327,13 @@ describe("the Settings window by key (F-045 criterion 3)", () => {
       expect(key(search, "ArrowDown").defaultPrevented).toBe(true);
       expect(active()).toBe(search);
       expect(scrolled).toHaveLength(1);
+      // j on the last setting stays on it.
+      fireEvent.input(search, { target: { value: "" } });
+      const theme = screen.getByRole("combobox", { name: "Theme" });
+      theme.focus();
+      key(theme, "j");
+      expect(active()).toBe(theme);
+      expect(scrolled.at(-1)).toEqual(["ui.theme", { block: "nearest" }]);
     } finally {
       delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     }
@@ -380,5 +387,17 @@ describe("the Settings window's frame", () => {
     expect([global.checked, trusted.checked]).toEqual([false, true]);
     fireEvent.click(global);
     expect([global.checked, trusted.checked]).toEqual([true, false]);
+  });
+
+  it("shows the file changes go to when it changes from elsewhere, and on the next open", async () => {
+    const core = fakeSettingsCore(DEFAULTS);
+    core.open = { path: "/c/STAT311", name: "STAT311", trusted: true };
+    const { settings } = await opened(core);
+    const global = screen.getByRole("radio", { name: "Global" }) as HTMLInputElement;
+    const course = screen.getByRole("radio", { name: "This course (STAT311)" }) as HTMLInputElement;
+    settings.setScope("course");
+    expect([global.checked, course.checked]).toEqual([false, true]);
+    settings.setScope("global");
+    expect([global.checked, course.checked]).toEqual([true, false]);
   });
 });

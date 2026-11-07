@@ -63,7 +63,7 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
     else if (act.do === "clear") s.setQuery("");
     else if (act.do === "search") search.focus();
     else if (act.do === "page") movePage(act.by);
-    else if (act.do === "row") moveRow(target, act.by);
+    else moveRow(target, act.by);
   };
 
   return (

@@ -111,6 +111,15 @@ describe("startSettings", () => {
     expect(document.querySelector('[data-key="ui.keystrokes"] .settings-source')?.textContent).toBe("global");
   });
 
+  it("takes its window away when it stops", async () => {
+    const { handle: h } = start();
+    h.open();
+    await screen.findByRole("dialog", { name: "Settings" });
+    h.stop();
+    handle = null;
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("stops listening when it stops, even before the listener was in", async () => {
     const { handle: h } = start();
     await waitFor(() => expect(listening()).toBe(1));

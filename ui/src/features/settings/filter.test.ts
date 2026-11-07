@@ -54,6 +54,27 @@ describe("the settings search (F-045 criterion 1)", () => {
     expect(keys(find("theme"))).toEqual(["ui.theme"]);
   });
 
+  it("looks only at the last matches when the query grew (D-237)", () => {
+    let reads = 0;
+    const counted = entries.map((e) => ({
+      ...e,
+      get text() {
+        reads += 1;
+        return e.text;
+      },
+    }));
+    const find = createFilter(counted);
+    find("budget");
+    const matches = find("budget").length;
+    reads = 0;
+    find("budget mon");
+    // Each of the last matches is read once per word, and no other.
+    expect(reads).toBe(matches * 2);
+    reads = 0;
+    find("hint");
+    expect(reads).toBe(counted.length);
+  });
+
   it("narrows only from a query it grew from, not from one that merely starts the same", () => {
     const find = createFilter(entries);
     expect(keys(find("theme"))).toEqual(["ui.theme"]);

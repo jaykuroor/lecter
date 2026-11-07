@@ -99,9 +99,7 @@ export function SettingRow(props: { entry: Entry; state: SettingState; settings:
               aria-labelledby={labelId()}
               onChange={(e) => write(e.currentTarget.value === "" ? "null" : JSON.stringify(e.currentTarget.value))}
             >
-              <option value="" selected={json() === "null"}>
-                Follow the desktop
-              </option>
+              <option value="">Follow the desktop</option>
               <For each={themeNames(props.settings.themes(), json())}>
                 {(name) => (
                   <option value={name} selected={JSON.stringify(name) === json()}>
