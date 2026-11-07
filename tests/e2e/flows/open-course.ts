@@ -200,6 +200,8 @@ describe("open course with a link out of it", () => {
     );
     expect(shown).toEqual([`slides/04-week4 → ${target}`]);
     await expect($(".trust-inside")).toHaveText("0 lectures · 2 slide decks · 0 sources");
+    // Not trusted yet: the linked folder lists as itself and is never read (criterion 4).
+    expect(await names("Slides")).toEqual(["01-variance.pdf", "04-week4"]);
     await shot("trust-links");
 
     await $("button=Trust").click();
