@@ -277,6 +277,12 @@ Should Enter on a loose own line (in no .note div) ask, for example by wrapping 
 - Recommended: decide with F-064. (applied as default: Enter does nothing there)
 - Answer:
 
+## Q-043 · later · blocks: nothing
+M1 security review: should `settings_set`'s refusal log escape the key, and who reviews `legacy_dirs.rs`?
+- Context: app/src/ipc/settings.rs (~214) logs the refused key with `key = %key` (Display), so a newline or terminal escape in a user-supplied key (≤ 256 bytes, unchecked until `store.set` fails) is written raw (ROB-52). No log subscriber exists yet, so nothing is exploitable today. The M1 security review stopped partway through `legacy_dirs.rs` (after `move_entry`).
+- Recommended: a small card logs the key as `?key` with a test for a key holding a newline and an escape code; the M2 security review starts with `legacy_dirs.rs`. (applied as default: unchanged)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 
