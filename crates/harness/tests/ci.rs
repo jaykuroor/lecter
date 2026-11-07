@@ -1,21 +1,14 @@
 //! Repository-shape checks for the CI workflows, Dependabot and `scripts/init.sh` (F-013,
-//! `16-ci-cd.md`). The YAML is read as text: the shapes checked here are simple enough that a
-//! parser dependency would cost more than it proves.
+//! `16-ci-cd.md`). The YAML is read as text (helpers in `workflow/mod.rs`).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 mod common;
+mod workflow;
 #[cfg(unix)]
 use common::bare_path;
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn read(rel: &str) -> Result<String, String> {
-    std::fs::read_to_string(repo_root().join(rel)).map_err(|e| format!("{rel}: {e}"))
-}
+use workflow::{job, read, repo_root, value};
 
 /// Every `*.yml` under a folder of `.github/`, as (relative path, text).
 fn yaml_files(dir: &str) -> Result<Vec<(String, String)>, String> {
@@ -36,24 +29,6 @@ fn yaml_files(dir: &str) -> Result<Vec<(String, String)>, String> {
         return Err(format!("no YAML files under {dir}"));
     }
     Ok(out)
-}
-
-/// The text of one job under `jobs:` (two-space indent), up to the next job.
-fn job<'a>(workflow: &'a str, name: &str) -> Option<&'a str> {
-    let header = format!("\n  {name}:\n");
-    let start = workflow.find(&header)? + header.len();
-    let rest = &workflow[start..];
-    // The job ends at the first non-blank, non-comment line indented by two spaces or less.
-    let mut end = 0;
-    for line in rest.split_inclusive('\n') {
-        let indent = line.len() - line.trim_start_matches(' ').len();
-        let blank = line.trim().is_empty() || line.trim_start().starts_with('#');
-        if !blank && indent <= 2 {
-            break;
-        }
-        end += line.len();
-    }
-    Some(&rest[..end])
 }
 
 /// Top-level keys of a YAML file, in order.
@@ -93,11 +68,6 @@ fn ci_yml_has_lint_test_and_e2e_jobs_that_call_verify_stages() -> Result<(), Str
         return Err("job `test` must run on a matrix of the three OSes".into());
     }
     Ok(())
-}
-
-/// The value of `key: <value>` on a line of `body`, trimmed.
-fn value<'a>(body: &'a str, key: &str) -> Option<&'a str> {
-    body.lines().find_map(|l| l.trim().strip_prefix(key)?.strip_prefix(':').map(str::trim))
 }
 
 #[test]

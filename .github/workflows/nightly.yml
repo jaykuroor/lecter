@@ -1,0 +1,80 @@
+# docs/spec/16-ci-cd.md#nightlyyml-0300-utc-daily-plus-manual-dispatch
+# The slow checks, once a day on main's newest commit, plus manual dispatch. Nightly failures don't
+# stop merges; the orchestrator collects them at its next gardening pass. Job ids are what the
+# gardener and crates/harness/tests/nightly.rs look for: don't rename them without a D-entry.
+name: nightly
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  # First job: when the newest successful nightly ran on this same commit, every other job is skipped
+  # (each one needs it and checks its output). An API error runs the nightly rather than skip it.
+  skip-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      skip: ${{ steps.last.outputs.skip }}
+    steps:
+      - id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          workflow=${GITHUB_WORKFLOW_REF%@*}
+          workflow=${workflow##*/}
+          if last=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?status=success&per_page=1" \
+              --jq '.workflow_runs[0].head_sha // ""'); then
+            echo "newest successful $workflow run: ${last:-none}; this commit: $GITHUB_SHA"
+          else
+            echo "::warning::could not read the previous nightly runs; running every job"
+            last=
+          fi
+          if [ "$last" = "$GITHUB_SHA" ]; then skip=true; else skip=false; fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+  # 14-quality.md#mutation-testing: the whole tree (cargo-mutants, then Stryker from the UI lockfile),
+  # capped at 120 minutes. mutants.py --full never fails on survivors; it writes the score and the
+  # survivors, which the gardener reads and turns into test chores for risky code.
+  mutants:
+    needs: skip-check
+    if: needs.skip-check.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Prebuilt, before Setup: init.sh would otherwise compile cargo-mutants from source.
+      - name: cargo-mutants (prebuilt)
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        with:
+          tool: cargo-mutants
+      - uses: ./.github/actions/setup
+      - name: Mutation testing, whole tree
+        run: python3 scripts/mutants.py --full --minutes 120
+      - name: Upload the score and the survivors
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutants
+          path: |
+            .verify/mutants/score.json
+            .verify/mutants/survivors.txt
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
