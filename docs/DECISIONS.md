@@ -1706,3 +1706,9 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: entries in `slides/` that link out are followed (a linked folder lists its files one level down as `<link>/<file>`, hidden files and links leading further out left out). A `lectures/` link out still fails (D-106), `sources/` links out stay left out, and a `slides/` folder that is itself a link out still fails. "Hidden" is judged only below the folder a target shares with the course root, so a course under a dot-folder (e.g. ~/.var) still works. The trust fingerprint covers each link's path and canonical target: adding or re-pointing a link asks trust again. `course_file(store, course, requested)` allows an outside path only when it equals a listed slide's path and real path, after `require_trusted`.
 - Why: the spec names files "linked from slides/"; SEC-35 ties AI access to what the trust screen listed.
 - Instead of: following links out in every folder; judging any dot part in the full path; matching by real path alone.
+
+## D-281 · Saved ask glosses record key=Enter (F-048)
+2026-11-07 · maintainer · active
+- Decision: a gloss made by the ask prompt is saved with `key=Enter`, naming the key pressed as 03-lecture-files.md's `key=s` does. Files written earlier with `key=a` stay readable.
+- Why: Enter is now the ask key (F-048); the attribute names the key, as in the spec's example.
+- Instead of: keeping `key=a`; recording the action (`key=ask`).
