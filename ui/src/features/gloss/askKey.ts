@@ -19,7 +19,7 @@ export type OpenPrompt = (view: EditorView, n: number) => boolean;
  * Asks on the cursor's line of `view`; whether a prompt opened. A selection (visual mode) is
  * declined: asking about a selection (`v…Enter`) is F-103's.
  */
-export function askAtCursor(view: EditorView, open: OpenPrompt): boolean {
+function askAtCursor(view: EditorView, open: OpenPrompt): boolean {
   const vim = getCM(view)?.state.vim as { visualMode?: boolean } | undefined;
   if (vim?.visualMode) return false;
   return open(view, view.state.doc.lineAt(view.state.selection.main.head).number);

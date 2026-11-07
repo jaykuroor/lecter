@@ -1,12 +1,16 @@
 // F-048 criteria 1 and 2: Enter asks, through the key engine as the user presses it, on a slide line
 // and on an own-note line alike (10-keymap.md#on-a-slide-line). On a note the gloss is anchored to
 // the note's id and saved after the note's div (03-lecture-files.md#body).
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { describe, expect, it } from "vitest";
 import type { Edit } from "../../core/lecture";
-import { hasCommand } from "../../keys/commands";
+import { hasCommand, runCommand } from "../../keys/commands";
+import { DEFAULT_KEYMAP } from "../../keys/keymap";
 import { ask, card, fakeBackend, keys, mount, press, prompt, useBuffer } from "./__tests__/kit";
 import { ASK_COMMAND } from "./askKey";
+import { glossExtension } from "./controller";
 import { cardsField } from "./field";
 
 useBuffer();
@@ -141,4 +145,43 @@ describe("Enter where it can't ask", () => {
     view.destroy();
     expect(hasCommand(ASK_COMMAND)).toBe(false);
   });
+
+  it("reports that it ran only where a prompt opened (a hint click runs the same command)", () => {
+    const view = mount(fakeBackend().backend, [], NOTED);
+    at(view, 11, 2);
+    expect(runAsk()).toBe(false);
+    at(view, 7, 0);
+    keys(view, "v", "l");
+    expect(runAsk()).toBe(false);
+    keys(view, "<Esc>");
+    expect(runAsk()).toBe(true);
+    expect(card(view)?.dataset.anchor).toBe("n-91c0");
+  });
 });
+
+describe("the ask command in an editor without Vim", () => {
+  it("asks on the cursor's block, there being no selection mode to decline", () => {
+    const parent = document.createElement("div");
+    document.body.append(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: NOTED,
+        selection: { anchor: 60 },
+        extensions: [glossExtension(fakeBackend().backend)],
+      }),
+      parent,
+    });
+    expect(view.state.doc.lineAt(60).number).toBe(4);
+    expect(runAsk()).toBe(true);
+    expect(card(view)?.dataset.anchor).toBe("s1b1");
+    view.destroy();
+    parent.remove();
+  });
+});
+
+/** Runs ask as a click on its hint does: the command, with no key. */
+function runAsk(): boolean {
+  const binding = DEFAULT_KEYMAP.find((b) => b.command === ASK_COMMAND);
+  if (!binding) throw new Error("no ask binding");
+  return runCommand({ binding, count: 1, explicit: false });
+}

@@ -137,6 +137,29 @@ mod tests {
         assert_eq!(ask_request(notes, "n-0001", " ", "m"), Err(Error::EmptyQuestion));
     }
 
+    /// The breadcrumb is that of the block the note is anchored to, not of another one.
+    #[test]
+    fn a_note_takes_the_breadcrumb_of_its_own_anchor() {
+        let lecture = format!(
+            "{LECTURE}\n::: {{.slide #s4 n=4 title=\"Correlation\"}}\n[Scaled covariance.]{{#s4b1}}\n:::\n\n::: {{.note #n-0001 anchor=s4b1}}\nmine\n:::\n"
+        );
+        let req = ask_request(&lecture, "n-0001", "q", "m").unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(
+            req.messages[0].content,
+            "<untrusted_source note=\"n-0001\">\nCovariance › Correlation\nmine\n</untrusted_source>\n\nq"
+        );
+    }
+
+    /// A quoted attribute value can't pose as the note's id or class, and an id with anything but
+    /// letters, digits and `-` is never looked up (it would go into the wrapper's attribute).
+    #[test]
+    fn quoted_values_and_odd_ids_never_name_a_note() {
+        let lecture =
+            "::: {.gloss title=\"x .note #n-0003 y\"}\nnot a note\n:::\n::: {.note #n-0\"1}\nquoted id\n:::\n";
+        assert_eq!(ask_request(lecture, "n-0003", "q", "m"), Err(Error::BlockNotFound));
+        assert_eq!(ask_request(lecture, "n-0\"1", "q", "m"), Err(Error::BlockNotFound));
+    }
+
     /// F-048 criterion 4: the ask key is Enter now, so the prompt doesn't name `a`.
     #[test]
     fn the_system_prompt_names_enter_as_the_ask_key() {

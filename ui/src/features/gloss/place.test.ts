@@ -54,6 +54,11 @@ describe("anchorLine", () => {
     expect(anchorLine(doc(["::: {.gloss #n-0002}", ":::"]), "n-0002")).toBeNull();
     expect(anchorLine(doc(["::: {.note #n-0003}", "open"]), "n-0003")).toBeNull();
     expect(anchorLine(doc(['::: {.note title="#n-0004"}', ":::", "x::: {.note #n-0004}", ":::"]), "n-0004")).toBeNull();
+    // A block id names the block, never a note div that happens to carry it.
+    expect(anchorLine(doc(["::: {.note #s1b1}", ":::", "[A]{#s1b1}"]), "s1b1")).toBe(3);
+    // Only a whole note id is one: nothing before `n-`, four to eight hex digits, nothing after.
+    expect(anchorLine(doc(["::: {.note #xn-0006}", ":::", "::: {.note #n-0006x}", ":::"]), "xn-0006")).toBeNull();
+    expect(anchorLine(doc(["::: {.note #n-0006x}", ":::"]), "n-0006x")).toBeNull();
     // Nested divs inside the note are counted.
     const nested = doc(["::: {.note #n-0005}", "a", "::: {.gloss #g-0001 anchor=n-0005}", "b", ":::", ":::"]);
     expect(anchorLine(nested, "n-0005")).toBe(6);
@@ -78,6 +83,8 @@ describe("noteAt", () => {
     expect(noteAt(doc(["mine", "more"]), 1)).toBeNull();
     const bad = doc(["::: {.note}", "a", ":::", "::: {.note #n-XYZ1}", "b", ":::", "::: {.gloss #n-0001}", "c", ":::"]);
     expect([2, 5, 8].map((n) => noteAt(bad, n))).toEqual([null, null, null]);
+    const partial = doc(["::: {.note #xn-0001}", "a", ":::", "::: {.note #n-0001x}", "b", ":::"]);
+    expect([2, 5].map((n) => noteAt(partial, n))).toEqual([null, null]);
   });
 });
 

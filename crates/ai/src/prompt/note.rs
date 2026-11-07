@@ -71,7 +71,7 @@ fn closing(line: &str) -> bool {
 /// The note `id` (`n-91c0`) of the lecture file `lecture`, or `None` when it has no such closed
 /// note (or `id` holds anything but letters, digits and `-`).
 pub(crate) fn find_note(lecture: &str, id: &str) -> Option<Note> {
-    if id.is_empty() || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
+    if !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
         return None;
     }
     let mut lines = lecture.lines();

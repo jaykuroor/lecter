@@ -26,7 +26,7 @@ function remove(view: EditorView, card: GlossCard): void {
  * lecture that can ask; returns whether it did. The answer is anchored to the block or the note
  * (F-048). An open prompt elsewhere closes first.
  */
-export function openPrompt(view: EditorView, n: number): boolean {
+function openPrompt(view: EditorView, n: number): boolean {
   const backend = view.state.facet(glossBackendFacet);
   const line = view.state.doc.line(n);
   const anchor = blockSpan(line.text)?.id ?? noteAt(view.state.doc, n);
