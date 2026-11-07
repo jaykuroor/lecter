@@ -30,9 +30,15 @@ function fakeCore(values: Record<string, string>) {
     },
     set: (key, json, course) => {
       written.push(`${key}=${json} ${course}`);
+      if (refuse.next) {
+        refuse.next = false;
+        return Promise.resolve({ status: "error", error: { code: "E_IO", message: "no", retryable: true } });
+      }
       return Promise.resolve({ status: "ok", data: { key, value: json, source: "global" } });
     },
   };
+  /** Set `next` to refuse the next write. */
+  const refuse = { next: false };
   const flush = async () => {
     await Promise.resolve();
     await Promise.resolve();
@@ -44,7 +50,7 @@ function fakeCore(values: Record<string, string>) {
     await flush();
   };
   const emit = (s: Setting) => listener?.(s);
-  return { deps, asked, written, answer, emit, unlistened: () => unlistened };
+  return { deps, asked, written, answer, emit, refuse, unlistened: () => unlistened };
 }
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -131,6 +137,35 @@ describe("followSetting (F-045 criterion 2: a change applies at once)", () => {
     await core.answer();
     expect(got).toEqual([]);
     f.stop();
+  });
+
+  it("writes for the open course, and shows the value in force again when the write is refused", async () => {
+    const core = fakeCore({ "ui.hintBar /c/STAT311": '"full"' });
+    const got: string[] = [];
+    const f = followSetting(
+      core.deps,
+      "ui.hintBar",
+      () => "/c/STAT311",
+      (v) => got.push(v),
+    );
+    await core.answer();
+    expect(got).toEqual(['"full"']);
+    f.write('"compact"');
+    await core.answer();
+    expect(core.written).toEqual(['ui.hintBar="compact" /c/STAT311']);
+    expect(core.asked).toEqual(["ui.hintBar /c/STAT311"]);
+    core.refuse.next = true;
+    f.write('"off"');
+    await core.answer();
+    await core.answer();
+    expect(core.asked).toEqual(["ui.hintBar /c/STAT311", "ui.hintBar /c/STAT311"]);
+    expect(got).toEqual(['"full"', '"full"']);
+    // A refusal that comes back after the follower stopped reads nothing.
+    core.refuse.next = true;
+    f.write('"off"');
+    f.stop();
+    await core.answer();
+    expect(core.asked).toHaveLength(2);
   });
 
   it("applies nothing after it stops, even a read already asked, and stops listening once it can", async () => {

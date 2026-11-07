@@ -14,14 +14,16 @@ export interface FollowDeps {
   get(key: string, course: string | null): Promise<Answer<Setting>>;
   /** Calls `listener` for each written setting; resolves to the function that stops it. */
   listen(listener: (setting: Setting) => void): Promise<() => void>;
-  /** Writes a value (JSON text) to the global settings. */
-  set(key: string, json: string, course: null): Promise<Answer<Setting>>;
+  /** Writes a value (JSON text) to the global settings; answers the value in force for `course`. */
+  set(key: string, json: string, course: string | null): Promise<Answer<Setting>>;
 }
 
 export interface Follower {
   /**
    * The app changed the value itself (␣uh, ␣uk) and shows it already: writes it to the global
-   * settings, and no older read may undo it.
+   * settings, and no older read may undo it. The value then in force for the open course follows
+   * (`settings:changed`), so a course that sets its own keeps it; a refused write reads the value
+   * in force again, so the app never shows one that wasn't saved.
    */
   write: (json: string) => void;
   stop: () => void;
@@ -64,7 +66,9 @@ export function followSetting(
   return {
     write: (json) => {
       version += 1;
-      void deps.set(key, json, null);
+      void deps.set(key, json, course()).then((answer) => {
+        if (!stopped && answer.status !== "ok") read();
+      });
     },
     stop: () => {
       stopped = true;
