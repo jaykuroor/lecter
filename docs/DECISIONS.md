@@ -1688,3 +1688,21 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: a trusted course lists at most a fixed number of files from each `slides/` link to an outside folder; past the cap the listing is cut short with a visible note, and the course opens normally. A linked folder never makes `course_open` fail with E_TOO_MANY_ENTRIES.
 - Why: F-047 criterion 1 says a trusted course's links SHALL NOT fail; one link to a huge folder (all of ~/Downloads) must not block the whole course.
 - Instead of: counting the linked folder toward the 10,000-entry limit and refusing to open.
+
+## D-278 · A linked outside folder is read only once the course is trusted (F-047)
+2026-11-07 · session F-047 · active
+- Decision: `course::open` lists a `slides/` link to an outside folder by its name only. Only `course::open_with(.., LinkedFolders::Files)`, chosen by `trust::open` for a course trusted as it is now, reads the folder; Ask and ReadOnly get names. `course_trust` returns the new listing (`CourseTrusted` flattens it like `CourseOpened`), so the files appear right after Trust.
+- Why: F-047 criterion 4; review found `course_open` enumerating the folder before trust.
+- Instead of: always expanding linked folders; the UI reopening the course after Trust.
+
+## D-279 · Linked-folder cap: 500 files per folder (F-047, D-277)
+2026-11-07 · session F-047 · active
+- Decision: each outside folder lists at most `LINKED_FOLDER_FILES` = 500 files, first by name; all linked folders together read at most 2×MAX_ENTRIES (20,000) entries; the whole listing stays ≤ 10,000. A folder cut short is named in `CourseListing.capped` (sent only when non-empty); the sidebar shows "<link> holds too many files; only the first are listed." and the trust screen line gains " (only the first 500 files listed)".
+- Why: bounded work, and the listing must fit the IPC list limit.
+- Instead of: E_TOO_MANY_ENTRIES.
+
+## D-280 · Only links in slides/ may leave the course (F-047)
+2026-11-07 · session F-047 · active
+- Decision: entries in `slides/` that link out are followed (a linked folder lists its files one level down as `<link>/<file>`, hidden files and links leading further out left out). A `lectures/` link out still fails (D-106), `sources/` links out stay left out, and a `slides/` folder that is itself a link out still fails. "Hidden" is judged only below the folder a target shares with the course root, so a course under a dot-folder (e.g. ~/.var) still works. The trust fingerprint covers each link's path and canonical target: adding or re-pointing a link asks trust again. `course_file(store, course, requested)` allows an outside path only when it equals a listed slide's path and real path, after `require_trusted`.
+- Why: the spec names files "linked from slides/"; SEC-35 ties AI access to what the trust screen listed.
+- Instead of: following links out in every folder; judging any dot part in the full path; matching by real path alone.

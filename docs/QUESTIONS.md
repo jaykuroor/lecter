@@ -265,6 +265,12 @@ When do ui.accent and ui.docFont join the settings schema?
 - Recommended: the card that builds the accent override and document font adds them, with their controls. (applied as default: not shown)
 - Answer:
 
+## Q-041 · later · blocks: nothing
+Should a `lectures/` link out of the course, or a `slides/` folder that is itself a link out, also be allowed once the course is trusted?
+- Context: D-167 says a trusted course opens "its files"; F-047 follows only entries inside slides/ (D-280), so these still fail with E_NOT_TRUSTED.
+- Recommended: keep them refused until a student asks; slides are the case the spec names. (applied as default: refused)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 
