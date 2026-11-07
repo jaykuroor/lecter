@@ -189,3 +189,38 @@ fn overlapping_writes_all_land() {
         std::fs::remove_file(env.dirs().config().join("config.jsonc")).unwrap();
     }
 }
+
+/// SEC-32: a value over 64 KiB is refused before it is parsed; one at the limit is taken.
+#[test]
+fn an_oversize_value_is_an_invalid_argument() {
+    let env = TestEnv::new().unwrap();
+    let (files, courses) = (SettingsFiles::new(&env.dirs()), no_courses(&env));
+    let at_limit = format!("\"{}\"", "a".repeat(MAX_VALUE_BYTES - 2));
+    assert_eq!(at_limit.len(), 64 * 1024);
+    let got =
+        run(set(&files, &courses, "ai.defaultFast".into(), at_limit.clone(), None, SettingScope::Global)).unwrap();
+    assert_eq!((got.value.len(), got.source), (at_limit.len(), SettingSource::Global));
+    std::fs::remove_file(env.dirs().config().join("config.jsonc")).unwrap();
+    let over = format!("\"{}\"", "a".repeat(MAX_VALUE_BYTES - 1));
+    let e = run(set(&files, &courses, "ai.defaultFast".into(), over, None, SettingScope::Global)).unwrap_err();
+    assert_eq!(e.code, ErrorCode::InvalidArgument);
+    assert!(!global_exists(&env), "an oversize value was written");
+}
+
+/// A read-only course's own settings are never written, and its answer stays read-only.
+#[test]
+fn a_course_write_by_a_read_only_answer_meanwhile_is_refused() {
+    let env = TestEnv::new().unwrap();
+    let (path, courses) = course(&env, Some(TrustChoice::ReadOnly));
+    let files = SettingsFiles::new(&env.dirs());
+    let e = run(set(&files, &courses, "ui.hintBar".into(), "\"off\"".into(), Some(path.clone()), SettingScope::Course))
+        .unwrap_err();
+    assert_eq!(
+        (e.code, e.message.as_str()),
+        (ErrorCode::NotTrusted, "Trust this course to give it settings of its own.")
+    );
+    assert_eq!(
+        trust::require_trusted(courses.trust(), std::path::Path::new(&path)),
+        Err(lecter_core::Error::CourseReadOnly)
+    );
+}

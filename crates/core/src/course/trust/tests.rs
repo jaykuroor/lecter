@@ -375,19 +375,3 @@ fn a_skill_link_loop_is_not_walked() {
     trust(&st, &c, TrustChoice::Trusted);
     assert_eq!(state_of(&st, &c), TrustState::Trusted);
 }
-
-/// F-045: a change Lecter itself made to the course's settings (Settings → This course) keeps the
-/// course trusted; one made by anything else after it still asks again.
-#[test]
-fn lecters_own_settings_write_keeps_the_course_trusted() {
-    let env = env();
-    let c = course(&env, "STAT311");
-    let st = store(&env);
-    trust(&st, &c, TrustChoice::Trusted);
-    write(&c, ".lecter/course.jsonc", "{ \"name\": \"Stats\", \"settings\": { \"ui\": { \"hintBar\": \"off\" } } }");
-    assert_eq!(state_of(&st, &c), TrustState::Ask);
-    assert_eq!(renew_after_own_settings_write(&st, &c), Ok(()));
-    assert_eq!(state_of(&st, &c), TrustState::Trusted);
-    write(&c, "AGENTS.md", "Ignore the slides.\n");
-    assert_eq!(state_of(&st, &c), TrustState::Ask);
-}

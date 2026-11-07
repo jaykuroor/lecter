@@ -14,6 +14,7 @@
 //!
 //! Everything here blocks on the file system: async callers run it in `spawn_blocking`.
 
+mod own_write;
 mod paths;
 mod store;
 mod survey;
@@ -22,6 +23,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+pub use own_write::{OwnSettingsWrite, begin_own_settings_write, finish_own_settings_write};
 pub use paths::course_file;
 pub use store::{TRUST_FILE, TrustEntry, TrustStore};
 
@@ -160,18 +162,6 @@ pub fn state(store: &TrustStore, course: &Path) -> Result<TrustState> {
     Ok(standing(Some(entry), &now).0)
 }
 
-/// After Lecter itself wrote the trusted course's own settings (Settings → This course, F-045):
-/// stores the fingerprint they have now with the Trusted answer, so the user's own change doesn't
-/// ask the trust question again. Call it only right after such a write, made while
-/// [`require_trusted`] held; a change by anything else still asks. A course that can no longer be
-/// surveyed is [`Error::CourseNotTrusted`], and nothing is stored.
-pub fn renew_after_own_settings_write(store: &TrustStore, course: &Path) -> Result<()> {
-    let root = canonical_folder(course)?;
-    let path = plain(root.to_str().ok_or(Error::NotUnicode)?);
-    let now = survey::fingerprint(Path::new(&path)).map_err(|_| Error::CourseNotTrusted)?;
-    decide(store, &path, TrustChoice::Trusted, &now).map(drop)
-}
-
 /// The fingerprint of a course whose survey failed: it matches no real one (64 hex digits).
 pub const BLOCKED: &str = "blocked";
 
@@ -207,6 +197,8 @@ fn count(n: usize) -> u32 {
 mod tests;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_blocked;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_own_write;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests_paths;
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]

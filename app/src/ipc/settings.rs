@@ -25,6 +25,10 @@ use super::validate;
 /// The longest dotted key a command takes, in bytes (the core reads no longer key).
 const MAX_KEY_BYTES: usize = 256;
 
+/// The longest value (JSON text) `settings_set` takes, in bytes, checked before it is parsed
+/// (SEC-32: any single string at most 64 KB).
+const MAX_VALUE_BYTES: usize = 64 * 1024;
+
 /// Where the settings files are: the global `config.jsonc` in the config folder; and the lock
 /// every write holds from reading its file to writing it back.
 #[derive(Debug, Clone)]
@@ -213,6 +217,7 @@ pub(super) async fn set(
     scope: SettingScope,
 ) -> Result<Setting, IpcError> {
     validate::string("settings_set", "key", &key, MAX_KEY_BYTES)?;
+    validate::string("settings_set", "value", &value, MAX_VALUE_BYTES)?;
     let value: serde_json::Value = serde_json::from_str(&value)
         .map_err(|_| IpcError::new(ErrorCode::InvalidArgument, format!("The value for {key} is not JSON.")))?;
     // The course whose file a course write goes to.
@@ -229,18 +234,24 @@ pub(super) async fn set(
         // From reading the file to writing it back, one write at a time.
         let _one = writing.lock().unwrap_or_else(PoisonError::into_inner);
         let not_trusted = || IpcError::new(ErrorCode::NotTrusted, "Trust this course to give it settings of its own.");
-        if let Some(root) = &target {
-            trust::require_trusted(&trust, Path::new(root)).map_err(|_| not_trusted())?;
-        }
-        let scope = if target.is_some() { Scope::Course } else { Scope::Global };
-        store.set(scope, &key, value).map_err(|e| {
+        // A course write needs the course trusted as it is now; what its AI files were is kept.
+        let before = match &target {
+            Some(root) => Some(trust::begin_own_settings_write(&trust, Path::new(root)).map_err(|_| not_trusted())?),
+            None => None,
+        };
+        let scope = if before.is_some() { Scope::Course } else { Scope::Global };
+        store.set(scope, &key, value.clone()).map_err(|e| {
             tracing::warn!(target: "ipc", command = "settings_set", key = %key, "setting refused");
             set_error(e)
         })?;
-        // The trust screen lists the course's settings, and a change asks again (SEC-25); this one
-        // is the user's own, made here, so the course stays trusted with them.
-        if let Some(root) = &target {
-            trust::renew_after_own_settings_write(&trust, Path::new(root)).map_err(|_| not_trusted())?;
+        // The trust screen lists the course's settings, and a change asks again (SEC-25). This one
+        // is the user's own, made here: the course stays trusted only when it is all that changed.
+        if let Some(before) = before {
+            let kept = trust::finish_own_settings_write(&trust, before, &key, &value)
+                .map_err(|_| IpcError::new(ErrorCode::Io, "Lecter could not keep this course trusted."))?;
+            if !kept {
+                tracing::warn!(target: "ipc", command = "settings_set", "course files changed meanwhile; trust asks again");
+            }
         }
         resolved(&store, &key)
     })
