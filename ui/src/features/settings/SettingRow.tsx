@@ -14,7 +14,7 @@ import type { SettingsWindow } from "./state";
 const MAX_BUTTONS = 4;
 
 /** The control's id for `key` (labels point at it). */
-export const controlId = (key: string): string => `setting-${key.replace(/\./g, "-")}`;
+const controlId = (key: string): string => `setting-${key.replace(/\./g, "-")}`;
 
 /** What the source badge says: where the value in force comes from. */
 const SOURCE_WORDS: Readonly<Record<string, string>> = {
