@@ -204,9 +204,14 @@ fn a_link_added_or_repointed_after_trust_asks_again() {
     assert_eq!(reviewed(&st, &c).fingerprint, without);
 }
 
-/// One part of a generated path: names in the fixture, `.`, `..`, empty parts, drive-like names.
+/// One part of a generated path: names in the fixture, `.`, `..`, empty parts, drive-like names,
+/// and whole ways into the slides/ links, so that paths through them come up often.
 fn part() -> impl Strategy<Value = &'static str> {
     prop::sample::select(vec![
+        "slides/w3.pdf",
+        "slides\\w4\\a.pdf",
+        "slides/w4",
+        "slides/key.pdf",
         "slides",
         "w3.pdf",
         "w4",
@@ -263,6 +268,7 @@ fn no_generated_path_escapes_except_through_a_listed_slides_link() {
     let listed = [real(&f.week3), real(&f.week4.join("a.pdf"))];
     for choice in [TrustChoice::Trusted, TrustChoice::ReadOnly] {
         trust(&st, &f.course, choice);
+        let reached = std::cell::Cell::new(0_u32);
         let strategy = (prefix(), prop::collection::vec((part(), prop::bool::ANY), 1..6));
         let mut runner = TestRunner::new(Config { cases: 2048, failure_persistence: None, ..Config::default() });
         let result = runner.run(&strategy, |(prefix, parts)| {
@@ -274,6 +280,9 @@ fn no_generated_path_escapes_except_through_a_listed_slides_link() {
                 requested.push_str(p);
             }
             let got = course_file(&st, &f.course, &requested);
+            if got.as_ref().is_ok_and(|r| listed.contains(r)) {
+                reached.set(reached.get() + 1);
+            }
             if let Ok(r) = &got {
                 let through_link = choice == TrustChoice::Trusted && listed.contains(r);
                 prop_assert!(within(&f.course, r) || through_link, "{choice:?} {requested:?} → {}", r.display());
@@ -296,5 +305,8 @@ fn no_generated_path_escapes_except_through_a_listed_slides_link() {
         if let Err(e) = result {
             panic!("{choice:?}: {e}");
         }
+        // The generator does reach the listed links; only a trusted course lets them through.
+        let reached = reached.get();
+        assert_eq!(reached > 0, choice == TrustChoice::Trusted, "{choice:?}: {reached} paths reached a listed link");
     }
 }
