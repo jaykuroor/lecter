@@ -7,7 +7,8 @@ import "./TrustScreen.css";
  * The trust screen (02-course-folder.md#trust): shown over the document the first time a folder is
  * opened, and again when it moved or its AI files changed. It says what is inside, what the AI may
  * read, which provider receives excerpts and whether web search is on, and lists the course's own
- * AGENTS.md, roles, skills and settings overrides (SEC-25). Trust gives full features; Open
+ * AGENTS.md, roles, skills and settings overrides (SEC-25), and every link in slides/ that leaves the
+ * folder with where it leads (D-167, read only once trusted). Trust gives full features; Open
  * read-only keeps notes and slides only, and the core refuses AI and indexing (SEC-27).
  *
  * Both answers are buttons, reached by mouse, by Tab, and by Enter or Space. Focus starts on Open
@@ -75,7 +76,10 @@ export function TrustScreen(props: {
       </p>
       <dl class="trust-facts">
         <dt>The AI may read</dt>
-        <dd>Everything in this folder except what .lecterignore lists</dd>
+        <dd class="trust-reads">
+          Everything in this folder except what .lecterignore lists
+          {props.screen.links.length > 0 ? ", and the linked slides below" : ""}
+        </dd>
         <dt>Excerpts go to</dt>
         <dd class="trust-provider">{props.screen.provider}</dd>
         <dt>Web search</dt>
@@ -95,6 +99,17 @@ export function TrustScreen(props: {
           )}
         </For>
       </section>
+      <Show when={props.screen.links.length > 0}>
+        <section class="trust-links" aria-label="Links out of this folder">
+          <h3 class="trust-group-label">Links out of this folder</h3>
+          <p class="trust-links-note">
+            Listed as slides. Lecter reads them only if you trust this course; read-only never opens them.
+          </p>
+          <ul class="trust-list">
+            <For each={props.screen.links}>{(link) => <li class="trust-item">{link}</li>}</For>
+          </ul>
+        </section>
+      </Show>
       <p class="trust-choices">
         <b>Trust</b>: full features. <b>Open read-only</b>: notes and slides only; no AI, no figures with scripts, no
         indexing.

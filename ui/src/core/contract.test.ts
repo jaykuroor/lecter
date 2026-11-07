@@ -15,6 +15,7 @@ const screen: TrustScreen = {
   roles: [],
   skills: [],
   overrides: [],
+  links: [],
   changed: false,
   blocked: null,
 };

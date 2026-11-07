@@ -18,6 +18,7 @@ const full: Screen = {
   roles: [".lecter/agents/tutor.md"],
   skills: [".lecter/skills/flashcards"],
   overrides: ["ai.hedgeAfterMs", "ui.performance"],
+  links: [],
   changed: false,
   blocked: null,
 };
@@ -60,6 +61,30 @@ describe("the trust screen", () => {
       expect(group.querySelectorAll("li")).toHaveLength(0);
       expect(within(group).getByText("None")).toBeTruthy();
     }
+  });
+
+  // F-047 criteria 2 and 4: every link in slides/ that leaves the folder is listed by name and
+  // target, and the screen says they are read only once the course is trusted (D-167).
+  it("lists the links that leave the folder, read only once trusted", () => {
+    const links = [
+      "slides/key.pdf → /home/u/.ssh/id (hidden, never read)",
+      "slides/week3.pdf → /home/u/Downloads/week3.pdf",
+    ];
+    show({ ...full, links });
+    const group = screen.getByRole("region", { name: "Links out of this folder" });
+    expect([...group.querySelectorAll("li")].map((li) => li.textContent)).toEqual(links);
+    expect(group.querySelector(".trust-links-note")?.textContent).toBe(
+      "Listed as slides. Lecter reads them only if you trust this course; read-only never opens them.",
+    );
+    expect(document.querySelector(".trust-reads")?.textContent).toBe(
+      "Everything in this folder except what .lecterignore lists, and the linked slides below",
+    );
+    cleanup();
+    show(full);
+    expect(screen.queryByRole("region", { name: "Links out of this folder" })).toBeNull();
+    expect(document.querySelector(".trust-reads")?.textContent).toBe(
+      "Everything in this folder except what .lecterignore lists",
+    );
   });
 
   it("says when it asks again because the AI files changed", () => {

@@ -44,8 +44,9 @@ pub struct CourseTrusted {
 
 /// Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 /// listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
-/// comes from the dialog, never from the UI (SEC-32, SEC-35). A file linked out of the course
-/// fails with E_NOT_TRUSTED. The course is remembered for this session, so its lectures can be
+/// comes from the dialog, never from the UI (SEC-32, SEC-35). A lecture linked out of the course
+/// fails with E_NOT_TRUSTED; a link in slides/ that leaves it is listed, and named on the trust
+/// screen (D-167). The course is remembered for this session, so its lectures can be
 /// opened and its trust question answered, and it joins the course rail (`course:changed`).
 #[tauri::command]
 #[specta::specta]

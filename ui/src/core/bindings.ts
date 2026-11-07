@@ -42,8 +42,9 @@ export const commands = {
 	/**
 	 *  Opens the native folder dialog and returns the folder with its `lectures/` and `slides/`
 	 *  listing and its trust screen, or `None` if the user cancels. Takes no arguments: the path
-	 *  comes from the dialog, never from the UI (SEC-32, SEC-35). A file linked out of the course
-	 *  fails with E_NOT_TRUSTED. The course is remembered for this session, so its lectures can be
+	 *  comes from the dialog, never from the UI (SEC-32, SEC-35). A lecture linked out of the course
+	 *  fails with E_NOT_TRUSTED; a link in slides/ that leaves it is listed, and named on the trust
+	 *  screen (D-167). The course is remembered for this session, so its lectures can be
 	 *  opened and its trust question answered, and it joins the course rail (`course:changed`).
 	 */
 	courseOpen: () => typedError<({
@@ -553,6 +554,12 @@ export type TrustScreen = {
 	skills: string[],
 	/**  The settings `.lecter/course.jsonc` overrides, as dotted keys. */
 	overrides: string[],
+	/**
+	 *  The links in `slides/` that leave the course folder, each as `slides/<name> → <target>`
+	 *  (` (hidden, never read)` after one Lecter ignores). They are listed as slides; nothing they
+	 *  lead to is read before the course is trusted, nor ever in a read-only one (D-167).
+	 */
+	links: string[],
 	/**  The question is asked again because the files above changed since the last answer. */
 	changed: boolean,
 	/**
