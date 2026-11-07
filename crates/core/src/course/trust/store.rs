@@ -60,14 +60,6 @@ pub struct TrustStore {
     changing: Arc<Mutex<()>>,
 }
 
-impl PartialEq for TrustStore {
-    fn eq(&self, other: &Self) -> bool {
-        self.config == other.config
-    }
-}
-
-impl Eq for TrustStore {}
-
 impl TrustStore {
     /// The answers in this user's config folder (or the test home's).
     pub fn new(dirs: &AppDirs) -> Self {
