@@ -21,7 +21,12 @@ import { lectureBuffer } from "./vim";
  * The editor extensions of a lecture buffer labelled `label` for assistive tools; its edits go to
  * `onEdits` and its asks (`a`) to `gloss` (F-023); function plots in glosses are drawn (F-024).
  */
-function extensions(label: string, onEdits: (edits: Edit[]) => void, gloss: GlossBackend | null): Extension {
+function extensions(
+  label: string,
+  onEdits: (edits: Edit[]) => void,
+  gloss: GlossBackend | null,
+  more: Extension,
+): Extension {
   return [
     // First, so Vim sees keys before any other keymap.
     vim(),
@@ -39,18 +44,21 @@ function extensions(label: string, onEdits: (edits: Edit[]) => void, gloss: Glos
     sendEdits(onEdits),
     glossExtension(gloss),
     figureExtension,
+    more,
   ];
 }
 
 /**
  * A buffer state for the lecture file `text`, with the cursor on its first element; edits go to
- * `onEdits`, asks to `gloss`.
+ * `onEdits`, asks to `gloss`; `more` are the extensions of others that follow the buffer (the
+ * status line's slide, F-046).
  */
 export function lectureState(
   text: string,
   label: string,
   onEdits: (edits: Edit[]) => void = () => {},
   gloss: GlossBackend | null = null,
+  more: Extension = [],
 ): EditorState {
   const doc = EditorState.create({ doc: text }).doc;
   const first = nthElement(doc, 1);
@@ -58,6 +66,6 @@ export function lectureState(
   return EditorState.create({
     doc,
     selection: EditorSelection.cursor(anchor),
-    extensions: extensions(label, onEdits, gloss),
+    extensions: extensions(label, onEdits, gloss, more),
   });
 }

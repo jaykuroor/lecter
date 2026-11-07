@@ -14,6 +14,9 @@ import { registerSettings } from "./features/settings/register";
 import { SettingsButton } from "./features/settings/SettingsButton";
 import { loadSidebar } from "./features/sidebar/load";
 import { SidebarToggle } from "./features/sidebar/SidebarToggle";
+import { placeLabel } from "./features/status/labels";
+import { StatusLine } from "./features/status/StatusLine";
+import { createStatus } from "./features/status/state";
 import { TrustScreen } from "./features/trust/TrustScreen";
 import { bootKeys } from "./keys/boot";
 import { registerCommand } from "./keys/commands";
@@ -84,6 +87,9 @@ export function App() {
   const rail = createRail();
   const lecture = createLecture();
   const find = createFind();
+  // The status line (F-046): the buffer reports Vim's mode, the cursor's slide and its answers;
+  // the command lines make it COMMAND.
+  const status = createStatus(window);
   // The sidebar (F-036): ␣e or the headerbar button toggles it, and the next start keeps it (D-195).
   const layout = createLayout();
   // Read mode (F-039): ␣ur, `:read` or the headerbar's button hide the rail, sidebar, hint bar and
@@ -137,6 +143,7 @@ export function App() {
   let stopTheme: (() => void) | undefined;
   onCleanup(() => {
     gone = true;
+    status.stop();
     stopTheme?.();
     dropFind?.();
     dropRead?.();
@@ -245,10 +252,12 @@ export function App() {
         if (gone) return;
         dropFind = ex.registerFindCommand(runFind);
         dropRead = read.registerReadCommand(readMode.toggle);
-        stopCmdline = cmdline.startCmdline({
+        const line = cmdline.startCmdline({
           host: cmdlineHost as HTMLDivElement,
           course: () => course.course()?.path ?? null,
-        }).stop;
+        });
+        stopCmdline = line.stop;
+        status.followCommandLine(line.cmdline.isOpen);
         // Runs the editor's code once while nothing is open, so the first lecture opens faster.
         if (!lecture.lecture()) stopWarm = warm.prewarmEditor();
       });
@@ -297,6 +306,7 @@ export function App() {
               course={course.course()?.path ?? null}
               error={lecture.error()}
               onEdits={lecture.edit}
+              status={status.buffer}
             />
           </Show>
           {/* The keystroke overlay (F-039), bottom right of the buffer. */}
@@ -339,9 +349,17 @@ export function App() {
             </Show>
           )}
         </Show>
-        <footer class="status-line" role="status" aria-label="Status line">
-          <Show when={info()} fallback={<span>Connecting to core…</span>}>
-            {(i) => <span>v{i().version}</span>}
+        <StatusLine
+          mode={status.mode()}
+          place={placeLabel(course.course()?.name ?? null, lecture.lecture()?.name ?? null)}
+          slide={lecture.lecture() ? status.slide() : null}
+          model={status.model()}
+          // Nothing reports spend yet: usage and caps (F-090) send the lecture's running cost.
+          cost={null}
+          running={status.running()}
+        >
+          <Show when={info()} fallback={<span class="status-version">Connecting to core…</span>}>
+            {(i) => <span class="status-version">v{i().version}</span>}
           </Show>
           <Show when={keyNotice()[0]}>
             {(first) => (
@@ -350,7 +368,7 @@ export function App() {
               </span>
             )}
           </Show>
-        </footer>
+        </StatusLine>
       </div>
       <aside class="side-panel" aria-label="Side panel">
         <FindPanel state={find} onFind={runFind} />

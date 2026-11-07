@@ -66,7 +66,8 @@ describe("startup", () => {
     expect(asked).toEqual([]);
     expect(container.querySelector(".lecture-buffer")).toBeNull();
     expect(performance.getEntriesByName("startup:shell_first_paint", "mark")).toHaveLength(0);
-    expect(screen.getByRole("status", { name: "Status line" }).textContent).toBe("Connecting to core…");
+    const status = screen.getByRole("status", { name: "Status line" });
+    expect(status.querySelector(".status-version")?.textContent).toBe("Connecting to core…");
 
     paint();
     await waitFor(() => expect(calls("app_info")).toHaveLength(1));

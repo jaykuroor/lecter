@@ -6,6 +6,9 @@ import type { Edit, Lecture } from "../../core/lecture";
 import { setBufferTarget } from "../../keys/locate";
 import { bufferTarget, trimVimKeys } from "../../keys/vim";
 import { registerAskKey } from "../gloss/askKey";
+import { trackJobs } from "../status/jobs";
+import { slideAt, slideReport } from "../status/slide";
+import type { BufferStatus } from "../status/state";
 import { lectureState } from "./editorState";
 import { registerElementMotions } from "./vim";
 import "./Buffer.css";
@@ -16,8 +19,9 @@ type Mode = "normal" | "insert" | "visual" | "replace";
 /**
  * The lecture buffer (09-ui.md#layout, docs/design/components.md#buffer): the open lecture's file
  * in one CodeMirror editor with Vim keys. Slide headings and blocks are decorations over the file's
- * text (decorations.ts). `data-vim-mode` carries the mode for the status line and tests. Every
- * edit goes to `onEdits` (edits.ts), which sends it to the core without waiting.
+ * text (decorations.ts). `data-vim-mode` carries the mode for tests; the status line (F-046) hears
+ * the mode, the cursor's slide and the answers' jobs through `status`. Every edit goes to `onEdits`
+ * (edits.ts), which sends it to the core without waiting.
  */
 export function Buffer(props: {
   lecture: Lecture | null;
@@ -26,12 +30,18 @@ export function Buffer(props: {
   error: string | null;
   /** Receives every edit, in order (F-021: the core journals and saves them). */
   onEdits?: (edits: Edit[]) => void;
+  /** The status line's side: Vim's mode, the cursor's slide, the asks' jobs (F-046). */
+  status?: BufferStatus;
 }): JSX.Element {
   registerElementMotions();
   registerAskKey();
   // Only the Vim keys 10-keymap.md keeps; the key engine (src/keys) does the Lecter ones.
   trimVimKeys();
   const [mode, setMode] = createSignal<Mode>("normal");
+  const showMode = (m: Mode) => {
+    setMode(m);
+    props.status?.mode(m);
+  };
   let root: HTMLDivElement | undefined;
   let host: HTMLDivElement | undefined;
   let view: EditorView | undefined;
@@ -39,16 +49,24 @@ export function Buffer(props: {
 
   /** Follows Vim's mode; the listener goes with the state, so it is added for each lecture. */
   function followMode(v: EditorView): void {
-    setMode("normal");
-    getCM(v)?.on("vim-mode-change", (e: { mode: Mode }) => setMode(e.mode));
+    showMode("normal");
+    getCM(v)?.on("vim-mode-change", (e: { mode: Mode }) => showMode(e.mode));
   }
 
   createEffect(() => {
     const lecture = props.lecture;
     if (!lecture || !host) return;
     const course = props.course;
-    const gloss = course ? glossBackend(course, lecture.path) : null;
-    const state = lectureState(lecture.text, `Lecture ${lecture.name}`, (edits) => props.onEdits?.(edits), gloss);
+    const status = props.status;
+    const backend = course ? glossBackend(course, lecture.path) : null;
+    const gloss = backend && status ? trackJobs(backend, status.jobs) : backend;
+    const state = lectureState(
+      lecture.text,
+      `Lecture ${lecture.name}`,
+      (edits) => props.onEdits?.(edits),
+      gloss,
+      status ? slideReport(status.slide) : [],
+    );
     if (view) view.setState(state);
     else {
       view = new EditorView({ state, parent: host });
@@ -56,6 +74,7 @@ export function Buffer(props: {
       dropTarget = setBufferTarget(bufferTarget(view, root as HTMLDivElement));
     }
     followMode(view);
+    status?.slide(slideAt(view.state));
     view.focus();
   });
   onCleanup(() => {

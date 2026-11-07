@@ -1,0 +1,92 @@
+/* Status line (docs/design/components.md#status-line): bottom of the document column, mono 11.5px,
+   min height 27px, tabular numbers; segments padded 5px 10px. The mode segment takes its mode's
+   colours (tokens.json mode-colors). Theme tokens only. */
+.status-line {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  min-height: var(--layout-status-line-min-height, 27px);
+  box-sizing: border-box;
+  font-family: var(--font-mono, "JetBrains Mono", "Adwaita Mono", ui-monospace, monospace);
+  font-size: 11.5px;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  background: var(--headerbar-bg);
+  border-top: 1px solid var(--borders);
+}
+
+.status-line > * {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 5px 10px;
+}
+
+.status-mode {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--accent-bg);
+  color: var(--accent-fg);
+}
+
+.status-mode[data-mode="insert"] {
+  background: var(--k-ask);
+  color: var(--view-bg);
+}
+
+.status-mode[data-mode="visual"] {
+  background: var(--k-source);
+  color: var(--view-bg);
+}
+
+.status-mode[data-mode="command"] {
+  background: var(--k-later);
+  color: var(--view-bg);
+}
+
+.status-place {
+  background: color-mix(in srgb, var(--window-fg) 8%, transparent);
+}
+
+/* The middle fills what is left and is cut at the line's end: it never widens the column. */
+.status-line > .status-fill {
+  flex: 1 1 auto;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+}
+
+/* keymaps.jsonc's problems (D-199): after the version, cut to the line. */
+.keys-notice {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-model,
+.status-cost {
+  color: var(--dim);
+}
+
+/* A ring that turns while an answer streams; it exists only then. Reduced motion: it stays still. */
+.status-spinner {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--dim) 40%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: status-spin 0.9s linear infinite;
+}
+
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-spinner {
+    animation: none;
+  }
+}

@@ -10,7 +10,7 @@ describe("shell", () => {
     }
     await expect($("h1")).toHaveText("Lecter");
     // "Connecting to core…" until app_info answers; then the version from tauri.conf.json.
-    await expect($('[role="status"]')).toHaveText(/^v\d+\.\d+\.\d+$/);
+    await expect($('[aria-label="Status line"] .status-version')).toHaveText(/^v\d+\.\d+\.\d+$/);
     await shot("shell");
   });
 });

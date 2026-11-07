@@ -164,7 +164,7 @@ describe("figure frame sandbox", function () {
     try {
       if (appUrl) await browser.url(appUrl);
       await expect($('[aria-label="Course rail"]')).toBeDisplayed({ wait: 30_000 });
-      await expect($('[role="status"]')).toHaveText(/^v\d+\.\d+\.\d+$/, { wait: 30_000 });
+      await expect($('[aria-label="Status line"] .status-version')).toHaveText(/^v\d+\.\d+\.\d+$/, { wait: 30_000 });
     } finally {
       await harness?.close();
     }
