@@ -7,7 +7,7 @@ Spec: `06-ai-harness.md`, `07-providers.md`, `08-figures.md`, `05-retrieval.md#t
 
 - Principle 1: the best answer for the fewest tokens and the lowest latency. Before adding anything to a prompt, ask what it costs per request and whether it can sit in the cached prefix instead.
 - Prefix order is fixed and byte-stable for cache hits: system → role → AGENTS.md → skills index → memory.md → course card → digest → current lecture. Any change to the prefix assembly needs a test proving that two identical requests produce byte-identical prefixes.
-- Uncached input for `a` ≤ 2,500 tokens (p95). Tool results are trimmed to 1,500 tokens with a "read more" path. Usage is logged per request.
+- Uncached input for ask (Enter) ≤ 2,500 tokens (p95). Tool results are trimmed to 1,500 tokens with a "read more" path. Usage is logged per request.
 - Lecter's own time-to-first-token overhead is < 20 ms against the fake provider. Pre-warm, hedge after `ai.hedgeAfterMs`, use a circuit breaker per provider, and have `Esc` cancel the stream immediately.
 - The only write path is `note_actions`, and each action is visible and undoable. There are no shell, file-write or network tools.
 - Slide, source and web text is always wrapped in `<untrusted_source>`.
