@@ -1,5 +1,6 @@
 //! F-018: opening a course folder and listing `lectures/` and `slides/` (02-course-folder.md),
-//! with canonical paths and symlinks out of the course rejected with E_NOT_TRUSTED (SEC-35).
+//! with canonical paths and symlinks out of the course rejected with E_NOT_TRUSTED (SEC-35), except
+//! links in `slides/` (D-167; `tests_links.rs`, F-047).
 
 #![allow(clippy::disallowed_methods, reason = "tests build fixture folders on plain test threads")]
 
@@ -9,12 +10,12 @@ use super::*;
 use crate::ErrorCode;
 use crate::testenv::TestEnv;
 
-fn env() -> TestEnv {
+pub(super) fn env() -> TestEnv {
     TestEnv::new().unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Creates `rel` under `dir` (and its parents) as a small file.
-fn touch(dir: &Path, rel: &str) -> PathBuf {
+pub(super) fn touch(dir: &Path, rel: &str) -> PathBuf {
     let p = dir.join(rel);
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).unwrap_or_else(|e| panic!("{e}"));
@@ -23,7 +24,7 @@ fn touch(dir: &Path, rel: &str) -> PathBuf {
     p
 }
 
-fn mkdir(dir: &Path, rel: &str) -> PathBuf {
+pub(super) fn mkdir(dir: &Path, rel: &str) -> PathBuf {
     let p = dir.join(rel);
     std::fs::create_dir_all(&p).unwrap_or_else(|e| panic!("{e}"));
     p
@@ -35,7 +36,7 @@ fn shown(p: &Path) -> String {
     plain(canonical.to_str().unwrap_or_else(|| panic!("utf-8")))
 }
 
-fn file(dir: &str, name: &str) -> CourseFile {
+pub(super) fn file(dir: &str, name: &str) -> CourseFile {
     CourseFile { name: name.to_owned(), path: format!("{dir}/{name}") }
 }
 
@@ -45,12 +46,12 @@ fn lecture(name: &str) -> LectureFile {
 }
 
 #[cfg(unix)]
-fn link(target: &Path, at: &Path) {
+pub(super) fn link(target: &Path, at: &Path) {
     std::os::unix::fs::symlink(target, at).unwrap_or_else(|e| panic!("{e}"));
 }
 
 #[cfg(windows)]
-fn link(target: &Path, at: &Path) {
+pub(super) fn link(target: &Path, at: &Path) {
     let made = if target.is_dir() {
         std::os::windows::fs::symlink_dir(target, at)
     } else {
@@ -59,11 +60,11 @@ fn link(target: &Path, at: &Path) {
     made.unwrap_or_else(|e| panic!("symlinks need developer mode on Windows: {e}"));
 }
 
-fn open_ok(course: &Path) -> CourseListing {
+pub(super) fn open_ok(course: &Path) -> CourseListing {
     open(course).unwrap_or_else(|e| panic!("{e:?}"))
 }
 
-fn open_err(course: &Path) -> Error {
+pub(super) fn open_err(course: &Path) -> Error {
     open(course).err().unwrap_or_else(|| panic!("{} opened", course.display()))
 }
 
@@ -304,18 +305,17 @@ fn within_treats_backslashes_as_part_of_a_name_on_unix() {
     assert!(!within(root, Path::new(r"\\server\share\STAT311\slides")));
 }
 
-/// The symlink fixture: a slide file linked to a file outside the course.
+/// The symlink fixture: a slide file linked to a file outside the course. Since D-167 (F-047) it
+/// belongs to the course and is listed under its own name, not refused.
 #[test]
-fn a_slide_linked_outside_the_course_is_not_trusted() {
+fn a_slide_linked_outside_the_course_is_listed() {
     let env = env();
-    let secret = touch(env.home(), "outside/secret.pdf");
+    let week3 = touch(env.home(), "Downloads/week3.pdf");
     let course = mkdir(env.home(), "c");
     mkdir(&course, "slides");
     touch(&course, "slides/ok.pdf");
-    link(&secret, &course.join("slides/07-covariance.pdf"));
-    let err = open_err(&course);
-    assert_eq!(err, Error::OutsideCourse("slides/07-covariance.pdf".into()));
-    assert_eq!(err.code(), ErrorCode::NotTrusted);
+    link(&week3, &course.join("slides/07-covariance.pdf"));
+    assert_eq!(open_ok(&course).slides, vec![file("slides", "07-covariance.pdf"), file("slides", "ok.pdf")]);
 }
 
 #[test]
@@ -340,14 +340,16 @@ fn a_slides_folder_linked_outside_the_course_is_not_trusted() {
     assert_eq!(err.code(), ErrorCode::NotTrusted);
 }
 
+/// A folder inside slides/ linked outside lists the files directly in it (D-167, F-047).
 #[test]
-fn a_folder_inside_slides_linked_outside_is_not_trusted() {
+fn a_folder_inside_slides_linked_outside_lists_its_files() {
     let env = env();
     let outside = mkdir(env.home(), "elsewhere");
+    touch(&outside, "08.pdf");
     let course = mkdir(env.home(), "c");
     mkdir(&course, "slides");
     link(&outside, &course.join("slides/more"));
-    assert_eq!(open_err(&course), Error::OutsideCourse("slides/more".into()));
+    assert_eq!(open_ok(&course).slides, vec![file("slides", "more/08.pdf")]);
 }
 
 #[test]

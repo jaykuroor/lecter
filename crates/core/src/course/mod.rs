@@ -2,9 +2,12 @@
 //! `sources/`.
 //!
 //! [`open`] canonicalises the chosen folder and lists the subfolders. Every listed entry is
-//! canonicalised too (symlinks resolved) and must stay under the course root (SEC-35); one in
-//! `lectures/` or `slides/` that escapes fails the open with [`Error::OutsideCourse`]
-//! (`E_NOT_TRUSTED`), one in `sources/` is left out. Each lecture comes with its front-matter
+//! canonicalised too (symlinks resolved) and checked against the course root (SEC-35): one in
+//! `lectures/` that escapes fails the open with [`Error::OutsideCourse`] (`E_NOT_TRUSTED`), one in
+//! `sources/` is left out, and a link in `slides/` to a file or folder outside is listed, since it
+//! belongs to the course once the user trusts it (D-167; the trust screen names it, and the AI
+//! reaches it only through [`trust::course_file`] of a trusted course). Hidden files and `.lecter/`
+//! internals are never listed, wherever a link points. Each lecture comes with its front-matter
 //! date, read from the file's first 4 KB (`front.rs`, D-194). The app's `course_open` and
 //! `lecter-harness course open` both return this listing, so they print the same JSON.
 //!
@@ -23,6 +26,7 @@ use serde::Serialize;
 use crate::error::{Error, Result};
 
 pub use listing::within;
+pub(crate) use listing::{LinkOut, hidden, links_out};
 
 /// The most entries one subfolder listing reads: the contract's list limit (`limits.ipc.list`,
 /// 18-contracts.md#validation), so a listing always fits in one IPC answer.
@@ -145,3 +149,5 @@ pub fn ensure_dir(course: &Path, rel: &str) -> Result<PathBuf> {
 // The fixtures live in a TestEnv home, which exists in debug and test-hooks builds only.
 #[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
 mod tests;
+#[cfg(all(test, any(debug_assertions, feature = "test-hooks")))]
+mod tests_links;
