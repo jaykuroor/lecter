@@ -127,14 +127,15 @@ fn a_missing_folder_is_not_found() {
     assert_eq!(one_json(&out)["error"]["code"], "E_NOT_FOUND");
 }
 
-/// The symlink fixture: a slide linked to a file outside the course.
+/// The symlink fixture: a lecture linked to a file outside the course. Lecter writes lecture
+/// files, so it still fails the open (D-106); only links in slides/ belong to the course (D-167).
 #[cfg(unix)]
 #[test]
-fn a_slide_linked_outside_the_course_is_not_trusted() {
+fn a_lecture_linked_outside_the_course_is_not_trusted() {
     let env = env();
     let course = sample_course(&env);
-    touch(env.home(), "private/secret.pdf");
-    std::os::unix::fs::symlink(env.home().join("private/secret.pdf"), course.join("slides/03-leak.pdf"))
+    touch(env.home(), "private/l03.md");
+    std::os::unix::fs::symlink(env.home().join("private/l03.md"), course.join("lectures/03-leak.md"))
         .unwrap_or_else(|e| panic!("{e}"));
     let out = harness(&env, env.home(), &["course", "open", &course.to_string_lossy(), "--json"]);
     assert_eq!(out.status.code(), Some(1));
@@ -142,5 +143,28 @@ fn a_slide_linked_outside_the_course_is_not_trusted() {
     assert_eq!(v["error"]["code"], "E_NOT_TRUSTED", "{v}");
     assert_eq!(v["error"]["retryable"], false);
     let msg = v["error"]["message"].as_str().unwrap_or_default();
-    assert!(msg.starts_with("slides/03-leak.pdf points outside the course folder"), "{msg}");
+    assert!(msg.starts_with("lectures/03-leak.md points outside the course folder"), "{msg}");
+}
+
+/// F-047 (D-167): a slide linked to a file outside the course is listed like any other.
+#[cfg(unix)]
+#[test]
+fn a_slide_linked_outside_the_course_is_listed() {
+    let env = env();
+    let course = sample_course(&env);
+    touch(env.home(), "Downloads/03-week3.pdf");
+    std::os::unix::fs::symlink(env.home().join("Downloads/03-week3.pdf"), course.join("slides/03-week3.pdf"))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let out = harness(&env, env.home(), &["course", "open", &course.to_string_lossy(), "--json"]);
+    assert_eq!(out.status.code(), Some(0));
+    let v = one_json(&out);
+    assert_eq!(
+        v["slides"],
+        json!([
+            { "name": "01-introduction.pptx", "path": "slides/01-introduction.pptx" },
+            { "name": "02-probability.pdf", "path": "slides/02-probability.pdf" },
+            { "name": "03-week3.pdf", "path": "slides/03-week3.pdf" },
+        ]),
+        "{v}"
+    );
 }

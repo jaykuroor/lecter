@@ -42,7 +42,8 @@ pub struct CourseListing {
     pub name: String,
     /// The lecture files (`lectures/*.md`), by name.
     pub lectures: Vec<LectureFile>,
-    /// The slide files (`slides/*`), by name.
+    /// The slide files (`slides/*`), by name; a folder linked from `slides/` lists the files
+    /// directly in it as `<link>/<file>` (D-167).
     pub slides: Vec<CourseFile>,
     /// The source files directly in `sources/` (textbooks, papers, past exams), by name.
     pub sources: Vec<CourseFile>,

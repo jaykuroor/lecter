@@ -6,8 +6,8 @@
 
 use std::path::Path;
 
-use super::tests::{env, file, link, mkdir, open_err, open_ok, touch};
 use super::listing::LinkOut;
+use super::tests::{env, file, link, mkdir, open_err, open_ok, touch};
 use super::*;
 
 /// Criterion 1: a file and a folder linked from slides/ to outside the course are listed, and the
@@ -146,6 +146,24 @@ fn a_linked_folder_brings_no_hidden_files() {
     mkdir(&course, "slides");
     link(&folder, &course.join("slides/week5"));
     assert_eq!(open_ok(&course).slides, vec![file("slides", "week5/ok.pdf")]);
+}
+
+/// In a linked folder a dangling link is left out, but one that can't be resolved for any other
+/// reason (a loop) is a file-system error, as it is directly in slides/.
+#[cfg(unix)]
+#[test]
+fn a_linked_folders_dangling_link_is_left_out_and_a_loop_is_an_io_error() {
+    let env = env();
+    let folder = mkdir(env.home(), "Downloads/week6");
+    touch(&folder, "ok.pdf");
+    link(&env.home().join("gone.pdf"), &folder.join("gone.pdf"));
+    let course = mkdir(env.home(), "c");
+    mkdir(&course, "slides");
+    link(&folder, &course.join("slides/week6"));
+    assert_eq!(open_ok(&course).slides, vec![file("slides", "week6/ok.pdf")]);
+    link(&folder.join("loop.pdf"), &folder.join("loop.pdf"));
+    let err = open_err(&course);
+    assert!(matches!(err, Error::Io(_)), "{err:?}");
 }
 
 /// Lecture files are written by Lecter, so one linked out of the course still fails the open, and
