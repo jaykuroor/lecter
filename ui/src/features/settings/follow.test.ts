@@ -4,7 +4,7 @@ import type { Setting } from "../../core/bindings";
 import { type FollowDeps, followSetting } from "./follow";
 
 /**
- * A fake core: each read waits until the test answers it (`answer(i)`, by the order they were
+ * A fake core: each read waits for the test's `answer`, in the order it gives (else as they were
  * asked), with the value `values` holds for its course; events go to the listener.
  */
 function fakeCore(values: Record<string, string>) {
