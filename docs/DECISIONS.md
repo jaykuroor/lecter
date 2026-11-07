@@ -1640,3 +1640,15 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: tests/e2e/support/invoke.ts is typed from ui/src/core/bindings.ts; ui/src/core/flows-contract.test.ts runs tsc over tests/e2e/tsconfig.json in ui-tests (~0.2 s), so a missing or renamed argument fails locally.
 - Why: F-045's new required `scope` broke F-044's bundled-theme flow and only CI saw it; verify.sh is a protected kit file.
 - Instead of: patching the three calls only.
+
+## D-270 · Status-line lecture cost waits for spend tracking (F-090)
+2026-11-07 · maintainer · active
+- Decision: F-046 ships the status line's cost segment built but hidden, because nothing records AI spend yet. F-090 (spend caps and usage) feeds it the real lecture cost and carries "the status line shows the lecture's cost" as a criterion. Once spend is tracked, a lecture with no spend shows `$0.00` (not hidden).
+- Why: a cost nothing measured would be fake data; F-090 is where spend is recorded. Showing `$0.00` once tracking exists makes it visible that tracking works.
+- Instead of: blocking the status line until F-090, or a constant `$0.00` now.
+
+## D-271 · Branches carrying a Co-Authored-By line are squash-merged
+2026-11-07 · maintainer · active
+- Decision: when a builder branch has a commit with a Co-Authored-By trailer (forbidden by the author's git preferences; the guard blocks amending), the orchestrator merges it with `git merge --squash` as one `F-0NN: <title>` commit, so the line never reaches main. Other branches keep `--no-ff`. Already-merged commits (F-044's 4943e23) stay.
+- Why: commits on main carry only the author.
+- Instead of: keeping the line in history.

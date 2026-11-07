@@ -1523,7 +1523,7 @@
     "screenshot:status-line"
    ],
    "status": "in_progress",
-   "notes": "",
+   "notes": "D-270: lecture cost moved to F-090 (segment built, hidden until spend is tracked).",
    "priority": 3041,
    "base": "b5ee8c0d5cd04ff9138fdd342f70a0f64fcf645d"
   },
@@ -2686,7 +2686,7 @@
    ],
    "try": "Set a tiny lecture budget with :set and ask twice: Lecter asks before spending more",
    "status": "todo",
-   "notes": "",
+   "notes": "D-270 (maintainer): add criterion 'The status line SHALL show the open lecture's cost, $0.00 when nothing is spent yet' and pass the real cost to <StatusLine cost> in ui/src/App.tsx (F-046 left the segment hidden).",
    "priority": 5076
   },
   {
