@@ -253,6 +253,18 @@ Do the bundled Yaru and Breeze colours look right?
 - Recommended: check at the M1 gate; fix any value in crates/core/src/theme/bundled_palettes.rs. (applied as default: values as shipped)
 - Answer:
 
+## Q-039 · later · blocks: nothing
+Should 18-contracts.md#ipc record settings_set's `scope` argument?
+- Context: F-045 (D-260) added a required `scope: "global"|"course"` to settings_set; the contract table lists settings_set without it. settings_source and settings:changed are already listed.
+- Recommended: yes, a planning session adds `scope` and the settings_source answer shape to 18-contracts#ipc. (applied as default: the code is the reference)
+- Answer:
+
+## Q-040 · later · blocks: nothing
+When do ui.accent and ui.docFont join the settings schema?
+- Context: both are spec keys (12-settings-theme-onboarding) but D-171 holds only keys whose type and default the spec gives, so F-045's Settings window doesn't show them.
+- Recommended: the card that builds the accent override and document font adds them, with their controls. (applied as default: not shown)
+- Answer:
+
 ## Gate notes
 <!-- The orchestrator appends the maintainer's notes from each milestone gate here, as "### M<n> (date)" plus their words. PROMPT.plan.md turns them into features. -->
 

@@ -8,6 +8,7 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - CI's speed and memory checks on shared runners now report their numbers instead of failing; they still gate on the maintainer's machine (F-181)
 
 ### Added
+- Settings window (Ctrl/Cmd-,): search every setting and change it for all courses or just this one, with the change applying at once (F-045)
 - On macOS and Windows, Lecter follows your accent colour and offers bundled themes (Adwaita, Yaru, Breeze, Catppuccin, Gruvbox, Nord; light and dark) and GTK themes from ~/.themes (F-044)
 - On Linux, Lecter follows your GTK theme, dark mode and accent colour as you change them, and `:set ui.theme <name>` picks an installed GTK theme (F-043)
 - Lecter has its own light and dark theme and follows your system's light/dark setting (F-042)

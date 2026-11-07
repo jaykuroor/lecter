@@ -1580,3 +1580,63 @@ Choices made outside or on top of the spec. The spec wins over this file; this f
 - Decision: tests/e2e/flows/theme.ts sets the OS accent to Lecter's #3584e4 on CI (Windows AccentColorMenu 0xffe48435; macOS deletes AppleAccentColor) and restores it after, also on failure; every token is still compared exactly with tokens.json. Off CI it expects accent-bg = the user's OS accent. tests/e2e/support/accent.ts holds osAccent()/pinAccent() for theme.ts and bundled-theme.ts.
 - Why: the Windows runner's stock accent #0078D4 is now followed (D-255), which broke F-042's exact colour check; pinning keeps the check exact instead of re-deriving OKLCH in TypeScript.
 - Instead of: loosening the accent tokens in theme.ts.
+
+## D-260 · settings_set takes a scope
+2026-11-06 · session F-045 · active
+- Decision: settings_set gains `scope: "global"|"course"`. A course write needs an opened, trusted course (E_NOT_TRUSTED; read-only refused) and SEC-25 global-only keys are refused before anything is written.
+- Why: criterion 2 needs course-file writes; the core already had Scope::Course.
+- Instead of: always writing the global file.
+
+## D-261 · settings_source lists every setting; settings:changed follows every write
+2026-11-06 · session F-045 · active
+- Decision: settings_source returns every key in force with its source and globalOnly flag in one store read; settings:changed fires after every settings_set.
+- Why: one IPC call when Settings opens (D-237), and the UI applies changes at once.
+- Instead of: one settings_get per key.
+
+## D-262 · Lecter's own course-settings write keeps trust only when it is the only change
+2026-11-06 · session F-045 · active
+- Decision: trust::begin_own_settings_write (course must be trusted as it is now) records the fingerprint, a hash of every AI file except course.jsonc `settings`, and the `settings` object; finish_own_settings_write renews only if that remainder hash is unchanged, the parsed `settings` equals the old object with Lecter's one key set, and the stored entry is still Trusted with the pre-write fingerprint. Otherwise the write stands, the entry is left alone, a warning is logged, and the next gated call asks. survey.rs hashes `settings` last, so existing fingerprints are unchanged.
+- Why: without it every course write re-asks trust; blessing the whole AI-file set would trust hostile edits made meanwhile (security review, SEC-25/SEC-27).
+- Instead of: re-fingerprinting and storing Trusted after the write.
+
+## D-263 · One lock for trusted.jsonc
+2026-11-06 · session F-045 · active
+- Decision: TrustStore holds an Arc<Mutex<()>> shared by its clones; TrustStore::update(course, change) is a locked read-modify-write used by set and decide. In-process only; the app is single-instance. TrustStore no longer implements PartialEq/Eq.
+- Why: a Read-only answer given during a course write must not be overwritten, and concurrent answers must all land.
+- Instead of: an unlocked read-modify-write.
+
+## D-264 · Settings writes are serialised
+2026-11-06 · session F-045 · active
+- Decision: one Mutex in SettingsFiles covers read → write → trust renew.
+- Why: two overlapping `:set`s (F-040) could lose one update.
+- Instead of: a store per call.
+
+## D-265 · ui.hintBar and ui.keystrokes are settings
+2026-11-06 · session F-045 · active
+- Decision: ui.hintBar is full|compact|off (default full, D-206) and ui.keystrokes a boolean (default true, D-212); the app follows both live (follow.ts). ␣uh/␣uk write them globally but resolve with the open course, so a course's own value keeps winning; a refused write re-reads the value in force.
+- Why: the F-038 review asked for it; both were session-only.
+- Instead of: session-only toggles.
+
+## D-266 · Settings is a lazy modal
+2026-11-06 · session F-045 · active
+- Decision: the window loads on first open (5.94 KB gz), opened by Ctrl/Cmd-, (`settings.open`, global) or a headerbar gear; Esc or the close button closes it; no click-outside close (biome a11y).
+- Why: keeps the first-paint chunk and keystroke budget (D-197, D-237).
+- Instead of: a separate OS window or loading at boot.
+
+## D-267 · Settings pages and search
+2026-11-06 · session F-045 · active
+- Decision: keys are grouped by prefix: models and hedging under Providers, index.* under Courses, parsing/figures under Notes and files, anything unplaced under Advanced; Keys shows the keymap read-only. The scope picker is Global | This course, default Global. Search narrows incrementally with each setting's text lowercased once (10k settings: 0.025/0.21 ms median/p95 vs 5.0/5.2 ms naive).
+- Why: every schema key lands on a page; interactive work stays bounded (D-237).
+- Instead of: a hand-written page per key.
+
+## D-268 · settings_set caps the value at 64 KiB
+2026-11-06 · session F-045 · active
+- Decision: MAX_VALUE_BYTES = 64 KiB, checked with validate::string before JSON parsing.
+- Why: SEC-32: any single string is at most 64 KB; the value was bounded only by Tauri's payload limit.
+- Instead of: no cap on value.
+
+## D-269 · Real-app flows are type-checked against the IPC contract
+2026-11-06 · session F-045 · active
+- Decision: tests/e2e/support/invoke.ts is typed from ui/src/core/bindings.ts; ui/src/core/flows-contract.test.ts runs tsc over tests/e2e/tsconfig.json in ui-tests (~0.2 s), so a missing or renamed argument fails locally.
+- Why: F-045's new required `scope` broke F-044's bundled-theme flow and only CI saw it; verify.sh is a protected kit file.
+- Instead of: patching the three calls only.
