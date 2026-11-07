@@ -4984,9 +4984,10 @@
     "security"
    ],
    "try": "Link a PDF from ~/Downloads into slides/ and open the course: the trust screen lists it and it opens",
-   "status": "todo",
+   "status": "in_progress",
    "notes": "",
-   "priority": 8141
+   "priority": 8141,
+   "base": "3891241682a23c982da30ae01903b924f29b3fe2"
   },
   {
    "id": "F-048",
