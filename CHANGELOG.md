@@ -8,6 +8,7 @@ All notable changes to Lecter are documented here. The format follows [Keep a Ch
 - CI's speed and memory checks on shared runners now report their numbers instead of failing; they still gate on the maintainer's machine (F-181)
 
 ### Added
+- A nightly CI run measures how many deliberate code changes the tests catch and uploads the score (F-178)
 - The status line shows the editing mode in its own colour, the course and lecture, the slide you are on, the AI model that answered, and a spinner while an answer streams (F-046)
 - Settings window (Ctrl/Cmd-,): search every setting and change it for all courses or just this one, with the change applying at once (F-045)
 - On macOS and Windows, Lecter follows your accent colour and offers bundled themes (Adwaita, Yaru, Breeze, Catppuccin, Gruvbox, Nord; light and dark) and GTK themes from ~/.themes (F-044)
