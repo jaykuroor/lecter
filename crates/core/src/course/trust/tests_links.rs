@@ -13,7 +13,7 @@ use proptest::test_runner::{Config, TestCaseError, TestRunner};
 use super::tests::{env, link, reviewed, state_of, store, trust, unlink, write};
 use super::*;
 use crate::ErrorCode;
-use crate::course::{open, plain, within};
+use crate::course::{LINKED_FOLDER_FILES, plain, within};
 use crate::testenv::TestEnv;
 
 fn real(p: &Path) -> PathBuf {
@@ -116,17 +116,64 @@ fn an_untrusted_course_reads_no_linked_file() {
     std::fs::set_permissions(&f.week3, std::fs::Permissions::from_mode(0o644)).unwrap_or_else(|e| panic!("{e}"));
 }
 
-/// Criterion 2: Open read-only keeps the links listed, but the AI's file API never reaches what
-/// they lead to; files in the course still resolve.
+/// The listing [`super::open`] gives, as paths.
+fn listed(st: &TrustStore, course: &Path) -> Vec<String> {
+    let listing = super::open(st, course).unwrap_or_else(|e| panic!("{e:?}"));
+    listing.slides.into_iter().map(|s| s.path).collect()
+}
+
+/// Criteria 1 and 4: the course's listing follows its trust. Before an answer and read-only, a
+/// linked folder outside lists as itself; trusted as it is now, it lists its files; and when the
+/// AI files change after Trust, it lists as itself again until the next answer.
+#[test]
+fn the_listing_reads_a_linked_folder_only_once_trusted() {
+    let env = env();
+    let f = fixture(&env);
+    let st = store(&env);
+    let by_name = ["slides/01.pdf", "slides/in.pdf", "slides/w3.pdf", "slides/w4"];
+    let by_file = ["slides/01.pdf", "slides/in.pdf", "slides/w3.pdf", "slides/w4/a.pdf"];
+    assert_eq!(listed(&st, &f.course), by_name);
+    trust(&st, &f.course, TrustChoice::Trusted);
+    assert_eq!(listed(&st, &f.course), by_file);
+    write(&f.course, "AGENTS.md", "Changed after the answer.\n");
+    assert_eq!(listed(&st, &f.course), by_name);
+    trust(&st, &f.course, TrustChoice::ReadOnly);
+    assert_eq!(listed(&st, &f.course), by_name);
+}
+
+/// D-277: on the screen of a trusted course's listing, a link whose folder is listed only in part
+/// says so; one listed whole doesn't.
+#[test]
+fn a_capped_linked_folder_says_so_on_the_screen() {
+    let env = env();
+    let f = fixture(&env);
+    for i in 0..=LINKED_FOLDER_FILES {
+        write(&f.week4, &format!("{i:04}.pdf"), "");
+    }
+    let st = store(&env);
+    trust(&st, &f.course, TrustChoice::Trusted);
+    let listing = super::open(&st, &f.course).unwrap_or_else(|e| panic!("{e:?}"));
+    assert_eq!(listing.capped, vec!["slides/w4".to_owned()]);
+    let screen = review(&st, &listing, "sample").unwrap_or_else(|e| panic!("{e:?}")).screen;
+    assert_eq!(
+        screen.links,
+        vec![
+            format!("{} (hidden, never read)", named("slides/key.pdf", &f.key)),
+            named("slides/w3.pdf", &f.week3),
+            format!("{} (only the first 500 files listed)", named("slides/w4", &f.week4)),
+        ]
+    );
+}
+
+/// Criterion 2: Open read-only keeps the links listed (a linked folder by its name, unread), but
+/// the AI's file API never reaches what they lead to; files in the course still resolve.
 #[test]
 fn read_only_keeps_links_listed_but_never_reads_them() {
     let env = env();
     let f = fixture(&env);
     let st = store(&env);
     trust(&st, &f.course, TrustChoice::ReadOnly);
-    let listing = open(&f.course).unwrap_or_else(|e| panic!("{e:?}"));
-    let paths: Vec<&str> = listing.slides.iter().map(|s| s.path.as_str()).collect();
-    assert_eq!(paths, vec!["slides/01.pdf", "slides/in.pdf", "slides/w3.pdf", "slides/w4/a.pdf"]);
+    assert_eq!(listed(&st, &f.course), ["slides/01.pdf", "slides/in.pdf", "slides/w3.pdf", "slides/w4"]);
     assert_eq!(reviewed(&st, &f.course).screen.links.len(), 3);
     for requested in ["slides/w3.pdf", "slides/w4/a.pdf"] {
         let e = course_file(&st, &f.course, requested).err().unwrap_or_else(|| panic!("{requested} accepted"));

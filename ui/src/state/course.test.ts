@@ -110,6 +110,21 @@ describe("course state", () => {
     expect(s.busy()).toBe(false);
   });
 
+  // F-047: Trust's answer lists the course anew, so a folder linked from slides/ to outside the
+  // course, listed by its name before the answer, now shows its files (and a cut-short note).
+  it("takes the course's new listing from the answer", async () => {
+    const linked = { ...algebra, slides: [{ name: "week4", path: "slides/week4" }] };
+    const files = [{ name: "week4/a.pdf", path: "slides/week4/a.pdf" }];
+    scriptCore([
+      linked,
+      { ...algebra, slides: files, capped: ["slides/week4"], trust: "trusted", screen: trustScreen, details: null },
+    ]);
+    const s = state();
+    await s.open();
+    await s.answer("trusted");
+    expect(s.course()).toEqual({ ...algebra, slides: files, capped: ["slides/week4"], trust: "trusted" });
+  });
+
   it("keeps the question open when the answer can't be saved", async () => {
     scriptCore([
       algebra,

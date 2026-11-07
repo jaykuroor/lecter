@@ -96,6 +96,7 @@ fn lists_lecture_markdown_and_every_slide_file_by_name() {
                 file("slides", "07b-examples.pptx"),
             ],
             sources: vec![file("sources", "book.pdf")],
+            capped: vec![],
         }
     );
 }
@@ -240,6 +241,7 @@ fn the_listing_serialises_with_the_contract_keys() {
         ],
         slides: vec![],
         sources: vec![file("sources", "book.pdf")],
+        capped: vec![],
     };
     let json = serde_json::to_value(&listing).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(
@@ -349,7 +351,8 @@ fn a_folder_inside_slides_linked_outside_lists_its_files() {
     let course = mkdir(env.home(), "c");
     mkdir(&course, "slides");
     link(&outside, &course.join("slides/more"));
-    assert_eq!(open_ok(&course).slides, vec![file("slides", "more/08.pdf")]);
+    let trusted = open_with(&course, LinkedFolders::Files).unwrap_or_else(|e| panic!("{e:?}"));
+    assert_eq!(trusted.slides, vec![file("slides", "more/08.pdf")]);
 }
 
 #[test]

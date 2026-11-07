@@ -139,7 +139,9 @@ export function installMockCore(fixture: MockFixture): void {
         throw error;
       }
       const details = args.choice === "trusted" ? fixture.details : null;
-      return { trust: args.choice, screen: { ...opened.screen, changed: false }, details };
+      // The course comes back listed anew; the mocked course has no links out, so as it was.
+      const { trust: _trust, screen, ...listing } = opened;
+      return { ...listing, trust: args.choice, screen: { ...screen, changed: false }, details };
     },
     // Records each save for the test to read back (window.__mockDetails) and answers with it.
     course_details_save: (args) => {

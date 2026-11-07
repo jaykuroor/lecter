@@ -25,6 +25,8 @@ export interface SidebarCourse {
   slides: CourseFile[];
   /** The files in `sources/` (textbooks, papers, past exams), shown as Readings. */
   sources: CourseFile[];
+  /** The `slides/` links to folders listed only in part (D-277), each with a note under Slides. */
+  capped?: string[];
 }
 
 /** What a sidebar row other than a file opens: the dashboard or one of the lists. */
@@ -145,6 +147,13 @@ export function Sidebar(props: {
               <Section label="Slides" count={course().slides.length} empty="No slides yet" level={4}>
                 <FileRows files={course().slides} />
               </Section>
+              <For each={course().capped ?? []}>
+                {(link) => (
+                  <p class="course-empty sidebar-capped" role="note">
+                    {link} holds too many files; only the first are listed.
+                  </p>
+                )}
+              </For>
               <Section label="Readings" count={course().sources.length} empty="No readings yet" level={4}>
                 <FileRows files={course().sources} />
               </Section>

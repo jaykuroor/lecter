@@ -103,6 +103,7 @@ mod tests {
             ],
             slides: vec![],
             sources: vec![CourseFile { name: "book.pdf".into(), path: "sources/book.pdf".into() }],
+            capped: vec![],
         };
         assert_eq!(
             text(&listing),

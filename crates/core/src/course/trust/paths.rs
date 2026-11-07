@@ -8,6 +8,8 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use super::{TrustStore, require_trusted};
+use crate::course::LinkedFolders;
+use crate::course::links_out;
 use crate::course::listing::{Folder, files};
 use crate::course::{canonical_folder, within};
 use crate::error::{Error, Result};
@@ -58,14 +60,18 @@ pub fn course_file(store: &TrustStore, course: &Path, requested: &str) -> Result
     if within(&root, &real) {
         return Ok(real);
     }
-    // Outside: only a slide the listing reaches through a slides/ link (never a hidden one), named
-    // as the listing names it, so the same file reached any other way is still refused.
+    // Outside: only a slide a trusted course's listing reaches through a listed slides/ link
+    // (never a hidden one), named as the listing names it, so the same file reached any other way
+    // is still refused. Which links lead out is known without reading where they lead; the
+    // folders they lead to are read only once trust is checked (F-047 criterion 4).
     let named = parts.join("/");
-    if !files(&root, Folder::Slides)?.iter().any(|(slide, listed)| slide.path == named && *listed == real) {
+    let link = parts.get(..2).map(|p| p.join("/")).unwrap_or_default();
+    if parts[0] != Folder::Slides.dir() || !links_out(&root)?.iter().any(|l| l.listed && l.path == link) {
         return Err(refuse());
     }
     require_trusted(store, &root)?;
-    Ok(real)
+    let listed = files(&root, Folder::Slides, LinkedFolders::Files)?.files;
+    if listed.iter().any(|(slide, listed)| slide.path == named && *listed == real) { Ok(real) } else { Err(refuse()) }
 }
 
 /// The requested path as an error message may show it: at most 200 characters, one line.

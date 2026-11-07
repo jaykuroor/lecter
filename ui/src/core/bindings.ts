@@ -50,7 +50,7 @@ export const commands = {
 	courseOpen: () => typedError<({
 	trust: TrustState,
 	screen: TrustScreen,
-}) & (CourseListing) | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
+}) & (CourseListing_Serialize) | null, IpcError_Serialize>(__TAURI_INVOKE("course_open")),
 	/**
 	 *  The courses on the rail, in order, each with its name, icon and colour; a course whose folder
 	 *  is gone or leads elsewhere is marked `missing`.
@@ -60,7 +60,7 @@ export const commands = {
 	 *  Opens `course`, a course on the rail, as `course_open` opens a picked folder: its listing, its
 	 *  trust state and its trust screen.
 	 */
-	courseSwitch: (course: string) => typedError<CourseOpened, IpcError_Serialize>(__TAURI_INVOKE("course_switch", { course })),
+	courseSwitch: (course: string) => typedError<CourseOpened_Serialize, IpcError_Serialize>(__TAURI_INVOKE("course_switch", { course })),
 	/**
 	 *  Saves `order` (every course on the rail, each once, in its new place) and returns the rail as
 	 *  it is now; `course:changed` follows.
@@ -71,7 +71,7 @@ export const commands = {
 	 *  `choice`: Trust, or Open read-only. The answer is stored in `trusted.jsonc` with the AI files
 	 *  the screen showed; if they changed since, the result asks again with the new screen.
 	 */
-	courseTrust: (course: string, choice: TrustChoice) => typedError<CourseTrusted, IpcError_Serialize>(__TAURI_INVOKE("course_trust", { course, choice })),
+	courseTrust: (course: string, choice: TrustChoice) => typedError<CourseTrusted_Serialize, IpcError_Serialize>(__TAURI_INVOKE("course_trust", { course, choice })),
 	/**
 	 *  Saves `details` for `course` (a course `course_open` returned this session) and returns them as
 	 *  written: trimmed, the colour in lower case.
@@ -208,7 +208,10 @@ export type CourseFolders = {
 };
 
 /**  An opened course folder and the files in its `lectures/`, `slides/` and `sources/`. */
-export type CourseListing = {
+export type CourseListing = CourseListing_Serialize | CourseListing_Deserialize;
+
+/**  An opened course folder and the files in its `lectures/`, `slides/` and `sources/`. */
+export type CourseListing_Deserialize = {
 	/**  Canonical absolute path. */
 	path: string,
 	/**  The folder's own name. */
@@ -216,12 +219,41 @@ export type CourseListing = {
 	/**  The lecture files (`lectures/*.md`), by name. */
 	lectures: LectureFile[],
 	/**
-	 *  The slide files (`slides/*`), by name; a folder linked from `slides/` lists the files
-	 *  directly in it as `<link>/<file>` (D-167).
+	 *  The slide files (`slides/*`), by name. A folder linked from `slides/` lists the files
+	 *  directly in it as `<link>/<file>` (D-167); one outside the course does so only once the
+	 *  course is trusted, and lists as itself before.
 	 */
 	slides: CourseFile[],
 	/**  The source files directly in `sources/` (textbooks, papers, past exams), by name. */
 	sources: CourseFile[],
+	/**
+	 *  The `slides/` links to folders listed only in part, e.g. `slides/week4`: each lists at most
+	 *  500 files, the first by name (D-277). Left out when there are none.
+	 */
+	capped?: string[],
+};
+
+/**  An opened course folder and the files in its `lectures/`, `slides/` and `sources/`. */
+export type CourseListing_Serialize = {
+	/**  Canonical absolute path. */
+	path: string,
+	/**  The folder's own name. */
+	name: string,
+	/**  The lecture files (`lectures/*.md`), by name. */
+	lectures: LectureFile[],
+	/**
+	 *  The slide files (`slides/*`), by name. A folder linked from `slides/` lists the files
+	 *  directly in it as `<link>/<file>` (D-167); one outside the course does so only once the
+	 *  course is trusted, and lists as itself before.
+	 */
+	slides: CourseFile[],
+	/**  The source files directly in `sources/` (textbooks, papers, past exams), by name. */
+	sources: CourseFile[],
+	/**
+	 *  The `slides/` links to folders listed only in part, e.g. `slides/week4`: each lists at most
+	 *  500 files, the first by name (D-277). Left out when there are none.
+	 */
+	capped?: string[],
 };
 
 /**
@@ -229,22 +261,65 @@ export type CourseListing = {
  *  command-line harness prints for `course open`), where its trust stands, and what its trust
  *  screen shows.
  */
-export type CourseOpened = {
-	trust: TrustState,
-	screen: TrustScreen,
-} & CourseListing;
+export type CourseOpened = CourseOpened_Serialize | CourseOpened_Deserialize;
 
 /**
- *  `course_trust`'s result: where the course's trust stands after the answer, and its screen as
- *  it is now (asked again, with `changed`, when its AI files changed while the screen was open).
+ *  `course_open`'s result: the folder the user picked, its listing (the same JSON the
+ *  command-line harness prints for `course open`), where its trust stands, and what its trust
+ *  screen shows.
+ */
+export type CourseOpened_Deserialize = {
+	trust: TrustState,
+	screen: TrustScreen,
+} & CourseListing_Deserialize;
+
+/**
+ *  `course_open`'s result: the folder the user picked, its listing (the same JSON the
+ *  command-line harness prints for `course open`), where its trust stands, and what its trust
+ *  screen shows.
+ */
+export type CourseOpened_Serialize = {
+	trust: TrustState,
+	screen: TrustScreen,
+} & CourseListing_Serialize;
+
+/**
+ *  `course_trust`'s result: the course listed anew as its trust now allows (a slides/ link to a
+ *  folder outside lists its files only once trusted, F-047), where its trust stands after the
+ *  answer, and its screen as it is now (asked again, with `changed`, when its AI files changed
+ *  while the screen was open).
  *  A course now trusted whose details were never saved comes with the details form's first
  *  values (02-course-folder.md#course-details-coursejsonc); otherwise `details` is `null`.
  */
-export type CourseTrusted = {
+export type CourseTrusted = CourseTrusted_Serialize | CourseTrusted_Deserialize;
+
+/**
+ *  `course_trust`'s result: the course listed anew as its trust now allows (a slides/ link to a
+ *  folder outside lists its files only once trusted, F-047), where its trust stands after the
+ *  answer, and its screen as it is now (asked again, with `changed`, when its AI files changed
+ *  while the screen was open).
+ *  A course now trusted whose details were never saved comes with the details form's first
+ *  values (02-course-folder.md#course-details-coursejsonc); otherwise `details` is `null`.
+ */
+export type CourseTrusted_Deserialize = {
 	trust: TrustState,
 	screen: TrustScreen,
 	details: CourseDetails | null,
-};
+} & CourseListing_Deserialize;
+
+/**
+ *  `course_trust`'s result: the course listed anew as its trust now allows (a slides/ link to a
+ *  folder outside lists its files only once trusted, F-047), where its trust stands after the
+ *  answer, and its screen as it is now (asked again, with `changed`, when its AI files changed
+ *  while the screen was open).
+ *  A course now trusted whose details were never saved comes with the details form's first
+ *  values (02-course-folder.md#course-details-coursejsonc); otherwise `details` is `null`.
+ */
+export type CourseTrusted_Serialize = {
+	trust: TrustState,
+	screen: TrustScreen,
+	details: CourseDetails | null,
+} & CourseListing_Serialize;
 
 /**
  *  One edit from the buffer: replace `from..to` with `text`. Positions are UTF-16 code units
