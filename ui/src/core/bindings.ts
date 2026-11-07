@@ -215,7 +215,10 @@ export type CourseListing = {
 	name: string,
 	/**  The lecture files (`lectures/*.md`), by name. */
 	lectures: LectureFile[],
-	/**  The slide files (`slides/*`), by name. */
+	/**
+	 *  The slide files (`slides/*`), by name; a folder linked from `slides/` lists the files
+	 *  directly in it as `<link>/<file>` (D-167).
+	 */
 	slides: CourseFile[],
 	/**  The source files directly in `sources/` (textbooks, papers, past exams), by name. */
 	sources: CourseFile[],
