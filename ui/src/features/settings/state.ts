@@ -4,7 +4,7 @@
 // written at once and the answer (the value then in force) shown; `settings:changed` keeps the
 // values right when `:set` or a key changes one while the window is open.
 import { batch, createMemo, createSignal } from "solid-js";
-import type { IpcError, Setting, SettingScope, SettingState } from "../../core/bindings";
+import type { InstalledTheme, IpcError, Setting, SettingScope, SettingState } from "../../core/bindings";
 import { readSchema } from "../cmdline/schema";
 import { createFilter, type Entry, entriesOf } from "./filter";
 import type { PageId } from "./pages";
@@ -24,13 +24,13 @@ export interface SettingsDeps {
   schema(): Promise<Answer<string>>;
   values(course: string | null): Promise<Answer<SettingState[]>>;
   set(key: string, json: string, course: string | null, scope: SettingScope): Promise<Answer<Setting>>;
-  /** The names of the themes `ui.theme` can pick (`theme_list`). */
-  themes(): Promise<Answer<string[]>>;
+  /** The themes `ui.theme` can pick (`theme_list`). */
+  themes(): Promise<Answer<InstalledTheme[]>>;
   course(): SettingsCourse | null;
 }
 
 /** The line shown when the settings couldn't be read. */
-export const UNREAD = "Lecter could not read the settings; try again.";
+const UNREAD = "Lecter could not read the settings; try again.";
 
 export type SettingsWindow = ReturnType<typeof createSettings>;
 
@@ -38,7 +38,7 @@ export function createSettings(deps: SettingsDeps) {
   const [isOpen, setOpen] = createSignal(false);
   const [page, setPage] = createSignal<PageId>("appearance");
   const [query, setQuery] = createSignal("");
-  const [chosenScope, setScope] = createSignal<SettingScope>("global");
+  const [wantsCourse, setWantsCourse] = createSignal(false);
   const [entries, setEntries] = createSignal<readonly Entry[]>([]);
   const [values, setValues] = createSignal<Readonly<Record<string, SettingState>>>({});
   const [errors, setErrors] = createSignal<Readonly<Record<string, string>>>({});
@@ -76,7 +76,7 @@ export function createSettings(deps: SettingsDeps) {
     if (themesAsked) return;
     themesAsked = true;
     void deps.themes().then((answer) => {
-      if (answer.status === "ok") setThemes(answer.data);
+      if (answer.status === "ok") setThemes(answer.data.map((t) => t.name));
       else themesAsked = false;
     });
   };
@@ -84,15 +84,19 @@ export function createSettings(deps: SettingsDeps) {
   /** Whether "This course" can be chosen: a course is open and trusted. */
   const courseScope = () => deps.course()?.trusted === true;
   /** The file a change goes to now. */
-  const scope = (): SettingScope => (chosenScope() === "course" && courseScope() ? "course" : "global");
+  const scope = (): SettingScope => (wantsCourse() && courseScope() ? "course" : "global");
 
-  /** The settings shown: the search's matches over every page, or the page's own. */
+  /**
+   * The settings shown: the search's matches over every page, or the page's own; only those the
+   * core has a value for.
+   */
   const shown = createMemo<readonly Entry[]>(() => {
     const all = entries();
+    const held = values();
     const q = query();
-    if (q.trim() !== "") return find(q);
     const p = page();
-    return all.filter((e) => e.page === p);
+    const found = q.trim() === "" ? all.filter((e) => e.page === p) : find(q);
+    return found.filter((e) => held[e.spec.key] !== undefined);
   });
 
   /** A setting as the core now has it in force. */
@@ -144,7 +148,8 @@ export function createSettings(deps: SettingsDeps) {
       });
     },
     setQuery,
-    setScope,
+    /** Chooses the file changes go to (the course's only while one is open and trusted). */
+    setScope: (to: SettingScope) => setWantsCourse(to === "course"),
     changed,
     setError,
     /**

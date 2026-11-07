@@ -19,6 +19,9 @@ export interface FakeSettingsCore extends SettingsDeps {
   failSchema: boolean;
   /** Makes the next write fail with this error. */
   failSet: IpcError | null;
+  /** Makes the next values ask, or themes ask, fail. */
+  failValues: boolean;
+  failThemes: boolean;
 }
 
 const plain = (spec: SettingSpec): string => {
@@ -53,6 +56,8 @@ export function fakeSettingsCore(
     open: null,
     failSchema: false,
     failSet: null,
+    failValues: false,
+    failThemes: false,
     course: () => core.open,
     schema() {
       core.calls.push("schema");
@@ -64,6 +69,10 @@ export function fakeSettingsCore(
     },
     values(course) {
       core.calls.push(`values ${course}`);
+      if (core.failValues) {
+        core.failValues = false;
+        return fail({ code: "E_IO", message: "no", retryable: true });
+      }
       return ok(Object.values(held).map((s) => ({ ...s })));
     },
     set(key, json, course, scope: SettingScope) {
@@ -85,7 +94,11 @@ export function fakeSettingsCore(
     },
     themes() {
       core.calls.push("themes");
-      return ok(themes);
+      if (core.failThemes) {
+        core.failThemes = false;
+        return fail({ code: "E_IO", message: "no", retryable: true });
+      }
+      return ok(themes.map((name) => ({ name, folder: "" })));
     },
   };
   return core;

@@ -25,6 +25,8 @@ describe("the settings search (F-045 criterion 1)", () => {
     expect(keys(find("speed-or-looks"))).toEqual(["ui.performance"]);
     expect(keys(find("KEYSTROKES"))).toEqual(["ui.keystrokes"]);
     expect(keys(find("searxng"))).toEqual(["ai.search.service"]);
+    // Values are words of their own, never run together.
+    expect(keys(find("bravetavily"))).toEqual([]);
     // The page's title: Privacy holds privacy.*, feedback.* and log.*.
     expect(keys(find("privacy")).sort()).toEqual(
       ["feedback.endpoint", "log.content", "privacy.shareFeedback", "privacy.shareFeedbackText"].sort(),

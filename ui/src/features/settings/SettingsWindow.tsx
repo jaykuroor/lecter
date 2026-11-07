@@ -4,6 +4,7 @@
 // pages down the left; the page's settings, or the search's matches, on the right. Everything is
 // reachable by mouse and by key (nav.ts); Tab stays in the window.
 import { For, type JSX, Show } from "solid-js";
+import type { SettingState } from "../../core/bindings";
 import type { Binding } from "../../keys/keymap";
 import { KeysList } from "./KeysList";
 import { nextRow, rowTarget, windowKey } from "./nav";
@@ -30,7 +31,7 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
   let panel!: HTMLElement;
   const searching = () => s.query().trim() !== "";
 
-  const focusTab = (id: PageId) => dialog.querySelector<HTMLElement>(`#${tabId(id)}`)?.focus();
+  const focusTab = (id: PageId) => (dialog.querySelector(`#${tabId(id)}`) as HTMLElement).focus();
   const movePage = (by: 1 | -1 | "first" | "last") => {
     const at = PAGES.findIndex((p) => p.id === s.page());
     const to = by === "first" ? 0 : by === "last" ? PAGES.length - 1 : (at + by + PAGES.length) % PAGES.length;
@@ -38,7 +39,7 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
     s.showPage(page);
     focusTab(page);
   };
-  const moveRow = (from: Element | null, by: 1 | -1) => {
+  const moveRow = (from: Element, by: 1 | -1) => {
     const row = nextRow(panel, from, by);
     if (!row) return;
     rowTarget(row).focus();
@@ -53,7 +54,8 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    const act = windowKey(e, s.query() !== "");
+    const target = e.target as Element;
+    const act = windowKey(e, target, s.query() !== "");
     if (!act) return;
     e.preventDefault();
     e.stopPropagation();
@@ -61,7 +63,7 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
     else if (act.do === "clear") s.setQuery("");
     else if (act.do === "search") search.focus();
     else if (act.do === "page") movePage(act.by);
-    else moveRow(e.target instanceof Element && e.target !== search ? e.target : null, act.by);
+    else if (act.do === "row") moveRow(target, act.by);
   };
 
   return (
@@ -95,7 +97,6 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
               <input
                 type="radio"
                 name="settings-scope"
-                value="global"
                 checked={s.scope() === "global"}
                 onChange={() => s.setScope("global")}
               />
@@ -112,12 +113,13 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
               <input
                 type="radio"
                 name="settings-scope"
-                value="course"
                 checked={s.scope() === "course"}
                 disabled={!s.courseScope()}
                 onChange={() => s.setScope("course")}
               />
-              <span>{s.courseScope() ? `This course (${props.course()?.name ?? ""})` : "This course"}</span>
+              <Show when={s.courseScope() ? props.course() : null} fallback={<span>This course</span>}>
+                {(c) => <span>This course ({c().name})</span>}
+              </Show>
             </label>
           </div>
           <button type="button" class="settings-close" aria-label="Close settings" onClick={() => props.onClose()}>
@@ -164,7 +166,9 @@ export function SettingsWindow(props: SettingsWindowProps): JSX.Element {
           <Show when={!searching() && s.page() === "keys"}>
             <KeysList bindings={props.bindings()} mac={props.mac} />
           </Show>
-          <For each={s.shown()}>{(entry) => <SettingRow entry={entry} settings={s} />}</For>
+          <For each={s.shown()}>
+            {(entry) => <SettingRow entry={entry} state={s.values()[entry.spec.key] as SettingState} settings={s} />}
+          </For>
           <Show when={searching() && s.shown().length === 0 && s.entries().length > 0}>
             <p class="settings-empty">No setting matches.</p>
           </Show>

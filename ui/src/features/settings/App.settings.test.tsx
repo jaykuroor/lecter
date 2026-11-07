@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import { defaultFixture } from "../../../e2e/mock-core/fixture";
+import { defaultFixture, trustScreen } from "../../../e2e/mock-core/fixture";
 import { installMockCore } from "../../../e2e/mock-core/install";
 import { App } from "../../App";
 import { SCHEMA_TEXT } from "../cmdline/__tests__/schemaText";
@@ -15,9 +15,11 @@ const press = (target: EventTarget, init: KeyboardEventInit) =>
 
 const writes = () => (window as unknown as { __mockSettings?: unknown[] }).__mockSettings ?? [];
 const reads = () => (window as unknown as { __mockSettingsReads?: string[] }).__mockSettingsReads ?? [];
+const listening = () => (window as unknown as { __mockSettingsListeners: () => number }).__mockSettingsListeners();
 const detail = () => document.querySelector(".hint-bar")?.getAttribute("data-detail") ?? "off";
 
-async function start(values: Record<string, string> = {}): Promise<void> {
+/** The app with these settings in force; with `course`, a trusted course the + opens. */
+async function start(values: Record<string, string> = {}, course = false): Promise<void> {
   const held = {
     "ui.performance": '"balanced"',
     "ui.hintBar": '"full"',
@@ -27,6 +29,17 @@ async function start(values: Record<string, string> = {}): Promise<void> {
   };
   installMockCore({
     ...defaultFixture,
+    courseOpen: course
+      ? {
+          path: "/c/STAT311",
+          name: "STAT311",
+          lectures: [],
+          slides: [],
+          sources: [],
+          trust: "trusted",
+          screen: trustScreen,
+        }
+      : null,
     settings: {
       schema: SCHEMA_TEXT,
       values: Object.fromEntries(Object.entries(held).map(([k, v]) => [k, { value: v, source: "default" as const }])),
@@ -91,15 +104,42 @@ describe("Settings in the app", () => {
   });
 
   it("starts the keystroke overlay at ui.keystrokes, and ␣uk writes it", async () => {
-    await start({ "ui.keystrokes": "false" });
-    // The overlay reads the setting after it starts; the answer applies in the same task.
-    await waitFor(() => expect(reads()).toContain("ui.keystrokes"));
-    await new Promise((r) => setTimeout(r, 0));
-    press(document.body, { key: " ", code: "Space" });
-    press(document.body, { key: "u", code: "KeyU" });
-    press(document.body, { key: "k", code: "KeyK" });
+    for (const [held, next] of [
+      ["false", "true"],
+      ["true", "false"],
+    ]) {
+      await start({ "ui.keystrokes": held as string });
+      // The overlay reads the setting after it starts; the answer applies in the same task.
+      await waitFor(() => expect(reads()).toContain("ui.keystrokes null"));
+      await new Promise((r) => setTimeout(r, 0));
+      press(document.body, { key: " ", code: "Space" });
+      press(document.body, { key: "u", code: "KeyU" });
+      press(document.body, { key: "k", code: "KeyK" });
+      await waitFor(() =>
+        expect(writes()).toEqual([{ key: "ui.keystrokes", value: next, course: null, scope: "global" }]),
+      );
+      cleanup();
+    }
+  });
+
+  it("reads the settings again for the course opened, and stops following them when the app goes", async () => {
+    await start({}, true);
+    await waitFor(() => expect(reads()).toEqual(expect.arrayContaining(["ui.hintBar null", "ui.keystrokes null"])));
+    fireEvent.click(screen.getByRole("button", { name: "Add a course" }));
     await waitFor(() =>
-      expect(writes()).toEqual([{ key: "ui.keystrokes", value: "true", course: null, scope: "global" }]),
+      expect(reads()).toEqual(expect.arrayContaining(["ui.hintBar /c/STAT311", "ui.keystrokes /c/STAT311"])),
     );
+    expect(listening()).toBe(2);
+    cleanup();
+    await waitFor(() => expect(listening()).toBe(0));
+  });
+
+  it("lists the engine's keys on the Keys page", async () => {
+    await start();
+    fireEvent.click(settingsButton());
+    fireEvent.click(await screen.findByRole("tab", { name: "Keys" }));
+    const keys = screen.getByRole("list", { name: "Keys" });
+    expect(keys.textContent).toContain("Command palette");
+    expect(keys.textContent).toContain("Ctrl-Shift-p");
   });
 });

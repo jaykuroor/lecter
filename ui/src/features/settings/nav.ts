@@ -18,37 +18,33 @@ export type WindowKey =
 const TYPES_TEXT = 'input[type="text"], input[type="search"], input:not([type]), textarea';
 /** Controls that use ↑/↓ for their own value. */
 const OWN_ARROWS = 'input[type="radio"], select';
-const isIn = (el: Element | null, selector: string): boolean => el?.matches(selector) === true;
 
 /**
- * What `e` does in the window, given whether the search holds text. `null`: the key goes on as
- * usual.
+ * What `e`, a keydown on `target` in the window, does, given whether the search holds text.
+ * `null`: the key goes on as usual.
  */
-export function windowKey(e: KeyboardEvent, searchHasText: boolean): WindowKey {
-  const target = e.target instanceof Element ? e.target : null;
+export function windowKey(e: KeyboardEvent, target: Element, searchHasText: boolean): WindowKey {
   if (e.ctrlKey || e.altKey || e.metaKey) return null;
-  const typing = isIn(target, TYPES_TEXT);
-  if (e.key === "Escape")
-    return target?.matches(".settings-search") && searchHasText ? { do: "clear" } : { do: "close" };
-  if (typing) {
+  const search = target.matches(".settings-search");
+  if (e.key === "Escape") return search && searchHasText ? { do: "clear" } : { do: "close" };
+  if (target.matches(TYPES_TEXT)) {
     // From the search, ↓ (or Enter) goes into the settings found.
-    if (target?.matches(".settings-search") && (e.key === "ArrowDown" || e.key === "Enter"))
-      return { do: "row", by: 1 };
+    if (search && (e.key === "ArrowDown" || e.key === "Enter")) return { do: "row", by: 1 };
     return null;
   }
   if (e.key === "/") return { do: "search" };
   const down = e.key === "j" || e.key === "ArrowDown";
   const up = e.key === "k" || e.key === "ArrowUp";
-  if (target?.getAttribute("role") === "tab") {
+  if (target.getAttribute("role") === "tab") {
     if (down) return { do: "page", by: 1 };
     if (up) return { do: "page", by: -1 };
     if (e.key === "Home") return { do: "page", by: "first" };
     if (e.key === "End") return { do: "page", by: "last" };
     return null;
   }
-  if (!target?.closest(".settings-panel")) return null;
+  if (!target.closest(".settings-panel")) return null;
   const arrows = e.key === "ArrowDown" || e.key === "ArrowUp";
-  if (arrows && isIn(target, OWN_ARROWS)) return null;
+  if (arrows && target.matches(OWN_ARROWS)) return null;
   if (down) return { do: "row", by: 1 };
   if (up) return { do: "row", by: -1 };
   return null;
@@ -65,12 +61,11 @@ export function rowTarget(row: HTMLElement): HTMLElement {
 
 /**
  * The row `by` after the one holding `from` in `panel` (the first row when `from` is in none),
- * kept within the rows; `null` when the panel has none.
+ * kept within the rows; none when the panel has none.
  */
-export function nextRow(panel: Element, from: Element | null, by: 1 | -1): HTMLElement | null {
+export function nextRow(panel: Element, from: Element, by: 1 | -1): HTMLElement | undefined {
   const rows = [...panel.querySelectorAll<HTMLElement>(".settings-row")];
-  if (rows.length === 0) return null;
+  // Not in a row: -1, so one step either way is the first row.
   const at = rows.findIndex((r) => r.contains(from));
-  if (at < 0) return rows[0] as HTMLElement;
-  return rows[Math.min(rows.length - 1, Math.max(0, at + by))] as HTMLElement;
+  return rows[Math.min(rows.length - 1, Math.max(0, at + by))];
 }

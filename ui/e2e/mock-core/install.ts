@@ -57,6 +57,9 @@ export function installMockCore(fixture: MockFixture): void {
   // The settings in force, which `settings_set` changes, and the `settings:changed` listeners.
   const settings = { ...fixture.settings.values };
   const settingsListeners = new Map<number, number>();
+  // How many `settings:changed` listeners are on now, for a test to see they all stop.
+  (window as unknown as { __mockSettingsListeners?: () => number }).__mockSettingsListeners = () =>
+    settingsListeners.size;
   const globalOnly = (key: string) => /^(privacy|log|limits)\./.test(key) || key === "feedback.endpoint";
   delete (window as unknown as { __mockSettings?: unknown }).__mockSettings;
   delete (window as unknown as { __mockSettingsReads?: unknown }).__mockSettingsReads;
@@ -168,11 +171,11 @@ export function installMockCore(fixture: MockFixture): void {
     settings_schema: () => fixture.settings.schema,
     theme_get: () => fixture.theme.update,
     theme_list: () => fixture.theme.installed,
-    // Records each key asked for (window.__mockSettingsReads).
-    settings_get: ({ key }) => {
+    // Records each key asked for, with its course (window.__mockSettingsReads: "key course").
+    settings_get: ({ key, course }) => {
       const w = window as unknown as { __mockSettingsReads?: string[] };
       w.__mockSettingsReads ??= [];
-      w.__mockSettingsReads.push(key);
+      w.__mockSettingsReads.push(`${key} ${course}`);
       const found = settings[key];
       if (!found) return fail("E_NOT_FOUND", `${key} is not a setting`);
       return { key, ...found };

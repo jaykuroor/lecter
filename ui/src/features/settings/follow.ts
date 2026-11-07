@@ -2,7 +2,7 @@
 // applies at once): its value in force is read for the course open now, again when the course
 // changes, and taken from every `settings:changed` of its key. A read that comes back after a newer
 // value (a key pressed, an event) is dropped, so the last change always wins. Nothing here is on the
-// key path: the app's own toggles (␣uh, ␣uk) apply locally first and write after.
+// key path: the app's own toggles (␣uh, ␣uk) apply locally first and write through `write`.
 import { createEffect, createRoot, on } from "solid-js";
 import type { IpcError, Setting } from "../../core/bindings";
 
@@ -14,11 +14,16 @@ export interface FollowDeps {
   get(key: string, course: string | null): Promise<Answer<Setting>>;
   /** Calls `listener` for each written setting; resolves to the function that stops it. */
   listen(listener: (setting: Setting) => void): Promise<() => void>;
+  /** Writes a value (JSON text) to the global settings. */
+  set(key: string, json: string, course: null): Promise<Answer<Setting>>;
 }
 
 export interface Follower {
-  /** The app changed the value itself (a key): an older read must not undo it. */
-  touched: () => void;
+  /**
+   * The app changed the value itself (␣uh, ␣uk) and shows it already: writes it to the global
+   * settings, and no older read may undo it.
+   */
+  write: (json: string) => void;
   stop: () => void;
 }
 
@@ -57,8 +62,9 @@ export function followSetting(
       () => {},
     );
   return {
-    touched: () => {
+    write: (json) => {
       version += 1;
+      void deps.set(key, json, null);
     },
     stop: () => {
       stopped = true;

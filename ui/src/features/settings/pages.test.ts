@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SCHEMA_TEXT } from "../cmdline/__tests__/schemaText";
 import { readSchema } from "../cmdline/schema";
-import { choiceLabel, labelOf, PAGES, pageOf, pageTitle } from "./pages";
+import { choiceLabel, labelOf, PAGES, type PageId, pageOf, pageTitle } from "./pages";
 
 describe("the Settings pages", () => {
   it("are the nine pages of 12-settings-theme-onboarding.md#settings, in order", () => {
@@ -17,6 +17,7 @@ describe("the Settings pages", () => {
       "Advanced",
     ]);
     expect(pageTitle("notes")).toBe("Notes and files");
+    expect(pageTitle("nowhere" as PageId)).toBe("");
   });
 
   it("put each key on its page by group (F-045 criterion 1)", () => {

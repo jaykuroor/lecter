@@ -201,6 +201,9 @@ fn settings_ui_hint_bar_and_keystrokes_have_their_spec_defaults() {
     let stack = SettingsStack::new(layer, None, None, None);
     assert_eq!(stack.settings().ui.hint_bar, schema::HintBar::Compact);
     assert!(!stack.settings().ui.keystrokes);
+    // The Settings window greys these out for a course (SEC-25).
+    assert!(is_global_only("privacy.shareFeedback") && is_global_only("feedback.endpoint"));
+    assert!(!is_global_only("ui.hintBar") && !is_global_only("ai.webSearch"));
     let bad = Layer::from_value(Source::Global, &json!({ "ui": { "hintBar": "tiny", "keystrokes": "yes" } }));
     assert_eq!(bad.invalid.len(), 2, "{:?}", bad.invalid);
 }

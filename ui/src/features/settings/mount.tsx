@@ -3,7 +3,7 @@
 // focus was when it opened and gives it back when it closes, reads the values in force at every
 // open, and follows `settings:changed` while the page lives, so a `:set` or a key that changes a
 // setting shows here too.
-import { createSignal, Show } from "solid-js";
+import { Show } from "solid-js";
 import { render } from "solid-js/web";
 import type { CourseOpened } from "../../core/course";
 import { onSettingsChanged, readSettingsInForce, readSettingsSchema, setSetting } from "../../core/settings";
@@ -36,34 +36,27 @@ const courseOf = (c: CourseOpened | null): SettingsCourse | null =>
 
 export function startSettings(ctx: SettingsContext): SettingsHandle {
   /** Where the focus was when the window opened. */
-  let before: HTMLElement | null = null;
+  let before: HTMLElement = document.body;
   let stopped = false;
   let unlisten: (() => void) | undefined;
   const course = () => courseOf(ctx.course());
 
   let settings!: Settings;
-  const [shown, setShown] = createSignal(false);
   const close = () => {
     settings.close();
-    setShown(false);
-    const el = before;
-    before = null;
     // Focusing an element that has gone does nothing.
-    el?.focus();
+    before.focus();
   };
   const dispose = render(() => {
     settings = createSettings({
       schema: readSettingsSchema,
       values: readSettingsInForce,
       set: setSetting,
-      themes: async () => {
-        const answer = await listThemes();
-        return answer.status === "ok" ? { status: "ok", data: answer.data.map((t) => t.name) } : answer;
-      },
+      themes: listThemes,
       course,
     });
     return (
-      <Show when={shown()}>
+      <Show when={settings.isOpen()}>
         <SettingsWindow settings={settings} course={course} bindings={ctx.bindings} mac={ctx.mac} onClose={close} />
       </Show>
     );
@@ -77,24 +70,20 @@ export function startSettings(ctx: SettingsContext): SettingsHandle {
     () => {},
   );
 
-  const focusSearch = () => ctx.host.querySelector<HTMLInputElement>(".settings-search")?.focus();
+  const focusSearch = () => (ctx.host.querySelector(".settings-search") as HTMLInputElement).focus();
 
   return {
     settings,
     open: (to) => {
-      if (shown()) {
-        focusSearch();
-        return;
+      if (!settings.isOpen()) {
+        before = document.activeElement as HTMLElement;
+        void settings.open(to);
       }
-      before = document.activeElement as HTMLElement | null;
-      setShown(true);
-      void settings.open(to);
       focusSearch();
     },
     stop: () => {
       stopped = true;
       unlisten?.();
-      if (shown()) settings.close();
       dispose();
     },
   };

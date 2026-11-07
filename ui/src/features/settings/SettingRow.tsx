@@ -4,6 +4,7 @@
 // the focus leaves. `ui.performance` and `ui.theme` have controls of their own. A value is checked
 // against the schema before it is written; the core's refusal shows under the setting.
 import { For, type JSX, Match, Show, Switch } from "solid-js";
+import type { SettingState } from "../../core/bindings";
 import { checkValue, showValue } from "../cmdline/schema";
 import type { Entry } from "./filter";
 import { PerformancePreset } from "./PerformancePreset";
@@ -13,63 +14,54 @@ import type { SettingsWindow } from "./state";
 /** Choices up to this many show as buttons; more as a list. */
 const MAX_BUTTONS = 4;
 
-/** The control's id for `key` (labels point at it). */
-const controlId = (key: string): string => `setting-${key.replace(/\./g, "-")}`;
-
-/** What the source badge says: where the value in force comes from. */
-const SOURCE_WORDS: Readonly<Record<string, string>> = {
-  default: "default",
-  global: "global",
-  course: "this course",
-  role: "role file",
-  prompt: "prompt",
-};
-
-/** The JSON value of `json`, or `undefined` for text that isn't JSON. */
-function parsed(json: string): unknown {
-  try {
-    return JSON.parse(json);
-  } catch {
-    return undefined;
-  }
+/** One value a choice control offers: as the core takes it (JSON text), and in words. */
+interface Choice {
+  json: string;
+  label: string;
 }
 
-export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): JSX.Element {
+/** The themes to list: the installed ones, and the one set now even when it isn't installed. */
+function themeNames(installed: readonly string[], json: string): string[] {
+  const current = installed.find((name) => JSON.stringify(name) === json);
+  return current || json === "null" ? [...installed] : [...installed, JSON.parse(json) as string];
+}
+
+export function SettingRow(props: { entry: Entry; state: SettingState; settings: SettingsWindow }): JSX.Element {
   const key = () => props.entry.spec.key;
-  const state = () => props.settings.values()[key()];
-  const json = () => state()?.value ?? "null";
-  const id = () => controlId(key());
+  const json = () => props.state.value;
+  const id = () => `setting-${key()}`;
   const labelId = () => `${id()}-label`;
   /** A course can't set it (SEC-25) and the window writes to the course. */
-  const locked = () => props.settings.scope() === "course" && state()?.globalOnly === true;
-  const disabled = () => locked() || state() === undefined;
+  const locked = () => props.settings.scope() === "course" && props.state.globalOnly;
   const error = () => props.settings.errors()[key()];
-  const write = (value: string) => {
-    if (value !== json()) void props.settings.write(key(), value);
-  };
+  const write = (value: string) => void props.settings.write(key(), value);
   /** Checks typed text against the schema; a refusal shows under the setting without a write. */
   const commit = (text: string) => {
-    if (text === showValue(json()) || (text === "" && json() === "null")) return;
+    if (text === fieldText()) return;
     const checked = checkValue(props.entry.spec, text);
     if (checked.ok) write(checked.json);
     else props.settings.setError(key(), checked.reason);
   };
   const fieldText = () => (json() === "null" ? "" : showValue(json()));
-  const choices = () => [...props.entry.spec.choices, ...(props.entry.spec.nullable ? ["null"] : [])];
-  const choiceText = (c: string) => (c === "null" ? "Not set" : choiceLabel(c));
-  const choiceJson = (c: string) => (c === "null" ? "null" : JSON.stringify(c));
+  const choices = (): Choice[] => [
+    ...props.entry.spec.choices.map((c) => ({ json: JSON.stringify(c), label: choiceLabel(c) })),
+    ...(props.entry.spec.nullable ? [{ json: "null", label: "Not set" }] : []),
+  ];
+  const placeholder = () => {
+    if (props.entry.spec.kind === "list") return "a, b, c";
+    return props.entry.spec.nullable ? "Not set" : "";
+  };
 
   const field = () => (
     <input
       id={id()}
       class="settings-field"
       type="text"
-      inputmode={props.entry.spec.kind === "integer" || props.entry.spec.kind === "number" ? "decimal" : "text"}
       value={fieldText()}
-      disabled={disabled()}
+      disabled={locked()}
       aria-labelledby={labelId()}
       aria-invalid={error() ? "true" : undefined}
-      placeholder={props.entry.spec.kind === "list" ? "a, b, c" : props.entry.spec.nullable ? "Not set" : ""}
+      placeholder={placeholder()}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -91,34 +83,28 @@ export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): J
         </Show>
         <span class="settings-meta">
           <code class="settings-key">{key()}</code>
-          <Show when={state()}>{(s) => <span class="settings-source">{SOURCE_WORDS[s().source]}</span>}</Show>
+          <span class="settings-source">{props.state.source === "course" ? "this course" : props.state.source}</span>
         </span>
       </div>
       <div class="settings-control">
         <Switch fallback={field()}>
           <Match when={key() === "ui.performance"}>
-            <PerformancePreset
-              value={String(parsed(json()))}
-              name={id()}
-              labelledBy={labelId()}
-              disabled={disabled()}
-              onPick={(v) => write(JSON.stringify(v))}
-            />
+            <PerformancePreset json={json()} name={id()} labelledBy={labelId()} disabled={locked()} onPick={write} />
           </Match>
           <Match when={key() === "ui.theme"}>
             <select
               id={id()}
               class="settings-select"
-              disabled={disabled()}
+              disabled={locked()}
               aria-labelledby={labelId()}
               onChange={(e) => write(e.currentTarget.value === "" ? "null" : JSON.stringify(e.currentTarget.value))}
             >
               <option value="" selected={json() === "null"}>
                 Follow the desktop
               </option>
-              <For each={themeNames(props.settings.themes(), parsed(json()))}>
+              <For each={themeNames(props.settings.themes(), json())}>
                 {(name) => (
-                  <option value={name} selected={parsed(json()) === name}>
+                  <option value={name} selected={JSON.stringify(name) === json()}>
                     {name}
                   </option>
                 )}
@@ -131,23 +117,23 @@ export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): J
               class="settings-switch"
               type="checkbox"
               checked={json() === "true"}
-              disabled={disabled()}
+              disabled={locked()}
               aria-labelledby={labelId()}
-              onChange={(e) => write(e.currentTarget.checked ? "true" : "false")}
+              onChange={(e) => write(String(e.currentTarget.checked))}
             />
           </Match>
-          <Match when={props.entry.spec.kind === "choice" && choices().length > MAX_BUTTONS}>
+          <Match when={choices().length > MAX_BUTTONS}>
             <select
               id={id()}
               class="settings-select"
-              disabled={disabled()}
+              disabled={locked()}
               aria-labelledby={labelId()}
               onChange={(e) => write(e.currentTarget.value)}
             >
               <For each={choices()}>
                 {(c) => (
-                  <option value={choiceJson(c)} selected={json() === choiceJson(c)}>
-                    {choiceText(c)}
+                  <option value={c.json} selected={json() === c.json}>
+                    {c.label}
                   </option>
                 )}
               </For>
@@ -161,12 +147,12 @@ export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): J
                     <input
                       type="radio"
                       name={id()}
-                      value={choiceJson(c)}
-                      checked={json() === choiceJson(c)}
-                      disabled={disabled()}
-                      onChange={() => write(choiceJson(c))}
+                      value={c.json}
+                      checked={json() === c.json}
+                      disabled={locked()}
+                      onChange={() => write(c.json)}
                     />
-                    <span>{choiceText(c)}</span>
+                    <span>{c.label}</span>
                   </label>
                 )}
               </For>
@@ -177,7 +163,7 @@ export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): J
       <Show when={locked()}>
         <p class="settings-note">Only the global settings can set this.</p>
       </Show>
-      <Show when={props.settings.scope() === "global" && state()?.source === "course"}>
+      <Show when={props.settings.scope() === "global" && props.state.source === "course"}>
         <p class="settings-note">This course sets its own value, which stays in force here.</p>
       </Show>
       <Show when={error()}>
@@ -189,9 +175,4 @@ export function SettingRow(props: { entry: Entry; settings: SettingsWindow }): J
       </Show>
     </div>
   );
-}
-
-/** The themes to list: the installed ones, and the one set now even when it isn't installed. */
-function themeNames(installed: readonly string[], current: unknown): string[] {
-  return typeof current === "string" && !installed.includes(current) ? [...installed, current] : [...installed];
 }

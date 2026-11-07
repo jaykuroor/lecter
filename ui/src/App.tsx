@@ -129,7 +129,7 @@ export function App() {
   // `ui.hintBar` and `ui.keystrokes` as they change (F-045).
   const follows: Follower[] = [];
   const coursePath = () => course.course()?.path ?? null;
-  const settingsCore = { get: getSetting, listen: onSettingsChanged };
+  const settingsCore = { get: getSetting, listen: onSettingsChanged, set: setSetting };
   let hints: { refresh: () => void; stop: () => void } | undefined;
   let hintHost: HTMLDivElement | undefined;
   let overlay: { typed: (e: KeyboardEvent) => void; stop: () => void } | undefined;
@@ -191,10 +191,7 @@ export function App() {
           const bar = startHintBar({
             engine: started.engine,
             host: hintHost as HTMLDivElement,
-            onDetail: (d) => {
-              follow.touched();
-              void setSetting("ui.hintBar", JSON.stringify(d), null);
-            },
+            onDetail: (d) => follow.write(JSON.stringify(d)),
           });
           const follow = followSetting(settingsCore, "ui.hintBar", coursePath, (json) => bar.setDetail(detailOf(json)));
           hints = bar;
@@ -209,10 +206,7 @@ export function App() {
             host: overlayHost as HTMLDivElement,
             mac,
             hidden: readMode.on,
-            onToggle: (on) => {
-              follow.touched();
-              void setSetting("ui.keystrokes", on ? "true" : "false", null);
-            },
+            onToggle: (on) => follow.write(String(on)),
           });
           const follow = followSetting(settingsCore, "ui.keystrokes", coursePath, (json) =>
             shown.setOn(json !== "false"),

@@ -1,7 +1,7 @@
 import { createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { fakeSettingsCore } from "./__tests__/fakeCore";
-import { createSettings, UNREAD } from "./state";
+import { createSettings } from "./state";
 
 const keys = (w: ReturnType<typeof createSettings>) => w.shown().map((e) => e.spec.key);
 
@@ -41,7 +41,7 @@ describe("the Settings window's state", () => {
     core.failSchema = true;
     const { w, dispose } = make(core);
     await w.open();
-    expect(w.loadError()).toBe(UNREAD);
+    expect(w.loadError()).toBe("Lecter could not read the settings; try again.");
     expect(keys(w)).toEqual([]);
     w.close();
     await w.open();
@@ -122,6 +122,68 @@ describe("the Settings window's state", () => {
     expect(w.values()["ui.keystrokes"]).toMatchObject({ value: "false", source: "global", globalOnly: false });
     w.changed({ key: "ui.zoom", value: "2", source: "global" });
     expect(w.values()["ui.zoom"]).toBeUndefined();
+    dispose();
+  });
+
+  it("starts on the global file even with a trusted course open", async () => {
+    const core = fakeSettingsCore();
+    core.open = { path: "/c/STAT311", name: "STAT311", trusted: true };
+    const { w, dispose } = make(core);
+    await w.open();
+    expect(w.courseScope()).toBe(true);
+    expect(w.scope()).toBe("global");
+    w.setScope("course");
+    w.setScope("global");
+    expect(w.scope()).toBe("global");
+    dispose();
+  });
+
+  it("shows nothing before the schema is in, whatever the search, and no setting the core has no value for", async () => {
+    const core = fakeSettingsCore();
+    const { w, dispose } = make(core);
+    w.setQuery("theme");
+    expect(keys(w)).toEqual([]);
+    expect(w.themes()).toEqual([]);
+    delete core.held["ui.keystrokes"];
+    await w.open();
+    expect(keys(w)).toEqual(["ui.theme"]);
+    w.setQuery("");
+    expect(keys(w)).toEqual(["ui.hintBar", "ui.theme"]);
+    dispose();
+  });
+
+  it("takes a blank search for none", async () => {
+    const { w, dispose } = make();
+    await w.open();
+    w.setQuery("   ");
+    expect(keys(w)).toEqual(["ui.hintBar", "ui.keystrokes", "ui.theme"]);
+    dispose();
+  });
+
+  it("says when the values couldn't be read", async () => {
+    const core = fakeSettingsCore();
+    core.failValues = true;
+    const { w, dispose } = make(core);
+    await w.open();
+    expect(w.loadError()).toBe("Lecter could not read the settings; try again.");
+    expect(keys(w)).toEqual([]);
+    w.close();
+    await w.open();
+    expect(w.loadError()).toBeNull();
+    dispose();
+  });
+
+  it("lists the themes by name, and asks again at the next open when they couldn't be had", async () => {
+    const core = fakeSettingsCore();
+    core.failThemes = true;
+    const { w, dispose } = make(core);
+    await w.open();
+    expect(w.themes()).toEqual([]);
+    w.close();
+    await w.open();
+    await Promise.resolve();
+    expect(w.themes()).toEqual(["Adwaita", "Nord"]);
+    expect(core.calls.filter((c) => c === "themes")).toHaveLength(2);
     dispose();
   });
 });

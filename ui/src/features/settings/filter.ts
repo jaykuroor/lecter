@@ -27,23 +27,21 @@ export function entriesOf(specs: readonly SettingSpec[]): Entry[] {
 }
 
 /** A query's words, lowercased; none for a blank query. */
-const wordsOf = (query: string): string[] => query.toLowerCase().split(/\s+/).filter(Boolean);
+const wordsOf = (query: string): string[] => query.toLowerCase().split(/\s/).filter(Boolean);
 
 /**
  * A search over `entries`: call it with each query as it is typed; it answers the entries that
  * have every word of the query, in entry order (every entry for a blank query).
  */
 export function createFilter(entries: readonly Entry[]): (query: string) => readonly Entry[] {
-  let lastQuery = "";
-  let last: readonly Entry[] = entries;
+  let last: { query: string; found: readonly Entry[] } | null = null;
   return (query) => {
     const words = wordsOf(query);
     if (words.length === 0) return entries;
     // Every match of a query is a match of any query it grew from, whatever came in between.
-    const from = query.startsWith(lastQuery) ? last : entries;
+    const from = last && query.startsWith(last.query) ? last.found : entries;
     const found = from.filter((e) => words.every((w) => e.text.includes(w)));
-    lastQuery = query;
-    last = found;
+    last = { query, found };
     return found;
   };
 }

@@ -1,10 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { createRoot } from "solid-js";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_KEYMAP } from "../../keys/keymap";
-import { type FakeSettingsCore, fakeSettingsCore } from "./__tests__/fakeCore";
-import { SettingsWindow } from "./SettingsWindow";
-import { createSettings } from "./state";
+import { fakeSettingsCore } from "./__tests__/fakeCore";
+import { DEFAULTS, key, opened } from "./__tests__/openWindow";
 
 // 12-settings-theme-onboarding.md#settings: the window renders a control for every setting of the
 // schema on its page, searches them, writes a change to the right file, and every control is
@@ -14,45 +11,6 @@ afterEach(cleanup);
 
 const LAG = "Can add input lag on slower machines.";
 
-interface Opened {
-  core: FakeSettingsCore;
-  closed: () => number;
-  dialog: HTMLElement;
-}
-
-async function opened(core = fakeSettingsCore(DEFAULTS)): Promise<Opened> {
-  const settings = createRoot(() => createSettings(core));
-  let closes = 0;
-  render(() => (
-    <SettingsWindow
-      settings={settings}
-      course={core.course}
-      bindings={() => DEFAULT_KEYMAP}
-      mac={false}
-      onClose={() => {
-        closes += 1;
-      }}
-    />
-  ));
-  await settings.open();
-  await waitFor(() => expect(document.querySelector(".settings-row")).not.toBeNull());
-  return { core, closed: () => closes, dialog: screen.getByRole("dialog", { name: "Settings" }) };
-}
-
-/** The values of a new install: each setting's built-in default (crates/core settings.schema.json). */
-const DEFAULTS = {
-  "ui.performance": { value: '"balanced"', source: "default" as const },
-  "ui.hintBar": { value: '"full"', source: "default" as const },
-  "ui.keystrokes": { value: "true", source: "default" as const },
-  "ui.theme": { value: "null", source: "default" as const },
-  "ai.hedgeAfterMs": { value: "1500", source: "default" as const },
-};
-
-const key = (target: Element, k: string, extra: KeyboardEventInit = {}) => {
-  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...extra });
-  target.dispatchEvent(e);
-  return e;
-};
 const active = () => document.activeElement as HTMLElement;
 const rowOf = (el: Element | null) => el?.closest(".settings-row")?.getAttribute("data-key");
 const tab = (name: string) => screen.getByRole("tab", { name });
@@ -323,5 +281,104 @@ describe("the Settings window by key (F-045 criterion 3)", () => {
     expect(key(active(), "j", { ctrlKey: true }).defaultPrevented).toBe(false);
     expect(key(active(), "Escape", { metaKey: true }).defaultPrevented).toBe(false);
     expect(active()).toBe(tab("Appearance"));
+  });
+
+  it("keeps the keys it takes from the app, and lets the others through", async () => {
+    await opened();
+    const seen: string[] = [];
+    const listen = (e: KeyboardEvent) => seen.push(e.key);
+    window.addEventListener("keydown", listen);
+    try {
+      const box = screen.getByRole("checkbox", { name: "Keystrokes" });
+      box.focus();
+      key(box, "j");
+      expect(seen).toEqual([]);
+      // Not a key of the window's: other letters, and ↑ on a choice.
+      expect(key(active(), "x").defaultPrevented).toBe(false);
+      const full = screen.getByRole("radio", { name: "Full" });
+      full.focus();
+      expect(key(full, "ArrowUp").defaultPrevented).toBe(false);
+      // Off the pages and the settings (the close button), j is no step.
+      const close = screen.getByRole("button", { name: "Close settings" });
+      close.focus();
+      expect(key(close, "j").defaultPrevented).toBe(false);
+      expect(seen).toEqual(["x", "ArrowUp", "j"]);
+    } finally {
+      window.removeEventListener("keydown", listen);
+    }
+  });
+
+  it("scrolls the setting it goes to into view, and goes nowhere when nothing is found", async () => {
+    await opened();
+    const scrolled: unknown[] = [];
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value(this: HTMLElement, arg: unknown) {
+        scrolled.push([this.getAttribute("data-key"), arg]);
+      },
+    });
+    try {
+      const search = screen.getByRole("searchbox", { name: "Search settings" });
+      search.focus();
+      key(search, "ArrowDown");
+      expect(scrolled).toEqual([["ui.hintBar", { block: "nearest" }]]);
+      fireEvent.input(search, { target: { value: "zzz" } });
+      search.focus();
+      expect(key(search, "ArrowDown").defaultPrevented).toBe(true);
+      expect(active()).toBe(search);
+      expect(scrolled).toHaveLength(1);
+    } finally {
+      delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+});
+
+describe("the Settings window's frame", () => {
+  it("marks only the page shown, and names the panel after it or the search", async () => {
+    await opened();
+    expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-selected"))).toEqual([
+      "true",
+      ...Array(8).fill("false"),
+    ]);
+    expect(screen.getByRole("tabpanel", { name: "Appearance" })).not.toBeNull();
+    const search = screen.getByRole("searchbox", { name: "Search settings" });
+    fireEvent.input(search, { target: { value: "  theme " } });
+    expect(screen.getByRole("tabpanel", { name: "Settings matching “theme”" })).not.toBeNull();
+    // Spaces alone are no search.
+    fireEvent.input(search, { target: { value: "   " } });
+    expect(screen.getByRole("tabpanel", { name: "Appearance" })).not.toBeNull();
+    expect(tab("Appearance").getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector(".settings-empty")).toBeNull();
+    fireEvent.input(search, { target: { value: "theme" } });
+    expect(document.querySelector(".settings-empty")).toBeNull();
+  });
+
+  it("says nothing matches only once the settings are in", async () => {
+    const core = fakeSettingsCore(DEFAULTS);
+    core.failSchema = true;
+    await opened(core).catch(() => undefined);
+    expect(screen.getByRole("alert").textContent).toBe("Lecter could not read the settings; try again.");
+    fireEvent.input(screen.getByRole("searchbox", { name: "Search settings" }), { target: { value: "zzz" } });
+    expect(document.querySelector(".settings-empty")).toBeNull();
+  });
+
+  it("names the file a change goes to, and says why the course's can't be picked", async () => {
+    const core = fakeSettingsCore(DEFAULTS);
+    await opened(core);
+    const course = screen.getByRole("radio", { name: "This course" });
+    expect(course.closest("label")?.getAttribute("title")).toBe(
+      "Open and trust a course to give it settings of its own",
+    );
+    cleanup();
+    core.open = { path: "/c/STAT311", name: "STAT311", trusted: true };
+    await opened(core);
+    const global = screen.getByRole("radio", { name: "Global" }) as HTMLInputElement;
+    const trusted = screen.getByRole("radio", { name: "This course (STAT311)" }) as HTMLInputElement;
+    expect(trusted.closest("label")?.getAttribute("title")).toBe("Changes go to this course's .lecter/course.jsonc");
+    expect([global.checked, trusted.checked]).toEqual([true, false]);
+    fireEvent.click(trusted);
+    expect([global.checked, trusted.checked]).toEqual([false, true]);
+    fireEvent.click(global);
+    expect([global.checked, trusted.checked]).toEqual([true, false]);
   });
 });

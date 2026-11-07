@@ -138,10 +138,8 @@ export function startOverlay(opts: {
       queue.push(e);
       schedule();
     },
-    setOn: (value) => {
-      setOn(value);
-      schedule();
-    },
+    // Keys already shown fade as usual; the next ones follow the new value.
+    setOn: (value) => setOn(value),
     stop: () => {
       stopped = true;
       // Cancelling 0 (nothing waiting) does nothing.

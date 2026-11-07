@@ -20,9 +20,8 @@ export function registerSettings(
   let started: Promise<SettingsHandle | null> | null = null;
   const drop = registerCommand(SETTINGS_COMMAND, () => {
     started ??= load().then((m) => (gone ? null : m.startSettings(ctx)));
-    void started.then((s) => {
-      if (s && !gone) s.open();
-    });
+    // No window when it was dropped while the chunk loaded.
+    void started.then((s) => s?.open());
   });
   return () => {
     gone = true;

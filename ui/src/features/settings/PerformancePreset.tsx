@@ -25,15 +25,16 @@ const PRESETS: readonly { value: string; title: string; detail: string }[] = [
 ];
 
 export function PerformancePreset(props: {
-  /** The value in force: `performance`, `balanced` or `quality`. */
-  value: string;
+  /** The value in force as JSON text: `"performance"`, `"balanced"` or `"quality"`. */
+  json: string;
   /** The radio group's name, and its id. */
   name: string;
   labelledBy: string;
   disabled: boolean;
-  onPick: (value: string) => void;
+  /** Called with the picked preset as JSON text. */
+  onPick: (json: string) => void;
 }): JSX.Element {
-  const note = () => noteFor("ui.performance", JSON.stringify(props.value));
+  const note = () => noteFor("ui.performance", props.json);
   return (
     <div class="settings-preset">
       <div id={props.name} class="settings-preset-choices" role="radiogroup" aria-labelledby={props.labelledBy}>
@@ -44,15 +45,12 @@ export function PerformancePreset(props: {
                 type="radio"
                 name={props.name}
                 value={p.value}
-                checked={props.value === p.value}
+                checked={props.json === JSON.stringify(p.value)}
                 disabled={props.disabled}
-                aria-describedby={`${props.name}-${p.value}`}
-                onChange={() => props.onPick(p.value)}
+                onChange={() => props.onPick(JSON.stringify(p.value))}
               />
               <span class="settings-preset-title">{p.title}</span>
-              <span class="settings-preset-detail" id={`${props.name}-${p.value}`}>
-                {p.detail}
-              </span>
+              <span class="settings-preset-detail">{p.detail}</span>
             </label>
           )}
         </For>

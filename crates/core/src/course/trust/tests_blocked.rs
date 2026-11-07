@@ -136,3 +136,17 @@ fn an_unreadable_lecter_folder_blocks_trust_instead_of_looking_empty() {
     assert_eq!(r.screen.blocked.as_deref(), Some("Lecter could not read that folder."));
     assert_eq!(read_only, Ok(Ok(TrustState::ReadOnly)));
 }
+
+/// F-045: a course that can't be surveyed any more isn't trusted again by Lecter's own settings
+/// write, and nothing is stored.
+#[test]
+fn a_blocked_course_is_not_renewed() {
+    let env = env();
+    let c = full_skills(&env);
+    let st = store(&env);
+    trust(&st, &c, TrustChoice::Trusted);
+    write(&c, ".lecter/skills/s/one-more", "");
+    let before = std::fs::read_to_string(st.file()).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(renew_after_own_settings_write(&st, &c), Err(Error::CourseNotTrusted));
+    assert_eq!(std::fs::read_to_string(st.file()).unwrap_or_else(|e| panic!("{e}")), before);
+}
